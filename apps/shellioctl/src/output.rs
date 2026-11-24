@@ -913,6 +913,25 @@ mod tests {
             format!("ревизия 9: рабочая область {workbench}\n")
         );
         assert_eq!(out(&command(CommandValue::None)), "ревизия 9: готово\n");
+        assert_eq!(
+            out(&command(CommandValue::Panel { panel })),
+            format!("ревизия 9: панель {panel}\n")
+        );
+        for (outcome, said) in [
+            (OpenOutcome::Created, "создана"),
+            (OpenOutcome::Focused, "в фокусе"),
+            (OpenOutcome::Moved, "переехала"),
+            (OpenOutcome::Routed, "окно перешло к ней"),
+        ] {
+            assert_eq!(
+                out(&command(CommandValue::Opened {
+                    panel,
+                    workbench,
+                    outcome
+                })),
+                format!("ревизия 9: панель {panel} в рабочей области {workbench}: {said}\n")
+            );
+        }
 
         let since = |since| Response::Ok {
             id,

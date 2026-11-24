@@ -1106,6 +1106,7 @@ dependencies = [
  "shellio-control",
  "shellio-core",
  "shellio-layout",
+ "shellio-plugin-api",
  "shellio-store",
  "tempfile",
  "tokio",

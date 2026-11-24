@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 
+use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
@@ -20,13 +21,16 @@ use shellio_control::{
     UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
 };
 use shellio_core::test_support::{
-    ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
+    ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
+    registry_of,
 };
 use shellio_core::{
-    CommandValue, Core, ErrorCode, EventsSince, FsRootResolver, LayoutView, PanelId, Reply,
-    ReplyValue, Revision, Route, TreeView, UnixMillis, WorkbenchId, WorkspaceId,
+    CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, LayoutView, OpenOutcome,
+    PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue, Revision, Route, TreeView,
+    UnixMillis, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
+use shellio_plugin_api::{Cardinality, Registry};
 use shellio_store::Profile;
 use tempfile::TempDir;
 use tokio::runtime::Handle;
@@ -175,25 +179,52 @@ impl Owner {
 
     /// Владелец с размером окна: так главный поток передаёт его ядру до публикации сокета.
     async fn start_sized(dir: &Dir, viewport: Viewport) -> TestResult<Self> {
-        Self::start_inner(dir, WithoutUi, Some(viewport)).await
+        Self::start_inner(
+            dir,
+            WithoutUi,
+            Some(viewport),
+            MemoryPersist::new(),
+            registry(),
+        )
+        .await
+    }
+
+    /// Владелец с размером окна над хранилищем `persist` и реестром `registry`: следующий
+    /// владелец над тем же хранилищем видит записанное этим, как новый запуск приложения.
+    async fn start_plugged(
+        dir: &Dir,
+        persist: MemoryPersist,
+        registry: Arc<Registry>,
+    ) -> TestResult<Self> {
+        let viewport = Viewport {
+            width: 1180,
+            height: 720,
+        };
+        Self::start_inner(dir, WithoutUi, Some(viewport), persist, registry).await
     }
 }
 
 impl<U: UiHandler> Owner<U> {
     async fn start_with(dir: &Dir, ui: U) -> TestResult<Self> {
-        Self::start_inner(dir, ui, None).await
+        Self::start_inner(dir, ui, None, MemoryPersist::new(), registry()).await
     }
 
-    async fn start_inner(dir: &Dir, ui: U, viewport: Option<Viewport>) -> TestResult<Self> {
+    async fn start_inner(
+        dir: &Dir,
+        ui: U,
+        viewport: Option<Viewport>,
+        persist: MemoryPersist,
+        registry: Arc<Registry>,
+    ) -> TestResult<Self> {
         let mut ownership = dir.hold()?;
         let listener = ownership.publish()?;
         let core = Core::start(
             &Handle::current(),
-            Box::new(MemoryPersist::new()),
+            Box::new(persist),
             Box::new(CoreClock::new(NOW)),
             Box::new(SequentialIds::new()),
             Arc::new(FsRootResolver),
-            registry(),
+            registry,
         )?;
         core.set_viewport(viewport);
         let config = ServerConfig {
@@ -1231,6 +1262,543 @@ async fn layout_without_viewport_refuses_only_room_commands() -> TestResult {
     assert_eq!(
         zone_tabs(&layout(&dir, &[]).await?, Zone::Bottom),
         vec![vec![panel_of(&view, "terminal")?]]
+    );
+
+    owner.stop().await
+}
+
+/// Отказ ядра `invalid_argument` с причиной `reason`: код 1 и кадр `core_error` в stdout `--json`.
+fn refusal(run: Run, reason: &str) -> TestResult<CoreError> {
+    let run = run.expect(1)?;
+    match run.frame()? {
+        Response::CoreError { error, .. }
+            if error.code() == ErrorCode::InvalidArgument
+                && error.detail_str("reason") == Some(reason) =>
+        {
+            Ok(error)
+        }
+        other => Err(format!("ожидался отказ {reason}, получено {other:?}").into()),
+    }
+}
+
+/// Отказ ядра в текстовом режиме: код 1, stdout пуст, код ошибки в stderr.
+fn assert_text_refusal(run: Run, code: &str) -> TestResult {
+    let run = run.expect(1)?;
+    assert!(run.stdout.is_empty(), "{run:?}");
+    assert!(
+        run.stderr.starts_with(&format!("shellioctl: {code}: ")),
+        "{run:?}"
+    );
+    Ok(())
+}
+
+async fn panel_view(dir: &Dir, panel: &str, scope: &[&str]) -> TestResult<PanelView> {
+    let mut args = vec!["panel", "get", panel, "--json"];
+    args.extend_from_slice(scope);
+    match dir.run(&args).await?.expect(0)?.reply()?.value {
+        ReplyValue::Panel(view) => Ok(*view),
+        other => Err(format!("ожидалась панель, получено {other:?}").into()),
+    }
+}
+
+async fn plugins(dir: &Dir) -> TestResult<PluginsView> {
+    match dir
+        .run(&["plugin", "list", "--json"])
+        .await?
+        .expect(0)?
+        .reply()?
+        .value
+    {
+        ReplyValue::Plugins(view) => Ok(view),
+        other => Err(format!("ожидались плагины, получено {other:?}").into()),
+    }
+}
+
+fn plugin_ids(view: &PluginsView) -> Vec<&str> {
+    view.plugins
+        .iter()
+        .map(|plugin| plugin.id.as_str())
+        .collect()
+}
+
+async fn revision(dir: &Dir) -> TestResult<Revision> {
+    Ok(dir
+        .run(&["status", "--json"])
+        .await?
+        .expect(0)?
+        .reply()?
+        .revision)
+}
+
+/// Ответ `panel.open` в `--json`.
+fn opened(run: &Run) -> TestResult<(PanelId, WorkbenchId, OpenOutcome)> {
+    match run.command_value()? {
+        CommandValue::Opened {
+            panel,
+            workbench,
+            outcome,
+        } => Ok((panel, workbench, outcome)),
+        other => Err(format!("ожидался ответ panel.open, получено {other:?}").into()),
+    }
+}
+
+/// `panel open|command|get` и `plugin list` против владельца с тестовым реестром: singleton
+/// рабочей области `notes` с действиями и `solo` на всё приложение. Второй владелец над тем же
+/// хранилищем получает другой реестр, и панели первого перестают быть `ready`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn panel_and_plugin_calls_against_test_registry() -> TestResult {
+    let dir = Dir::new()?;
+    let persist = MemoryPersist::new();
+    let notes = || {
+        TestPlugin::new("notes")
+            .title("Заметки")
+            .cardinality(Cardinality::PerWorkbench)
+            .actions()
+    };
+    let owner = Owner::start_plugged(
+        &dir,
+        persist.clone(),
+        registry_of(vec![
+            notes(),
+            TestPlugin::new("solo").cardinality(Cardinality::PerApp),
+        ]),
+    )
+    .await?;
+    let workbench = open_workbench(&dir).await?;
+    let bench_id = workbench.to_string();
+    let home = tree(&dir, &["--all"])
+        .await?
+        .active_workspace
+        .ok_or("нет активного воркспейса")?
+        .to_string();
+    let created = dir
+        .run(&["workspace", "new", "Чужой", "--all", "--json"])
+        .await?
+        .expect(0)?;
+    let CommandValue::Workspace { workspace: other } = created.command_value()? else {
+        return Err(format!("ожидался воркспейс: {created:?}").into());
+    };
+    let other = other.to_string();
+    let terminal = panel_of(&layout(&dir, &[]).await?, "terminal")?.to_string();
+
+    let catalog = plugins(&dir).await?;
+    assert_eq!(
+        plugin_ids(&catalog),
+        ["terminal", "navigator", "notes", "solo"],
+        "порядок регистрации"
+    );
+    let listed = &catalog.plugins[2];
+    assert_eq!(listed.title, "Заметки");
+    assert_eq!(listed.cardinality, Cardinality::PerWorkbench);
+    assert_eq!(listed.commands, ["notes.add", "notes.pad"]);
+    assert_eq!(catalog.plugins[3].cardinality, Cardinality::PerApp);
+    let text = dir.run(&["plugin", "list"]).await?.expect(0)?;
+    let parsed: PluginsView = serde_json::from_str(&text.stdout)?;
+    assert_eq!(
+        parsed, catalog,
+        "текстовый вывод plugin list — JSON каталога"
+    );
+
+    let first = dir
+        .run(&[
+            "panel",
+            "open",
+            "notes",
+            "--workbench",
+            &bench_id,
+            "--zone",
+            "bottom",
+            "--args",
+            r#"{"count":2}"#,
+            "--all",
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    let (panel, at, outcome) = opened(&first)?;
+    assert_eq!((at, outcome), (workbench, OpenOutcome::Created));
+    let id = panel.to_string();
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(zone_tabs(&view, Zone::Bottom), vec![vec![panel]]);
+    assert_eq!(view.layout.focus.last(), Some(&panel));
+
+    let shown = panel_view(&dir, &id, &["--all"]).await?;
+    assert_eq!(shown.panel.id, panel);
+    assert_eq!(shown.panel.plugin.as_str(), "notes");
+    assert_eq!(shown.panel.title.to_string(), "Заметки");
+    assert_eq!(shown.status, PanelStatus::Ready);
+    assert_eq!(shown.version, Some(1));
+    assert_eq!(shown.data, json!({"count": 2}));
+    assert!(shown.readable);
+    assert_eq!(shown.canonical, None);
+    assert_eq!(panel_view(&dir, &id, &["--workspace", &home]).await?, shown);
+    let text = dir.run(&["panel", "get", &id, "--all"]).await?.expect(0)?;
+    let parsed: PanelView = serde_json::from_str(&text.stdout)?;
+    assert_eq!(parsed, shown, "текстовый вывод panel get — JSON панели");
+
+    // Повтор singleton: та же панель, другая зона — только подсказка, контекст доходит до `reopen`.
+    let again = dir
+        .run(&[
+            "panel",
+            "open",
+            "notes",
+            "--zone",
+            "right",
+            "--args",
+            r#"{"count":5}"#,
+            "--workspace",
+            &home,
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    assert_eq!(opened(&again)?, (panel, workbench, OpenOutcome::Focused));
+    assert_eq!(
+        panel_view(&dir, &id, &["--all"]).await?.data,
+        json!({"count": 5})
+    );
+    assert_eq!(
+        zone_tabs(&layout(&dir, &[]).await?, Zone::Bottom),
+        vec![vec![panel]]
+    );
+    let before = revision(&dir).await?;
+    let repeat = dir
+        .run(&["panel", "open", "notes", "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(
+        repeat.stdout,
+        format!(
+            "ревизия {}: панель {id} в рабочей области {bench_id}: в фокусе\n",
+            before.0
+        ),
+        "полный повтор без изменений не пишет ревизию"
+    );
+
+    let acted = dir
+        .run(&[
+            "panel",
+            "command",
+            &id,
+            "notes.add",
+            "--args",
+            r#"{"by":2}"#,
+            "--all",
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    assert_eq!(acted.command_value()?, CommandValue::Panel { panel });
+    assert_eq!(acted.reply()?.revision, Revision(before.0 + 1));
+    assert_eq!(
+        panel_view(&dir, &id, &["--all"]).await?.data,
+        json!({"count": 7})
+    );
+    let acted = dir
+        .run(&[
+            "panel",
+            "command",
+            &id,
+            "notes.add",
+            "--args",
+            r#"{"by":1}"#,
+            "--workspace",
+            &home,
+        ])
+        .await?
+        .expect(0)?;
+    assert_eq!(
+        acted.stdout,
+        format!("ревизия {}: панель {id}\n", before.0 + 2)
+    );
+    let idle = dir
+        .run(&[
+            "panel",
+            "command",
+            &id,
+            "notes.add",
+            "--args",
+            r#"{"by":0}"#,
+            "--all",
+            "--json",
+        ])
+        .await?
+        .expect(0)?;
+    assert_eq!(
+        idle.reply()?.revision,
+        Revision(before.0 + 2),
+        "действие без изменения данных не пишет ревизию"
+    );
+    let ready = panel_view(&dir, &id, &["--all"]).await?;
+    assert_eq!(ready.data, json!({"count": 8}));
+
+    // Отказы ядра: код 1, кадр `core_error` с причиной и полем.
+    let settled = revision(&dir).await?;
+    let cases: [(&[&str], &str, &str); 8] = [
+        (
+            &["panel", "command", &id, "notes.nope"],
+            "command_unknown",
+            "name",
+        ),
+        (
+            &["panel", "command", &id, "notes.add"],
+            "args_invalid",
+            "args",
+        ),
+        (
+            &[
+                "panel",
+                "command",
+                &id,
+                "notes.add",
+                "--args",
+                r#"{"by":1,"extra":1}"#,
+            ],
+            "args_invalid",
+            "args",
+        ),
+        (
+            &[
+                "panel",
+                "command",
+                &id,
+                "notes.add",
+                "--args",
+                r#"{"by":9}"#,
+            ],
+            "count_out_of_range",
+            "by",
+        ),
+        (
+            &["panel", "command", &terminal, "notes.add"],
+            "command_unknown",
+            "name",
+        ),
+        (&["panel", "open", "ghost"], "plugin_unknown", "plugin"),
+        (&["panel", "open", "Bad Id"], "plugin_invalid", "plugin"),
+        (
+            &["panel", "open", "notes", "--args", r#"{"count":10}"#],
+            "count_out_of_range",
+            "count",
+        ),
+    ];
+    for (args, reason, field) in cases {
+        let mut args = args.to_vec();
+        args.extend(["--all", "--json"]);
+        let error = refusal(dir.run(&args).await?, reason)?;
+        assert_eq!(
+            error.detail_str("field"),
+            Some(field),
+            "{args:?}: {error:?}"
+        );
+    }
+    assert_text_refusal(
+        dir.run(&["panel", "open", "ghost", "--all"]).await?,
+        "invalid_argument",
+    )?;
+    assert_text_refusal(
+        dir.run(&["panel", "command", &id, "notes.nope", "--all"])
+            .await?,
+        "invalid_argument",
+    )?;
+
+    // Панель вне области и несуществующая панель неразличимы: `not_found`.
+    let missing = "00000000-0000-0000-0000-0000000fffff";
+    for args in [
+        &["panel", "get", &id, "--workspace", &other][..],
+        &["panel", "get", missing, "--all"],
+        &[
+            "panel",
+            "command",
+            &id,
+            "notes.add",
+            "--args",
+            r#"{"by":1}"#,
+            "--workspace",
+            &other,
+        ],
+        &["panel", "command", missing, "notes.add", "--all"],
+    ] {
+        let mut args = args.to_vec();
+        args.push("--json");
+        let run = dir.run(&args).await?.expect(1)?;
+        match run.frame()? {
+            Response::CoreError { error, .. } => {
+                assert_eq!(error.code(), ErrorCode::NotFound, "{args:?}");
+            }
+            other => return Err(format!("{args:?}: ожидался not_found, получено {other:?}").into()),
+        }
+    }
+    assert_text_refusal(
+        dir.run(&["panel", "get", missing, "--all"]).await?,
+        "not_found",
+    )?;
+
+    // Плагин на всё приложение под областью воркспейса: отказ сервера, а не разбора аргументов.
+    for args in [
+        &["panel", "open", "solo"][..],
+        &["panel", "open", "solo", "--workbench", &bench_id],
+        &["layout", "split", &terminal, "--open", "solo"],
+    ] {
+        let mut args = args.to_vec();
+        args.extend(["--workspace", &home, "--json"]);
+        let error = refusal(dir.run(&args).await?, "scope_requires_all")?;
+        assert_eq!(error.detail_str("field"), Some("scope"), "{args:?}");
+    }
+    assert_text_refusal(
+        dir.run(&["panel", "open", "solo", "--workspace", &home])
+            .await?,
+        "invalid_argument",
+    )?;
+    assert_eq!(
+        revision(&dir).await?,
+        settled,
+        "отказы ядра не пишут ревизию"
+    );
+    let solo = dir
+        .run(&["panel", "open", "solo", "--all", "--json"])
+        .await?
+        .expect(0)?;
+    let (solo, at, outcome) = opened(&solo)?;
+    assert_eq!((at, outcome), (workbench, OpenOutcome::Created));
+    let solo_id = solo.to_string();
+    let error = refusal(
+        dir.run(&["panel", "open", "solo", "--workspace", &home, "--json"])
+            .await?,
+        "scope_requires_all",
+    )?;
+    assert_eq!(
+        error.detail("panel"),
+        None,
+        "отказ области не называет существующий экземпляр"
+    );
+    let repeat = dir
+        .run(&["panel", "open", "solo", "--all"])
+        .await?
+        .expect(0)?;
+    assert!(
+        repeat.stdout.ends_with(&format!(
+            ": панель {solo_id} в рабочей области {bench_id}: в фокусе\n"
+        )),
+        "{repeat:?}"
+    );
+
+    // Ошибки использования: код 2, владелец не вызван.
+    let settled = revision(&dir).await?;
+    for args in [
+        &["panel", "open", "notes", "--args", "[1]", "--all"][..],
+        &["panel", "open", "notes", "--args", "null", "--all"],
+        &["panel", "open", "notes", "--args", "{", "--all"],
+        &["panel", "open", "notes"],
+        &["panel", "open", "--all"],
+        &["panel", "open", "notes", "--zone", "top", "--all"],
+        &["panel", "command", &id, "notes.add", "--args", "7", "--all"],
+        &["panel", "command", &id, "--all"],
+        &["panel", "command", &id, "notes.add"],
+        &["panel", "get", &id],
+        &["panel", "get", &id, "--workbench", &bench_id, "--all"],
+        &["plugin", "list", "--all"],
+        &["plugin", "list", "--workspace", &home],
+        &["plugin", "list", "extra"],
+        &["plugin"],
+    ] {
+        let refused = dir.run(args).await?.expect(2)?;
+        assert!(refused.stdout.is_empty(), "{args:?}: {refused:?}");
+        assert!(refused.stderr.contains("--help"), "{args:?}: {refused:?}");
+    }
+    assert_eq!(revision(&dir).await?, settled);
+    owner.stop().await?;
+
+    // Новый запуск: `notes` новой версии не переносит данные, `solo` не зарегистрирован.
+    let owner = Owner::start_plugged(
+        &dir,
+        persist,
+        registry_of(vec![notes().state_version(2).migrate(TestMigrate::Refuse)]),
+    )
+    .await?;
+    let catalog = plugins(&dir).await?;
+    assert_eq!(plugin_ids(&catalog), ["terminal", "navigator", "notes"]);
+    assert_eq!(catalog.plugins[2].state_version, 2);
+
+    let stale = panel_view(&dir, &id, &["--all"]).await?;
+    assert_eq!(stale.status, PanelStatus::MigrateFailed);
+    assert_eq!(stale.version, Some(1));
+    assert!(stale.readable);
+    let Value::String(raw) = &stale.data else {
+        return Err(format!("данные не в ready — исходный текст: {stale:?}").into());
+    };
+    assert_eq!(serde_json::from_str::<Value>(raw)?, ready.data);
+    let orphan = panel_view(&dir, &solo_id, &["--all"]).await?;
+    assert_eq!(orphan.status, PanelStatus::PluginMissing);
+
+    let started = revision(&dir).await?;
+    let cases: [(&[&str], &str, &str, &str); 5] = [
+        (
+            &[
+                "panel",
+                "command",
+                &id,
+                "notes.add",
+                "--args",
+                r#"{"by":1}"#,
+            ],
+            "panel",
+            &id,
+            "migrate_failed",
+        ),
+        (
+            &["panel", "command", &id, "notes.nope"],
+            "panel",
+            &id,
+            "migrate_failed",
+        ),
+        (
+            &["panel", "open", "notes", "--args", r#"{"count":1}"#],
+            "plugin",
+            &id,
+            "migrate_failed",
+        ),
+        (
+            &["panel", "open", "notes", "--workbench", &bench_id],
+            "plugin",
+            &id,
+            "migrate_failed",
+        ),
+        (
+            &["panel", "command", &solo_id, "solo.add"],
+            "panel",
+            &solo_id,
+            "plugin_missing",
+        ),
+    ];
+    for (args, field, unavailable, status) in cases {
+        let mut args = args.to_vec();
+        args.extend(["--all", "--json"]);
+        let error = refusal(dir.run(&args).await?, "panel_unavailable")?;
+        assert_eq!(error.detail_str("status"), Some(status), "{args:?}");
+        assert_eq!(error.detail_str("field"), Some(field), "{args:?}");
+        assert_eq!(error.detail_str("panel"), Some(unavailable), "{args:?}");
+    }
+    let text = dir
+        .run(&["panel", "command", &id, "notes.add", "--all"])
+        .await?
+        .expect(1)?;
+    assert!(text.stdout.is_empty(), "{text:?}");
+    assert!(
+        text.stderr.contains("статус migrate_failed"),
+        "текст отказа называет статус: {text:?}"
+    );
+    let error = refusal(
+        dir.run(&["panel", "open", "solo", "--all", "--json"])
+            .await?,
+        "plugin_unknown",
+    )?;
+    assert_eq!(error.detail_str("field"), Some("plugin"));
+    assert_eq!(revision(&dir).await?, started, "отказы не пишут ревизию");
+    assert_eq!(
+        panel_view(&dir, &id, &["--all"]).await?,
+        stale,
+        "данные панели не в ready не тронуты"
     );
 
     owner.stop().await

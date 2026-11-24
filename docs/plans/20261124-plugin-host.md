@@ -481,10 +481,16 @@ pub type Done = Box<dyn FnOnce(Result<(), Refusal>)>;   // на главном �
 - Modify: `crates/shellio-control/tests/wire.rs`
 - Modify: `apps/shellioctl/src/{args.rs,main.rs,output.rs}`, `apps/shellioctl/tests/cli.rs`
 
-- [ ] эталоны кадров и строгость разбора: лишнее поле, неизвестный `outcome`, `args` не объект, область в конверте `query`; однозначность `ReplyValue` с `untagged`
-- [ ] `shellioctl panel open|command|get` с областью по таблице, `plugin list` без области; `--args` — JSON-объект, иначе код 2
-- [ ] тесты `shellioctl` отдельным процессом против владельца с тестовым реестром: каждая команда, ошибка использования, отказ ядра с кодом, `scope_requires_all`, `panel_unavailable` с полем `status`
-- [ ] `make check`
+- [x] эталоны кадров и строгость разбора: лишнее поле, неизвестный `outcome`, `args` не объект, область в конверте `query`; однозначность `ReplyValue` с `untagged`
+- [x] `shellioctl panel open|command|get` с областью по таблице, `plugin list` без области; `--args` — JSON-объект, иначе код 2
+- [x] тесты `shellioctl` отдельным процессом против владельца с тестовым реестром: каждая команда, ошибка использования, отказ ядра с кодом, `scope_requires_all`, `panel_unavailable` с полем `status`
+- [x] `make check`
+- ⚠️ решение исполнителя по правилу плана: `args` не объект — отказ ядра, а не кадра (решение задачи 5: `args_invalid` поля `args` при подготовке команды). Кадр несёт любое значение JSON как есть, и `null` отличается от отсутствия поля: `args_travel_as_given_and_null_is_not_absence`. Отказ ядра для команды, разобранной из такого кадра, без ревизии — `non_object_args_are_refused_by_core_not_by_frame` в том же `tests/wire.rs` на ядре в памяти. `shellioctl` не объект в `--args` не отправляет: код 2 (`args_flag_takes_only_json_object` и процессный тест).
+- ⚠️ решение исполнителя: однозначность `ReplyValue` проверяет `untagged_reply_value_fits_exactly_one_variant` — значение каждого эталона ответа ядра `reply.*` принимает ровно один из шести типов вариантов, и эталоны покрывают каждый вариант. Ответы трёх новых кадров берутся из эталонов ядра (`reply.opened`, `reply.panel_view`, `reply.plugins`), как `response.ok.layout`.
+- ⚠️ решение исполнителя: `panel_unavailable` в процессном тесте даёт второй владелец над тем же `MemoryPersist` с другим реестром, как новый запуск приложения: `notes` версии 2 с отказом `migrate` — `migrate_failed` у `panel command` (поле `panel`) и у `panel open` (поле `plugin`), `solo` без регистрации — `plugin_missing`. `scope_requires_all` приходит от сервера для `panel open` и `layout split --open` плагина `PerApp` под `--workspace`. Ради `Cardinality` и `Registry` `shellioctl` получил dev-зависимость от `shellio-plugin-api` (`apps/shellioctl/Cargo.toml`, `Cargo.lock` — вне списка файлов задачи).
+- ⚠️ `apps/shellioctl/src/output.rs`: вывод новых значений ответа добавила задача 5, здесь — только тест текста `panel.open` для четырёх исходов и ответа `panel.command`. Текстовый вывод `panel get` и `plugin list` — JSON ответа, как у `layout get`.
+- ⚠️ один из прогонов `make check` упал на тесте пробы P0.3 `fixture_stops_when_the_channel_closes_or_on_hangup` (`spikes/probe-ghostty-surface`, квитанция не пришла за 10 с): код пробы задача не меняла, три повтора теста отдельно и следующий полный `make check` зелёные. Находка записана в `.backlog/`, в задаче не исправлялась.
+- ⚠️ в рабочем дереве есть чужие правки вне задачи (`docs/README.md`, `.backlog/`, `docs/phase-*.md`): в коммит задачи они не входят.
 
 ### Task 7: Плагин `demo-list`
 

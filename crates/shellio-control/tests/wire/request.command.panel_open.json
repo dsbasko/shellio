@@ -1,0 +1,13 @@
+{
+  "id": 38,
+  "command": {
+    "cmd": "panel.open",
+    "plugin": "demo-list",
+    "workbench": "00000000-0000-0000-0000-000000000002",
+    "zone": "right",
+    "args": {
+      "key": "c"
+    }
+  },
+  "scope": "all"
+}

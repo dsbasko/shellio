@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
+use serde_json::Value;
 use shellio_control::{
     CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, GalleryStrip, Lightness, Motion,
     TreeMutation, UiRequest,
@@ -49,6 +50,10 @@ pub const USAGE: &str = "\
   panel move <панель> --zone <зона> (--workspace <id> | --all)
   panel move-part <панель> --to <панель> [--edge <before|after>] (--workspace <id> | --all)
   panel close <панель> (--workspace <id> | --all)
+  panel open <плагин> [--workbench <id>] [--zone <зона>] [--args <json>] (--workspace <id> | --all)
+  panel command <панель> <действие> [--args <json>] (--workspace <id> | --all)
+  panel get <панель> (--workspace <id> | --all)
+  plugin list
   events --since <курсор> --all
   events --follow --all
   ui window
@@ -75,6 +80,8 @@ pub const USAGE: &str = "\
 Зона — left, right, center или bottom. Размер у layout resize — точки зоны, с --part-of — доля
 части в тысячных. Команда с панелью берёт её рабочую область, без панели — --workbench, иначе
 открытую в окне.
+panel open открывает панель плагина по правилу его кардинальности: новую или уже существующую.
+Действие у panel command — полное имя из манифеста плагина, <плагин>.<имя>. --args — объект JSON.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -116,6 +123,13 @@ pub enum Action {
         scope: TreeScope,
         workbench: Option<WorkbenchId>,
     },
+    /// Чтение `query.panel`.
+    Panel {
+        scope: TreeScope,
+        panel: PanelId,
+    },
+    /// Чтение `query.plugins`.
+    Plugins,
     EventsSince(Revision),
     Follow,
     /// Запрос к UI владельца.
@@ -155,11 +169,12 @@ enum Flag {
     Dir,
     To,
     Edge,
+    Args,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 18] = [
+    const ALL: [Self; 19] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -177,6 +192,7 @@ impl Flag {
         Self::Dir,
         Self::To,
         Self::Edge,
+        Self::Args,
         Self::Help,
     ];
 
@@ -199,6 +215,7 @@ impl Flag {
             Self::Dir => "--dir",
             Self::To => "--to",
             Self::Edge => "--edge",
+            Self::Args => "--args",
             Self::Help => "--help",
         }
     }
@@ -217,7 +234,8 @@ impl Flag {
             | Self::PartOf
             | Self::Dir
             | Self::To
-            | Self::Edge => true,
+            | Self::Edge
+            | Self::Args => true,
             Self::Json | Self::All | Self::Follow | Self::Off | Self::Help => false,
         }
     }
@@ -239,7 +257,8 @@ impl Flag {
             | Self::Off
             | Self::Dir
             | Self::To
-            | Self::Edge => false,
+            | Self::Edge
+            | Self::Args => false,
         }
     }
 
@@ -378,19 +397,42 @@ impl Given {
 
     /// Обязательная зона `--zone`.
     fn zone(&self, call: &str) -> Result<Zone, Usage> {
-        let value = self
-            .value(Flag::Zone)
-            .ok_or_else(|| usage(format!("{call}: нужна --zone <зона>")))?;
-        name_of(
-            Flag::Zone.name(),
-            value,
-            &[
-                ("left", Zone::Left),
-                ("right", Zone::Right),
-                ("center", Zone::Center),
-                ("bottom", Zone::Bottom),
-            ],
-        )
+        self.optional_zone()?
+            .ok_or_else(|| usage(format!("{call}: нужна --zone <зона>")))
+    }
+
+    /// Необязательная зона `--zone`.
+    fn optional_zone(&self) -> Result<Option<Zone>, Usage> {
+        self.value(Flag::Zone)
+            .map(|value| {
+                name_of(
+                    Flag::Zone.name(),
+                    value,
+                    &[
+                        ("left", Zone::Left),
+                        ("right", Zone::Right),
+                        ("center", Zone::Center),
+                        ("bottom", Zone::Bottom),
+                    ],
+                )
+            })
+            .transpose()
+    }
+
+    /// Необязательные `--args`: объект JSON. Содержимое объекта судит модель плагина.
+    fn args(&self) -> Result<Option<Value>, Usage> {
+        let Some(text) = self.value(Flag::Args) else {
+            return Ok(None);
+        };
+        match serde_json::from_str::<Value>(text) {
+            Ok(args @ Value::Object(_)) => Ok(Some(args)),
+            Ok(_) => Err(usage(format!(
+                "--args: ожидается объект JSON, получено «{text}»"
+            ))),
+            Err(error) => Err(usage(format!(
+                "--args: ожидается объект JSON, «{text}» не разобран: {error}"
+            ))),
+        }
     }
 }
 
@@ -497,6 +539,7 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                     | "workbench"
                     | "layout"
                     | "panel"
+                    | "plugin"
                     | "ui"
                     | "window"
                     | "app"
@@ -811,6 +854,57 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 },
                 scope,
             )
+        }
+        "panel open" => {
+            given.only(
+                call,
+                &[
+                    Flag::Workbench,
+                    Flag::Zone,
+                    Flag::Args,
+                    Flag::Workspace,
+                    Flag::All,
+                ],
+            )?;
+            let [plugin] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            command(
+                Command::PanelOpen {
+                    plugin,
+                    workbench: given.workbench()?,
+                    zone: given.optional_zone()?,
+                    args: given.args()?,
+                },
+                scope,
+            )
+        }
+        "panel command" => {
+            given.only(call, &[Flag::Args, Flag::Workspace, Flag::All])?;
+            let [panel, name] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let panel = panel_id(call, &panel)?;
+            command(
+                Command::PanelCommand {
+                    panel,
+                    name,
+                    args: given.args()?,
+                },
+                scope,
+            )
+        }
+        "panel get" => {
+            given.only(call, &[Flag::Workspace, Flag::All])?;
+            let [panel] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            Ok(Action::Panel {
+                scope,
+                panel: panel_id(call, &panel)?,
+            })
+        }
+        "plugin list" => {
+            given.only(call, &[])?;
+            operands::<0>(call, rest)?;
+            Ok(Action::Plugins)
         }
         "events" => {
             given.only(call, &[Flag::Since, Flag::Follow, Flag::All])?;
@@ -1809,6 +1903,269 @@ mod tests {
                 workspace(WORK)
             )
         );
+    }
+
+    #[test]
+    fn plugin_panel_call_forms() {
+        let all = |args: &[&str]| {
+            let mut args = args.to_vec();
+            args.push("--all");
+            action_of(&args)
+        };
+        let cmd = |command: Command| Action::Command {
+            command,
+            scope: TreeScope::All,
+        };
+        assert_eq!(
+            all(&["panel", "open", "demo-list"]),
+            cmd(Command::PanelOpen {
+                plugin: "demo-list".into(),
+                workbench: None,
+                zone: None,
+                args: None
+            })
+        );
+        assert_eq!(
+            all(&["panel", "open", "Bad Id"]),
+            cmd(Command::PanelOpen {
+                plugin: "Bad Id".into(),
+                workbench: None,
+                zone: None,
+                args: None
+            }),
+            "plugin id проверяет ядро"
+        );
+        for (name, zone) in [
+            ("left", Zone::Left),
+            ("right", Zone::Right),
+            ("center", Zone::Center),
+            ("bottom", Zone::Bottom),
+        ] {
+            assert_eq!(
+                all(&[
+                    "panel",
+                    "open",
+                    "demo-list",
+                    "--workbench",
+                    BENCH,
+                    "--zone",
+                    name,
+                    "--args",
+                    r#"{"key":"c"}"#
+                ]),
+                cmd(Command::PanelOpen {
+                    plugin: "demo-list".into(),
+                    workbench: Some(id(BENCH)),
+                    zone: Some(zone),
+                    args: Some(serde_json::json!({"key": "c"}))
+                })
+            );
+        }
+        assert_eq!(
+            action_of(&[
+                "panel",
+                "open",
+                "demo-native",
+                "--args={}",
+                "--workspace",
+                WORK
+            ]),
+            command(
+                Command::PanelOpen {
+                    plugin: "demo-native".into(),
+                    workbench: None,
+                    zone: None,
+                    args: Some(serde_json::json!({}))
+                },
+                workspace(WORK)
+            ),
+            "область PerApp проверяет ядро, пустой объект отличается от отсутствия --args"
+        );
+        assert_eq!(
+            all(&["panel", "command", PANEL, "demo-list.back"]),
+            cmd(Command::PanelCommand {
+                panel: id(PANEL),
+                name: "demo-list.back".into(),
+                args: None
+            })
+        );
+        assert_eq!(
+            action_of(&[
+                "panel",
+                "command",
+                PANEL,
+                "demo-native.set",
+                "--args",
+                r#"{"value":"проверка","nested":{"list":[1,null]}}"#,
+                "--workspace",
+                WORK
+            ]),
+            command(
+                Command::PanelCommand {
+                    panel: id(PANEL),
+                    name: "demo-native.set".into(),
+                    args: Some(serde_json::json!({
+                        "value": "проверка",
+                        "nested": {"list": [1, null]}
+                    }))
+                },
+                workspace(WORK)
+            )
+        );
+        assert_eq!(
+            all(&["panel", "command", PANEL, "no such action"]),
+            cmd(Command::PanelCommand {
+                panel: id(PANEL),
+                name: "no such action".into(),
+                args: None
+            }),
+            "имя действия проверяет ядро"
+        );
+        assert_eq!(
+            all(&["panel", "get", PANEL]),
+            Action::Panel {
+                scope: TreeScope::All,
+                panel: id(PANEL)
+            }
+        );
+        assert_eq!(
+            action_of(&["panel", "get", PANEL, "--workspace", WORK]),
+            Action::Panel {
+                scope: workspace(WORK),
+                panel: id(PANEL)
+            }
+        );
+        assert_eq!(action_of(&["plugin", "list"]), Action::Plugins);
+        let flagged = run(&["--json", "plugin", "list", "--timeout", "50"]);
+        assert!(flagged.json);
+        assert_eq!(flagged.action, Action::Plugins);
+    }
+
+    #[test]
+    fn args_flag_takes_only_json_object() {
+        for value in [
+            "[1]",
+            "null",
+            "7",
+            "true",
+            r#""key""#,
+            "{",
+            "",
+            "key=c",
+            r#"{"key":"c"} {}"#,
+        ] {
+            for call in [
+                &["panel", "open", "demo-list"][..],
+                &["panel", "command", PANEL, "demo-list.select"],
+            ] {
+                let mut args = call.to_vec();
+                args.extend(["--args", value, "--all"]);
+                let message = refused(&args);
+                assert!(
+                    message.contains("--args: ожидается объект JSON"),
+                    "{args:?}: {message}"
+                );
+            }
+        }
+        for args in [
+            &["panel", "get", PANEL, "--args", "{}", "--all"][..],
+            &["panel", "close", PANEL, "--args", "{}", "--all"],
+            &["layout", "split", PANEL, "--args", "{}", "--all"],
+            &["plugin", "list", "--args", "{}"],
+        ] {
+            let message = refused(args);
+            assert!(message.contains("не применим"), "{args:?}: {message}");
+        }
+        let message = refused(&["panel", "open", "demo-list", "--all", "--args"]);
+        assert!(message.contains("флагу --args нужно значение"), "{message}");
+    }
+
+    #[test]
+    fn plugin_panel_misuse_is_usage_error() {
+        let cases: &[(&[&str], &str)] = &[
+            (&["plugin"], "не указано действие"),
+            (&["plugin", "get", "--all"], "неизвестный вызов"),
+            (&["plugin", "list", "extra"], "операндов"),
+            (&["plugin", "list", "--all"], "не применим"),
+            (&["plugin", "list", "--workspace", WORK], "не применим"),
+            (&["panel", "open", "demo-list"], "нужна область"),
+            (&["panel", "open", "--all"], "операндов"),
+            (
+                &["panel", "open", "demo-list", "extra", "--all"],
+                "операндов",
+            ),
+            (
+                &["panel", "open", "demo-list", "--zone", "top", "--all"],
+                "center",
+            ),
+            (
+                &["panel", "open", "demo-list", "--workbench", "nope", "--all"],
+                "неверный идентификатор",
+            ),
+            (
+                &["panel", "open", "demo-list", "--to", ANCHOR, "--all"],
+                "не применим",
+            ),
+            (
+                &["panel", "open", "demo-list", "--workspace", WORK, "--all"],
+                "взаимоисключающие",
+            ),
+            (
+                &["panel", "command", PANEL, "demo-list.back"],
+                "нужна область",
+            ),
+            (&["panel", "command", PANEL, "--all"], "операндов"),
+            (
+                &[
+                    "panel",
+                    "command",
+                    PANEL,
+                    "demo-list.back",
+                    "extra",
+                    "--all",
+                ],
+                "операндов",
+            ),
+            (
+                &["panel", "command", "nope", "demo-list.back", "--all"],
+                "идентификатор панели",
+            ),
+            (
+                &[
+                    "panel",
+                    "command",
+                    PANEL,
+                    "demo-list.back",
+                    "--workbench",
+                    BENCH,
+                    "--all",
+                ],
+                "не применим",
+            ),
+            (
+                &[
+                    "panel",
+                    "command",
+                    PANEL,
+                    "demo-list.back",
+                    "--zone",
+                    "left",
+                    "--all",
+                ],
+                "не применим",
+            ),
+            (&["panel", "get", PANEL], "нужна область"),
+            (&["panel", "get", "--all"], "операндов"),
+            (&["panel", "get", "nope", "--all"], "идентификатор панели"),
+            (
+                &["panel", "get", PANEL, "--workbench", BENCH, "--all"],
+                "не применим",
+            ),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
     }
 
     #[test]

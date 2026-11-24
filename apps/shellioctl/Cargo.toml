@@ -17,6 +17,7 @@ tokio = { version = "1", default-features = false, features = ["net", "rt", "tim
 [dev-dependencies]
 shellio-control = { path = "../../crates/shellio-control", features = ["test-support"] }
 shellio-core = { path = "../../crates/shellio-core", features = ["test-support"] }
+shellio-plugin-api = { path = "../../crates/shellio-plugin-api" }
 tempfile = "3.27.0"
 tokio = { version = "1", default-features = false, features = ["macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 

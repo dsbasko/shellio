@@ -27,13 +27,17 @@ use shellio_control::{
     TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply,
     UiRequest, VirtualListView, WindowMode, WindowView,
 };
-use shellio_core::test_support::SequentialIds;
+use shellio_core::test_support::{
+    ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
+};
 use shellio_core::{
-    AppearanceChoice, Change, Command, CommandValue, CoreError, Entity, Event, EventsSince, IdGen,
-    PanelId, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, Title, TreeScope,
-    UiCommand, WindowState, WorkbenchId, Workspace, WorkspaceId,
+    AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
+    EventsSince, FsRootResolver, IdGen, LayoutView, OpenOutcome, PanelId, PanelView, PluginsView,
+    Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView, Title, TreeScope,
+    TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
+use tokio::runtime::Handle;
 
 fn wire_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire")
@@ -164,6 +168,8 @@ fn request_golden(request: &Request) -> String {
     let name = match &request.body {
         RequestBody::Command { command, .. } => return command_golden(command),
         RequestBody::Query(Query::Layout { .. }) => return "request.query.layout".to_owned(),
+        RequestBody::Query(Query::Panel { .. }) => return "request.query.panel".to_owned(),
+        RequestBody::Query(Query::Plugins {}) => return "request.query.plugins".to_owned(),
         _ => request_golden_static(request),
     };
     name.to_owned()
@@ -398,6 +404,18 @@ fn requests() -> Vec<Request> {
                 target: Hideable::Plate,
                 visible: false,
             },
+            // P1.5, задача 6: открытие панели и действие плагина.
+            Command::PanelOpen {
+                plugin: "demo-list".into(),
+                workbench: Some(workbench),
+                zone: Some(Zone::Right),
+                args: Some(json!({"key": "c"})),
+            },
+            Command::PanelCommand {
+                panel,
+                name: "demo-list.select".into(),
+                args: Some(json!({"key": "d"})),
+            },
         ]
         .into_iter()
         .zip(27..)
@@ -411,6 +429,17 @@ fn requests() -> Vec<Request> {
             )
         }),
     )
+    // P1.5, задача 6: чтения `query.panel` и `query.plugins`.
+    .chain([
+        request(
+            40,
+            RequestBody::Query(Query::Panel {
+                scope: TreeScope::Workspace(workspace),
+                panel,
+            }),
+        ),
+        request(41, RequestBody::Query(Query::Plugins {})),
+    ])
     .collect()
 }
 
@@ -435,6 +464,30 @@ fn response_golden(response: &Response) -> &'static str {
                 }),
             ..
         } => "response.ok.layout",
+        Response::Ok {
+            value:
+                OkValue::Reply(Reply {
+                    value: ReplyValue::Panel(_),
+                    ..
+                }),
+            ..
+        } => "response.ok.panel",
+        Response::Ok {
+            value:
+                OkValue::Reply(Reply {
+                    value: ReplyValue::Plugins(_),
+                    ..
+                }),
+            ..
+        } => "response.ok.plugins",
+        Response::Ok {
+            value:
+                OkValue::Reply(Reply {
+                    value: ReplyValue::Command(CommandValue::Opened { .. }),
+                    ..
+                }),
+            ..
+        } => "response.ok.panel_open",
         Response::Ok {
             value: OkValue::Reply(_),
             ..
@@ -753,12 +806,18 @@ fn responses() -> Result<Vec<Response>, String> {
             snapshot: snapshot(1300)?,
         },
         // P1.4, задача 6: ответ `query.layout` — эталон ядра `reply.layout` внутри кадра.
-        ok(26, OkValue::Reply(core_layout_reply()?)),
+        ok(26, OkValue::Reply(core_reply("reply.layout")?)),
+        // P1.5, задача 6: ответы `panel.open`, `query.panel` и `query.plugins` — эталоны ядра
+        // внутри кадра.
+        ok(38, OkValue::Reply(core_reply("reply.opened")?)),
+        ok(40, OkValue::Reply(core_reply("reply.panel_view")?)),
+        ok(41, OkValue::Reply(core_reply("reply.plugins")?)),
     ])
 }
 
-fn core_layout_reply() -> Result<Reply, String> {
-    let path = core_wire_dir().join("reply.layout.json");
+/// Ответ ядра из его эталона `name`.
+fn core_reply(name: &str) -> Result<Reply, String> {
+    let path = core_wire_dir().join(format!("{name}.json"));
     let text = fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
     serde_json::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))
 }
@@ -1811,6 +1870,203 @@ fn layout_frames_are_strict() {
     );
 }
 
+/// P1.5: команды панели и чтения `query.panel` и `query.plugins` так же строги, как кадры P1.4.
+#[test]
+fn panel_frames_are_strict() {
+    let command = |id: u64, body: &str| format!(r#"{{"id":{id},"command":{body},"scope":"all"}}"#);
+    assert_malformed(
+        &command(1, r#"{"cmd":"panel.open","plugin":"demo-list","extra":1}"#),
+        Some(1),
+        "unknown field `extra`",
+    );
+    assert_malformed(
+        &command(
+            2,
+            r#"{"cmd":"panel.open","plugin":"demo-list","zone":"top"}"#,
+        ),
+        Some(2),
+        "unknown variant `top`",
+    );
+    assert_malformed(
+        &command(3, r#"{"cmd":"panel.open","zone":"right"}"#),
+        Some(3),
+        "missing field `plugin`",
+    );
+    assert_malformed(
+        &command(
+            4,
+            r#"{"cmd":"panel.open","plugin":"demo-list","workbench":"nope"}"#,
+        ),
+        Some(4),
+        "",
+    );
+    assert_malformed(
+        &command(
+            5,
+            &format!(
+                r#"{{"cmd":"panel.command","panel":"{ID}","name":"demo-list.back","extra":1}}"#
+            ),
+        ),
+        Some(5),
+        "unknown field `extra`",
+    );
+    assert_malformed(
+        &command(6, &format!(r#"{{"cmd":"panel.command","panel":"{ID}"}}"#)),
+        Some(6),
+        "missing field `name`",
+    );
+    assert_malformed(
+        &command(7, r#"{"cmd":"panel.command","name":"demo-list.back"}"#),
+        Some(7),
+        "missing field `panel`",
+    );
+    assert_malformed(
+        &format!(
+            r#"{{"id":8,"query":{{"query":"panel","scope":"all","panel":"{ID}","extra":1}}}}"#
+        ),
+        Some(8),
+        "unknown field `extra`",
+    );
+    assert_malformed(
+        &format!(r#"{{"id":9,"query":{{"query":"panel","panel":"{ID}"}}}}"#),
+        Some(9),
+        "missing field `scope`",
+    );
+    assert_malformed(
+        r#"{"id":10,"query":{"query":"panel","scope":"all"}}"#,
+        Some(10),
+        "missing field `panel`",
+    );
+    assert_malformed(
+        r#"{"id":11,"query":{"query":"plugins","extra":1}}"#,
+        Some(11),
+        "unknown field `extra`",
+    );
+    assert_malformed(
+        r#"{"id":12,"query":{"query":"plugins","scope":"all"}}"#,
+        Some(12),
+        "unknown field `scope`",
+    );
+}
+
+/// Область чтений панели и плагинов в конверт не выносится: у `query.panel` она внутри чтения,
+/// у `query.plugins` её нет.
+#[test]
+fn scope_in_envelope_of_panel_queries_is_malformed() {
+    for scope in [r#""all""#, &format!(r#"{{"workspace":"{ID}"}}"#)] {
+        assert_malformed(
+            &format!(
+                r#"{{"id":1,"query":{{"query":"panel","scope":"all","panel":"{ID}"}},"scope":{scope}}}"#
+            ),
+            Some(1),
+            "поле scope у запроса query не допускается",
+        );
+        assert_malformed(
+            &format!(r#"{{"id":2,"query":{{"query":"panel","panel":"{ID}"}},"scope":{scope}}}"#),
+            Some(2),
+            "missing field `scope`",
+        );
+        assert_malformed(
+            &format!(r#"{{"id":3,"query":{{"query":"plugins"}},"scope":{scope}}}"#),
+            Some(3),
+            "поле scope у запроса query не допускается",
+        );
+    }
+}
+
+/// Команда из кадра `{"id":1,"command":<body>,"scope":"all"}`.
+fn parsed_command(body: &Value) -> Command {
+    let frame = json!({"id": 1, "command": body, "scope": "all"});
+    let request = Request::parse(frame.to_string().as_bytes())
+        .unwrap_or_else(|rejected| panic!("{body}: {rejected:?}"));
+    match serde_json::to_value(&request) {
+        Ok(sent) => assert_eq!(sent, frame, "{body}"),
+        Err(error) => panic!("{body}: {error}"),
+    }
+    match request.body {
+        RequestBody::Command { command, .. } => command,
+        other => panic!("{body}: разобран как {other:?}"),
+    }
+}
+
+/// Кадр не судит `args`: любое значение JSON доходит до ядра как есть, `null` отличается от
+/// отсутствия поля, а объектом его обязывает быть подготовка команды.
+#[test]
+fn args_travel_as_given_and_null_is_not_absence() {
+    let panel: PanelId = ID.parse().unwrap();
+    for args in [json!([1]), json!("key"), json!(7), json!(true), Value::Null] {
+        assert_eq!(
+            parsed_command(&json!({"cmd": "panel.open", "plugin": "demo-list", "args": args})),
+            Command::PanelOpen {
+                plugin: "demo-list".into(),
+                workbench: None,
+                zone: None,
+                args: Some(args.clone()),
+            }
+        );
+        assert_eq!(
+            parsed_command(
+                &json!({"cmd": "panel.command", "panel": ID, "name": "demo-list.back", "args": args})
+            ),
+            Command::PanelCommand {
+                panel,
+                name: "demo-list.back".into(),
+                args: Some(args),
+            }
+        );
+    }
+    assert_eq!(
+        parsed_command(&json!({"cmd": "panel.open", "plugin": "demo-list"})),
+        Command::PanelOpen {
+            plugin: "demo-list".into(),
+            workbench: None,
+            zone: None,
+            args: None,
+        }
+    );
+    assert_eq!(
+        parsed_command(&json!({"cmd": "panel.command", "panel": ID, "name": "demo-list.back"})),
+        Command::PanelCommand {
+            panel,
+            name: "demo-list.back".into(),
+            args: None,
+        }
+    );
+}
+
+/// `args` не объект проходит кадр и получает отказ ядра `args_invalid` поля `args` до проверки
+/// plugin id и панели, без ревизии.
+#[tokio::test]
+async fn non_object_args_are_refused_by_core_not_by_frame() {
+    let persist = MemoryPersist::new();
+    let core = Core::start(
+        &Handle::current(),
+        Box::new(persist.clone()),
+        Box::new(CoreClock::new(UnixMillis(1_795_000_000_000))),
+        Box::new(SequentialIds::new()),
+        Arc::new(FsRootResolver),
+        registry(),
+    )
+    .unwrap();
+    let before = persist.revision();
+    for args in [json!([1]), json!("key"), json!(7), Value::Null] {
+        for body in [
+            json!({"cmd": "panel.open", "plugin": "No Such Plugin", "args": args}),
+            json!({"cmd": "panel.command", "panel": ID, "name": "terminal.none", "args": args}),
+        ] {
+            let error = core
+                .request(parsed_command(&body))
+                .await
+                .expect_err("args не объект");
+            assert_eq!(error.code(), ErrorCode::InvalidArgument, "{body}");
+            assert_eq!(error.detail_str("reason"), Some("args_invalid"), "{body}");
+            assert_eq!(error.detail_str("field"), Some("args"), "{body}");
+        }
+    }
+    assert_eq!(persist.revision(), before, "отказ не пишет ревизию");
+    core.shutdown().await;
+}
+
 #[test]
 fn missing_or_non_numeric_id_is_malformed_without_id() {
     assert_malformed(
@@ -1992,6 +2248,137 @@ fn ok_value_is_strict() {
             "did not match any variant",
         );
     }
+}
+
+/// Ответ `panel.open` — ровно `{panel, workbench, outcome}` с известным исходом: неполный набор
+/// полей, лишнее поле и неизвестный исход не подходят ни одному варианту ответа.
+#[test]
+fn panel_open_reply_is_strict() {
+    let value = |fields: &str| format!(r#"{{"id":1,"ok":{{"revision":1,"value":{{{fields}}}}}}}"#);
+    let panel = format!(r#""panel":"{ID}""#);
+    let workbench = format!(r#""workbench":"{ID}""#);
+    for (name, outcome) in [
+        ("created", OpenOutcome::Created),
+        ("focused", OpenOutcome::Focused),
+        ("moved", OpenOutcome::Moved),
+        ("routed", OpenOutcome::Routed),
+    ] {
+        let line = value(&format!(r#"{panel},{workbench},"outcome":"{name}""#));
+        match Response::parse(line.as_bytes()).unwrap() {
+            Response::Ok {
+                value:
+                    OkValue::Reply(Reply {
+                        value:
+                            ReplyValue::Command(CommandValue::Opened {
+                                outcome: parsed, ..
+                            }),
+                        ..
+                    }),
+                ..
+            } => assert_eq!(parsed, outcome),
+            other => panic!("{line} разобран как {other:?}"),
+        }
+    }
+    for fields in [
+        format!(r#"{panel},{workbench},"outcome":"opened""#),
+        format!(r#"{panel},{workbench},"outcome":"Created""#),
+        format!(r#"{panel},{workbench},"outcome":null"#),
+        format!(r#"{panel},{workbench}"#),
+        format!(r#"{panel},"outcome":"created""#),
+        format!(r#"{workbench},"outcome":"created""#),
+        r#""outcome":"created""#.to_owned(),
+        format!(r#"{panel},{workbench},"outcome":"created","extra":1"#),
+    ] {
+        assert_response_rejected(&value(&fields), "did not match any variant");
+    }
+}
+
+/// Правка значения ответа ядра перед разбором кадра.
+type Edit<'a> = &'a dyn Fn(&mut Value);
+
+/// Ответы чтений панели и плагинов строги: лишнее поле, неизвестный статус и неизвестная
+/// кардинальность не подходят ни одному варианту ответа.
+#[test]
+fn panel_and_plugins_replies_are_strict() {
+    let frame = |name: &str, edit: Edit<'_>| {
+        let mut reply = serde_json::to_value(core_reply(name).unwrap()).unwrap();
+        edit(&mut reply["value"]);
+        json!({"id": 1, "ok": reply}).to_string()
+    };
+    assert!(Response::parse(frame("reply.panel_view", &|_| {}).as_bytes()).is_ok());
+    assert!(Response::parse(frame("reply.plugins", &|_| {}).as_bytes()).is_ok());
+    let cases: [(&str, Edit<'_>); 7] = [
+        ("reply.panel_view", &|value| value["extra"] = json!(1)),
+        ("reply.panel_view", &|value| value["status"] = json!("gone")),
+        ("reply.panel_view", &|value| {
+            value["panel"]["extra"] = json!(1)
+        }),
+        ("reply.panel_view", &|value| {
+            value.as_object_mut().unwrap().remove("readable");
+        }),
+        ("reply.plugins", &|value| value["extra"] = json!(1)),
+        ("reply.plugins", &|value| {
+            value["plugins"][0]["cardinality"] = json!("per_window");
+        }),
+        ("reply.plugins", &|value| {
+            value["plugins"][0]["extra"] = json!(1)
+        }),
+    ];
+    for (index, (name, edit)) in cases.into_iter().enumerate() {
+        let line = frame(name, edit);
+        match Response::parse(line.as_bytes()) {
+            Ok(response) => panic!("случай {index} ({name}) разобран как {response:?}"),
+            Err(error) => assert!(
+                error.to_string().contains("did not match any variant"),
+                "случай {index} ({name}): {error}"
+            ),
+        }
+    }
+}
+
+/// Значение ответа без тега однозначно: значение каждого эталона ответа ядра принимает ровно
+/// один из типов вариантов `ReplyValue`, и это тот вариант, которым разобран ответ целиком.
+#[test]
+fn untagged_reply_value_fits_exactly_one_variant() {
+    fn fits<T: DeserializeOwned>(value: &Value) -> bool {
+        serde_json::from_value::<T>(value.clone()).is_ok()
+    }
+    let mut seen = BTreeSet::new();
+    for entry in fs::read_dir(core_wire_dir()).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+        if !name.starts_with("reply.") {
+            continue;
+        }
+        let reply = core_reply(&name).unwrap();
+        let value = serde_json::to_value(&reply.value).unwrap();
+        let accepted: Vec<&str> = [
+            ("tree", fits::<TreeView>(&value)),
+            ("status", fits::<StatusView>(&value)),
+            ("layout", fits::<LayoutView>(&value)),
+            ("panel", fits::<PanelView>(&value)),
+            ("plugins", fits::<PluginsView>(&value)),
+            ("command", fits::<CommandValue>(&value)),
+        ]
+        .into_iter()
+        .filter_map(|(variant, fits)| fits.then_some(variant))
+        .collect();
+        let parsed = match &reply.value {
+            ReplyValue::Tree(_) => "tree",
+            ReplyValue::Status(_) => "status",
+            ReplyValue::Layout(_) => "layout",
+            ReplyValue::Panel(_) => "panel",
+            ReplyValue::Plugins(_) => "plugins",
+            ReplyValue::Command(_) => "command",
+        };
+        assert_eq!(accepted, [parsed], "{name}");
+        seen.insert(parsed);
+    }
+    assert_eq!(
+        seen.into_iter().collect::<Vec<_>>(),
+        ["command", "layout", "panel", "plugins", "status", "tree"],
+        "эталоны ядра покрывают каждый вариант ответа"
+    );
 }
 
 #[test]

@@ -1,0 +1,12 @@
+{
+  "id": 39,
+  "command": {
+    "cmd": "panel.command",
+    "panel": "00000000-0000-0000-0000-000000000003",
+    "name": "demo-list.select",
+    "args": {
+      "key": "d"
+    }
+  },
+  "scope": "all"
+}
