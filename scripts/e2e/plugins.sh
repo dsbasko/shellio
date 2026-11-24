@@ -4,14 +4,15 @@
 #
 #   plugins.sh [<бандл>]
 #
-# Бандл по умолчанию — target/bundle/shellio.app, его собирает и проверяет цель make e2e. shellioctl сценарий
-# собирает сам (release, --locked). Профили — новые каталоги /tmp/shellio-e2e.*. Подготовка — штатный CLI:
-# воркспейсы W1 и W2, проект в каждом, рабочие области A и A2 в проекте W1 и B в W2, workbench open A.
+# Бандл по умолчанию — target/bundle/shellio.app, его собирает и проверяет цель make e2e. shellioctl и оракул
+# shellio-e2e-oracle сценарий собирает сам (release, --locked). Профили — новые каталоги /tmp/shellio-e2e.*.
+# Подготовка — штатный CLI: воркспейсы W1 и W2, проект в каждом, рабочие области A и A2 в проекте W1 и B в W2,
+# workbench open A.
 #
 # Каталог прогона — target/e2e/plugins/<время>-<pid>/: result.json (пункт, обязательность, статус, причина, путь
 # сырого вывода относительно каталога прогона), журнал сценария log и сырой вывод каждого пункта (JSON query.layout,
-# query.panel и ui.*, AX окна, строки state.db) в подкаталоге с его именем. Пробы предусловий пишут в
-# preconditions/, уборка — в cleanup/.
+# query.panel и ui.*, AX окна, строки state.db, снимки PNG и отчёты оракула) в подкаталоге с его именем. Пробы
+# предусловий пишут в preconditions/, уборка — в cleanup/.
 #
 # Предусловия — как у layout.sh, их отсутствие — ошибка исполнения «предусловие: …» до первого пункта: открытый
 # сеанс GUI, разблокированный экран, запущенный Finder, бинарь бандла не запущен, запуск из процесса-потомка
@@ -20,8 +21,9 @@
 #
 # Оракулы пунктов: «чтения» — query.layout и query.panel; «окно» — ui.inspect и AX окна (System Events), кадры
 # совпадают в пределах 1 точки; «база» — sqlite3 по state.db остановленного владельца (version и
-# hex(CAST(data AS BLOB)) строки panel_states). Пункт с собственным профилем идёт при остановленном основном
-# владельце: System Events находит окно по имени процесса, и два владельца одного бандла путают AX.
+# hex(CAST(data AS BLOB)) строки panel_states); «снимок» — оракул без маркера по ожиданиям plugins-expect/*.json
+# с подстановкой PanelId демо-списка. Пункт с собственным профилем идёт при остановленном основном владельце:
+# System Events находит окно по имени процесса, и два владельца одного бандла путают AX.
 #
 # Рубежи накопительные (план P1.5, «Матрица приёмки»): пункт, чья задача ещё не выполнена, получает not_run
 # «пункт задачи N» и необязателен.
@@ -40,9 +42,13 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 cargo="${CARGO:-$HOME/.cargo/bin/cargo}"
 fixture_missing="$here/plugins-fixtures/v3-missing-plugin.sql"
+fixture_status="$here/plugins-fixtures/v3-status.sql"
+fixture_duplicate="$here/plugins-fixtures/v2-duplicate-demo-native.sql"
+expect_dir="$here/plugins-expect"
 
 FINDER_ID="com.apple.finder"
 LSAPPINFO=/usr/bin/lsappinfo
+SRGB_PROFILE="/System/Library/ColorSync/Profiles/sRGB Profile.icc"
 # Оконные менеджеры, которые переставляют окна сами (P0.2).
 WINDOW_MANAGERS=(AeroSpace yabai Amethyst)
 # Латинские источники ввода: keystroke набирает текст по раскладке.
@@ -72,7 +78,7 @@ ITEMS=(placeholders-default plugin-catalog open-cli retarget-cli drill-keys rest
   demo-snapshot restore-cold voiceover-speech)
 TASK=(9 9 9 9 12 9 9 10 10 10 10 10 10 10 11 11 11 11 11 11 12 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=11
+DONE_TASK=12
 # Плагины реестра в порядке регистрации: id, название, default_zone, кардинальность, min_size.
 CATALOG=(
   "terminal|Терминал|center|multi|200|120"
@@ -92,9 +98,31 @@ PICKER_TAKEN="(уже открыт)"
 NATIVE_TITLE="Демо: поле"
 FIELD_AX="Значение"
 TOO_LONG="Не сохранено: значение длиннее 256 символов: 257"
+# «Демо: список»: min_size манифеста, подпись заглушки «Развернуть» и доли ширины списка в вариантах split и bar.
+DEMO_MIN_W=260
+DEMO_MIN_H=160
+DEMO_TIGHT="Демо: список: здесь тесно"
+SPLIT_SHARE=0.4
+BAR_SHARE=0.6
+# Фикстура status-stubs: рабочая область, демо-список с данными новее версии плагина и демо-поле с нечитаемыми.
+STATUS_BENCH="019a8f2e-0000-7000-8000-00000000c301"
+STATUS_LIST="019a8f2e-0000-7000-8000-00000000e303"
+STATUS_FIELD="019a8f2e-0000-7000-8000-00000000e304"
+STATUS_NEWER="Сохранено более новой версией"
+STATUS_CORRUPT="Состояние не прочитано"
+# Фикстура legacy-duplicate: воркспейс, рабочие области A и B, старшая панель демо-поля в A и младшая в B.
+DUP_WS="019a8f2e-0000-7000-8000-00000000a401"
+DUP_A="019a8f2e-0000-7000-8000-00000000c401"
+DUP_B="019a8f2e-0000-7000-8000-00000000c402"
+DUP_OLD="019a8f2e-0000-7000-8000-00000000e403"
+DUP_NEW="019a8f2e-0000-7000-8000-00000000e406"
+DUP_STUB="Уже открыт: Демо: поле"
+# Значение демо-поля пункта restore-cold.
+COLD_VALUE="cold-значение"
 # Коды клавиш (kVK_*).
 KEY_ESC=53
 KEY_RETURN=36
+KEY_DOWN=125
 
 REQUIRED=()
 STATUS=()
@@ -140,6 +168,7 @@ completed=0
 app=""
 exe=""
 ctl_bin=""
+oracle_bin=""
 terminal_pid=""
 terminal_id=""
 profiles=()
@@ -1535,6 +1564,297 @@ revision_of() {
   NOW_REV="$(jv "$1.stdout" ok.revision)" || fatal "в query.layout нет ревизии: $(oneline "$1.stdout")"
 }
 
+# --- снимки и оракул (задача 12) ---
+
+# Ожидания с подстановкой панели: @DEMO@ — PanelId демо-списка.
+expectations() {
+  sed -e "s/@DEMO@/$2/g" "$expect_dir/$1.json" >"$3"
+}
+
+# Снимок окна владельца в режиме без маркера: снимки повторяются, пока пара подряд не устоялась (код оракула 0
+# или 3, либо 4 с retry: false). expect — файл ожиданий или underline:<id вкладки>:<слой>. Код оракула — в
+# snap_code, причина — в snap_reason. Сырые файлы — <dir>/<name>.<N>.{window.json,…}.
+snap_code=""
+snap_reason=""
+snapshot() {
+  local state="$1" dir="$2" name="$3" expect="$4" t0 n=0 number code spec prev="" elapsed
+  local oracle_args=(compare --expect "$expect")
+  if [[ "$expect" == underline:* ]]; then
+    spec="${expect#underline:}"
+    oracle_args=(underline --tab "${spec%%:*}" --layer "${spec#*:}")
+  fi
+  snap_code=""
+  snap_reason=""
+  t0="$(now_ms)"
+  while :; do
+    n=$((n + 1))
+    local cur="$dir/$name.$n"
+    ui_read "$state" "$cur.window" window || fatal "снимок $name: ui.window не прочитан: $(oneline "$cur.window.stdout")"
+    ui_read "$state" "$cur.inspect" inspect || fatal "снимок $name: ui.inspect не прочитан: $(oneline "$cur.inspect.stdout")"
+    number="$(jv "$cur.window.stdout" ok.ui.window.window_number)" || fatal "снимок $name: в ui.window нет window_number"
+    /usr/sbin/screencapture -x -o -l "$number" "$cur.raw.png" >"$cur.capture.log" 2>&1 ||
+      fatal "снимок $name: screencapture -l $number отказал: $(oneline "$cur.capture.log")"
+    [[ -s "$cur.raw.png" ]] || fatal "снимок $name: screencapture -l $number не записал PNG"
+    sips --matchTo "$SRGB_PROFILE" "$cur.raw.png" --out "$cur.png" >"$cur.sips.log" 2>&1 ||
+      fatal "снимок $name: sips не перевёл PNG в sRGB: $(oneline "$cur.sips.log")"
+    if [[ -n "$prev" ]]; then
+      elapsed=$(($(now_ms) - t0))
+      code=0
+      "$oracle_bin" "${oracle_args[@]}" --inspect "$cur.inspect.stdout" --window "$cur.window.stdout" \
+        --png "$cur.png" --previous-window "$prev.window.stdout" --previous-png "$prev.png" \
+        --elapsed-ms "$elapsed" >"$cur.report.json" 2>"$cur.oracle.stderr" || code=$?
+      case $code in
+        0 | 3)
+          snap_code=$code
+          snap_reason="$(oneline "$cur.oracle.stderr")"
+          log "снимок $name: код оракула $code за $n снимк., $snap_reason"
+          return 0
+          ;;
+        4)
+          if [[ "$(jv "$cur.report.json" retry)" != true ]]; then
+            snap_code=4
+            snap_reason="отрисовка не наблюдалась: $(oneline "$cur.oracle.stderr")"
+            log "снимок $name: $snap_reason"
+            return 0
+          fi
+          ;;
+        *) fatal "снимок $name: оракул — ошибка исполнения (код $code): $(oneline "$cur.oracle.stderr")" ;;
+      esac
+    fi
+    prev="$cur"
+  done
+}
+
+# --- клавиши демо, зоны, заглушки и холодный запуск (задача 12) ---
+
+# Опрос query.panel: поле path равно want; ответ — <prefix>.stdout, иначе WHY.
+wait_panel() {
+  local state="$1" prefix="$2" panel="$3" path="$4" want="$5" deadline got=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if panel_get "$state" "$prefix" "$panel"; then
+      got="$(pv "$prefix.stdout" "$path" 2>/dev/null || echo нет)"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс query.panel: $path — ${got:-не прочитан}, ожидалось $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос query.layout до значения want поля path; последнее чтение — <prefix>.stdout, иначе WHY.
+wait_layout() {
+  local state="$1" prefix="$2" bench="$3" path="$4" want="$5" deadline seen=""
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if layout_get "$state" "$prefix" "$bench"; then
+      seen="$(lv "$prefix.stdout" "$path" || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс $path в query.layout — ${seen:-?}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Демо-список основного профиля командами: история пуста, детали закрыты, выбран key; чтения — <dir>/reset-*,
+# иначе WHY.
+demo_reset() {
+  local dir="$1" key="$2" n=0
+  WHY=""
+  while :; do
+    panel_get "$profile" "$dir/reset-$n" "$demo" || {
+      WHY="query.panel демо-списка не прочитан: $(oneline "$dir/reset-$n.stdout") $(oneline "$dir/reset-$n.stderr")"
+      return 1
+    }
+    [[ "$(pv "$dir/reset-$n.stdout" data.history || echo ?)" != "[]" ]] || break
+    if ((n >= 33)); then
+      WHY="история демо-списка не опустела за 33 команды demo-list.back"
+      return 1
+    fi
+    core_cmd "$profile" "$dir/reset-back-$n" panel command "$demo" demo-list.back --workspace "$ws1" || return 1
+    n=$((n + 1))
+  done
+  core_cmd "$profile" "$dir/reset-details" panel command "$demo" demo-list.details --args '{"open":false}' \
+    --workspace "$ws1" || return 1
+  core_cmd "$profile" "$dir/reset-select" panel command "$demo" demo-list.select --args "{\"key\":\"$key\"}" \
+    --workspace "$ws1" || return 1
+}
+
+# Вариант демо-списка по таблице плагина для зоны и класса размера query.layout.
+demo_variant() {
+  case "$1.$2" in
+    *.short_bar) echo bar ;;
+    *.narrow) echo drill ;;
+    left.regular | right.regular) echo drill ;;
+    left.wide | right.wide | center.regular | center.wide) echo split ;;
+    bottom.regular | bottom.wide) echo bar ;;
+    *) echo "?" ;;
+  esac
+}
+
+# Часть query.layout с активной панелью panel: «зона номер класс ширина высота stub» её тела; пусто — такой части
+# нет.
+part_with() {
+  /usr/bin/perl -MJSON::PP -e 'my ($panel) = @ARGV; local $/;
+    my ($p) = grep { ($_->{active} // "") eq $panel } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
+    print $p ? join(" ", $p->{zone}, $p->{index}, $p->{geometry}{size}, $p->{body}{width}, $p->{body}{height},
+      $p->{stub} ? "true" : "false") : "", "\n"' "$2" <"$1"
+}
+
+# Скрытого списка тела в ui.inspect нет: узел id отсутствует или не видим.
+pane_hidden() {
+  [[ "$(comp "$1" "$2" visible 2>/dev/null || echo false)" == false ]]
+}
+
+# Регионы представления демо-списка в окне по ui.inspect: строки нарушений в stdout, пусто — совпало. drill — один
+# список во всё тело (детали закрыты, их узла в дереве нет), split и bar — список слева на долю ширины тела и
+# детали на остальной, как их считает модель плагина.
+demo_regions() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e '
+    my ($file, $panel, $variant, $split, $bar, $tol) = @ARGV;
+    open my $fh, "<", $file or die "$file\n";
+    local $/;
+    my %node = map { ($_->{id} => $_) } @{JSON::PP->new->utf8->decode(<$fh>)->{ok}{ui}{inspect}{components}};
+    my ($body, $list, $details) = map { $node{"layout.panel.$panel.$_"} } qw(body list details);
+    for (["body", $body], ["list", $list], ["details", $details]) {
+      next if $_->[1] || ($variant eq "drill" && $_->[0] eq "details");
+      print "нет узла layout.panel.$panel.$_->[0]\n";
+      exit 0;
+    }
+    my $near = sub { abs($_[0] - $_[1]) <= $tol };
+    my $fmt = sub { my $f = $_[0]{frame}; sprintf "(%g, %g, %g×%g)", @$f{qw(x y width height)} };
+    my $same = sub {
+      my ($n, $x, $w, $what) = @_;
+      my $f = $n->{frame};
+      my $b = $body->{frame};
+      print "$what не видим\n" unless $n->{visible};
+      print "$what ", $fmt->($n), ", по модели x $x, ширина $w, высота тела: тело ", $fmt->($body), "\n"
+        unless $near->($f->{x}, $x) && $near->($f->{width}, $w) && $near->($f->{y}, $b->{y})
+        && $near->($f->{height}, $b->{height});
+    };
+    my $b = $body->{frame};
+    if ($variant eq "drill") {
+      $same->($list, $b->{x}, $b->{width}, "список");
+      print "детали видимы при закрытых деталях\n" if $details && $details->{visible};
+    } else {
+      my $w = int($b->{width} * ($variant eq "split" ? $split : $bar));
+      $same->($list, $b->{x}, $w, "список");
+      $same->($details, $b->{x} + $w, $b->{width} - $w, "детали");
+    }
+  ' "$1" "$2" "$3" "$SPLIT_SHARE" "$BAR_SHARE" "$FRAME_TOLERANCE"
+}
+
+# Кадр части zone.index из query.layout: поле field (x, y, width, height) прямоугольника rect части — frame (по
+# умолчанию), body или tab_strip.
+part_field() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index, $field, $rect) = @ARGV; local $/;
+    my ($p) = grep { $_->{zone} eq $zone && $_->{index} == $index } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
+    print defined $p ? $p->{$rect}{$field} . "\n" : "?\n"' "$2" "$3" "$4" "${5:-frame}" <"$1"
+}
+
+# Активная вкладка части zone.index раскладки query.layout.
+active_of() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index) = @ARGV; local $/;
+    my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout}{zones}{$zone}{parts}[$index];
+    print $p ? $p->{tabs}[$p->{active}] // "?" : "?", "\n"' "$2" "$3" <"$1"
+}
+
+# AXPress кнопки «Развернуть» заглушки, центр которой лежит в прямоугольнике тела (x, y, w, h) в точках содержимого
+# окна pid с началом сверху слева: заглушки разных частей различаются только местом. Обход дерева AX до глубины 12,
+# внутрь групп вкладок не заходит.
+AX_STUB_JS='function run(argv) {
+  const [pid, x, y, w, h] = argv.map(Number);
+  const se = Application("System Events");
+  const win = se.processes.whose({unixId: pid})[0].windows[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (e) { return null; } };
+  const [wx, wy] = win.position();
+  let found = null;
+  function walk(e, depth) {
+    if (found) return;
+    const role = prop(() => e.role());
+    if (role === "AXTabGroup") return;
+    if (role === "AXButton" && prop(() => e.description()) === "Развернуть") {
+      const p = prop(() => e.position());
+      const s = prop(() => e.size());
+      if (p && s) {
+        const cx = p[0] - wx + s[0] / 2;
+        const cy = p[1] - wy + s[1] / 2;
+        if (cx >= x && cx <= x + w && cy >= y && cy <= y + h) { found = e; return; }
+      }
+    }
+    if (depth >= 12) return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (e) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  walk(win, 0);
+  if (!found) throw new Error("нет кнопки «Развернуть» в теле (" + [x, y, w, h].join(", ") + ")");
+  found.actions.byName("AXPress").perform();
+  return "pressed";
+}'
+
+# AXPress кнопки «Развернуть» заглушки в теле части zone.index по query.layout layout; иначе WHY.
+stub_press() {
+  local pid="$1" layout="$2" zone="$3" index="$4" out="$5" x y w h
+  WHY=""
+  x="$(part_field "$layout" "$zone" "$index" x body)"
+  y="$(part_field "$layout" "$zone" "$index" y body)"
+  w="$(part_field "$layout" "$zone" "$index" width body)"
+  h="$(part_field "$layout" "$zone" "$index" height body)"
+  [[ "$x" != "?" ]] || {
+    WHY="нет части $zone.$index в query.layout"
+    return 1
+  }
+  osascript -l JavaScript -e "$AX_STUB_JS" "$pid" "$x" "$y" "$w" "$h" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «Развернуть» части $zone.$index не выполнен: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Строка workbench_layouts рабочей области в state.db остановленного владельца: HEX байтов layout.
+layout_row() {
+  /usr/bin/sqlite3 -readonly "$1/state.db" \
+    "SELECT hex(CAST(layout AS BLOB)) FROM workbench_layouts WHERE workbench = X'${2//-/}';" 2>&1
+}
+
+# Заглушка статуса панели panel профиля state: подпись label заглушки её места без кнопки «Развернуть» по
+# ui.inspect и AX окна pid, статус status в ui.inspect и query.panel, ни одного построенного тела. Нарушения — в
+# failures с пометкой what; чтения — <prefix>.*.
+status_stub() {
+  local state="$1" prefix="$2" pid="$3" bench="$4" panel="$5" status="$6" label="$7" what="$8" place got
+  layout_get "$state" "$prefix.layout" "$bench" || fatal "$what: query.layout не прочитан: $(oneline "$prefix.layout.stderr")"
+  place="$(place_of "$prefix.layout.stdout" "$panel")"
+  [[ -n "$place" && "$place" != navigator ]] || {
+    failures+=("$what: панели $panel нет в плитках раскладки: «${place}»")
+    return 0
+  }
+  wait_inspect "$state" "$prefix.inspect" "layout.part.$place.stub" label "$label" ||
+    failures+=("$what: заглушка в окне: $WHY")
+  [[ "$(comp "$prefix.inspect.stdout" "layout.part.$place.stub" visible || echo нет)" == true ]] ||
+    failures+=("$what: заглушка части $place не видима")
+  ! comp "$prefix.inspect.stdout" "layout.part.$place.stub.expand" id >/dev/null 2>&1 ||
+    failures+=("$what: у заглушки статуса есть кнопка «Развернуть»")
+  got="$(pfact "$prefix.inspect.stdout" "$panel" status || echo нет)"
+  [[ "$got" == "$status" ]] || failures+=("$what: ui.inspect: статус $got, ожидался $status")
+  wait_ax_text "$pid" "$prefix.ax.json" "$label" || failures+=("$what: в AX окна нет элемента «${label}»")
+  if panel_get "$state" "$prefix.panel" "$panel"; then
+    got="$(pv "$prefix.panel.stdout" status || echo ?)"
+    [[ "$got" == "$status" ]] || failures+=("$what: query.panel: статус $got, ожидался $status")
+  else
+    failures+=("$what: query.panel не прочитан: $(oneline "$prefix.panel.stdout") $(oneline "$prefix.panel.stderr")")
+  fi
+  ui_read "$state" "$prefix.stats" stats || fatal "$what: ui.stats не прочитан"
+  got="$(built_of "$prefix.stats.stdout" "$panel")"
+  [[ "$got" == 0 ]] || failures+=("$what: bodies_built панели $got, ожидалось 0")
+}
+
 # --- подготовка, уборка, предусловия ---
 
 prepare() {
@@ -1547,19 +1867,23 @@ prepare() {
   [[ -x "$LSAPPINFO" ]] || fatal "нет $LSAPPINFO"
   [[ -x /usr/bin/sqlite3 ]] || fatal "нет /usr/bin/sqlite3"
   /usr/bin/perl -MJSON::PP -e 1 2>/dev/null || fatal "нет модуля JSON::PP системного perl"
-  [[ -f "$fixture_missing" ]] || fatal "нет файла $fixture_missing"
+  for left in "$fixture_missing" "$fixture_status" "$fixture_duplicate" "$expect_dir"/{light,dark}.json; do
+    [[ -f "$left" ]] || fatal "нет файла $left"
+  done
   left="$(run_processes)"
   [[ -z "$left" ]] || fatal "предусловие: бинарь бандла прогона уже запущен (PID $left), завершите его"
   [[ -n "$(finder_pid)" ]] || fatal "предусловие: Finder не запущен"
   find_terminal
   build_bin shellioctl shellioctl
   ctl_bin="$BUILT"
+  build_bin shellio-e2e shellio-e2e-oracle
+  oracle_bin="$BUILT"
   log "каталог прогона: $run"
-  log "бандл: $app, shellioctl: $ctl_bin"
+  log "бандл: $app, shellioctl: $ctl_bin, оракул: $oracle_bin"
 }
 
 # Пробы предусловий: оконные менеджеры, источник ввода, Screen Recording, Automation и Accessibility по окну
-# служебного владельца обычного режима; затем он завершается.
+# служебного владельца обычного режима, самопроверка оракула на его снимке; затем он завершается.
 preconditions() {
   local dir="$run/preconditions" name layout ok preflight pid number
   for name in "${WINDOW_MANAGERS[@]}"; do
@@ -1592,6 +1916,17 @@ preconditions() {
   number="$(jv "$dir/window.stdout" ok.ui.window.window_number)" || fatal "предусловие: в ui.window нет window_number"
   /usr/sbin/screencapture -x -o -l "$number" "$dir/probe.png" >"$dir/probe.log" 2>&1 ||
     fatal "предусловие: screencapture -l $number отказал (нет Screen Recording): $(oneline "$dir/probe.log")"
+  # Самопроверка оракула без маркера: участок заголовка со слотом text вместо chrome обязан разойтись.
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $e = JSON::PP->new->utf8->decode(<STDIN>);
+    $e->{regions} = [map { { %$_, slot => "text" } } grep { $_->{component} eq "chrome" } @{$e->{regions}}];
+    print JSON::PP->new->utf8->canonical->encode($e)' <"$expect_dir/light.json" >"$dir/wrong-light.json"
+  ui_cmd "$NEW_PROFILE" "$dir/light" ui appearance light || fatal "самопроверка оракула: $WHY"
+  snapshot "$NEW_PROFILE" "$dir" self-check "$dir/wrong-light.json"
+  case "$snap_code" in
+    3) log "самопроверка оракула: неверное ожидание дало расхождение — $snap_reason" ;;
+    0) fatal "оракул не различает цвета: ожидание со слотом text вместо chrome прошло" ;;
+    *) fatal "самопроверка оракула не выполнена: $snap_reason" ;;
+  esac
   verified_hello "$NEW_PROFILE" "$dir/hello-stop" || fatal "предусловие: служебный владелец: $WHY"
   terminate "$HELLO_PID"
   ! alive "$pid" || fatal "предусловие: служебный владелец pid $pid не завершился"
@@ -2728,6 +3063,505 @@ item_perapp_return() {
   conclude "$item" "меню «${NATIVE_TITLE}» в B при фокусе на демо-списке $demo_b правой зоны: квитанция moved, поле в центре B рядом с терминалом $term_b, opened_from — демо-список; panel close поля вернул фокус демо-списку по query.layout, ui.inspect (first_responder списка) и AX (AXFocusedUIElement — таблица «Демо: список»), а не терминалу центра"
 }
 
+# Клавиши демо-списка в варианте drill: Down, Down выбирают строку, Return открывает детали и отдаёт им ввод, первый
+# Esc закрывает детали и возвращает ввод списку, второй — demo-list.back. Команд CLI между клавишами нет.
+item_drill_keys() {
+  local item=drill-keys dir="$run/drill-keys" list details got
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || {
+    record "$item" fail "панели демо-списка нет: open-cli её не создал"
+    return 0
+  }
+  list="layout.panel.$demo.list"
+  details="layout.panel.$demo.details"
+  show_bench "$dir" "$wb_a" "$ws1"
+  demo_reset "$dir" a || fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/open" panel open demo-list --args '{"key":"c"}' --workspace "$ws1" ||
+    fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/focus" panel focus "$demo" --workspace "$ws1" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "$item: $WHY"
+  wait_inspect "$profile" "$dir/start.inspect" "$list" state.virtual_list.selected c || fatal "условие пункта: $WHY"
+  wait_inspect "$profile" "$dir/start.inspect" "$list" first_responder true ||
+    fatal "условие пункта: ввод не у списка демо: $WHY"
+  got="$(pfact "$dir/start.inspect.stdout" "$demo" variant || echo нет)"
+  [[ "$got" == drill ]] || fatal "условие пункта: вариант демо-списка $got, пункт судит drill"
+  panel_get "$profile" "$dir/start.panel" "$demo" || fatal "$item: query.panel не прочитан"
+  [[ "$(pv "$dir/start.panel.stdout" data.history || echo ?)" == '["a"]' &&
+    "$(pv "$dir/start.panel.stdout" data.details || echo ?)" == false ]] ||
+    fatal "условие пункта: история a → c не собрана: $(data_canon "$dir/start.panel.stdout")"
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+
+  se_key "$KEY_DOWN" "$dir/keys.log" || failures+=("первый Down не отправлен")
+  wait_panel "$profile" "$dir/down1.panel" "$demo" data.key d || failures+=("после первого Down: $WHY")
+  wait_inspect "$profile" "$dir/down1.inspect" "$list" state.virtual_list.selected d ||
+    failures+=("после первого Down в окне: $WHY")
+  se_key "$KEY_DOWN" "$dir/keys.log" || failures+=("второй Down не отправлен")
+  wait_panel "$profile" "$dir/down2.panel" "$demo" data.key e || failures+=("после второго Down: $WHY")
+  wait_inspect "$profile" "$dir/down2.inspect" "$list" state.virtual_list.selected e ||
+    failures+=("после второго Down в окне: $WHY")
+
+  se_key "$KEY_RETURN" "$dir/keys.log" || failures+=("Return не отправлен")
+  wait_panel "$profile" "$dir/return.panel" "$demo" data.details true || failures+=("после Return: $WHY")
+  wait_inspect "$profile" "$dir/return.inspect" "$details" first_responder true ||
+    failures+=("после Return ввод не у списка деталей: $WHY")
+  [[ "$(comp "$dir/return.inspect.stdout" "$details" visible || echo нет)" == true ]] ||
+    failures+=("после Return список деталей не видим")
+  [[ "$(comp "$dir/return.inspect.stdout" "$details" state.virtual_list.label || echo нет)" == "Детали: Эпсилон" ]] ||
+    failures+=("после Return детали — «$(comp "$dir/return.inspect.stdout" "$details" state.virtual_list.label || echo нет)», а не строки e")
+  pane_hidden "$dir/return.inspect.stdout" "$list" ||
+    failures+=("после Return список строк остался видим: детали не вглубь")
+  got="$(pfact "$dir/return.inspect.stdout" "$demo" variant || echo нет)"
+  [[ "$got" == drill ]] || failures+=("после Return вариант $got, а не drill")
+  [[ "$(pv "$dir/return.panel.stdout" data.key || echo ?)" == e ]] ||
+    failures+=("после Return data.key $(pv "$dir/return.panel.stdout" data.key || echo ?), ожидался e")
+
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("первый Esc не отправлен")
+  wait_panel "$profile" "$dir/esc1.panel" "$demo" data.details false || failures+=("после первого Esc: $WHY")
+  wait_inspect "$profile" "$dir/esc1.inspect" "$list" first_responder true ||
+    failures+=("после первого Esc ввод не у списка: $WHY")
+  [[ "$(comp "$dir/esc1.inspect.stdout" "$list" state.virtual_list.selected || echo нет)" == e ]] ||
+    failures+=("после первого Esc в окне выбрана $(comp "$dir/esc1.inspect.stdout" "$list" state.virtual_list.selected || echo нет), а не e")
+  pane_hidden "$dir/esc1.inspect.stdout" "$details" ||
+    failures+=("после первого Esc список деталей остался видим")
+  [[ "$(pv "$dir/esc1.panel.stdout" data.key || echo ?)" == e &&
+    "$(pv "$dir/esc1.panel.stdout" data.history || echo ?)" == '["a"]' ]] ||
+    failures+=("первый Esc тронул выбор или историю: $(data_canon "$dir/esc1.panel.stdout")")
+
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("второй Esc не отправлен")
+  wait_panel "$profile" "$dir/esc2.panel" "$demo" data.key a || failures+=("после второго Esc: $WHY")
+  wait_inspect "$profile" "$dir/esc2.inspect" "$list" state.virtual_list.selected a ||
+    failures+=("после второго Esc в окне: $WHY")
+  [[ "$(pv "$dir/esc2.panel.stdout" data.history || echo ?)" == "[]" ]] ||
+    failures+=("после второго Esc история $(pv "$dir/esc2.panel.stdout" data.history || echo ?), ожидалась пустая")
+  # Следующие пункты ждут список с выбранной a, пустой историей и закрытыми деталями.
+  mkdir -p "$dir/after"
+  demo_reset "$dir/after" a || fatal "$item: возврат: $WHY"
+  conclude "$item" "история a → c через panel open --args, ввод у списка варианта drill; Down, Down — data.key и выбор в окне d, затем e; Return — data.details true, детали «Эпсилон» вглубь, first_responder у списка деталей; первый Esc — детали закрыты, список с выбранной e и first_responder у него, история прежняя; второй Esc — demo-list.back: выбрана a, история пуста; команд CLI между клавишами нет"
+}
+
+# Демо-список по очереди в центре, нижней зоне и левой плитке: вариант по таблице плагина для класса размера из
+# query.layout, регионы представления в окне, то же тело.
+item_zones_demo() {
+  local item=zones-demo dir="$run/zones-demo" zone part size want component got seen="" regions
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || {
+    record "$item" fail "панели демо-списка нет: open-cli её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  demo_reset "$dir" a || fatal "условие пункта: $WHY"
+  ui_read "$profile" "$dir/before.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  component="$(pfact "$dir/before.inspect.stdout" "$demo" component || echo нет)"
+  for zone in center bottom left; do
+    core_cmd "$profile" "$dir/move-$zone" panel move "$demo" --zone "$zone" --all || {
+      failures+=("перенос в зону $zone: $WHY")
+      continue
+    }
+    settle_layout "$profile" "$dir/settle-$zone" "$wb_a" "$REV" || fatal "$item: $WHY"
+    layout_get "$profile" "$dir/geometry-$zone" "$wb_a" || fatal "$item: query.layout не прочитан"
+    part="$(part_with "$dir/geometry-$zone.stdout" "$demo")"
+    [[ "$part" == "$zone "* ]] || {
+      failures+=("после переноса демо-список не активная вкладка части зоны $zone: «${part}»")
+      continue
+    }
+    [[ "$part" == *" false" ]] || fatal "условие пункта: в зоне $zone тело демо-списка меньше min_size: $part"
+    size="$(printf '%s' "$part" | awk '{ print $3 }')"
+    want="$(demo_variant "$zone" "$size")"
+    [[ "$want" != "?" ]] || fatal "$item: неизвестный класс размера $size зоны $zone"
+    wait_inspect "$profile" "$dir/variant-$zone" "layout.panel.$demo" state.panel.variant "$want" ||
+      failures+=("зона $zone, класс $size: $WHY")
+    read_all "$profile" "$dir" "$zone" "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+    [[ -z "$FRAMES" ]] || failures+=("кадры в зоне $zone: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+    got="$(pfact "$dir/$zone.inspect.stdout" "$demo" size || echo нет)"
+    [[ "$got" == "$size" ]] || failures+=("зона $zone: класс размера в ui.inspect $got, в query.layout $size")
+    regions="$(demo_regions "$dir/$zone.inspect.stdout" "$demo" "$want" 2>&1)" ||
+      fatal "$item: регионы зоны $zone не сверены: $regions"
+    [[ -z "$regions" ]] || failures+=("регионы варианта $want в зоне $zone: $(printf '%s' "$regions" | tr '\n' ';')")
+    [[ "$(list_fact "$dir/$zone.inspect.stdout" "$demo" list selected || echo нет)" == a ]] ||
+      failures+=("зона $zone: в окне выбрана $(list_fact "$dir/$zone.inspect.stdout" "$demo" list selected || echo нет), а не a")
+    seen="${seen:+$seen, }$zone ($size) — $want"
+  done
+  ui_read "$profile" "$dir/after.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  ui_read "$profile" "$dir/after.stats" stats || fatal "$item: ui.stats не прочитан"
+  got="$(pfact "$dir/after.inspect.stdout" "$demo" component || echo нет)"
+  [[ "$component" != нет && "$got" == "$component" ]] ||
+    failures+=("ComponentId контейнера $got, до переносов $component")
+  [[ "$(built_of "$dir/after.stats.stdout" "$demo")" == 1 ]] ||
+    failures+=("bodies_built демо-списка $(built_of "$dir/after.stats.stdout" "$demo"), ожидалось 1")
+  # Следующие пункты ждут демо-список в правой зоне.
+  core_cmd "$profile" "$dir/move-right" panel move "$demo" --zone right --all || fatal "$item: возврат в правую зону: $WHY"
+  settle_layout "$profile" "$dir/settle-right" "$wb_a" "$REV" || fatal "$item: $WHY"
+  conclude "$item" "демо-список по очереди в зонах: $seen — вариант по таблице плагина для класса размера query.layout в ui.inspect, список и детали в окне стоят по регионам варианта, кадры совпали с ui.inspect и AX; ComponentId контейнера $component прежний, bodies_built 1"
+}
+
+# Геометрия пункта stub-expand P1.4: в правой зоне свой терминал, правая зона скрыта, центр — три равные части,
+# демо-список переносится в одну из них, правая зона показывается. До показа тело части демо не меньше min_size,
+# после — меньше: заглушка «Развернуть» при живом теле, её кнопка разворачивает панель с прежней выбранной строкой.
+item_stub_min_size() {
+  local item=stub-min-size dir="$run/stub-min-size" side added="" n source part zone size w h stub index component got
+  local key rev
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || {
+    record "$item" fail "панели демо-списка нет: open-cli её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  demo_reset "$dir" c || fatal "условие пункта: $WHY"
+  layout_get "$profile" "$dir/start" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ "$(place_of "$dir/start.stdout" "$demo")" == right.* ]] ||
+    fatal "условие пункта: демо-список не в правой зоне: «$(place_of "$dir/start.stdout" "$demo")»"
+  core_cmd "$profile" "$dir/side" panel open terminal --zone right --workspace "$ws1" || fatal "условие пункта: $WHY"
+  side="$(jv "$dir/side.stdout" ok.value.panel)" || fatal "условие пункта: panel open terminal не назвал панель"
+  core_cmd "$profile" "$dir/hide" layout hide right --workbench "$wb_a" --workspace "$ws1" ||
+    fatal "условие пункта: $WHY"
+  layout_get "$profile" "$dir/center" "$wb_a" || fatal "$item: query.layout не прочитан"
+  n="$(parts_count "$dir/center.stdout" center)"
+  [[ "$n" =~ ^[1-3]$ ]] || fatal "условие пункта: в центре A $n частей, пункт делит до трёх"
+  while ((n < 3)); do
+    layout_get "$profile" "$dir/split-from-$n" "$wb_a" || fatal "$item: query.layout не прочитан"
+    source="$(active_of "$dir/split-from-$n.stdout" center $((n - 1)))"
+    core_cmd "$profile" "$dir/split-$n" layout split "$source" --open terminal --workspace "$ws1" ||
+      fatal "условие пункта: $WHY"
+    got="$(jv "$dir/split-$n.stdout" ok.value.panel)" || fatal "условие пункта: деление не назвало новую панель"
+    added="${added:+$added }$got"
+    n=$((n + 1))
+  done
+  core_cmd "$profile" "$dir/equal" layout equal --zone center --workbench "$wb_a" --workspace "$ws1" ||
+    fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/move" panel move "$demo" --zone center --all || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle-wide" "$wb_a" "$REV" || fatal "$item: $WHY"
+  wait_inspect "$profile" "$dir/wide-list" "layout.panel.$demo.list" state.virtual_list.selected c ||
+    fatal "условие пункта: $WHY"
+  read_all "$profile" "$dir" wide "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+  part="$(part_with "$dir/wide.layout.stdout" "$demo")"
+  read -r zone index size w h stub <<<"$part"
+  [[ "$part" == "center "* && "$(parts_count "$dir/wide.layout.stdout" center)" == 3 ]] ||
+    fatal "условие пункта: демо-список не активная вкладка одной из трёх частей центра: «${part}»"
+  awk -v w="$w" -v h="$h" -v W="$DEMO_MIN_W" -v H="$DEMO_MIN_H" 'BEGIN { exit !(w >= W && h >= H) }' ||
+    fatal "условие пункта: при скрытой правой зоне тело части демо ${w}×${h} меньше ${DEMO_MIN_W}×${DEMO_MIN_H}"
+  [[ "$stub" == false ]] || failures+=("query.layout: тело ${w}×${h} не меньше min_size, а stub true")
+  [[ -z "$FRAMES" ]] || failures+=("кадры трёх частей: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  component="$(pfact "$dir/wide.inspect.stdout" "$demo" component || echo нет)"
+  key="$(list_fact "$dir/wide.inspect.stdout" "$demo" list selected || echo нет)"
+
+  core_cmd "$profile" "$dir/show" layout show right --workbench "$wb_a" --workspace "$ws1" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  rev="$REV"
+  settle_layout "$profile" "$dir/settle-stubbed" "$wb_a" "$rev" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" stubbed "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+  part="$(part_with "$dir/stubbed.layout.stdout" "$demo")"
+  [[ "$part" == "center $index "* ]] || fatal "условие пункта: после показа правой зоны демо-список не в части center.$index: «${part}»"
+  read -r zone index size w h stub <<<"$part"
+  awk -v w="$w" -v h="$h" -v W="$DEMO_MIN_W" -v H="$DEMO_MIN_H" 'BEGIN { exit !(w < W || h < H) }' ||
+    fatal "условие пункта: при показанной правой зоне тело части демо ${w}×${h} не меньше ${DEMO_MIN_W}×${DEMO_MIN_H}"
+  [[ "$stub" == true ]] || failures+=("query.layout: тело ${w}×${h} меньше min_size ${DEMO_MIN_W}×${DEMO_MIN_H}, а stub false")
+  got="layout.part.center.$index.stub"
+  [[ "$(comp "$dir/stubbed.inspect.stdout" "$got" visible || echo нет)" == true ]] ||
+    failures+=("ui.inspect: заглушка части center.$index не видима")
+  [[ "$(comp "$dir/stubbed.inspect.stdout" "$got" class || echo нет)" == ExpandStub ]] ||
+    failures+=("ui.inspect: узел заглушки — $(comp "$dir/stubbed.inspect.stdout" "$got" class || echo нет), а не ExpandStub")
+  [[ "$(comp "$dir/stubbed.inspect.stdout" "$got" label || echo нет)" == "$DEMO_TIGHT" ]] ||
+    failures+=("ui.inspect: подпись заглушки — $(comp "$dir/stubbed.inspect.stdout" "$got" label || echo нет)")
+  [[ "$(comp "$dir/stubbed.inspect.stdout" "$got.expand" visible || echo нет)" == true ]] ||
+    failures+=("ui.inspect: кнопка «Развернуть» заглушки не видима")
+  [[ "$(pfact "$dir/stubbed.inspect.stdout" "$demo" shown || echo нет)" == false ]] ||
+    failures+=("ui.inspect: контейнер демо-списка под заглушкой не скрыт")
+  [[ "$(pfact "$dir/stubbed.inspect.stdout" "$demo" status || echo нет)" == ready ]] ||
+    failures+=("ui.inspect: статус под заглушкой $(pfact "$dir/stubbed.inspect.stdout" "$demo" status || echo нет)")
+  [[ "$(pfact "$dir/stubbed.inspect.stdout" "$demo" component || echo нет)" == "$component" ]] ||
+    failures+=("ComponentId контейнера $(pfact "$dir/stubbed.inspect.stdout" "$demo" component || echo нет), до заглушки $component")
+  ui_read "$profile" "$dir/stubbed.stats" stats || fatal "$item: ui.stats не прочитан"
+  [[ "$(built_of "$dir/stubbed.stats.stdout" "$demo")" == 1 ]] ||
+    failures+=("под заглушкой bodies_built демо-списка $(built_of "$dir/stubbed.stats.stdout" "$demo"), ожидалось 1")
+  [[ -z "$FRAMES" ]] || failures+=("кадры заглушек: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  if stub_press "$owner_pid" "$dir/stubbed.layout.stdout" center "$index" "$dir/press" &&
+    wait_layout "$profile" "$dir/wait-zoom" "$wb_a" layout.zoomed "$demo"; then
+    got="$(jv "$dir/wait-zoom.stdout" ok.revision || echo ?)"
+    [[ "$got" == $((rev + 1)) ]] || failures+=("кнопка заглушки: ревизия $rev → $got, ожидалась одна команда")
+    settle_layout "$profile" "$dir/settle-zoom" "$wb_a" "$got" || fatal "$item: $WHY"
+    wait_inspect "$profile" "$dir/zoom-list" "layout.panel.$demo.list" visible true ||
+      failures+=("после «Развернуть» список демо: $WHY")
+    read_all "$profile" "$dir" zoomed "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+    [[ "$(lv "$dir/zoomed.layout.stdout" frames.zoomed.stub || echo ?)" == false ]] ||
+      failures+=("развёрнутая панель демо тоже под заглушкой")
+    [[ "$(pfact "$dir/zoomed.inspect.stdout" "$demo" shown || echo нет)" == true ]] ||
+      failures+=("ui.inspect: контейнер развёрнутого демо-списка не показан")
+    [[ "$(list_fact "$dir/zoomed.inspect.stdout" "$demo" list selected || echo нет)" == "$key" ]] ||
+      failures+=("после «Развернуть» выбрана $(list_fact "$dir/zoomed.inspect.stdout" "$demo" list selected || echo нет), до заглушки $key")
+    [[ "$(pfact "$dir/zoomed.inspect.stdout" "$demo" component || echo нет)" == "$component" ]] ||
+      failures+=("после «Развернуть» ComponentId контейнера $(pfact "$dir/zoomed.inspect.stdout" "$demo" component || echo нет), до заглушки $component")
+    ui_read "$profile" "$dir/zoomed.stats" stats || fatal "$item: ui.stats не прочитан"
+    [[ "$(built_of "$dir/zoomed.stats.stdout" "$demo")" == 1 ]] ||
+      failures+=("после «Развернуть» bodies_built демо-списка $(built_of "$dir/zoomed.stats.stdout" "$demo"), ожидалось 1")
+    [[ -z "$FRAMES" ]] || failures+=("кадры развёрнутой панели: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+    core_cmd "$profile" "$dir/unzoom" layout zoom --off --workbench "$wb_a" --workspace "$ws1" ||
+      fatal "$item: возврат: $WHY"
+  else
+    failures+=("кнопка «Развернуть» заглушки части center.$index: $WHY")
+  fi
+  # Следующие пункты ждут демо-список в правой зоне и центр без панелей пункта.
+  core_cmd "$profile" "$dir/back" panel move "$demo" --zone right --all || fatal "$item: возврат: $WHY"
+  for got in $added $side; do
+    core_cmd "$profile" "$dir/close-$got" panel close "$got" --workspace "$ws1" || fatal "$item: возврат: $WHY"
+  done
+  settle_layout "$profile" "$dir/settle-back" "$wb_a" "$REV" || fatal "$item: $WHY"
+  conclude "$item" "в правой зоне свой терминал, правая зона скрыта, центр — три равные части, демо-список в части center.$index: тело не меньше ${DEMO_MIN_W}×${DEMO_MIN_H} без заглушки; layout show right: тело ${w}×${h} меньше min_size, stub в query.layout, заглушка ExpandStub «${DEMO_TIGHT}» с кнопкой «Развернуть» по ui.inspect и AX, контейнер скрыт, ComponentId $component прежний, bodies_built 1; кнопка заглушки развернула панель одной ревизией, выбрана прежняя $key"
+}
+
+# Демо-список в правой зоне с фокусом и выбранной c: снимки светлой и тёмной темы оракулом без маркера.
+item_demo_snapshot() {
+  local item=demo-snapshot dir="$run/demo-snapshot" place cell tab got
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || {
+    record "$item" fail "панели демо-списка нет: open-cli её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  demo_reset "$dir" c || fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/focus" panel focus "$demo" --workspace "$ws1" || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "$item: $WHY"
+  wait_inspect "$profile" "$dir/wait" "layout.panel.$demo.list" state.virtual_list.selected c ||
+    fatal "условие пункта: $WHY"
+  read_all "$profile" "$dir" start "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+  place="$(place_of "$dir/start.layout.stdout" "$demo")"
+  got="$(pfact "$dir/start.inspect.stdout" "$demo" variant || echo нет)"
+  [[ "$place" == right.* && "$(focus_of "$dir/start.layout.stdout")" == "$demo" && "$got" == drill ]] ||
+    fatal "условие пункта: демо-список в «${place}», вариант $got, фокус на $(focus_of "$dir/start.layout.stdout"): пункт снимает вариант drill правой зоны с фокусом"
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  tab="layout.part.$place.tabs.tab.$demo"
+  for cell in light dark; do
+    ui_cmd "$profile" "$dir/$cell" ui appearance "$cell" || {
+      failures+=("$cell: $WHY")
+      continue
+    }
+    expectations "$cell" "$demo" "$dir/$cell.expect.json"
+    snapshot "$profile" "$dir" "$cell" "$dir/$cell.expect.json"
+    [[ "$snap_code" == 0 ]] || failures+=("$cell: $snap_reason")
+    snapshot "$profile" "$dir" "$cell-underline" "underline:$tab:tone_navigation"
+    [[ "$snap_code" == 0 ]] || failures+=("$cell, линия под активной вкладкой: $snap_reason")
+  done
+  ui_cmd "$profile" "$dir/system" ui appearance system || failures+=("возврат оформления: $WHY")
+  conclude "$item" "демо-список в правой зоне с фокусом, выбрана c: оракул без маркера в светлой и тёмной теме — фон заголовка, заливка плитки под тоном фокуса и тон выбранной строки (plugins-expect/*.json), линия под активной вкладкой в допуске толщины и цвета; кадры совпали с ui.inspect и AX"
+}
+
+# Список с ключом c и историей, поле со значением и вызывающей панелью → app quit → новый запуск на том же профиле:
+# PanelId, данные, opened_from, байты строк panel_states и раскладки прежние. Основной владелец остаётся
+# остановленным.
+item_restore_cold() {
+  local item=restore-cold dir="$run/restore-cold" cold caption list0 field0 from0 layout0 rows0 rows1 got
+  local rows_re='^[0-9]+\|[0-9A-F]+ [0-9]+\|[0-9A-F]+ [0-9A-F]+$'
+  failures=()
+  log "== $item"
+  [[ -n "$demo" ]] || {
+    record "$item" fail "панели демо-списка нет: open-cli её не создал"
+    return 0
+  }
+  caption="Сохранено: $COLD_VALUE · правок 1"
+  show_bench "$dir" "$wb_a" "$ws1"
+  demo_reset "$dir" a || fatal "условие пункта: $WHY"
+  if [[ -n "$native" ]]; then
+    core_cmd "$profile" "$dir/close-native" panel close "$native" --all || fatal "условие пункта: $WHY"
+    native=""
+  fi
+  # Повтор с ключом c кладёт a в историю и отдаёт фокус списку: поле, созданное следом, запоминает его вызывающим.
+  core_cmd "$profile" "$dir/list" panel open demo-list --args '{"key":"c"}' --workspace "$ws1" ||
+    fatal "условие пункта: $WHY"
+  core_cmd "$profile" "$dir/field" panel open demo-native --all --workbench "$wb_a" || fatal "условие пункта: $WHY"
+  cold="$(jv "$dir/field.stdout" ok.value.panel)" || fatal "условие пункта: panel open demo-native не назвал панель"
+  [[ "$(jv "$dir/field.stdout" ok.value.outcome || echo ?)" == created ]] ||
+    fatal "условие пункта: демо-поле не создано: исход $(jv "$dir/field.stdout" ok.value.outcome || echo ?)"
+  core_cmd "$profile" "$dir/set" panel command "$cold" demo-native.set --args "{\"value\":\"$COLD_VALUE\"}" --all ||
+    fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "$item: $WHY"
+  wait_inspect "$profile" "$dir/wait-list" "layout.panel.$demo.list" state.virtual_list.selected c ||
+    fatal "условие пункта: $WHY"
+  wait_caption "$profile" "$dir/wait-caption" "$cold" "$caption" || fatal "условие пункта: $WHY"
+  panel_get "$profile" "$dir/before-list" "$demo" || fatal "$item: query.panel не прочитан"
+  panel_get "$profile" "$dir/before-field" "$cold" || fatal "$item: query.panel не прочитан"
+  layout_get "$profile" "$dir/before-layout" "$wb_a" || fatal "$item: query.layout не прочитан"
+  list0="$(data_canon "$dir/before-list.stdout")"
+  field0="$(data_canon "$dir/before-field.stdout")"
+  from0="$(pv "$dir/before-field.stdout" opened_from || echo ?)"
+  layout0="$(layout_canon "$dir/before-layout.stdout")"
+  [[ "$(pv "$dir/before-list.stdout" data.key || echo ?)" == c &&
+    "$(pv "$dir/before-list.stdout" data.history || echo ?)" == '["a"]' && "$from0" == "$demo" ]] ||
+    fatal "условие пункта: список $list0, opened_from поля $from0, ожидались ключ c с историей [\"a\"] и вызывающий $demo"
+
+  quit_owner "$profile" "$dir" "$owner_pid"
+  owner_pid=""
+  rows0="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_row "$profile" "$wb_a")"
+  printf '%s\n' "$rows0" >"$dir/rows-before.txt"
+  [[ "$rows0" =~ $rows_re ]] ||
+    failures+=("строки panel_states и workbench_layouts до перезапуска не прочитаны: ${rows0:0:200}")
+  launch_normal "$profile" "$dir/relaunch"
+  owner_pid="$OWNER_PID"
+  settle_layout "$profile" "$dir/relaunch-settle" "$wb_a" 0 || fatal "$item: после перезапуска: $WHY"
+  wait_inspect "$profile" "$dir/after-list.inspect" "layout.panel.$demo.list" state.virtual_list.selected c ||
+    failures+=("список в окне после перезапуска: $WHY")
+  wait_caption "$profile" "$dir/after-caption" "$cold" "$caption" || failures+=("поле в окне после перезапуска: $WHY")
+  wait_field "$profile" "$dir/after-field.inspect" "$cold" "$COLD_VALUE" ||
+    failures+=("поле в окне после перезапуска: $WHY")
+  read_all "$profile" "$dir" after "$wb_a" "$owner_pid" || fatal "условие пункта: после перезапуска: $WHY"
+  [[ -z "$FRAMES" ]] || failures+=("после перезапуска кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  [[ "$(panels_of "$dir/after.layout.stdout" demo-list)" == "$demo" ]] ||
+    failures+=("панели demo-list после перезапуска «$(panels_of "$dir/after.layout.stdout" demo-list)», до него $demo")
+  [[ "$(panels_of "$dir/after.layout.stdout" demo-native)" == "$cold" ]] ||
+    failures+=("панели demo-native после перезапуска «$(panels_of "$dir/after.layout.stdout" demo-native)», до него $cold")
+  [[ "$(layout_canon "$dir/after.layout.stdout")" == "$layout0" ]] ||
+    failures+=("раскладка A по query.layout после перезапуска другая: before-layout.stdout и after.layout.stdout")
+  if panel_get "$profile" "$dir/after-list" "$demo"; then
+    [[ "$(data_canon "$dir/after-list.stdout")" == "$list0" ]] ||
+      failures+=("данные списка после перезапуска $(data_canon "$dir/after-list.stdout"), до него $list0")
+    [[ "$(pv "$dir/after-list.stdout" status || echo ?)" == ready ]] ||
+      failures+=("статус списка после перезапуска $(pv "$dir/after-list.stdout" status || echo ?)")
+  else
+    failures+=("query.panel списка после перезапуска не прочитан: $(oneline "$dir/after-list.stderr")")
+  fi
+  if panel_get "$profile" "$dir/after-field" "$cold"; then
+    [[ "$(data_canon "$dir/after-field.stdout")" == "$field0" ]] ||
+      failures+=("данные поля после перезапуска $(data_canon "$dir/after-field.stdout"), до него $field0")
+    [[ "$(pv "$dir/after-field.stdout" opened_from || echo ?)" == "$from0" ]] ||
+      failures+=("opened_from поля после перезапуска $(pv "$dir/after-field.stdout" opened_from || echo ?), до него $from0")
+    [[ "$(pv "$dir/after-field.stdout" status || echo ?)" == ready ]] ||
+      failures+=("статус поля после перезапуска $(pv "$dir/after-field.stdout" status || echo ?)")
+  else
+    failures+=("query.panel поля после перезапуска не прочитан: $(oneline "$dir/after-field.stderr")")
+  fi
+  quit_owner "$profile" "$dir/relaunch" "$owner_pid"
+  owner_pid=""
+  rows1="$(row_of "$profile" "$demo") $(row_of "$profile" "$cold") $(layout_row "$profile" "$wb_a")"
+  printf '%s\n' "$rows1" >"$dir/rows-after.txt"
+  [[ "$rows1" == "$rows0" ]] ||
+    failures+=("байты строк panel_states и workbench_layouts после перезапуска другие: rows-before.txt и rows-after.txt")
+  got="${rows0%% *}"
+  conclude "$item" "список $demo с ключом c и историей [\"a\"], поле $cold со значением «${COLD_VALUE}» и opened_from списка → app quit → запуск на том же профиле: те же PanelId, данные $list0 и $field0 и opened_from структурно равны, строки panel_states (список $got) и строка workbench_layouts рабочей области A побайтно прежние, раскладка query.layout равна; в окне выбрана c, поле и подпись показывают значение, кадры совпали с ui.inspect и AX"
+}
+
+# Профиль схемы v3 с каноническими панелями демо, данные которых запуск не принимает: заглушки с причиной, тела не
+# строятся, байты строк целы после перезапуска.
+item_status_stubs() {
+  local item=status-stubs dir="$run/status-stubs" state pid rows0 rows turn
+  local rows_re='^2\|[0-9A-F]+ 1\|7B$'
+  failures=()
+  log "== $item"
+  if [[ -n "$owner_pid" ]]; then
+    quit_owner "$profile" "$dir" "$owner_pid"
+    owner_pid=""
+  fi
+  new_profile
+  state="$NEW_PROFILE"
+  chmod 700 "$state"
+  /usr/bin/sqlite3 "$state/state.db" <"$fixture_status" >"$dir/sqlite.log" 2>&1 ||
+    fatal "фикстура v3-status не загружена: $(oneline "$dir/sqlite.log")"
+  rows0="$(row_of "$state" "$STATUS_LIST") $(row_of "$state" "$STATUS_FIELD")"
+  printf '%s\n' "$rows0" >"$dir/rows-fixture.txt"
+  [[ "$rows0" =~ $rows_re ]] ||
+    fatal "фикстура v3-status: строки panel_states «${rows0}», ожидались версия 2 у списка и данные { у поля"
+  for turn in first second; do
+    launch_normal "$state" "$dir/$turn"
+    pid="$OWNER_PID"
+    if settle_layout "$state" "$dir/$turn-settle" "$STATUS_BENCH" 0; then
+      status_stub "$state" "$dir/$turn-list" "$pid" "$STATUS_BENCH" "$STATUS_LIST" state_newer "$STATUS_NEWER" \
+        "запуск $turn, демо-список"
+      status_stub "$state" "$dir/$turn-field" "$pid" "$STATUS_BENCH" "$STATUS_FIELD" state_corrupt "$STATUS_CORRUPT" \
+        "запуск $turn, демо-поле"
+    else
+      failures+=("запуск $turn: $WHY")
+    fi
+    quit_owner "$state" "$dir/$turn" "$pid"
+    rows="$(row_of "$state" "$STATUS_LIST") $(row_of "$state" "$STATUS_FIELD")"
+    printf '%s\n' "$rows" >"$dir/rows-$turn.txt"
+    [[ "$rows" == "$rows0" ]] || failures+=("запуск $turn: строки panel_states «${rows}», в фикстуре «${rows0}»")
+  done
+  conclude "$item" "state.db схемы v3: демо-список с данными версии 2 — заглушка «${STATUS_NEWER}», статус state_newer; демо-поле с данными { — заглушка «${STATUS_CORRUPT}», статус state_corrupt; заглушки без кнопки по ui.inspect и AX, статусы в ui.inspect и query.panel, bodies_built обеих 0; строки panel_states $rows0 побайтно прежние после первого запуска и после перезапуска"
+}
+
+# Профиль схемы v2 с двумя панелями demo-native в A и B: старшая в A готова, младшая в B — дубликат с заглушкой;
+# panel open переносит каноническую в B, дубликат остаётся заглушкой.
+item_legacy_duplicate() {
+  local item=legacy-duplicate dir="$run/legacy-duplicate" state pid got
+  failures=()
+  log "== $item"
+  if [[ -n "$owner_pid" ]]; then
+    quit_owner "$profile" "$dir" "$owner_pid"
+    owner_pid=""
+  fi
+  new_profile
+  state="$NEW_PROFILE"
+  chmod 700 "$state"
+  /usr/bin/sqlite3 "$state/state.db" <"$fixture_duplicate" >"$dir/sqlite.log" 2>&1 ||
+    fatal "фикстура v2-duplicate-demo-native не загружена: $(oneline "$dir/sqlite.log")"
+  launch_normal "$state" "$dir/owner"
+  pid="$OWNER_PID"
+  if ! settle_layout "$state" "$dir/settle-a" "$DUP_A" 0; then
+    record "$item" fail "сразу после запуска: $WHY"
+    quit_owner "$state" "$dir/owner" "$pid"
+    return 0
+  fi
+  wait_inspect "$state" "$dir/a.inspect" "layout.panel.$DUP_OLD.field" visible true ||
+    failures+=("поле старшей панели в окне A: $WHY")
+  got="$(pfact "$dir/a.inspect.stdout" "$DUP_OLD" status || echo нет)"
+  [[ "$got" == ready ]] || failures+=("ui.inspect: статус старшей панели в A $got, ожидался ready")
+  if panel_get "$state" "$dir/a.old" "$DUP_OLD" && panel_get "$state" "$dir/a.new" "$DUP_NEW"; then
+    [[ "$(pv "$dir/a.old.stdout" status || echo ?)" == ready ]] ||
+      failures+=("query.panel: статус старшей панели $(pv "$dir/a.old.stdout" status || echo ?), ожидался ready")
+    [[ "$(pv "$dir/a.new.stdout" status || echo ?)" == duplicate ]] ||
+      failures+=("query.panel: статус младшей панели $(pv "$dir/a.new.stdout" status || echo ?), ожидался duplicate")
+    [[ "$(pv "$dir/a.new.stdout" canonical || echo ?)" == "$DUP_OLD" ]] ||
+      failures+=("query.panel: canonical младшей панели $(pv "$dir/a.new.stdout" canonical || echo ?), ожидалась старшая $DUP_OLD")
+  else
+    failures+=("query.panel панелей demo-native не прочитан: $(oneline "$dir/a.old.stderr") $(oneline "$dir/a.new.stderr")")
+  fi
+
+  core_cmd "$state" "$dir/open-b" workbench open --target "$DUP_B" --workspace "$DUP_WS" || fatal "$item: $WHY"
+  settle_layout "$state" "$dir/settle-b" "$DUP_B" "$REV" || fatal "$item: $WHY"
+  status_stub "$state" "$dir/b-stub" "$pid" "$DUP_B" "$DUP_NEW" duplicate "$DUP_STUB" "рабочая область B"
+
+  if core_cmd "$state" "$dir/open" panel open demo-native --all --workbench "$DUP_B"; then
+    [[ "$(jv "$dir/open.stdout" ok.value.outcome || echo ?)" == moved ]] ||
+      failures+=("panel open: исход $(jv "$dir/open.stdout" ok.value.outcome || echo ?), ожидался moved")
+    [[ "$(jv "$dir/open.stdout" ok.value.panel || echo ?)" == "$DUP_OLD" ]] ||
+      failures+=("panel open назвал панель $(jv "$dir/open.stdout" ok.value.panel || echo ?), а не каноническую $DUP_OLD")
+    [[ "$(jv "$dir/open.stdout" ok.value.workbench || echo ?)" == "$DUP_B" ]] ||
+      failures+=("panel open назвал рабочую область $(jv "$dir/open.stdout" ok.value.workbench || echo ?), а не B")
+    settle_layout "$state" "$dir/settle-moved" "$DUP_B" "$REV" || fatal "$item: $WHY"
+    layout_get "$state" "$dir/moved-a" "$DUP_A" || fatal "$item: query.layout не прочитан"
+    layout_get "$state" "$dir/moved-b" "$DUP_B" || fatal "$item: query.layout не прочитан"
+    [[ -z "$(panels_of "$dir/moved-a.stdout" demo-native)" ]] ||
+      failures+=("в раскладке A осталась панель $(panels_of "$dir/moved-a.stdout" demo-native)")
+    got=" $(panels_of "$dir/moved-b.stdout" demo-native) "
+    [[ "$got" == *" $DUP_OLD "* && "$got" == *" $DUP_NEW "* ]] ||
+      failures+=("в раскладке B панели demo-native «${got}», ожидались каноническая и дубликат")
+    wait_inspect "$state" "$dir/moved.inspect" "layout.panel.$DUP_OLD.field" visible true ||
+      failures+=("поле канонической панели в окне B: $WHY")
+    # Каноническая встала активной вкладкой той же части: фокус на дубликате снова показывает его заглушку.
+    core_cmd "$state" "$dir/focus-new" panel focus "$DUP_NEW" --all || failures+=("panel focus дубликата: $WHY")
+    status_stub "$state" "$dir/moved-stub" "$pid" "$DUP_B" "$DUP_NEW" duplicate "$DUP_STUB" "после переезда канонической"
+    if panel_get "$state" "$dir/moved.old" "$DUP_OLD"; then
+      [[ "$(pv "$dir/moved.old.stdout" status || echo ?)" == ready ]] ||
+        failures+=("query.panel: статус канонической после переезда $(pv "$dir/moved.old.stdout" status || echo ?)")
+      [[ "$(pv "$dir/moved.old.stdout" panel.workbench || echo ?)" == "$DUP_B" ]] ||
+        failures+=("query.panel: каноническая в рабочей области $(pv "$dir/moved.old.stdout" panel.workbench || echo ?), а не в B")
+    else
+      failures+=("query.panel канонической после переезда не прочитан: $(oneline "$dir/moved.old.stderr")")
+    fi
+    got="$(built_of "$dir/moved-stub.stats.stdout" "$DUP_OLD")"
+    [[ "$got" == 1 ]] || failures+=("bodies_built канонической панели после переезда $got, ожидалось 1")
+  else
+    failures+=("panel open demo-native --all --workbench B: $WHY")
+  fi
+  quit_owner "$state" "$dir/owner" "$pid"
+  conclude "$item" "state.db схемы v2 с двумя панелями demo-native: после запуска старшая $DUP_OLD в A — ready с полем в окне, младшая $DUP_NEW в B — duplicate с canonical старшей; в окне B заглушка «${DUP_STUB}» без кнопки по ui.inspect и AX, bodies_built дубликата 0; panel open demo-native --all --workbench B — moved, каноническая в раскладке B, в A её нет, её поле в окне, bodies_built 1; дубликат остался заглушкой"
+}
+
 prepare
 preconditions
 setup_main
@@ -2735,6 +3569,7 @@ item_placeholders_default
 item_plugin_catalog
 item_open_cli
 item_retarget_cli
+item_drill_keys
 # restore-list оставляет основного владельца остановленным: missing-plugin идёт на собственном профиле, а System
 # Events находит окно по имени процесса.
 item_restore_list
@@ -2759,6 +3594,15 @@ item_native_zones
 item_perapp_move
 item_perapp_scope
 item_perapp_return
+# Пункты задачи 12 на основном профиле идут в A с демо-списком open-cli: zones-demo и stub-min-size возвращают его в
+# правую зону, demo-snapshot снимает его там, restore-cold оставляет основного владельца остановленным. Пункты с
+# собственным профилем (status-stubs, legacy-duplicate) идут последними: второго владельца бандла рядом нет.
+item_zones_demo
+item_stub_min_size
+item_demo_snapshot
+item_restore_cold
+item_status_stubs
+item_legacy_duplicate
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
