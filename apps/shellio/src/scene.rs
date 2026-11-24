@@ -370,7 +370,8 @@ pub struct Span {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SplitPlan {
     pub spans: Vec<Span>,
-    /// Ширина полосы захвата разделителя `i` перед элементом `i + 1`, 0 — не перетаскивается.
+    /// Ширина полосы захвата разделителя `i` после элемента `i` перед следующим показанным
+    /// элементом, 0 — не перетаскивается.
     pub grips: Vec<f64>,
 }
 
@@ -390,8 +391,9 @@ pub struct Splits {
 /// Элементы сплита длины `total` по началам показанных кадров. Показанный элемент тянется от
 /// своего начала до начала следующего показанного, первый показанный — от нуля, последний — до
 /// конца: промежуток после плитки лежит в её элементе. Свёрнутый элемент стоит в начале следующего
-/// показанного. Полоса захвата разделителя есть, только если оба соседа показаны и разделитель
-/// перетаскиваемый (`draggable`).
+/// показанного. Полоса захвата разделителя `i` есть, только если элемент `i` показан, после него
+/// есть показанный элемент и разделитель перетаскиваемый (`draggable`): между ними могут лежать
+/// свёрнутые элементы, например пустой столбец центра между левой и правой зонами.
 fn plan(total: f64, starts: &[Option<f64>], draggable: &[bool], gap: f64) -> SplitPlan {
     let first = starts.iter().position(Option::is_some);
     let cut = |index: usize| -> Option<f64> {
@@ -418,7 +420,8 @@ fn plan(total: f64, starts: &[Option<f64>], draggable: &[bool], gap: f64) -> Spl
         .collect();
     let grips = (0..starts.len().saturating_sub(1))
         .map(|divider| {
-            let both = starts[divider].is_some() && starts[divider + 1].is_some();
+            let both =
+                starts[divider].is_some() && starts[divider + 1..].iter().any(Option::is_some);
             if both && draggable.get(divider).copied().unwrap_or(false) {
                 gap
             } else {
@@ -605,8 +608,10 @@ pub enum SplitId {
     Zone(Zone),
 }
 
-/// Конец перетаскивания разделителя `divider` сплита `split` с новым началом следующего элемента
-/// `position` в точках сплита — одна команда `layout.resize` (правило «Разделитель»). Размер зоны —
+/// Конец перетаскивания разделителя `divider` сплита `split` с новым началом следующего показанного
+/// элемента `position` в точках сплита — одна команда `layout.resize` (правило «Разделитель»). Без
+/// столбца центра и нижней зоны разделитель плитки левой зоны граничит с правой зоной и меняет
+/// размер левой: свободную ширину получает правая. Размер зоны —
 /// в точках, доля части — в тысячных. `None` — разделитель не меняет размер: колонку навигатора
 /// команды P1.4 не меняют.
 pub fn resize_command(
@@ -1889,6 +1894,53 @@ mod tests {
         assert_eq!(share(lower_start), 500);
         let expected = ((available / 2.0 - 40.0) * 1000.0 / available).round() as u32;
         assert_eq!(share(lower_start - 40.0), expected);
+    }
+
+    #[test]
+    fn side_zones_without_the_column_share_a_draggable_divider() {
+        let mut fixture = fixture();
+        let left = add_panel(&mut fixture, 12);
+        let terminal = fixture.terminal;
+        let layout = layout_mut(&mut fixture);
+        layout.zones.center.parts.clear();
+        layout
+            .zones
+            .left
+            .parts
+            .push(Part::single(left, SHARE_TOTAL));
+        layout
+            .zones
+            .right
+            .parts
+            .push(Part::single(terminal, SHARE_TOTAL));
+        let now = scene(&fixture);
+        let splits = now.splits();
+        let spans = &splits.root.spans;
+        assert!(spans[2].collapsed, "столбец центра пуст");
+        assert!(!spans[1].collapsed && !spans[3].collapsed);
+        assert_eq!(
+            splits.root.grips,
+            [0.0, 6.0, 0.0],
+            "граница левой и правой зон перетаскивается полосой плитки"
+        );
+        // Свободную ширину получает правая зона, поэтому граница меняет размер левой.
+        let right_start = spans[3].start;
+        assert_eq!(
+            resize_command(&now, SplitId::Root, 1, right_start + 10.0),
+            Some(Command::LayoutResize {
+                workbench: Some(fixture.workbench),
+                zone: Zone::Left,
+                part_of: None,
+                size: 372 + 10,
+            })
+        );
+
+        layout_mut(&mut fixture).hidden.right = true;
+        assert_eq!(scene(&fixture).splits().root.grips, [0.0, 0.0, 0.0]);
+        let layout = layout_mut(&mut fixture);
+        layout.hidden.right = false;
+        layout.hidden.plate = true;
+        assert_eq!(scene(&fixture).splits().root.grips, [0.0, 0.0, 0.0]);
     }
 
     #[test]

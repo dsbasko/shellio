@@ -72,13 +72,24 @@ pub struct SplitSlot {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SplitSpec {
     pub slots: Vec<SplitSlot>,
-    /// Ширина полосы захвата разделителя `i` перед началом элемента `i + 1`; 0 — разделитель не
-    /// перетаскивается.
+    /// Ширина полосы захвата разделителя `i` у конечного края элемента `i`; 0 — разделитель не
+    /// перетаскивается. Полоса двигает границу с ближайшим несвёрнутым элементом после `i`
+    /// (`next_shown`), свёрнутые элементы между ними не участвуют.
     pub grips: Vec<f64>,
 }
 
-/// Конец перетаскивания разделителя пользователем: новое начало элемента `divider + 1` вдоль оси
-/// сплита.
+/// Ближайший несвёрнутый элемент после разделителя `divider`; `None` — его нет.
+fn next_shown(slots: &[SplitSlot], divider: usize) -> Option<usize> {
+    slots
+        .iter()
+        .enumerate()
+        .skip(divider + 1)
+        .find(|(_, slot)| !slot.collapsed)
+        .map(|(index, _)| index)
+}
+
+/// Конец перетаскивания разделителя пользователем: новое начало ближайшего несвёрнутого элемента
+/// после `divider` вдоль оси сплита.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SplitDrag {
     pub divider: usize,
@@ -243,11 +254,16 @@ impl SplitView {
                 if entry.item.isCollapsed() != slot.collapsed {
                     entry.item.setCollapsed(slot.collapsed);
                 }
-                let grip = spec.grips.get(index).copied().unwrap_or(0.0);
+                let next = next_shown(&spec.slots, index);
+                let grip = next.map_or(0.0, |_| spec.grips.get(index).copied().unwrap_or(0.0));
                 entry.pane.view.set_shift(0.0, 0.0);
-                entry
-                    .pane
-                    .set_grip(self.view.view(), index, model.direction, grip);
+                entry.pane.set_grip(
+                    self.view.view(),
+                    index,
+                    next.unwrap_or(index + 1),
+                    model.direction,
+                    grip,
+                );
             }
             drop(entries);
             let split = self.view.view();
@@ -382,17 +398,9 @@ impl ShellioSplitView {
         }
     }
 
-    /// Длина сплита вдоль оси.
-    fn length(&self) -> f64 {
-        let size = self.bounds().size;
-        match self.direction() {
-            SplitDirection::Columns => size.width,
-            SplitDirection::Rows => size.height,
-        }
-    }
-
-    /// Содержимое элементов по обе стороны разделителя `divider` идёт за мышью на `delta` точек.
-    fn shift(&self, divider: usize, delta: f64) {
+    /// Содержимое элемента `divider` и следующего показанного элемента `next` идёт за мышью на
+    /// `delta` точек.
+    fn shift(&self, divider: usize, next: usize, delta: f64) {
         let panes = self.arrangedSubviews();
         let pane = |index: usize| {
             (index < panes.count())
@@ -403,7 +411,7 @@ impl ShellioSplitView {
             if let Some(before) = pane(divider) {
                 before.set_shift(before.ivars().lead.get(), delta);
             }
-            if let Some(after) = pane(divider + 1) {
+            if let Some(after) = pane(next) {
                 after.set_shift(delta, after.ivars().trail.get());
             }
         });
@@ -417,11 +425,7 @@ impl ShellioSplitView {
         }
     }
 
-    /// Начала элементов вдоль оси.
-    fn starts(&self) -> Vec<f64> {
-        self.spans().into_iter().map(|(start, _)| start).collect()
-    }
-
+    /// Начало и длина элементов вдоль оси.
     fn spans(&self) -> Vec<(f64, f64)> {
         let columns = self.direction() == SplitDirection::Columns;
         self.arrangedSubviews()
@@ -534,11 +538,13 @@ impl Pane {
     }
 
     /// Полоса захвата разделителя `divider` сплита `split` шириной `width` у конечного края
-    /// содержимого элемента, поверх детей; 0 — полосы нет.
+    /// содержимого элемента, поверх детей; 0 — полосы нет. `next` — следующий показанный элемент,
+    /// с которым полоса двигает границу.
     fn set_grip(
         &self,
         split: &ShellioSplitView,
         divider: usize,
+        next: usize,
         direction: SplitDirection,
         width: f64,
     ) {
@@ -556,6 +562,7 @@ impl Pane {
                 grip
             });
             grip.ivars().width.set(width);
+            grip.ivars().next.set(next);
             grip.setHidden(false);
         }
         self.view.place_grip();
@@ -703,11 +710,12 @@ fn grip_frame(direction: SplitDirection, width: f64, width_of: f64, height_of: f
     }
 }
 
-/// Перетаскивание полосы: точка нажатия вдоль оси, начало следующего элемента и границы сдвига —
-/// до начала предыдущего элемента и до конца следующего.
+/// Перетаскивание полосы: точка нажатия вдоль оси, следующий показанный элемент и его начало,
+/// границы сдвига — до начала элемента полосы и до конца следующего показанного.
 #[derive(Clone, Copy)]
 struct GripDrag {
     at: f64,
+    next: usize,
     start: f64,
     min: f64,
     max: f64,
@@ -723,6 +731,8 @@ struct GripIvars {
     _live: Live,
     split: rc::Weak<ShellioSplitView>,
     divider: usize,
+    /// Следующий показанный элемент по последней установке сплита.
+    next: Cell<usize>,
     direction: SplitDirection,
     width: Cell<f64>,
     drag: Cell<Option<GripDrag>>,
@@ -773,18 +783,17 @@ define_class!(
             let Some(split) = parts.split.load() else {
                 return;
             };
-            let starts = split.starts();
-            let (Some(&previous), Some(&start)) =
-                (starts.get(parts.divider), starts.get(parts.divider + 1))
+            let spans = split.spans();
+            let next = parts.next.get();
+            let (Some(&(previous, _)), Some(&(start, length))) =
+                (spans.get(parts.divider), spans.get(next))
             else {
                 return;
             };
-            let end = starts
-                .get(parts.divider + 2)
-                .copied()
-                .unwrap_or_else(|| split.length());
+            let end = start + length;
             parts.drag.set(Some(GripDrag {
                 at: split.along(event),
+                next,
                 start,
                 min: previous - start,
                 max: end - start,
@@ -797,7 +806,7 @@ define_class!(
         fn mouse_dragged(&self, event: &NSEvent) {
             let parts = self.ivars();
             if let (Some(split), Some(drag)) = (parts.split.load(), parts.drag.get()) {
-                split.shift(parts.divider, drag.delta(split.along(event)));
+                split.shift(parts.divider, drag.next, drag.delta(split.along(event)));
             }
         }
 
@@ -811,7 +820,7 @@ define_class!(
             let delta = drag.delta(split.along(event));
             let end = drag_end(parts.divider, drag.start, delta);
             if end.is_none() {
-                split.shift(parts.divider, 0.0);
+                split.shift(parts.divider, drag.next, 0.0);
             }
             split.ivars().owner.call(|model| {
                 model.dragging.set(false);
@@ -834,6 +843,7 @@ impl SplitGrip {
             _live: GRIP_VIEW.live(),
             split: rc::Weak::new(split),
             divider,
+            next: Cell::new(divider + 1),
             direction,
             width: Cell::new(0.0),
             drag: Cell::new(None),
@@ -922,6 +932,31 @@ mod tests {
             }
         );
         assert_eq!(insets.shifted(SplitDirection::Rows, 0.0, 0.0), insets);
+    }
+
+    #[test]
+    fn grip_moves_the_boundary_with_the_next_shown_slot() {
+        let slot = |collapsed: bool| SplitSlot {
+            start: 0.0,
+            length: 0.0,
+            collapsed,
+        };
+        // Колонка навигатора, плитка левой зоны, пустой столбец центра, правая зона.
+        let slots = [slot(false), slot(false), slot(true), slot(false)];
+        assert_eq!(next_shown(&slots, 0), Some(1));
+        assert_eq!(
+            next_shown(&slots, 1),
+            Some(3),
+            "свёрнутый столбец пропускается"
+        );
+        assert_eq!(next_shown(&slots, 2), Some(3));
+        let slots = [slot(false), slot(false), slot(false), slot(true)];
+        assert_eq!(
+            next_shown(&slots, 2),
+            None,
+            "после столбца ничего не показано"
+        );
+        assert_eq!(next_shown(&slots, 3), None);
     }
 
     #[test]
