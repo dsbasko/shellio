@@ -654,6 +654,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-demo-native"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shellio-appkit",
+ "shellio-layout",
+ "shellio-plugin-api",
+ "shellio-plugin-view",
+ "shellio-theme",
+]
+
+[[package]]
 name = "plugin-navigator"
 version = "0.1.0"
 dependencies = [
@@ -983,6 +996,7 @@ name = "shellio"
 version = "0.1.0"
 dependencies = [
  "plugin-demo-list",
+ "plugin-demo-native",
  "plugin-navigator",
  "plugin-terminal",
  "rustix",

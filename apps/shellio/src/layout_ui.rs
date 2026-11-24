@@ -33,7 +33,7 @@ use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView
 use shellio_core::{Command, PanelId, PluginId, State, layout_metrics};
 use shellio_layout::{Point, Rect, Viewport, Zone, ZoneMap};
 use shellio_plugin_api::Registry;
-use shellio_plugin_view::{Body, Done, PanelRequest, PanelSink, PluginView};
+use shellio_plugin_view::{Body, Done, PanelRequest, PluginView};
 use shellio_theme::{AppTheme, KeyMode, Motion};
 
 use crate::window_ui;
@@ -316,6 +316,13 @@ impl LayoutUi {
                 }
             }
         }
+        // Перестановка контейнера вместе с родителем сбрасывает first responder окна: кто держал
+        // ввод, запоминается до неё.
+        let held = self
+            .views
+            .iter()
+            .find(|(_, view)| view.holds_focus())
+            .map(|(&panel, _)| panel);
         self.place(app, &next);
         let gone = self.dragging.get().is_some_and(|panel| {
             next.bench
@@ -355,6 +362,7 @@ impl LayoutUi {
                 registry: &self.registry,
                 bench: next.bench.as_ref(),
                 visible,
+                held,
             },
             &mut hosts,
         );
@@ -938,21 +946,6 @@ fn body_nodes(panel: PanelId, body: &dyn PluginView) -> Vec<ComponentView> {
         .collect()
 }
 
-/// Отправитель запросов тела панели `panel` поколения `generation`. Запрос тела, которого уже
-/// нет, не уходит.
-fn sink(
-    panel: PanelId,
-    generation: u64,
-    requests: SharedRequests,
-    on_request: OnRequest,
-) -> PanelSink {
-    PanelSink::new(move |request, done| {
-        if let Some(ticket) = bodies::begin_request(&requests, panel, generation, done) {
-            on_request(ticket, request);
-        }
-    })
-}
-
 /// Контейнеры панелей и фабрики тел на время одной доставки сцены.
 struct Hosts<'a> {
     app: &'a App,
@@ -969,11 +962,12 @@ impl Shell for Hosts<'_> {
     fn build(&mut self, order: Build<'_>) -> Option<Body> {
         let factory = self.factories?.get(order.plugin)?;
         let view = self.views.get(&order.panel)?;
-        let sink = sink(
+        let on_request = Rc::clone(self.on_request);
+        let sink = bodies::sink(
             order.panel,
             order.generation,
             Rc::clone(&self.requests),
-            Rc::clone(self.on_request),
+            move |ticket, request| on_request(ticket, request),
         );
         let body = Body::build(factory, self.app, self.theme, sink, order.data);
         view.set_body(body.view().body());
@@ -984,6 +978,10 @@ impl Shell for Hosts<'_> {
         if let Some(view) = self.views.get(&panel) {
             view.resign_focus();
         }
+    }
+
+    fn holds_input(&self, panel: PanelId) -> bool {
+        self.views.get(&panel).is_some_and(PanelView::holds_focus)
     }
 
     fn park(&mut self, panel: PanelId) {

@@ -23,7 +23,7 @@ use shellio_core::{
 };
 use shellio_layout::{Geometry, Layout};
 use shellio_plugin_api::{Presentation, Refusal, Registry};
-use shellio_plugin_view::{Body, Done, PanelRequest, PluginView};
+use shellio_plugin_view::{Body, Done, PanelRequest, PanelSink, PluginView};
 
 use crate::scene::Bench;
 
@@ -159,6 +159,21 @@ pub fn settle_request<D>(requests: &RefCell<Requests<D>>, ticket: Ticket) -> Opt
     }
 }
 
+/// Отправитель запросов тела панели `panel` поколения `generation`: запрос получает номер и уходит
+/// в `on_request`, исход ждёт в `requests`. Запрос тела, которого уже нет, не уходит.
+pub fn sink(
+    panel: PanelId,
+    generation: u64,
+    requests: SharedRequests,
+    on_request: impl Fn(Ticket, PanelRequest) + 'static,
+) -> PanelSink {
+    PanelSink::new(move |request, done| {
+        if let Some(ticket) = begin_request(&requests, panel, generation, done) {
+            on_request(ticket, request);
+        }
+    })
+}
+
 /// Почему запрос тела не выполнен.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Failure {
@@ -223,6 +238,8 @@ pub trait Shell {
     fn build(&mut self, order: Build<'_>) -> Option<Body>;
     /// Контейнер отдаёт ввод окну, если держит его.
     fn resign(&mut self, panel: PanelId);
+    /// Ввод внутри контейнера панели: first responder окна — вид его тела.
+    fn holds_input(&self, panel: PanelId) -> bool;
     /// Контейнер уходит скрытым в корень окна: его рабочая область больше не показана.
     fn park(&mut self, panel: PanelId);
     /// Контейнер освобождается: панели больше нет ни в одной раскладке.
@@ -238,6 +255,8 @@ pub struct Frame<'a> {
     pub bench: Option<&'a Bench>,
     /// Окно видимо.
     pub visible: bool,
+    /// Панель, контейнер которой держал ввод до перестановки контейнеров по этой сцене.
+    pub held: Option<PanelId>,
 }
 
 struct Live {
@@ -455,7 +474,14 @@ impl Bodies {
                 input = Some(panel);
             }
         }
+        // Перестановка контейнера вместе с его родителем сбрасывает first responder окна, хотя
+        // фокус панели прежний: панель, которая держала ввод и должна держать его дальше, получает
+        // его обратно. Ввод, который до перестановки был вне тел панелей, не отбирается.
+        let lost = frame.held.filter(|&panel| {
+            self.live(panel).is_some_and(|live| live.input) && !shell.holds_input(panel)
+        });
         if let Some(live) = input
+            .or(lost)
             .and_then(|panel| self.panels.get(&panel))
             .and_then(|hosted| hosted.live.as_ref())
         {
@@ -581,6 +607,8 @@ mod tests {
         /// Плагины без фабрики.
         missing: Vec<&'static str>,
         generations: Vec<(PanelId, u64)>,
+        /// Панель, контейнер которой держит ввод после перестановки.
+        holding: Option<PanelId>,
     }
 
     impl Shell for FakeShell {
@@ -601,6 +629,9 @@ mod tests {
         fn resign(&mut self, panel: PanelId) {
             self.log.borrow_mut().push(format!("{} resign", tag(panel)));
         }
+        fn holds_input(&self, panel: PanelId) -> bool {
+            self.holding == Some(panel)
+        }
         fn park(&mut self, panel: PanelId) {
             self.log.borrow_mut().push(format!("{} park", tag(panel)));
         }
@@ -618,6 +649,8 @@ mod tests {
         shell: FakeShell,
         visible: bool,
         viewport: Viewport,
+        /// Панель, контейнер которой держал ввод до доставки.
+        held: Option<PanelId>,
     }
 
     const LIST: u8 = 0x20;
@@ -631,6 +664,7 @@ mod tests {
                 shell: FakeShell::default(),
                 visible: true,
                 viewport: SMALL,
+                held: None,
             }
         }
 
@@ -685,6 +719,7 @@ mod tests {
                     registry: &self.registry,
                     bench: scene.bench.as_ref(),
                     visible: self.visible,
+                    held: self.held,
                 },
                 &mut self.shell,
             );
@@ -1099,6 +1134,106 @@ mod tests {
                 .find(|(known, _)| *known == panel),
             Some((panel, 1))
         );
+    }
+
+    /// Переезд панели из рабочей области `from` в центр `to`, как его пишет `panel.open` у
+    /// `PerApp`: обе раскладки и запись панели меняются одним снимком.
+    fn rehome(host: &mut Host, panel: PanelId, from: WorkbenchId, to: WorkbenchId) {
+        let layouts = &mut host.fixture.state.layouts;
+        let left = layouts[&from].close(panel).unwrap();
+        let arrived = layouts[&to].open(panel, Some(Zone::Center)).unwrap();
+        layouts.insert(from, left);
+        layouts.insert(to, arrived);
+        host.fixture.state.panels.get_mut(&panel).unwrap().workbench = to;
+    }
+
+    fn built_of(host: &Host, panel: PanelId) -> Option<u64> {
+        host.bodies
+            .built()
+            .into_iter()
+            .find(|(known, _)| *known == panel)
+            .map(|(_, built)| built)
+    }
+
+    #[test]
+    fn parked_panel_moved_into_the_shown_workbench_arrives_with_its_body() {
+        let mut host = Host::new();
+        let panel = host.add(0x21, "demo-native", Some(json!({"value": "a", "edits": 1})));
+        host.layout(|layout| layout.open(panel, Some(Zone::Center)).unwrap());
+        let first = host.fixture.workbench;
+        let second = host.second_workbench();
+        assert_eq!(
+            host.of(panel),
+            [
+                r#"build {"edits":1,"value":"a"}"#,
+                "adapt Center Regular center",
+                "active true",
+                "focused true",
+                "focus_preferred"
+            ]
+        );
+
+        // Окно ушло во вторую рабочую область: контейнер поля припаркован в первой.
+        host.show(second);
+        assert_eq!(
+            host.of(panel),
+            ["park", "active false", "focused false", "resign"]
+        );
+        assert!(host.bodies.parked(panel));
+
+        // Панель позвали в показанную рабочую область: контейнер встаёт в неё с тем же телом.
+        rehome(&mut host, panel, first, second);
+        assert_eq!(
+            host.of(panel),
+            ["active true", "focused true", "focus_preferred"],
+            "тело прежнее: ни построения, ни закрытия"
+        );
+        assert!(!host.bodies.parked(panel));
+        assert_eq!(built_of(&host, panel), Some(1));
+
+        // Обратно в первую, пока окно во второй: снова парковка, тело живо и получает данные.
+        rehome(&mut host, panel, second, first);
+        assert_eq!(
+            host.of(panel),
+            ["park", "active false", "focused false", "resign"]
+        );
+        host.set_data(panel, &json!({"value": "b", "edits": 2}));
+        assert_eq!(host.of(panel), [r#"update {"edits":2,"value":"b"}"#]);
+        assert_eq!(built_of(&host, panel), Some(1));
+    }
+
+    #[test]
+    fn panel_that_lost_the_input_while_its_container_moved_gets_it_back() {
+        let mut host = Host::new();
+        let panel = host.open_list(list("a", false));
+        host.sync();
+
+        // Перенос в левую плитку перестраивает корневой сплит: окно сбросило first responder.
+        host.held = Some(panel);
+        host.layout(|layout| layout.move_to_zone(panel, Zone::Left, false).unwrap());
+        assert_eq!(
+            host.of(panel),
+            ["adapt Left Narrow drill", "focus_preferred"],
+            "фокус панели прежний, ввод возвращён в тело"
+        );
+
+        // Контейнер ввод удержал: тело не трогается.
+        host.shell.holding = Some(panel);
+        host.layout(|layout| layout.move_to_zone(panel, Zone::Right, false).unwrap());
+        assert_eq!(host.of(panel), ["adapt Right Narrow drill"]);
+
+        // Ввод до перестановки был вне тел панелей: тело его не отбирает.
+        host.held = None;
+        host.shell.holding = None;
+        host.layout(|layout| layout.move_to_zone(panel, Zone::Left, false).unwrap());
+        assert_eq!(host.of(panel), ["adapt Left Narrow drill"]);
+
+        // Панель держала ввод, но фокус ушёл другой панели: ввод ей не возвращается.
+        host.held = Some(panel);
+        let terminal = host.fixture.terminal;
+        host.layout(|layout| layout.focus_panel(terminal).unwrap());
+        let calls = host.of(panel);
+        assert_eq!(calls, ["focused false", "resign"]);
     }
 
     #[test]

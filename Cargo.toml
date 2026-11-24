@@ -15,6 +15,7 @@ members = [
     "crates/shellio-theme",
     "crates/shellio-store",
     "plugins/demo-list",
+    "plugins/demo-native",
     "plugins/navigator",
     "plugins/terminal",
     "spikes/probe-appkit-shell",

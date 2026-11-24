@@ -35,6 +35,10 @@ pub fn registrations() -> Vec<Registration> {
             entry: plugin_demo_list::entry(),
             factory: plugin_demo_list::view::factory(),
         },
+        Registration {
+            entry: plugin_demo_native::entry(),
+            factory: plugin_demo_native::view::factory(),
+        },
     ]
 }
 
@@ -215,7 +219,12 @@ mod tests {
         let registry = registry().unwrap();
         assert_eq!(
             ids(&registry),
-            [TERMINAL_PLUGIN, NAVIGATOR_PLUGIN, "demo-list"]
+            [
+                TERMINAL_PLUGIN,
+                NAVIGATOR_PLUGIN,
+                "demo-list",
+                "demo-native"
+            ]
         );
 
         let factories = factories(&registry).unwrap();
@@ -273,10 +282,16 @@ mod tests {
         let build = |plugins: &[&'static str]| Factories::build(&registry, fakes(plugins));
 
         assert_eq!(
-            build(&["navigator", "demo-list", "terminal"])
+            build(&["navigator", "demo-native", "demo-list", "terminal"])
                 .unwrap()
                 .len(),
-            3
+            4
+        );
+        assert_eq!(
+            build(&["navigator", "terminal", "demo-list"]).unwrap_err(),
+            PluginsError::FactoryMissing {
+                plugin: "demo-native".into()
+            }
         );
         assert_eq!(
             build(&["navigator", "terminal"]).unwrap_err(),

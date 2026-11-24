@@ -72,12 +72,13 @@ ITEMS=(placeholders-default plugin-catalog open-cli retarget-cli drill-keys rest
   demo-snapshot restore-cold voiceover-speech)
 TASK=(9 9 9 9 12 9 9 10 10 10 10 10 10 10 11 11 11 11 11 11 12 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=10
+DONE_TASK=11
 # Плагины реестра в порядке регистрации: id, название, default_zone, кардинальность, min_size.
 CATALOG=(
   "terminal|Терминал|center|multi|200|120"
   "navigator|Навигатор|left|per_workbench|200|120"
   "demo-list|Демо: список|right|per_workbench|260|160"
+  "demo-native|Демо: поле|center|per_app|220|140"
 )
 # Фикстура missing-plugin: рабочая область и панель незарегистрированного плагина, байты её строки panel_states.
 MISSING_BENCH="019a8f2e-0000-7000-8000-00000000c201"
@@ -87,8 +88,13 @@ MISSING_STUB="Плагин «gone-plugin» недоступен"
 # Сообщение рабочей области без панелей с подсказкой меню и пометка занятого singleton в выборе новой части.
 NO_PANELS_TEXT="Нет открытых панелей. Откройте панель: Вид → Открыть панель"
 PICKER_TAKEN="(уже открыт)"
+# «Демо: поле»: название пункта меню, имя поля в AX и подпись отказа на 257 символов.
+NATIVE_TITLE="Демо: поле"
+FIELD_AX="Значение"
+TOO_LONG="Не сохранено: значение длиннее 256 символов: 257"
 # Коды клавиш (kVK_*).
 KEY_ESC=53
+KEY_RETURN=36
 
 REQUIRED=()
 STATUS=()
@@ -165,6 +171,8 @@ wb_a=""
 wb_a2=""
 wb_b=""
 demo=""
+# Панель «Демо: поле»: одна на приложение, её создаёт open-menu-native и закрывает perapp-return.
+native=""
 
 log() {
   printf '%s\n' "$*"
@@ -1409,6 +1417,124 @@ show_bench() {
   front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
 }
 
+# --- «Демо: поле»: ввод, подпись и фокус (задача 11) ---
+
+# Текст через System Events владельцу на переднем плане; журнал — <out>. Только латиница: keystroke набирает по
+# раскладке.
+se_keystroke() {
+  printf '%s keystroke %s (%s символов)\n' "$(now_ms)" "${1:0:40}" "${#1}" >>"$2"
+  osascript -e "tell application \"System Events\" to keystroke \"$1\"" >>"$2" 2>&1
+}
+
+# Поле с вводом очищается командами редактора Control-A (в начало строки) и Control-K (удалить до конца): меню
+# «Правка» с «Выбрать все» у приложения нет.
+field_clear() {
+  printf '%s control-a control-k\n' "$(now_ms)" >>"$1"
+  osascript -e 'tell application "System Events" to keystroke "a" using control down' \
+    -e 'tell application "System Events" to keystroke "k" using control down' >>"$1" 2>&1
+}
+
+# Опрос ui.inspect: текст поля тела панели равен want; ответ — <prefix>.stdout, иначе WHY.
+wait_field() {
+  local state="$1" prefix="$2" panel="$3" want="$4" deadline got="нет"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$state" "$prefix" inspect; then
+      got="$(comp "$prefix.stdout" "layout.panel.$panel.field" state.text_field.value 2>/dev/null || echo нет)"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс текст поля — «${got:0:40}» (${#got} символов), ожидался «${want:0:40}» (${#want} символов)"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос ui.inspect: подпись тела панели равна want; ответ — <prefix>.stdout, иначе WHY.
+wait_caption() {
+  wait_inspect "$1" "$2" "layout.panel.$3.caption.message" label "$4"
+}
+
+# Поля ввода и подписи окна процесса pid по System Events: JSON [{role, description, value}]; последним — элемент
+# с вводом приложения (AXFocusedUIElement) с ролью focus.
+AX_TEXTS_JS='function run(argv) {
+  const se = Application("System Events");
+  const p = se.processes.whose({unixId: Number(argv[0])})[0];
+  function prop(f) { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } }
+  const out = [];
+  function walk(e, depth) {
+    const role = prop(() => e.role());
+    if (role === "AXTextField" || role === "AXStaticText") {
+      out.push({ role: role, description: prop(() => e.description()), value: prop(() => e.value()) });
+    }
+    if (depth >= 12 || role === "AXTabGroup") return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (x) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  let kids = [];
+  try { kids = p.windows[0].uiElements(); } catch (x) {}
+  for (const k of kids) walk(k, 1);
+  const f = prop(() => p.attributes.byName("AXFocusedUIElement").value());
+  out.push({ role: "focus", description: f ? prop(() => f.role()) + "|" + prop(() => f.description()) : null,
+    value: null });
+  return JSON.stringify(out);
+}'
+
+# Значение элемента роли role с описанием description в чтении AX_TEXTS_JS; код 1 — элемента нет.
+ax_text() {
+  /usr/bin/perl -COEA -Mutf8 -MJSON::PP -e '
+    my ($file, $role, $description) = @ARGV;
+    open my $fh, "<", $file or exit 2;
+    local $/;
+    my $a = eval { JSON::PP->new->utf8->decode(<$fh>) } or exit 2;
+    my ($hit) = grep { ($_->{role} // "") eq $role && ($_->{description} // "") eq $description } @$a;
+    exit 1 unless $hit;
+    print $hit->{value} // "", "\n";
+  ' "$1" "$2" "$3"
+}
+
+# Опрос AX окна pid: поле «Значение» держит текст want и, если подпись задана, в окне есть подпись caption; чтение
+# — в file, иначе WHY.
+wait_ax_field() {
+  local pid="$1" file="$2" want="$3" caption="${4:-}" deadline got="нет" seen=1
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    osascript -l JavaScript -e "$AX_TEXTS_JS" "$pid" >"$file" 2>"$file.stderr" ||
+      fatal "AX окна pid $pid не прочитан: $(oneline "$file.stderr")"
+    got="$(ax_text "$file" AXTextField "$FIELD_AX" 2>/dev/null || echo нет)"
+    seen=1
+    [[ -z "$caption" ]] || ax_text "$file" AXStaticText "$caption" >/dev/null 2>&1 || seen=0
+    [[ "$got" != "$want" || $seen -ne 1 ]] || return 0
+    if (($(now_ms) >= deadline)); then
+      WHY="AX: поле «${FIELD_AX}» — «${got:0:40}» (${#got} символов), ожидалось «${want:0:40}» (${#want} символов)"
+      ((seen)) || WHY="$WHY; подписи «${caption}» в окне нет"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Фокус панели демо-поля рабочей области bench, ввод у её поля, владелец впереди; иначе WHY.
+native_focus() {
+  local dir="$1" bench="$2"
+  core_cmd "$profile" "$dir/focus" panel focus "$native" --all || return 1
+  settle_layout "$profile" "$dir/focus-settle" "$bench" "$REV" || return 1
+  wait_inspect "$profile" "$dir/focus-field" "layout.panel.$native.field" first_responder true || return 1
+  front_ok "$owner_pid" "$dir"
+}
+
+# Ревизия ядра по query.layout рабочей области bench — в NOW_REV; чтение — <prefix>.stdout, иначе ошибка
+# исполнения.
+NOW_REV=""
+revision_of() {
+  layout_get "$profile" "$1" "$2" || fatal "query.layout не прочитан: $(oneline "$1.stderr")"
+  NOW_REV="$(jv "$1.stdout" ok.revision)" || fatal "в query.layout нет ревизии: $(oneline "$1.stdout")"
+}
+
 # --- подготовка, уборка, предусловия ---
 
 prepare() {
@@ -2206,6 +2332,402 @@ item_picker_singleton() {
   conclude "$item" "«Разделить» строки «${strip}» в A при демо-списке в правой зоне: в выборе «Терминал» первым и доступен, «${taken}» недоступен (ui.inspect layout.picker; ${ax}); Escape — частей центра $parts, ревизия $rev и номер квитанции UI $last0 прежние, событий после курсора нет"
 }
 
+# AXPress «Вид → Открыть панель → Демо: поле» в A: квитанция created, панель в центре, ввод у поля; x доходит до
+# поля, Escape возвращает пустой черновик без ревизии.
+item_open_menu_native() {
+  local item=open-menu-native dir="$run/open-menu-native" last0 rev bench name
+  failures=()
+  log "== $item"
+  show_bench "$dir" "$wb_a" "$ws1"
+  for name in a a2 b; do
+    case "$name" in
+      a) bench="$wb_a" ;;
+      a2) bench="$wb_a2" ;;
+      *) bench="$wb_b" ;;
+    esac
+    layout_get "$profile" "$dir/before-$name" "$bench" || fatal "$item: query.layout не прочитан"
+    [[ -z "$(panels_of "$dir/before-$name.stdout" demo-native)" ]] ||
+      fatal "условие пункта: демо-поле уже открыто: $(panels_of "$dir/before-$name.stdout" demo-native)"
+  done
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  press_open_item "$owner_pid" "$NATIVE_TITLE" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_receipts "$profile" "$dir/receipts" "$last0" 1 || {
+    record "$item" fail "меню закрылось без квитанции: $WHY"
+    return 0
+  }
+  native="$(rc "$dir/receipts.stdout" 0 panel)"
+  rev="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?)" == 1 ]] ||
+    failures+=("новых квитанций UI $(jv "$dir/receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo ?), ожидалась одна")
+  [[ "$(rc "$dir/receipts.stdout" 0 plugin)" == demo-native ]] ||
+    failures+=("квитанция плагина $(rc "$dir/receipts.stdout" 0 plugin), а не demo-native")
+  [[ "$(rc "$dir/receipts.stdout" 0 outcome)" == created ]] ||
+    failures+=("исход квитанции $(rc "$dir/receipts.stdout" 0 outcome) (отказ $(rc "$dir/receipts.stdout" 0 error)), ожидался created")
+  [[ "$(rc "$dir/receipts.stdout" 0 workbench)" == "$wb_a" ]] ||
+    failures+=("рабочая область квитанции $(rc "$dir/receipts.stdout" 0 workbench), а не A $wb_a")
+  if [[ ! "$rev" =~ ^[0-9]+$ || "$native" == нет ]]; then
+    native=""
+    record "$item" fail "в квитанции нет панели или ревизии: $(oneline "$dir/receipts.stdout")"
+    return 0
+  fi
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$rev" || fatal "$item: $WHY"
+  wait_inspect "$profile" "$dir/wait-field" "layout.panel.$native.field" first_responder true ||
+    failures+=("ввод не у поля демо: $WHY")
+  read_all "$profile" "$dir" opened "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(panels_of "$dir/opened.layout.stdout" demo-native)" == "$native" ]] ||
+    failures+=("демо-поле в чтениях «$(panels_of "$dir/opened.layout.stdout" demo-native)», в квитанции $native")
+  [[ "$(place_of "$dir/opened.layout.stdout" "$native")" == center.* ]] ||
+    failures+=("панель в «$(place_of "$dir/opened.layout.stdout" "$native")», а не в центре")
+  [[ "$(focus_of "$dir/opened.layout.stdout")" == "$native" ]] ||
+    failures+=("фокус на $(focus_of "$dir/opened.layout.stdout"), а не на демо-поле $native")
+  [[ "$(pfact "$dir/opened.inspect.stdout" "$native" variant || echo нет)" == center ]] ||
+    failures+=("вариант $(pfact "$dir/opened.inspect.stdout" "$native" variant || echo нет), ожидался center")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  se_keystroke x "$dir/keys.log" || failures+=("keystroke не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/typed" "$native" x || failures+=("ввод x: $WHY")
+  wait_ax_field "$owner_pid" "$dir/typed.ax.json" x || failures+=("ввод x: $WHY")
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/escaped" "$native" "" || failures+=("Escape: $WHY")
+  if panel_get "$profile" "$dir/panel" "$native"; then
+    [[ "$(pv "$dir/panel.stdout" data.value || echo ?)" == "" && "$(pv "$dir/panel.stdout" data.edits || echo ?)" == 0 ]] ||
+      failures+=("query.panel: данные $(pv "$dir/panel.stdout" data || echo ?), ожидались пустое значение и 0 правок")
+  else
+    failures+=("query.panel не прочитан: $(oneline "$dir/panel.stdout") $(oneline "$dir/panel.stderr")")
+  fi
+  revision_of "$dir/after" "$wb_a"
+  [[ "$NOW_REV" == "$rev" ]] ||
+    failures+=("ввод и Escape дали ревизию $(jv "$dir/after.stdout" ok.revision || echo ?), после открытия была $rev")
+  conclude "$item" "AXPress «Вид → Открыть панель → ${NATIVE_TITLE}» в A: квитанция ui.receipts $((last0 + 1)) — panel.open demo-native created, панель $native в центре с фокусом, вариант center, first_responder у поля в ui.inspect, кадры совпали с ui.inspect и AX; x дошёл до поля (ui.inspect и AXValue), Escape вернул пустой черновик, ревизия $rev прежняя"
+}
+
+# Правки поля: Return сохраняет одной ревизией, Escape возвращает черновик без ревизии, 257 символов — отказ в
+# подписи при целом черновике, значение по CLI с кириллицей видно в подписи, повтор — без ревизии.
+item_native_edit() {
+  local item=native-edit dir="$run/native-edit" rev0 rev1 long saved cyr
+  failures=()
+  log "== $item"
+  [[ -n "$native" ]] || {
+    record "$item" fail "панели демо-поля нет: open-menu-native её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  native_focus "$dir" "$wb_a" || fatal "условие пункта: $WHY"
+  wait_ax_field "$owner_pid" "$dir/empty.ax.json" "" || fatal "условие пункта: черновик не пуст: $WHY"
+  revision_of "$dir/start" "$wb_a"
+  rev0="$NOW_REV"
+
+  saved="Сохранено: shellio-check · правок 1"
+  se_keystroke shellio-check "$dir/keys.log" || failures+=("keystroke не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/typed" "$native" shellio-check || failures+=("ввод: $WHY")
+  se_key "$KEY_RETURN" "$dir/keys.log" || failures+=("Return не отправлен: $(oneline "$dir/keys.log")")
+  wait_caption "$profile" "$dir/saved" "$native" "$saved" || failures+=("Return: $WHY")
+  if panel_get "$profile" "$dir/panel-saved" "$native"; then
+    [[ "$(pv "$dir/panel-saved.stdout" data.value || echo ?)" == shellio-check &&
+      "$(pv "$dir/panel-saved.stdout" data.edits || echo ?)" == 1 ]] ||
+      failures+=("после Return данные $(pv "$dir/panel-saved.stdout" data || echo ?), ожидались shellio-check и 1 правка")
+  else
+    failures+=("query.panel после Return не прочитан: $(oneline "$dir/panel-saved.stderr")")
+  fi
+  revision_of "$dir/after-save" "$wb_a"
+  rev1="$NOW_REV"
+  [[ "$rev1" == $((rev0 + 1)) ]] || failures+=("Return дал ревизию $rev1 после $rev0, ожидалась одна ревизия")
+
+  se_keystroke zz "$dir/keys.log" || failures+=("keystroke не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/edited" "$native" shellio-checkzz || failures+=("правка без Return: $WHY")
+  se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/escaped" "$native" shellio-check || failures+=("Escape: $WHY")
+  revision_of "$dir/after-escape" "$wb_a"
+  [[ "$NOW_REV" == "$rev1" ]] ||
+    failures+=("правка и Escape дали ревизию $(jv "$dir/after-escape.stdout" ok.revision || echo ?), до них $rev1")
+
+  long="$(printf 'abcdefghij%.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)abcdefg"
+  [[ ${#long} -eq 257 ]] || fatal "$item: строка проверки не из 257 символов: ${#long}"
+  field_clear "$dir/keys.log" || failures+=("очистка поля не отправлена: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/cleared" "$native" "" || failures+=("очистка поля: $WHY")
+  se_keystroke "$long" "$dir/keys.log" || failures+=("keystroke не отправлен: $(oneline "$dir/keys.log")")
+  wait_field "$profile" "$dir/long" "$native" "$long" || failures+=("ввод 257 символов: $WHY")
+  se_key "$KEY_RETURN" "$dir/keys.log" || failures+=("Return не отправлен: $(oneline "$dir/keys.log")")
+  wait_caption "$profile" "$dir/refused" "$native" "$TOO_LONG" || failures+=("Return с 257 символами: $WHY")
+  wait_field "$profile" "$dir/refused-field" "$native" "$long" || failures+=("черновик после отказа: $WHY")
+  wait_ax_field "$owner_pid" "$dir/refused.ax.json" "$long" "$TOO_LONG" || failures+=("после отказа: $WHY")
+  if panel_get "$profile" "$dir/panel-refused" "$native"; then
+    [[ "$(pv "$dir/panel-refused.stdout" data.value || echo ?)" == shellio-check &&
+      "$(pv "$dir/panel-refused.stdout" data.edits || echo ?)" == 1 ]] ||
+      failures+=("после отказа данные $(pv "$dir/panel-refused.stdout" data || echo ?), ожидались прежние")
+  else
+    failures+=("query.panel после отказа не прочитан: $(oneline "$dir/panel-refused.stderr")")
+  fi
+  revision_of "$dir/after-refusal" "$wb_a"
+  [[ "$NOW_REV" == "$rev1" ]] ||
+    failures+=("отказ дал ревизию $(jv "$dir/after-refusal.stdout" ok.revision || echo ?), до него $rev1")
+
+  cyr="Сохранено: проверка · правок 2"
+  if core_cmd "$profile" "$dir/set" panel command "$native" demo-native.set --args '{"value":"проверка"}' --all; then
+    [[ "$REV" == $((rev1 + 1)) ]] || failures+=("demo-native.set по CLI дал ревизию $REV после $rev1")
+    wait_caption "$profile" "$dir/cyr" "$native" "$cyr" || failures+=("значение по CLI: $WHY")
+    wait_ax_field "$owner_pid" "$dir/cyr.ax.json" "$long" "$cyr" || failures+=("значение по CLI: $WHY")
+    if core_cmd "$profile" "$dir/set-again" panel command "$native" demo-native.set --args '{"value":"проверка"}' --all; then
+      [[ "$REV" == $((rev1 + 1)) ]] || failures+=("повтор того же значения дал ревизию $REV, до него $((rev1 + 1))")
+    else
+      failures+=("повтор demo-native.set: $WHY")
+    fi
+  else
+    failures+=("demo-native.set по CLI: $WHY")
+  fi
+  # Черновик из 257 символов следующим пунктам не нужен: Escape возвращает поле к сохранённому.
+  se_key "$KEY_ESC" "$dir/keys.log" || true
+  wait_field "$profile" "$dir/reset" "$native" "проверка" || failures+=("Escape после отказа: $WHY")
+  conclude "$item" "черновик пуст по AX; shellio-check и Return — data.value shellio-check, edits 1, одна ревизия $rev1; правка без Return и Escape — поле вернулось к сохранённому без ревизии; 257 символов и Return — подпись «${TOO_LONG}», черновик из 257 символов в поле (ui.inspect и AX), данные и ревизия прежние; demo-native.set по CLI с кириллицей — подпись «${cyr}», повтор — ревизия прежняя"
+}
+
+# Поле по очереди в правой, нижней зоне и левой плитке: вариант по зоне, поле и подпись по AX, правка проходит в
+# каждой зоне, тело одно.
+item_native_zones() {
+  local item=native-zones dir="$run/native-zones" zone want edits caption component got seen=""
+  failures=()
+  log "== $item"
+  [[ -n "$native" ]] || {
+    record "$item" fail "панели демо-поля нет: open-menu-native её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  ui_read "$profile" "$dir/before.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  component="$(pfact "$dir/before.inspect.stdout" "$native" component || echo нет)"
+  panel_get "$profile" "$dir/panel-before" "$native" || fatal "$item: query.panel не прочитан"
+  edits="$(pv "$dir/panel-before.stdout" data.edits || echo ?)"
+  [[ "$edits" =~ ^[0-9]+$ ]] || fatal "условие пункта: у демо-поля нет счётчика правок: $(oneline "$dir/panel-before.stdout")"
+  for zone in right bottom left; do
+    want=stack
+    [[ "$zone" != bottom ]] || want=row
+    core_cmd "$profile" "$dir/move-$zone" panel move "$native" --zone "$zone" --all || {
+      failures+=("перенос в зону $zone: $WHY")
+      continue
+    }
+    settle_layout "$profile" "$dir/settle-$zone" "$wb_a" "$REV" || fatal "$item: $WHY"
+    wait_inspect "$profile" "$dir/variant-$zone" "layout.panel.$native" state.panel.variant "$want" ||
+      failures+=("зона $zone: $WHY")
+    wait_inspect "$profile" "$dir/field-$zone" "layout.panel.$native.field" first_responder true ||
+      failures+=("зона $zone: ввод не у поля после переноса: $WHY")
+    read_all "$profile" "$dir" "$zone" "$wb_a" "$owner_pid" || fatal "условие пункта: $WHY"
+    [[ "$(place_of "$dir/$zone.layout.stdout" "$native")" == "$zone".* ]] ||
+      failures+=("после переноса панель в «$(place_of "$dir/$zone.layout.stdout" "$native")», а не в зоне $zone")
+    [[ -z "$FRAMES" ]] || failures+=("кадры в зоне $zone: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+    front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+    field_clear "$dir/keys.log" || failures+=("зона $zone: очистка поля не отправлена")
+    wait_field "$profile" "$dir/cleared-$zone" "$native" "" || failures+=("зона $zone: очистка поля: $WHY")
+    se_keystroke "z-$zone" "$dir/keys.log" || failures+=("зона $zone: keystroke не отправлен")
+    wait_field "$profile" "$dir/typed-$zone" "$native" "z-$zone" || failures+=("зона $zone: ввод: $WHY")
+    se_key "$KEY_RETURN" "$dir/keys.log" || failures+=("зона $zone: Return не отправлен")
+    edits=$((edits + 1))
+    caption="Сохранено: z-$zone · правок $edits"
+    wait_caption "$profile" "$dir/saved-$zone" "$native" "$caption" || failures+=("зона $zone: правка: $WHY")
+    wait_ax_field "$owner_pid" "$dir/$zone.ax.json" "z-$zone" "$caption" || failures+=("зона $zone: $WHY")
+    if panel_get "$profile" "$dir/panel-$zone" "$native"; then
+      [[ "$(pv "$dir/panel-$zone.stdout" data.value || echo ?)" == "z-$zone" ]] ||
+        failures+=("зона $zone: data.value $(pv "$dir/panel-$zone.stdout" data.value || echo ?), ожидалось z-$zone")
+    else
+      failures+=("зона $zone: query.panel не прочитан: $(oneline "$dir/panel-$zone.stderr")")
+    fi
+    seen="${seen:+$seen, }$zone — $want"
+  done
+  ui_read "$profile" "$dir/after.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  ui_read "$profile" "$dir/after.stats" stats || fatal "$item: ui.stats не прочитан"
+  got="$(pfact "$dir/after.inspect.stdout" "$native" component || echo нет)"
+  [[ "$component" != нет && "$got" == "$component" ]] ||
+    failures+=("ComponentId контейнера $got, до переносов $component")
+  [[ "$(built_of "$dir/after.stats.stdout" "$native")" == 1 ]] ||
+    failures+=("bodies_built демо-поля $(built_of "$dir/after.stats.stdout" "$native"), ожидалось 1")
+  # Следующие пункты ждут поле в центре.
+  core_cmd "$profile" "$dir/move-center" panel move "$native" --zone center --all || fatal "$item: возврат в центр: $WHY"
+  settle_layout "$profile" "$dir/settle-center" "$wb_a" "$REV" || fatal "$item: $WHY"
+  conclude "$item" "демо-поле по очереди в зонах: $seen (вариант в ui.inspect), кадры совпали с ui.inspect и AX; после каждого переноса ввод у поля, правка и Return прошли, поле и подпись видны по AX; ComponentId контейнера $component прежний, bodies_built 1"
+}
+
+# panel open demo-native --all --workbench B при поле в A с черновиком: переезд с тем же PanelId, контейнером,
+# полем, данными и черновиком.
+item_perapp_move() {
+  local item=perapp-move dir="$run/perapp-move" component field data got draft=move-draft
+  failures=()
+  log "== $item"
+  [[ -n "$native" ]] || {
+    record "$item" fail "панели демо-поля нет: open-menu-native её не создал"
+    return 0
+  }
+  show_bench "$dir" "$wb_a" "$ws1"
+  layout_get "$profile" "$dir/start" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ -n "$(place_of "$dir/start.stdout" "$native")" ]] || fatal "условие пункта: демо-поля $native нет в A"
+  native_focus "$dir" "$wb_a" || fatal "условие пункта: $WHY"
+  field_clear "$dir/keys.log" || fatal "условие пункта: очистка поля не отправлена"
+  wait_field "$profile" "$dir/cleared" "$native" "" || fatal "условие пункта: $WHY"
+  se_keystroke "$draft" "$dir/keys.log" || fatal "условие пункта: keystroke не отправлен"
+  wait_field "$profile" "$dir/before.inspect" "$native" "$draft" || fatal "условие пункта: черновик: $WHY"
+  component="$(pfact "$dir/before.inspect.stdout" "$native" component || echo нет)"
+  field="$(comp "$dir/before.inspect.stdout" "layout.panel.$native.field" object || echo нет)"
+  panel_get "$profile" "$dir/panel-before" "$native" || fatal "$item: query.panel не прочитан"
+  data="$(data_canon "$dir/panel-before.stdout")"
+
+  core_cmd "$profile" "$dir/open" panel open demo-native --all --workbench "$wb_b" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  [[ "$(jv "$dir/open.stdout" ok.value.outcome || echo ?)" == moved ]] ||
+    failures+=("исход $(jv "$dir/open.stdout" ok.value.outcome || echo ?), ожидался moved")
+  [[ "$(jv "$dir/open.stdout" ok.value.panel || echo ?)" == "$native" ]] ||
+    failures+=("ответ называет панель $(jv "$dir/open.stdout" ok.value.panel || echo ?), а не $native")
+  [[ "$(jv "$dir/open.stdout" ok.value.workbench || echo ?)" == "$wb_b" ]] ||
+    failures+=("ответ называет рабочую область $(jv "$dir/open.stdout" ok.value.workbench || echo ?), а не B $wb_b")
+  layout_get "$profile" "$dir/moved-a" "$wb_a" || fatal "$item: query.layout не прочитан"
+  layout_get "$profile" "$dir/moved-b" "$wb_b" || fatal "$item: query.layout не прочитан"
+  [[ -z "$(panels_of "$dir/moved-a.stdout" demo-native)" ]] ||
+    failures+=("в раскладке A осталась панель $(panels_of "$dir/moved-a.stdout" demo-native)")
+  [[ "$(panels_of "$dir/moved-b.stdout" demo-native)" == "$native" ]] ||
+    failures+=("в раскладке B демо-поле «$(panels_of "$dir/moved-b.stdout" demo-native)», ожидалась $native")
+
+  show_bench "$dir" "$wb_b" "$ws2"
+  wait_inspect "$profile" "$dir/after.inspect" "layout.panel.$native" visible true ||
+    failures+=("демо-поле в окне B: $WHY")
+  ui_read "$profile" "$dir/after.stats" stats || fatal "$item: ui.stats не прочитан"
+  got="$(pfact "$dir/after.inspect.stdout" "$native" component || echo нет)"
+  [[ "$component" != нет && "$got" == "$component" ]] ||
+    failures+=("ComponentId контейнера $got, до переезда $component")
+  got="$(comp "$dir/after.inspect.stdout" "layout.panel.$native.field" object || echo нет)"
+  [[ "$field" != нет && "$got" == "$field" ]] || failures+=("объект вложенного поля $got, до переезда $field")
+  got="$(comp "$dir/after.inspect.stdout" "layout.panel.$native.field" state.text_field.value || echo нет)"
+  [[ "$got" == "$draft" ]] || failures+=("черновик в поле «${got:0:40}», до переезда «${draft}»")
+  [[ "$(built_of "$dir/after.stats.stdout" "$native")" == 1 ]] ||
+    failures+=("bodies_built демо-поля $(built_of "$dir/after.stats.stdout" "$native"), ожидалось 1")
+  if panel_get "$profile" "$dir/panel-after" "$native"; then
+    [[ "$(data_canon "$dir/panel-after.stdout")" == "$data" ]] ||
+      failures+=("данные после переезда $(data_canon "$dir/panel-after.stdout"), до него $data")
+    [[ "$(pv "$dir/panel-after.stdout" panel.workbench || echo ?)" == "$wb_b" ]] ||
+      failures+=("query.panel: рабочая область $(pv "$dir/panel-after.stdout" panel.workbench || echo ?), а не B")
+  else
+    failures+=("query.panel после переезда не прочитан: $(oneline "$dir/panel-after.stderr")")
+  fi
+  conclude "$item" "panel open demo-native --all --workbench B при поле в A с черновиком «${draft}»: moved, тот же PanelId $native, данные $data прежние, в раскладке A панели нет, в B есть; после workbench open B ComponentId контейнера $component и объект вложенного поля $field прежние, bodies_built 1, черновик в поле сохранён"
+}
+
+# Внешний вызов panel.open плагина PerApp с областью воркспейса: отказ scope_requires_all без изменений.
+item_perapp_scope() {
+  local item=perapp-scope dir="$run/perapp-scope" rev code reason
+  failures=()
+  log "== $item"
+  revision_of "$dir/before" "$wb_b"
+  rev="$NOW_REV"
+  code=0
+  ctl "$profile" "$dir/open" --json --timeout "$CTL_TIMEOUT_MS" panel open demo-native --workspace "$ws1" \
+    --workbench "$wb_a" || code=$?
+  reason="$(jv "$dir/open.stdout" core_error.details.reason 2>/dev/null || echo нет)"
+  [[ $code -ne 0 && "$reason" == scope_requires_all ]] ||
+    failures+=("panel open demo-native --workspace W1: код $code, причина $reason, ожидался отказ scope_requires_all: $(oneline "$dir/open.stdout" | cut -c 1-200)")
+  revision_of "$dir/after" "$wb_b"
+  [[ "$NOW_REV" == "$rev" ]] ||
+    failures+=("ревизия после отказа $(jv "$dir/after.stdout" ok.revision || echo ?), до него $rev")
+  if events_after "$profile" "$dir/events" "$rev"; then
+    [[ "$EVENTS" == "0|0|" ]] || failures+=("события после курсора $rev: «${EVENTS}», ожидалось ни одного")
+  else
+    failures+=("$WHY")
+  fi
+  conclude "$item" "panel open demo-native --workspace W1 --workbench A: отказ scope_requires_all, ревизия $rev прежняя, событий после курсора нет"
+}
+
+# Меню «Демо: поле» в B при фокусе на демо-списке правой зоны и терминале в центре: поле переезжает из A, его
+# закрытие возвращает фокус демо-списку, а не терминалу центра.
+item_perapp_return() {
+  local item=perapp-return dir="$run/perapp-return" demo_b term_b last0 rev focus ax
+  failures=()
+  log "== $item"
+  [[ -n "$native" ]] || {
+    record "$item" fail "панели демо-поля нет: open-menu-native её не создал"
+    return 0
+  }
+  core_cmd "$profile" "$dir/home" panel open demo-native --all --workbench "$wb_a" || fatal "условие пункта: $WHY"
+  layout_get "$profile" "$dir/home-a" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ "$(panels_of "$dir/home-a.stdout" demo-native)" == "$native" ]] ||
+    fatal "условие пункта: демо-поле не в A: «$(panels_of "$dir/home-a.stdout" demo-native)»"
+  show_bench "$dir" "$wb_b" "$ws2"
+  layout_get "$profile" "$dir/start" "$wb_b" || fatal "$item: query.layout не прочитан"
+  demo_b="$(panels_of "$dir/start.stdout" demo-list)"
+  [[ -n "$demo_b" && "$demo_b" != *" "* ]] ||
+    fatal "условие пункта: в B не один демо-список open-race: «${demo_b}»"
+  if [[ "$(place_of "$dir/start.stdout" "$demo_b")" != right.* ]]; then
+    core_cmd "$profile" "$dir/demo-right" panel move "$demo_b" --zone right --all || fatal "условие пункта: $WHY"
+  fi
+  core_cmd "$profile" "$dir/focus" panel focus "$demo_b" --all || fatal "условие пункта: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_b" "$REV" || fatal "$item: $WHY"
+  layout_get "$profile" "$dir/before" "$wb_b" || fatal "$item: query.layout не прочитан"
+  term_b="$(tabs_of "$dir/before.stdout" center 0)"
+  term_b="${term_b##* }"
+  [[ "$term_b" != "?" && " $(panels_of "$dir/before.stdout" terminal) " == *" $term_b "* ]] ||
+    fatal "условие пункта: центр B не занят терминалом: вкладки «$(tabs_of "$dir/before.stdout" center 0)»"
+  [[ "$(focus_of "$dir/before.stdout")" == "$demo_b" && "$(place_of "$dir/before.stdout" "$demo_b")" == right.* ]] ||
+    fatal "условие пункта: фокус на $(focus_of "$dir/before.stdout"), демо-список $demo_b в «$(place_of "$dir/before.stdout" "$demo_b")»"
+  front_ok "$owner_pid" "$dir" || fatal "условие пункта: $WHY"
+  receipts_last "$profile" "$dir/receipts-before" || fatal "$item: $WHY"
+  last0="$LAST"
+  press_open_item "$owner_pid" "$NATIVE_TITLE" "$dir/press" || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  wait_receipts "$profile" "$dir/receipts" "$last0" 1 || {
+    record "$item" fail "меню закрылось без квитанции: $WHY"
+    return 0
+  }
+  rev="$(rc "$dir/receipts.stdout" 0 revision)"
+  [[ "$(rc "$dir/receipts.stdout" 0 outcome)" == moved ]] ||
+    failures+=("исход квитанции $(rc "$dir/receipts.stdout" 0 outcome) (отказ $(rc "$dir/receipts.stdout" 0 error)), ожидался moved")
+  [[ "$(rc "$dir/receipts.stdout" 0 panel)" == "$native" ]] ||
+    failures+=("квитанция называет панель $(rc "$dir/receipts.stdout" 0 panel), а не $native")
+  [[ "$(rc "$dir/receipts.stdout" 0 workbench)" == "$wb_b" ]] ||
+    failures+=("рабочая область квитанции $(rc "$dir/receipts.stdout" 0 workbench), а не B $wb_b")
+  [[ "$rev" =~ ^[0-9]+$ ]] || {
+    record "$item" fail "в квитанции нет ревизии: $(oneline "$dir/receipts.stdout")"
+    return 0
+  }
+  settle_layout "$profile" "$dir/moved-settle" "$wb_b" "$rev" || fatal "$item: $WHY"
+  read_all "$profile" "$dir" moved "$wb_b" "$owner_pid" || fatal "условие пункта: $WHY"
+  [[ "$(place_of "$dir/moved.layout.stdout" "$native")" == center.* ]] ||
+    failures+=("поле в «$(place_of "$dir/moved.layout.stdout" "$native")», а не в центре B")
+  [[ "$(focus_of "$dir/moved.layout.stdout")" == "$native" ]] ||
+    failures+=("после переезда фокус на $(focus_of "$dir/moved.layout.stdout"), а не на поле $native")
+  [[ -z "$FRAMES" ]] || failures+=("кадры: $(printf '%s' "$FRAMES" | tr '\n' ';')")
+  if panel_get "$profile" "$dir/panel" "$native"; then
+    [[ "$(pv "$dir/panel.stdout" opened_from || echo ?)" == "$demo_b" ]] ||
+      failures+=("opened_from $(pv "$dir/panel.stdout" opened_from || echo ?), а не демо-список $demo_b")
+  else
+    failures+=("query.panel не прочитан: $(oneline "$dir/panel.stderr")")
+  fi
+
+  core_cmd "$profile" "$dir/close" panel close "$native" --all || {
+    record "$item" fail "$WHY"
+    return 0
+  }
+  settle_layout "$profile" "$dir/closed-settle" "$wb_b" "$REV" || fatal "$item: $WHY"
+  layout_get "$profile" "$dir/closed" "$wb_b" || fatal "$item: query.layout не прочитан"
+  [[ -z "$(panels_of "$dir/closed.stdout" demo-native)" ]] ||
+    failures+=("после закрытия в B осталось демо-поле $(panels_of "$dir/closed.stdout" demo-native)")
+  focus="$(focus_of "$dir/closed.stdout")"
+  [[ "$focus" == "$demo_b" ]] ||
+    failures+=("после закрытия фокус на ${focus:-нет} (терминал центра — $term_b), а не на демо-списке $demo_b")
+  wait_inspect "$profile" "$dir/closed.inspect" "layout.panel.$demo_b.list" first_responder true ||
+    failures+=("ввод не у списка демо: $WHY")
+  osascript -l JavaScript -e "$AX_TEXTS_JS" "$owner_pid" >"$dir/closed.ax.json" 2>"$dir/closed.ax.stderr" ||
+    fatal "AX окна pid $owner_pid не прочитан: $(oneline "$dir/closed.ax.stderr")"
+  ax="$(/usr/bin/perl -COEA -Mutf8 -MJSON::PP -e 'open my $fh, "<", $ARGV[0] or exit 2; local $/;
+    my $a = eval { JSON::PP->new->utf8->decode(<$fh>) } or exit 2;
+    my ($f) = grep { ($_->{role} // "") eq "focus" } @$a; print $f->{description} // "нет", "\n"' \
+    "$dir/closed.ax.json" 2>/dev/null || echo нет)"
+  [[ "$ax" == "AXTable|Демо: список" ]] ||
+    failures+=("AX: ввод у «${ax}», а не у таблицы «Демо: список»")
+  native=""
+  conclude "$item" "меню «${NATIVE_TITLE}» в B при фокусе на демо-списке $demo_b правой зоны: квитанция moved, поле в центре B рядом с терминалом $term_b, opened_from — демо-список; panel close поля вернул фокус демо-списку по query.layout, ui.inspect (first_responder списка) и AX (AXFocusedUIElement — таблица «Демо: список»), а не терминалу центра"
+}
+
 prepare
 preconditions
 setup_main
@@ -2228,6 +2750,15 @@ item_open_race
 item_race_multi
 item_singleton_split
 item_picker_singleton
+# Пункты рубежа 3 делят одну панель «Демо: поле» (PerApp) и идут в порядке матрицы: open-menu-native создаёт её в
+# A, native-edit и native-zones правят её там же, perapp-move увозит в B, perapp-return возвращает из A в B и
+# закрывает.
+item_open_menu_native
+item_native_edit
+item_native_zones
+item_perapp_move
+item_perapp_scope
+item_perapp_return
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
