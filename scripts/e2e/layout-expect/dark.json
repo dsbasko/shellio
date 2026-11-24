@@ -9,14 +9,14 @@
     },
     {
       "id": "part.focus.body",
-      "component": "layout.panel.@FOCUS@",
+      "component": "layout.panel.@FOCUS@.card",
       "rect": { "x": 24, "y": 520, "width": 120, "height": 48 },
       "slot": "panel",
       "layer": "tone_navigation"
     },
     {
       "id": "part.other.body",
-      "component": "layout.panel.@OTHER@",
+      "component": "layout.panel.@OTHER@.card",
       "rect": { "x": 24, "y": 520, "width": 120, "height": 48 },
       "slot": "panel",
       "layer": "veil"

@@ -46,6 +46,65 @@ fn target_code_orders_one_over_three_over_zero() -> Result<()> {
     Ok(())
 }
 
+/// Четыре сценария цели: код четвёртого (`plugins.sh`) входит в итог по тому же порядку, а без
+/// него итог считается по трём запущенным.
+#[test]
+fn target_code_of_four_scenarios_includes_the_fourth() -> Result<()> {
+    assert_eq!(combine(&["0", "0", "0", "0"])?, "0");
+    assert_eq!(combine(&["0", "0", "0", "3"])?, "3");
+    assert_eq!(combine(&["0", "0", "0", "1"])?, "1");
+    assert_eq!(combine(&["0", "0", "3", "1"])?, "1");
+    assert_eq!(combine(&["3", "3", "3", "0"])?, "3");
+    assert_eq!(combine(&["0", "3", "0", "3"])?, "3");
+    // Третий сценарий с кодом 1 четвёртого не запускает: итог — по трём кодам.
+    assert_eq!(codes(&["next", "1"])?.1, "1");
+    assert_eq!(combine(&["0", "3", "1"])?, "1");
+    // После кода 0 или 3 третьего четвёртый запускается.
+    assert_eq!(codes(&["next", "0"])?.1, "0");
+    assert_eq!(codes(&["next", "3"])?.1, "0");
+    Ok(())
+}
+
+/// Рецепт `e2e` запускает четыре сценария в порядке матрицы: каждый следующий — за проверкой
+/// `next` кода предыдущего, итог — `combine` всех четырёх кодов.
+#[test]
+fn makefile_runs_four_scenarios_in_order() -> Result<()> {
+    let makefile =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Makefile"))?;
+    for (name, script) in [
+        ("E2E_SINGLE_INSTANCE", "single-instance.sh"),
+        ("E2E_APPKIT", "appkit.sh"),
+        ("E2E_LAYOUT", "layout.sh"),
+        ("E2E_PLUGINS", "plugins.sh"),
+    ] {
+        let line = format!("{name} := scripts/e2e/{script}\n");
+        assert!(makefile.contains(&line), "нет переменной {name}");
+    }
+    let start = makefile
+        .find("\nlocked-e2e:\n")
+        .ok_or("нет цели locked-e2e")?;
+    let recipe = &makefile[start + 1..];
+    let recipe = &recipe[..recipe.find("\n\n").unwrap_or(recipe.len())];
+    let order = [
+        "$(E2E_SINGLE_INSTANCE) |",
+        "$(E2E_CODES) next $$first",
+        "$(E2E_APPKIT) --single-instance",
+        "$(E2E_CODES) next $$second",
+        "$(E2E_LAYOUT) ||",
+        "$(E2E_CODES) next $$third",
+        "$(E2E_PLUGINS) ||",
+        "$(E2E_CODES) combine $$first $$second $$third $$fourth",
+    ];
+    let mut from = 0;
+    for step in order {
+        let at = recipe[from..]
+            .find(step)
+            .ok_or_else(|| format!("в рецепте e2e нет шага «{step}» после предыдущих"))?;
+        from += at + step.len();
+    }
+    Ok(())
+}
+
 /// Следующий сценарий запускается после кода 0 или 3 предыдущего и не запускается после 1.
 #[test]
 fn next_scenario_runs_after_zero_or_three() -> Result<()> {

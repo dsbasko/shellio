@@ -22,6 +22,7 @@ RUN := scripts/run.sh
 E2E_SINGLE_INSTANCE := scripts/e2e/single-instance.sh
 E2E_APPKIT := scripts/e2e/appkit.sh
 E2E_LAYOUT := scripts/e2e/layout.sh
+E2E_PLUGINS := scripts/e2e/plugins.sh
 E2E_CODES := scripts/e2e/codes.sh
 PROBE_APPKIT := spikes/probe-appkit-shell/run.sh
 PROBE_GHOSTTY := spikes/probe-ghostty-surface/run.sh
@@ -105,12 +106,14 @@ locked-run:
 	$(RUN) -- $(ARGS)
 
 # Продуктовый рубеж вне check и CI: сценарий второго запуска P1.2, затем сценарий окна и компонентов P1.3, затем
-# сценарий раскладки P1.4 в обычном окне. Бандл собирается и проверяется скриптами внутри той же блокировки, shellioctl
-# и оракул сценарии собирают сами. Нужны идентичность Shellio Dev, открытый сеанс GUI, разблокированный экран и
-# запущенный Finder; цель запускается из процесса-потомка приложения терминала, а не из tmux, screen или ssh.
-# appkit.sh и layout.sh нужны ещё Screen Recording и Accessibility у терминала-предка, латинский источник ввода и
-# выключенные оконные менеджеры. Итоги — result.json в target/e2e/single-instance/<время>-<pid>/,
-# target/e2e/appkit/<время>-<pid>/ и target/e2e/layout/<время>-<pid>/; пункт single-instance второго сценария
+# сценарий раскладки P1.4 в обычном окне, затем сценарий хоста плагинов P1.5. Бандл собирается и проверяется
+# скриптами внутри той же блокировки, shellioctl и оракул сценарии собирают сами. Нужны идентичность Shellio Dev,
+# открытый сеанс GUI, разблокированный экран и запущенный Finder; цель запускается из процесса-потомка приложения
+# терминала, а не из tmux, screen или ssh. appkit.sh, layout.sh и plugins.sh нужны ещё Screen Recording и
+# Accessibility у терминала-предка, латинский источник ввода (его на время команды включает
+# scripts/e2e/with-latin-input.sh make e2e) и выключенные оконные менеджеры. Итоги — result.json в
+# target/e2e/single-instance/<время>-<pid>/, target/e2e/appkit/<время>-<pid>/, target/e2e/layout/<время>-<pid>/ и
+# target/e2e/plugins/<время>-<pid>/; пункт single-instance второго сценария
 # судится по result.json первого. Каждый следующий сценарий запускается после кода 0 или 3 предыдущего и не
 # запускается после кода 1. Код цели — наибольший из кодов запущенных сценариев по порядку 1 > 3 > 0: 3 —
 # обязательный пункт не pass, 1 — ошибка исполнения (scripts/e2e/codes.sh).
@@ -122,17 +125,24 @@ locked-e2e:
 	CARGO=$(CARGO) $(E2E_SINGLE_INSTANCE) | (trap '' INT TERM; exec tee "$$log"); first=$${PIPESTATUS[0]}; \
 	result="$$($(E2E_CODES) result "$$log")"; \
 	rm -f "$$log"; \
-	[ "$$($(E2E_CODES) next $$first)" = 0 ] || { echo "make e2e: single-instance.sh — код $$first, appkit.sh и layout.sh не запускаются" >&2; exit 1; }; \
+	[ "$$($(E2E_CODES) next $$first)" = 0 ] || { echo "make e2e: single-instance.sh — код $$first, appkit.sh, layout.sh и plugins.sh не запускаются" >&2; exit 1; }; \
 	second=0; CARGO=$(CARGO) $(E2E_APPKIT) --single-instance "$$result" || second=$$?; \
 	if [ "$$($(E2E_CODES) next $$second)" != 0 ]; then \
-		echo "make e2e: appkit.sh — код $$second, layout.sh не запускается" >&2; \
+		echo "make e2e: appkit.sh — код $$second, layout.sh и plugins.sh не запускаются" >&2; \
 		code="$$($(E2E_CODES) combine $$first $$second)"; \
 		echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, итог $$code"; \
 		exit $$code; \
 	fi; \
 	third=0; CARGO=$(CARGO) $(E2E_LAYOUT) || third=$$?; \
-	code="$$($(E2E_CODES) combine $$first $$second $$third)"; \
-	echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, layout.sh — код $$third, итог $$code"; \
+	if [ "$$($(E2E_CODES) next $$third)" != 0 ]; then \
+		echo "make e2e: layout.sh — код $$third, plugins.sh не запускается" >&2; \
+		code="$$($(E2E_CODES) combine $$first $$second $$third)"; \
+		echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, layout.sh — код $$third, итог $$code"; \
+		exit $$code; \
+	fi; \
+	fourth=0; CARGO=$(CARGO) $(E2E_PLUGINS) || fourth=$$?; \
+	code="$$($(E2E_CODES) combine $$first $$second $$third $$fourth)"; \
+	echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, layout.sh — код $$third, plugins.sh — код $$fourth, итог $$code"; \
 	exit $$code
 
 # Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
