@@ -7,7 +7,8 @@
 //! (инвариант 8): вид строки, выданный повторно после смены ячейки, перерисовывается.
 //!
 //! Выбор принадлежит модели. Щелчок и Up/Down отдают намерение `select`, таблица меняет выбор
-//! только по новому состоянию. Up и Down обрабатывает сам список, прокрутка к выбору идёт через
+//! только по новому состоянию. `Escape` отдаёт намерение `cancel` и дальше по цепочке ответчиков
+//! не идёт. Up и Down обрабатывает сам список, прокрутка к выбору идёт через
 //! clip view (P0.2, находка 4). Заливку выбора рисует свой вид строки токеном `selection`: фон
 //! `NSTableRowView` лёг бы поверх цвета слоя.
 
@@ -377,6 +378,20 @@ impl VirtualList {
             .is_some_and(|window| window.makeFirstResponder(Some(table)))
     }
 
+    /// Таблица — first responder окна.
+    pub fn has_focus(&self) -> bool {
+        self.table.is_key_focus()
+    }
+
+    /// Прячет список или показывает его снова. Скрытый список first responder не отдаёт: ввод
+    /// переводит владелец до скрытия.
+    pub fn set_hidden(&self, hidden: bool) {
+        let view = self.view.view();
+        if view.isHidden() != hidden {
+            layer::without_actions(|| view.setHidden(hidden));
+        }
+    }
+
     /// Прокрутка: строка `index` встаёт к верхнему краю, в пределах прокрутки.
     pub fn scroll_to_row(&self, index: usize) {
         let row = self.table.rowHeight();
@@ -701,6 +716,7 @@ fn list_key(event: &NSEvent) -> Option<ListKey> {
         126 => Some(ListKey::Up),
         125 => Some(ListKey::Down),
         36 | 76 => Some(ListKey::Enter),
+        53 => Some(ListKey::Escape),
         _ => None,
     }
 }

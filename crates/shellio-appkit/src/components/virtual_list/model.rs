@@ -264,6 +264,8 @@ pub enum ListIntent {
     Select { id: String },
     /// Открыть строку: `Enter`.
     Activate { id: String },
+    /// На уровень назад: `Escape`. От строк и выбора не зависит.
+    Cancel,
 }
 
 /// Клавиша, которую список обрабатывает сам при фокусе в нём.
@@ -273,19 +275,24 @@ pub enum ListKey {
     Down,
     /// `Enter`: открыть выбранную строку.
     Enter,
+    /// `Escape`: на уровень назад.
+    Escape,
 }
 
 /// Намерение клавиши: Up и Down выбирают соседнюю строку без перехода через край, без выбора
-/// Down выбирает первую строку, а Up — последнюю. `Enter` открывает выбранную. `None` — клавиша
-/// ничего не делает.
+/// Down выбирает первую строку, а Up — последнюю. `Enter` открывает выбранную. `Escape` просит
+/// уровень назад при любом наборе строк и выборе. `None` — клавиша ничего не делает.
 pub fn key_intent(state: &ListState, key: ListKey) -> Option<ListIntent> {
     let index = state.selected_index();
-    let last = state.rows.len().checked_sub(1)?;
+    let last = state.rows.len().checked_sub(1);
     let target = match (key, index) {
-        (ListKey::Down, Some(index)) => Some(index + 1).filter(|next| *next <= last),
+        (ListKey::Escape, _) => return Some(ListIntent::Cancel),
+        (ListKey::Down, Some(index)) => {
+            Some(index + 1).filter(|next| last.is_some_and(|last| *next <= last))
+        }
         (ListKey::Up, Some(index)) => index.checked_sub(1),
-        (ListKey::Down, None) => Some(0),
-        (ListKey::Up, None) => Some(last),
+        (ListKey::Down, None) => last.map(|_| 0),
+        (ListKey::Up, None) => last,
         (ListKey::Enter, Some(index)) => {
             return Some(ListIntent::Activate {
                 id: state.rows[index].id.clone(),
@@ -707,6 +714,23 @@ mod tests {
         let empty = ListState::default();
         for key in [ListKey::Up, ListKey::Down, ListKey::Enter] {
             assert_eq!(key_intent(&empty, key), None);
+        }
+    }
+
+    #[test]
+    fn escape_cancels_whatever_the_rows_and_the_selection() {
+        let states = [
+            ListState::default(),
+            ListState::new("", rows(&["a", "b"]), None),
+            ListState::new("", rows(&["a", "b"]), Some("a")),
+            ListState::new("", rows(&["a", "b"]), Some("b")),
+        ];
+        for state in states {
+            assert_eq!(
+                key_intent(&state, ListKey::Escape),
+                Some(ListIntent::Cancel),
+                "{state:?}"
+            );
         }
     }
 

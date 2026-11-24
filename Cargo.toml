@@ -14,6 +14,7 @@ members = [
     "crates/shellio-sys-ghostty",
     "crates/shellio-theme",
     "crates/shellio-store",
+    "plugins/demo-list",
     "plugins/navigator",
     "plugins/terminal",
     "spikes/probe-appkit-shell",

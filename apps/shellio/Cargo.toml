@@ -6,6 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+plugin-demo-list = { path = "../../plugins/demo-list" }
 plugin-navigator = { path = "../../plugins/navigator" }
 plugin-terminal = { path = "../../plugins/terminal" }
 serde_json = "1.0"

@@ -641,6 +641,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "plugin-demo-list"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "shellio-appkit",
+ "shellio-layout",
+ "shellio-plugin-api",
+ "shellio-plugin-view",
+ "shellio-theme",
+]
+
+[[package]]
 name = "plugin-navigator"
 version = "0.1.0"
 dependencies = [
@@ -969,6 +982,7 @@ checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 name = "shellio"
 version = "0.1.0"
 dependencies = [
+ "plugin-demo-list",
  "plugin-navigator",
  "plugin-terminal",
  "rustix",

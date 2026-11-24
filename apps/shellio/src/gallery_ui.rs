@@ -182,10 +182,13 @@ impl GalleryUi {
         }
         let on_intent = Rc::clone(&self.on_intent);
         let list = match VirtualList::new(app, &theme, self.list_state(), move |intent| {
-            on_intent(Intent::List(match intent {
+            let action = match intent {
                 ListIntent::Select { id } => ListAction::Select(id),
                 ListIntent::Activate { id } => ListAction::Activate(id),
-            }));
+                // Уровней у списка галереи нет.
+                ListIntent::Cancel => return,
+            };
+            on_intent(Intent::List(action));
         }) {
             Ok(list) => list,
             Err(error) => {
@@ -450,6 +453,7 @@ impl GalleryUi {
                         ListKey::Up => "up",
                         ListKey::Down => "down",
                         ListKey::Enter => "enter",
+                        ListKey::Escape => "escape",
                     }
                     .to_owned(),
                     event: press.event,
