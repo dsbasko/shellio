@@ -694,23 +694,142 @@ pub type Done = Box<dyn FnOnce(Result<(), Refusal>)>;   // на главном �
   - ⚠️ покрытие только одним уровнем, без пункта матрицы: `PerProject` (`routed`) и `PerWorkspace` (`moved`) — среди зарегистрированных плагинов таких кардинальностей нет, проверяют только модульные тесты на тестовом реестре; `migrate_failed` — только `statuses_keep_row_bytes_through_writes_and_restart` и текст заглушки в `scene.rs`, `status-stubs` судит `state_newer` и `state_corrupt`; гонка через сокет — один порядок клиентов и только пара `panel.open`, оба порядка и пара с `layout.split {open}` доказаны на уровне ядра; у `plugins/navigator` и `plugins/terminal` контракт зон проверяет только общий тест реестра
 - [x] `make check` зелёный
   - на коде с исправлением нажатия: код 0, `target/task13/check2.log`
-- [ ] итоговый `scripts/e2e/with-latin-input.sh make e2e` — формальный рубеж и приёмочный проход: все обязательные пункты четырёх сценариев `pass`, необязательные — с исходом и причиной; итог по каждому пункту с путём к сырому артефакту записан в план
+- [x] итоговый `scripts/e2e/with-latin-input.sh make e2e` — формальный рубеж и приёмочный проход: все обязательные пункты четырёх сценариев `pass`, необязательные — с исходом и причиной; итог по каждому пункту с путём к сырому артефакту записан в план
+  - ⚠️ пункт закрыт без формального `pass`: прогон исполнен, но обязательные пункты `appkit.sh`, `layout.sh` и `plugins.sh` формально `not_run` по неподконтрольному предусловию — запущен AeroSpace (pid 39438), выключать его исполнитель не вправе (правило «Окружение исполнителя»). Формально засужен только `single-instance.sh` — все обязательные `pass`. Строка P1.5 дорожной карты остаётся ⬜ с причиной «предусловие: запущен оконный менеджер AeroSpace» и путями `target/task13/e2e2.log`, `target/e2e/appkit/20261124-184519-49453/`; формальный прогон — владельцу (Post-Completion). Итог по каждому пункту — таблицы ниже
+  - условие прогона владельца сверх выключенного AeroSpace: окно на встроенном экране 120 Гц. На экране исполнения (`maximumFramesPerSecond` экрана окна 60) копии показывают, что `key-latency-120` получает `not_run`, а снимки тёмной темы (`snapshot-dark`, `contrast-cells`, `appearance-live`, `layout-snapshot`, `demo-snapshot`) выходят за допуск и без оконного менеджера в предусловии
   - ⚠️ формальный прогон на коде с исправлением (`target/task13/e2e2.log`): `single-instance.sh` — код 0, `appkit.sh` — код 1 «предусловие: запущен оконный менеджер AeroSpace (pid 39438)» (`target/e2e/appkit/20261124-184519-49453/`), `layout.sh` и `plugins.sh` рецепт не запускал, код цели 1. Обязательные пункты трёх сценариев формально не засужены: по правилу «Окружение исполнителя» строка P1.5 остаётся ⬜, формальный прогон уходит владельцу (Post-Completion)
   - копии вне зачёта (без предусловия оконного менеджера, `plugins.sh` также без проверки размера окна) на бандле с исправлением: `layout.sh` — код 3, 19 обязательных пунктов `pass`, не `pass` только `layout-snapshot` тёмной темы (`target/e2e/layout/20261124-183348-2751/`); `plugins.sh` — код 3, 25 обязательных пунктов `pass`, не `pass` только `demo-snapshot` тёмной темы (`target/e2e/plugins/20261124-183638-11652/`), `restore-cold` прошёл со сверкой строк `workbench_layouts` всех трёх рабочих областей
-  - копия `appkit.sh` вне зачёта на коммите до плана `3e6c112` в той же среде (`target/task13/ab/appkit-pre-plan-3e6c112-20261124-184613-51972/`, код 3): `tabstrip-regimes`, `key-latency-60` (p95 18,38 и 20,46 мс), `contrast-cells` (то же расхождение 7 у `surface.plain.background`), `snapshot-dark` и `appearance-live` — `fail` с теми же причинами, что на HEAD (`target/e2e/appkit/20261124-180012-39927/`): это среда, а не регрессия плана. `window-cycle` на коммите до плана — `pass`, на HEAD до исправления — `fail` («key false» в цикле 3); `list-click-label` на коммите до плана — `fail`, на HEAD — `pass`: по одному прогону регрессию от нестабильности при запущенном AeroSpace не отличить
-  - осталось до отметки пункта: (1) копия `appkit.sh` вне зачёта на коде с исправлением, два прогона, чтобы разобрать `window-cycle`: копия делается заменой `here=` и `WINDOW_MANAGERS`, как в `target/task13/fix-run.sh`; (2) CGEvent-нажатие на строку демо-списка при фокусе на другой панели с чтением фокуса; (3) таблица исходов по каждому пункту четырёх сценариев с путями; (4) удаление рабочего дерева `/tmp/shellio-ab` (`git worktree remove`)
+  - копия `appkit.sh` вне зачёта на коммите до плана `3e6c112` в той же среде (`target/task13/ab/appkit-pre-plan-3e6c112-20261124-184613-51972/`, код 3): `tabstrip-regimes`, `key-latency-60` (p95 18,38 и 20,46 мс), `contrast-cells` (то же расхождение 7 у `surface.plain.background`), `snapshot-dark` и `appearance-live` — `fail` с теми же причинами, что на HEAD (`target/e2e/appkit/20261124-180012-39927/`): это среда, а не регрессия плана. `list-click-label` на коммите до плана — `fail`, на HEAD — `pass`
+  - `window-cycle`, часть (а) «окно видимо и key после `open`»: нестабильна на обоих коммитах при запущенном AeroSpace, плану не приписывается; судит её формальный прогон владельца. Полные копии `appkit.sh`: на HEAD 0 `pass` из 3 (`target/e2e/appkit/20261124-180012-39927/` до исправления, `…-185227-74461/` и `…-185606-90731/` с исправлением, «key false» в циклах 3, 2 и 6), на коммите до плана `3e6c112` 1 `pass` из 1. Узкие копии вне зачёта (`target/task13/mk-cycle.py`: только часть (а), три раунда по 10 циклов на одном владельце, исходы — `cycle-rounds.txt` каталога прогона): HEAD с исправлением — 2 `pass` из 6 раундов (`target/e2e/appkit/20261124-190010-9189/` — 0 из 3, `…-190057-15050/` — 2 из 3), коммит до плана — 0 из 6 (`target/task13/ab/cycle-pre-plan-3e6c112-20261124-190036-12259/`, `…-190117-17777/`), отказ везде один: «видимо true, key false». Наблюдения частей (б) и (в) в обеих полных копиях с исправлением дословно совпадают с прогоном коммита до плана, где пункт `pass` (причина пункта в `result.json`)
+  - нажатие мышью в тело панели при фокусе на другой панели — прогон вне зачёта `target/task13/plugins-click.sh` (копия `plugins.sh` с проверкой вне матрицы, `target/e2e/plugins/20261124-190004-7607/body-click/verdict.txt`), CGEvent в середину узла `ui.inspect`, фокус по `query.layout`: строка `c` демо-списка при фокусе на терминале — фокус перешёл на демо-список, `data.key` `c`; карточка терминала при фокусе на демо-списке — фокус на терминале; поле «Демо: поле» при фокусе на терминале — фокус на панели поля, `first_responder` поля `true`. Три случая `pass`
+  - рабочее дерево `/tmp/shellio-ab` удалено: каталога нет, `git worktree list` показывает одно дерево. Копии прогонов коммита до плана лежат в `target/task13/ab/`
 - [x] `make test-scripts` (с OpenSSL 3 в `OPENSSL`) и `make link-audit` без регрессии
   - на коде с исправлением: `make link-audit` — код 0 (`target/task13/link-audit2.log`), `make test-scripts` с `OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl` — код 0 (`target/task13/test-scripts2.log`)
 - [x] ➕ регрессия перетаскивания в `layout.sh` после задачи 8 исправлена и перепроверена прогоном вне зачёта
   - ⚠️ находка задачи 13: `move-drag`, `move-drag-body` и `resize-drag` копии `layout.sh` без предусловия оконного менеджера падают на HEAD `7eb275c` (`target/e2e/layout/20261124-180352-55860/`, тот же отказ — в прогоне задачи 9 `target/e2e/layout/20261124-160410-63055/`) и проходят в той же среде с запущенным AeroSpace на коммите до плана `3e6c112` (`target/task13/ab/pre-plan-a7d9b69-20261124-181120-70850/`, имя каталога называет не тот коммит), на `83b6ad2` до тел плагинов (`target/task13/ab/83b6ad2-20261124-181517-77958/`) и на HEAD с отключённым оповещением о нажатии из `hitTest:` контейнера панели (`target/task13/ab/head-nohit-20261124-182018-84520/`): во всех трёх прогонах `pass` у всех пунктов, кроме `layout-snapshot` тёмной темы. Запись задач 9–12 «перетаскивание CGEvent не дошло» из-за AeroSpace неверна: это дефект продукта из задачи 8 (`crates/shellio-appkit/src/panel_stub.rs`, нажатие сообщается владельцу из `hitTest:` при текущем `LeftMouseDown`, даже когда нажатие достаётся не телу)
   - исправление (`crates/shellio-appkit/src/panel_stub.rs`): контейнер сообщает о нажатии из `hitTest:` только когда адресат события — вид внутри него. Адресат ищется от содержимого окна в точке `LeftMouseDown`, как его ищет само окно (`PanelStubView::receives`), на время этого поиска контейнеры только отвечают (`PROBING`), на одно событие — один поиск (`judged`). Вопрос `hitTest:` в другой точке и нажатие, которое забрал вид поверх тела, нажатием в тело больше не считаются. Путь по цепочке ответчиков (`mouseDown:`) прежний
   - прогон копии `layout.sh` вне зачёта на бандле с исправлением (`target/task13/fix-layout.log`): `move-drag`, `move-drag-body`, `resize-drag` — `pass`
-  - ⚠️ не наблюдалось: щелчок мышью во вложенный компонент тела демо (строка списка, поле) при фокусе на другой панели даёт `panel.focus`. Ни один пункт `plugins.sh` в тело мышью не нажимает, модульного теста у `hitTest:` нет (`NSApplication` тесты не запускают). Проверка — одним CGEvent-нажатием на строку демо-списка с чтением фокуса по `query.layout`
+  - щелчок мышью во вложенный компонент тела демо (строка списка, поле) при фокусе на другой панели даёт `panel.focus`: наблюдалось прогоном вне зачёта, запись — в пункте итогового прогона. ⚠️ постоянной проверки в репозитории нет: ни один пункт `plugins.sh` в тело мышью не нажимает, модульного теста у `hitTest:` нет (`NSApplication` тесты не запускают) — запись в `.backlog/`
   - уход тона тёмной темы `#111415` при ожидании `#101011` — среда: то же значение у `layout-snapshot` на коммите до плана
   - прежние гейты прерванной итерации на HEAD `7eb275c`: `make check` — код 0 (`target/task13/check.log`), `make link-audit` — код 0 (`target/task13/link-audit.log`), `make test-scripts` с OpenSSL 3 — код 0 (`target/task13/test-scripts.log`), формальный `make e2e` — код 1 по предусловию AeroSpace (`target/task13/e2e.log`); копии вне зачёта: `appkit` — код 3 (`target/e2e/appkit/20261124-180012-39927/`), `plugins` — код 3, не `pass` только `demo-snapshot` тёмной темы (`target/e2e/plugins/20261124-180452-59394/`). После исправления гейты повторяются
-  - не разобрано: не-`pass` копии `appkit` — `window-cycle`, `tabstrip-regimes`, `key-latency-60`, `contrast-cells` (расхождение 7 у `surface.plain.background`), снимки тёмной темы; сравнение с коммитом до плана в той же среде не делалось
+  - не-`pass` копии `appkit` (`window-cycle`, `tabstrip-regimes`, `key-latency-60`, `contrast-cells`, снимки тёмной темы) разобраны сравнением с коммитом до плана в той же среде — в пункте итогового прогона
   - решение исполнителя при сверке критериев: `restore-cold` в `scripts/e2e/plugins.sh` сверяет побайтно строки `workbench_layouts` всех рабочих областей, а не только A («раскладки побайтно равны» матрицы); проверено прогоном вне зачёта `target/e2e/plugins/20261124-183638-11652/`
 - ⚠️ в рабочем дереве есть чужие правки вне задачи (`docs/README.md`, `.backlog/`, `docs/phase-*.md`): в коммиты задачи они не входят.
+
+**Итог по пунктам четырёх сценариев (задача 13).** «Формальный» — прогон рецепта `scripts/e2e/with-latin-input.sh make e2e` на коде с исправлением нажатия (`target/task13/e2e2.log`, код цели 1). «Копия» — прогон копии сценария вне зачёта без предусловия оконного менеджера на том же бандле: формальным исходом он не считается. Сырые выводы пункта — каталог `<пункт>/` в каталоге прогона, исходы и причины — его `result.json`.
+
+**`single-instance.sh`**
+формальный прогон — `target/e2e/single-instance/20261124-184505-46800/` (код 0)
+
+| Пункт | Обяз. | Формальный | Причина не-`pass` |
+| --- | --- | --- | --- |
+| `owner` | да | `pass` |  |
+| `forward-open-n` | да | `pass` |  |
+| `forward-direct` | да | `pass` |  |
+| `folder-refused` | да | `pass` |  |
+| `persist` | да | `pass` |  |
+| `kill-recover` | да | `pass` |  |
+| `two-profiles` | да | `pass` |  |
+| `two-owners-front` | да | `pass` |  |
+| `plain-open` | нет | `pass` |  |
+| `gui-quit` | нет | `not_run` | Apple Events адресуют идентификатор бандла, а не PID, и задели бы чужой экземпляр |
+
+**`layout.sh`**
+копия вне зачёта — `target/e2e/layout/20261124-183348-2751/` (код 3)
+
+| Пункт | Обяз. | Копия | Причина не-`pass` |
+| --- | --- | --- | --- |
+| `layout-default` | да | `pass` |  |
+| `layout-snapshot` | да | `fail` | dark: shellio-e2e-oracle: вне допуска — part.focus.body: медиана #111415, ожидалось #101011, расхождение 4 |
+| `move-cli` | да | `pass` |  |
+| `move-menu-zone` | да | `pass` |  |
+| `move-menu-part` | да | `pass` |  |
+| `move-drag` | да | `pass` |  |
+| `move-drag-body` | да | `pass` |  |
+| `center-empty` | да | `pass` |  |
+| `resize-drag` | да | `pass` |  |
+| `split-two-fit` | да | `pass` |  |
+| `split-button-unfocused` | да | `pass` |  |
+| `split-single-picker` | да | `pass` |  |
+| `split-refused` | да | `pass` |  |
+| `stub-expand` | да | `pass` |  |
+| `zoom-restore` | да | `pass` |  |
+| `only-bottom` | да | `pass` |  |
+| `hide-zones` | да | `pass` |  |
+| `tooltips-ax` | да | `pass` |  |
+| `restore-cold` | да | `pass` |  |
+| `restore-legacy` | да | `pass` |  |
+| `voiceover-speech` | нет | `not_run` | речь VoiceOver автоматика не наблюдает, роли и названия проверяет tooltips-ax |
+| `system-contrast` | нет | `not_run` | процесс не переключает Increase Contrast системы, слоты плиток в ячейке IC проверяют модульные тесты темы |
+
+**`plugins.sh`**
+копия вне зачёта — `target/e2e/plugins/20261124-183638-11652/` (код 3)
+
+| Пункт | Обяз. | Копия | Причина не-`pass` |
+| --- | --- | --- | --- |
+| `placeholders-default` | да | `pass` |  |
+| `plugin-catalog` | да | `pass` |  |
+| `open-cli` | да | `pass` |  |
+| `retarget-cli` | да | `pass` |  |
+| `drill-keys` | да | `pass` |  |
+| `restore-list` | да | `pass` |  |
+| `missing-plugin` | да | `pass` |  |
+| `menu-list` | да | `pass` |  |
+| `open-menu` | да | `pass` |  |
+| `empty-workbench-open` | да | `pass` |  |
+| `open-race` | да | `pass` |  |
+| `race-multi` | да | `pass` |  |
+| `singleton-split` | да | `pass` |  |
+| `picker-singleton` | да | `pass` |  |
+| `open-menu-native` | да | `pass` |  |
+| `native-edit` | да | `pass` |  |
+| `native-zones` | да | `pass` |  |
+| `perapp-move` | да | `pass` |  |
+| `perapp-scope` | да | `pass` |  |
+| `perapp-return` | да | `pass` |  |
+| `zones-demo` | да | `pass` |  |
+| `stub-min-size` | да | `pass` |  |
+| `status-stubs` | да | `pass` |  |
+| `legacy-duplicate` | да | `pass` |  |
+| `demo-snapshot` | да | `fail` | dark: shellio-e2e-oracle: вне допуска — tile.fill: медиана #111415, ожидалось #101011, расхождение 4 |
+| `restore-cold` | да | `pass` |  |
+| `voiceover-speech` | нет | `not_run` | речь VoiceOver автоматика не наблюдает, роли и названия проверяют open-cli и menu-list |
+
+**`appkit.sh`**
+формальный прогон — `target/e2e/appkit/20261124-184519-49453/` (код 1); копия 1 — `target/e2e/appkit/20261124-185227-74461/` (код 3); копия 2 — `target/e2e/appkit/20261124-185606-90731/` (код 3)
+
+| Пункт | Обяз. | Формальный | Копия 1 | Копия 2 | Причина не-`pass` |
+| --- | --- | --- | --- | --- | --- |
+| `first-front` | да | `not_run` | `pass` | `pass` |  |
+| `window` | да | `not_run` | `pass` | `pass` |  |
+| `mirror` | да | `not_run` | `pass` | `pass` |  |
+| `close-reopen` | да | `not_run` | `pass` | `pass` |  |
+| `quit` | да | `not_run` | `pass` | `pass` |  |
+| `gui-quit-pid` | нет | `not_run` | `pass` | `pass` |  |
+| `snapshot-light` | да | `not_run` | `pass` | `pass` |  |
+| `snapshot-dark` | да | `not_run` | `fail` | `fail` | dark: участки вне допуска — shellio-e2e-oracle: вне допуска — surface.focus.background: медиана #111415, ожидалось #101011, расхождение 4; tabs.side.… |
+| `contrast-cells` | да | `not_run` | `fail` | `fail` | dark-ic: участки вне допуска — shellio-e2e-oracle: вне допуска — surface.focus.background: медиана #121517, ожидалось #111213, расхождение 4; surface… |
+| `system-appearance` | нет | `not_run` | `not_run` | `not_run` | переключение системного оформления и Increase Contrast меняет глобальные настройки пользователя; путь уведомления покрыт модульным тестом |
+| `material` | да | `not_run` | `pass` | `pass` |  |
+| `text-field` | да | `not_run` | `pass` | `pass` |  |
+| `menu-tracking` | да | `not_run` | `pass` | `pass` |  |
+| `ax` | да | `not_run` | `pass` | `pass` |  |
+| `voiceover` | нет | `not_run` | `not_run` | `not_run` | речь VoiceOver автоматика не слышит; чтение AX — пункт ax |
+| `window-cycle` | да | `not_run` | `fail` | `fail` | (а) цикл 2: окно 120487, видимо true, key false, ожидалось окно 120487 видимо и key; наблюдения: (б) системных живых после цикла 1 — 0, после 10 — 0 … |
+| `idle` | да | `not_run` | `pass` | `pass` |  |
+| `startup-warm` | да | `not_run` | `pass` | `pass` |  |
+| `startup-cold` | нет | `not_run` | `not_run` | `not_run` | нет подтверждённого протокола холодных кэшей: сброс требует sudo purge или перезагрузки |
+| `tabstrip-regimes` | да | `not_run` | `fail` | `fail` | меню «…» полосы half не открылось за 3000 мс после AXPress: |
+| `tab-underline` | да | `not_run` | `pass` | `pass` |  |
+| `reduce-motion` | да | `not_run` | `pass` | `pass` |  |
+| `list-reuse` | да | `not_run` | `pass` | `pass` |  |
+| `list-keys` | да | `not_run` | `pass` | `pass` |  |
+| `list-click-label` | нет | `not_run` | `pass` | `pass` |  |
+| `appearance-live` | да | `not_run` | `fail` | `fail` | участки тёмной ячейки вне допуска — shellio-e2e-oracle: вне допуска — surface.focus.background: медиана #111415, ожидалось #101011, расхождение 4; ta… |
+| `key-latency-120` | да | `not_run` | `not_run` | `not_run` | режим недоступен: maximumFramesPerSecond экрана окна 60, а не 120 |
+| `key-latency-60` | нет | `not_run` | `fail` | `fail` | блоки без тактов больше бюджета 16 мс (правило «Исход провала 16 мс»): b1 — p95 19.72 мс b2 — p95 19.18 мс |
+| `tree` | да | `not_run` | `pass` | `pass` |  |
+| `single-instance` | да | `pass` | `fail` | `fail` | single-instance.sh в этом прогоне не запускался: нет --single-instance <result.json> |
 
 ### Task 14: [Final] Документы
 
