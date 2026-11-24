@@ -2,7 +2,8 @@
 
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use shellio_layout::{Direction, Edge, Hideable, Zone};
 
 use crate::error::{CoreError, Entity};
@@ -124,6 +125,52 @@ pub enum Command {
         target: Hideable,
         visible: bool,
     },
+    /// Открыть панель плагина по правилу его кардинальности (`open-or-focus`). `args` — контекст
+    /// `init` новой панели и `reopen` существующей.
+    #[serde(rename = "panel.open")]
+    PanelOpen {
+        plugin: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        zone: Option<Zone>,
+        #[serde(
+            default,
+            deserialize_with = "present",
+            skip_serializing_if = "Option::is_none"
+        )]
+        args: Option<Value>,
+    },
+    /// Действие плагина над данными панели. `name` — полное имя действия манифеста.
+    #[serde(rename = "panel.command")]
+    PanelCommand {
+        panel: PanelId,
+        name: String,
+        #[serde(
+            default,
+            deserialize_with = "present",
+            skip_serializing_if = "Option::is_none"
+        )]
+        args: Option<Value>,
+    },
+}
+
+/// Поле `args`, если оно есть в запросе. `null` остаётся значением, а не отсутствием: его
+/// отвергает подготовка команды.
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+
+/// `args` команды — объект JSON.
+fn object_args(command: &str, args: Option<Value>) -> Result<Option<Value>, CoreError> {
+    match args {
+        None | Some(Value::Object(_)) => Ok(args),
+        Some(_) => Err(CoreError::invalid_argument(
+            "args",
+            "args_invalid",
+            format!("{command}: args — не объект JSON"),
+        )),
+    }
 }
 
 impl Command {
@@ -148,6 +195,8 @@ impl Command {
             Self::LayoutZoom { .. } => "layout.zoom",
             Self::LayoutOnly { .. } => "layout.only",
             Self::LayoutVisibility { .. } => "layout.visibility",
+            Self::PanelOpen { .. } => "panel.open",
+            Self::PanelCommand { .. } => "panel.command",
         }
     }
 
@@ -171,7 +220,9 @@ impl Command {
             | Self::LayoutEqual { .. }
             | Self::LayoutZoom { .. }
             | Self::LayoutOnly { .. }
-            | Self::LayoutVisibility { .. } => false,
+            | Self::LayoutVisibility { .. }
+            | Self::PanelOpen { .. }
+            | Self::PanelCommand { .. } => false,
         }
     }
 
@@ -202,6 +253,7 @@ impl Command {
             | Self::PanelMove { panel, .. }
             | Self::PanelMovePart { panel, .. }
             | Self::PanelClose { panel }
+            | Self::PanelCommand { panel, .. }
             | Self::LayoutResize {
                 part_of: Some(panel),
                 ..
@@ -230,6 +282,7 @@ impl Command {
                 Some(workbench) => Target::Workbench(*workbench),
                 None => Target::OpenWorkbench,
             },
+            Self::PanelOpen { .. } => Target::Handler,
         }
     }
 
@@ -364,6 +417,22 @@ impl Command {
                 target,
                 visible,
             }),
+            Self::PanelOpen {
+                plugin,
+                workbench,
+                zone,
+                args,
+            } => PreparedCommand::PanelOpen {
+                plugin,
+                workbench,
+                zone,
+                args: object_args("panel.open", args)?,
+            },
+            Self::PanelCommand { panel, name, args } => PreparedCommand::PanelCommand {
+                panel,
+                name,
+                args: object_args("panel.command", args)?,
+            },
         })
     }
 }
@@ -454,6 +523,17 @@ pub(crate) enum PreparedCommand {
         workspace: WorkspaceId,
     },
     Layout(LayoutCommand),
+    PanelOpen {
+        plugin: String,
+        workbench: Option<WorkbenchId>,
+        zone: Option<Zone>,
+        args: Option<Value>,
+    },
+    PanelCommand {
+        panel: PanelId,
+        name: String,
+        args: Option<Value>,
+    },
 }
 
 /// Цель команды для проверки области.
@@ -468,6 +548,8 @@ enum Target {
     Panel(PanelId),
     /// Рабочая область, открытая в окне.
     OpenWorkbench,
+    /// Область проверяет обработчик: у `panel.open` она идёт после проверки plugin id.
+    Handler,
 }
 
 /// Область команды и её цель: проверяются до подготовки и в акторе.
@@ -478,6 +560,11 @@ pub(crate) struct CommandScope {
 }
 
 impl CommandScope {
+    /// Область команды.
+    pub(crate) const fn scope(self) -> TreeScope {
+        self.scope
+    }
+
     /// Часть проверки, которой не нужно состояние. Идёт до подготовки, поэтому прямой
     /// воркспейс `project.add` вне области отвергается без разрешения корня. Прямой воркспейс
     /// вне области отвергается раньше проверки самой области: так отказ одинаков до и после
@@ -496,7 +583,8 @@ impl CommandScope {
             | Target::Project(_)
             | Target::Workbench(_)
             | Target::Panel(_)
-            | Target::OpenWorkbench => Ok(()),
+            | Target::OpenWorkbench
+            | Target::Handler => Ok(()),
         }
     }
 
@@ -504,15 +592,15 @@ impl CommandScope {
     /// `not_found`, как у несуществующей записи.
     pub(crate) fn check(self, state: &State) -> Result<(), CoreError> {
         self.precheck()?;
-        let scope = match self.scope {
-            TreeScope::All => return Ok(()),
-            TreeScope::Workspace(scope) => scope,
+        let scope = match (self.scope, self.target) {
+            (TreeScope::All, _) | (_, Target::Handler) => return Ok(()),
+            (TreeScope::Workspace(scope), _) => scope,
         };
         if state.live_workspace(scope).is_none() {
             return Err(CoreError::not_found(Entity::Workspace, scope));
         }
         match self.target {
-            Target::Global(_) | Target::Workspace(_) => Ok(()),
+            Target::Global(_) | Target::Workspace(_) | Target::Handler => Ok(()),
             Target::Project(project) => {
                 if state
                     .projects
@@ -587,6 +675,20 @@ pub(crate) fn scoped_workbench(
     chosen_workbench(state, workbench)
 }
 
+/// Проверка области чтения по явной панели: как у команды с панелью.
+pub(crate) fn scoped_panel(
+    state: &State,
+    scope: TreeScope,
+    panel: PanelId,
+) -> Result<WorkbenchId, CoreError> {
+    CommandScope {
+        scope,
+        target: Target::Panel(panel),
+    }
+    .check(state)?;
+    panel_workbench(state, panel)
+}
+
 /// Рабочая область живой панели. Панель удалённой рабочей области не найдена.
 pub(crate) fn panel_workbench(state: &State, panel: PanelId) -> Result<WorkbenchId, CoreError> {
     state
@@ -597,10 +699,30 @@ pub(crate) fn panel_workbench(state: &State, panel: PanelId) -> Result<Workbench
         .ok_or_else(|| CoreError::not_found(Entity::Panel, panel))
 }
 
+/// Исход `panel.open`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OpenOutcome {
+    /// Новая панель.
+    Created,
+    /// Канонический экземпляр получил фокус на месте.
+    Focused,
+    /// Канонический экземпляр переехал в целевую рабочую область.
+    Moved,
+    /// Окно перешло к рабочей области владельца экземпляра.
+    Routed,
+}
+
 /// Значение ответа команды: идентификаторы созданных записей.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum CommandValue {
+    /// `panel.open`: панель, рабочая область, где она стоит, и исход.
+    Opened {
+        panel: PanelId,
+        workbench: WorkbenchId,
+        outcome: OpenOutcome,
+    },
     /// `project.add`.
     Project {
         project: ProjectId,
@@ -610,7 +732,7 @@ pub enum CommandValue {
     Workspace { workspace: WorkspaceId },
     /// `workbench.create`.
     Workbench { workbench: WorkbenchId },
-    /// `layout.split` с `open`: новая панель.
+    /// `layout.split` с `open`: новая панель. `panel.command`: панель действия.
     Panel { panel: PanelId },
     /// Команды без значения.
     None,

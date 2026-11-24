@@ -17,6 +17,7 @@ mod loopback;
 mod mirror;
 mod model;
 mod panel;
+mod panel_cmd;
 mod persist;
 mod plugin_host;
 mod query;
@@ -29,7 +30,7 @@ mod wire;
 pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
 pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
-pub use command::{Command, CommandValue, open_workbench};
+pub use command::{Command, CommandValue, OpenOutcome, open_workbench};
 pub use error::{CoreError, Entity, ErrorCode};
 pub use events::{EVENT_BUFFER, EventsSince, Snapshot};
 pub use handle::{Core, CoreHandle, ReplyReceipt, StartError};
@@ -49,7 +50,9 @@ pub use panel::{
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
 pub use plugin_host::{STATUS_RULES, fingerprint, min_size};
-pub use query::{LayoutPanel, LayoutView, Query, StatusView, StorageInfo, read};
+pub use query::{
+    LayoutPanel, LayoutView, PanelView, PluginsView, Query, StatusView, StorageInfo, read,
+};
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};

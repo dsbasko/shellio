@@ -330,6 +330,73 @@ impl CoreError {
         )
     }
 
+    /// Plugin id `plugin` поля `field` верен, но не зарегистрирован.
+    pub fn plugin_unknown(field: &str, plugin: impl fmt::Display) -> Self {
+        Self::refused(
+            field,
+            "plugin_unknown",
+            format!("плагин «{plugin}» не зарегистрирован"),
+            [],
+        )
+    }
+
+    /// Зона назначения `zone` вне `placements` плагина. `allowed` — допустимые зоны.
+    pub fn zone_not_allowed(field: &str, zone: &str, allowed: &[&str]) -> Self {
+        Self::refused(
+            field,
+            "zone_not_allowed",
+            format!(
+                "зона {zone} не входит в допустимые зоны плагина: {}",
+                allowed.join(", ")
+            ),
+            [(
+                "allowed",
+                Value::Array(allowed.iter().map(|&name| name.into()).collect()),
+            )],
+        )
+    }
+
+    /// `layout.split {open}` для singleton, у которого уже есть канонический экземпляр `panel`.
+    pub fn singleton_exists(panel: impl fmt::Display) -> Self {
+        let panel = panel.to_string();
+        Self::refused(
+            "open",
+            "singleton_exists",
+            format!("экземпляр плагина уже открыт: панель {panel}"),
+            [("panel", panel.into())],
+        )
+    }
+
+    /// Панель `panel` не в `ready`: команды панели и `panel.open` её плагина не принимаются.
+    pub fn panel_unavailable(field: &str, panel: impl fmt::Display, status: &str) -> Self {
+        let panel = panel.to_string();
+        Self::refused(
+            field,
+            "panel_unavailable",
+            format!("панель {panel} недоступна: статус {status}"),
+            [("panel", panel.into()), ("status", status.into())],
+        )
+    }
+
+    /// Отказ модели плагина: причина, сообщение и детали отказа. `field` заменяет поле отказа у
+    /// команды, в запросе которой этого поля нет.
+    pub fn plugin_refusal(
+        field: Option<&str>,
+        reason: &str,
+        message: &str,
+        own_field: &str,
+        extra: &Map<String, Value>,
+    ) -> Self {
+        let mut details = Self::details([
+            ("field", field.unwrap_or(own_field).into()),
+            ("reason", reason.into()),
+        ]);
+        for (key, value) in extra {
+            details.entry(key.clone()).or_insert_with(|| value.clone());
+        }
+        Self::new(ErrorCode::InvalidArgument, message.to_owned(), details)
+    }
+
     /// Неверное сочетание полей команды: `field` лишнее или нужное отсутствует.
     pub fn arguments_conflict(field: &str, message: impl Into<String>) -> Self {
         Self::invalid_argument(field, "arguments_conflict", message)

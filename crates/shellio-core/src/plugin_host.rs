@@ -106,6 +106,65 @@ pub(crate) fn canonical_panels(state: &State, registry: &Registry) -> BTreeSet<P
     canonical
 }
 
+/// Канонический экземпляр singleton плагина для рабочей области `workbench`: старейшая по
+/// `(created_at, PanelId)` панель плагина с тем же ключом экземпляра среди панелей живых рабочих
+/// областей, без панели `except`. `None` — экземпляра нет или плагин `Multi`.
+pub(crate) fn instance(
+    state: &State,
+    plugin: &Plugin,
+    workbench: WorkbenchId,
+    except: Option<PanelId>,
+) -> Option<PanelId> {
+    let cardinality = plugin.manifest().cardinality;
+    let key = holder(state, cardinality, workbench)?;
+    state
+        .panels
+        .values()
+        .filter(|panel| {
+            panel.plugin == *plugin.id()
+                && Some(panel.id) != except
+                && state.live_workbench(panel.workbench).is_some()
+                && holder(state, cardinality, panel.workbench) == Some(key)
+        })
+        .map(|panel| (panel.created_at, panel.id))
+        .min()
+        .map(|(_, panel)| panel)
+}
+
+/// Переход права канонического экземпляра при закрытии панели `closed` (ADR-0008,
+/// «Унаследованные дубликаты»): старейший оставшийся дубликат становится каноническим той же
+/// записью и проходит `init` или `migrate` по правилу статуса. Его байты без записи не меняются.
+pub(crate) fn heir(state: &State, registry: &Registry, closed: PanelId) -> Vec<Change> {
+    let mut changes = Vec::new();
+    let Some(record) = state.panels.get(&closed) else {
+        return changes;
+    };
+    let Some(plugin) = registry.get(&record.plugin) else {
+        return changes;
+    };
+    if instance(state, plugin, record.workbench, None) != Some(closed) {
+        return changes;
+    }
+    let Some(next) = instance(state, plugin, record.workbench, Some(closed)) else {
+        return changes;
+    };
+    let (status, written) = judge(Some(plugin), true, state.panel_data.get(&next));
+    if let Some(Written { version, data }) = written {
+        changes.push(Change::PanelData {
+            panel: next,
+            version,
+            data,
+        });
+    }
+    if status != state.status_of(next) {
+        changes.push(Change::PanelStatus {
+            panel: next,
+            status,
+        });
+    }
+    changes
+}
+
 /// Новые данные панели, которые даёт правило статуса: `init` или `migrate`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Written {
@@ -242,8 +301,8 @@ mod support {
     use serde_json::Value;
     use shellio_layout::{Geometry, MinSize, Rect, Zone};
     use shellio_plugin_api::{
-        Cardinality, Entry, Manifest, PanelModel, Presentation, Refusal, Region, Registry,
-        STATE_LIMIT, SizeVariants, VariantTable, ZoneSet,
+        Cardinality, CommandSpec, Entry, Manifest, PanelModel, Presentation, Refusal, Region,
+        Registry, STATE_LIMIT, SizeVariants, VariantTable, ZoneSet,
     };
 
     use crate::panel::{NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, TERMINAL_PLUGIN, TERMINAL_TITLE};
@@ -432,8 +491,61 @@ mod support {
         Refuse,
     }
 
+    /// Контекст `open` и `reopen` подставного плагина: счётчик.
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct CounterArgs {
+        count: u32,
+    }
+
+    /// Действия подставного плагина с [`TestPlugin::actions`]: `<id>.add {by}` прибавляет к
+    /// счётчику, `<id>.pad {size}` ставит заполнитель длины `size`.
+    enum CounterCommand {
+        Add { by: u32 },
+        Pad { size: usize },
+    }
+
+    impl<'de> Deserialize<'de> for CounterCommand {
+        fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Frame {
+                name: String,
+                args: Value,
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Add {
+                by: u32,
+            }
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Pad {
+                size: usize,
+            }
+            let frame = Frame::deserialize(deserializer)?;
+            match frame.name.rsplit('.').next() {
+                Some("add") => serde_json::from_value(frame.args)
+                    .map(|Add { by }| Self::Add { by })
+                    .map_err(D::Error::custom),
+                Some("pad") => serde_json::from_value(frame.args)
+                    .map(|Pad { size }| Self::Pad { size })
+                    .map_err(D::Error::custom),
+                Some(_) | None => Err(D::Error::custom("неизвестное действие")),
+            }
+        }
+    }
+
+    fn count_refusal(count: u32) -> Refusal {
+        Refusal::new(
+            "count",
+            "count_out_of_range",
+            format!("счётчик {count} больше {COUNTER_MAX}"),
+        )
+    }
+
     /// Подставной плагин с данными [`Counter`] для тестов ядра и хранилища. Не встроенный:
-    /// `placements` — все зоны, действий нет.
+    /// `placements` по умолчанию — все зоны, действия — только с [`Self::actions`].
     #[derive(Clone, Copy, Debug)]
     pub struct TestPlugin {
         pub id: &'static str,
@@ -443,6 +555,9 @@ mod support {
         pub min_size: MinSize,
         pub init: TestInit,
         pub migrate: TestMigrate,
+        pub placements: ZoneSet,
+        pub default_zone: Zone,
+        pub actions: bool,
     }
 
     impl TestPlugin {
@@ -457,7 +572,25 @@ mod support {
                 min_size: MinSize::DEFAULT,
                 init: TestInit::Zero,
                 migrate: TestMigrate::Carry,
+                placements: ZoneSet::ALL,
+                default_zone: Zone::Center,
+                actions: false,
             }
+        }
+
+        /// Допустимые зоны и зона по умолчанию.
+        #[must_use]
+        pub const fn zones(mut self, placements: ZoneSet, default_zone: Zone) -> Self {
+            self.placements = placements;
+            self.default_zone = default_zone;
+            self
+        }
+
+        /// Плагин объявляет действия `<id>.add {by}` и `<id>.pad {size}`.
+        #[must_use]
+        pub const fn actions(mut self) -> Self {
+            self.actions = true;
+            self
         }
 
         #[must_use]
@@ -498,15 +631,32 @@ mod support {
 
         /// Запись регистрации. Манифест живёт до конца процесса теста.
         pub fn entry(self) -> Entry {
+            let commands: &'static [CommandSpec] = if self.actions {
+                let name = |action: &str| -> &'static str {
+                    Box::leak(format!("{}.{action}", self.id).into_boxed_str())
+                };
+                Box::leak(Box::new([
+                    CommandSpec {
+                        name: name("add"),
+                        args: r#"{"by":1}"#,
+                    },
+                    CommandSpec {
+                        name: name("pad"),
+                        args: r#"{"size":3}"#,
+                    },
+                ]))
+            } else {
+                &[]
+            };
             let manifest: &'static Manifest = Box::leak(Box::new(Manifest {
                 id: self.id,
                 title: self.title,
                 icon: "square",
-                placements: ZoneSet::ALL,
-                default_zone: Zone::Center,
+                placements: self.placements,
+                default_zone: self.default_zone,
                 cardinality: self.cardinality,
                 min_size: self.min_size,
-                commands: &[],
+                commands,
                 keymap: &[],
                 state_version: self.state_version,
                 builtin: false,
@@ -530,17 +680,21 @@ mod support {
 
     impl PanelModel for CounterModel {
         type State = Counter;
-        type Args = NoArgs;
-        type Command = NoCommand;
+        type Args = CounterArgs;
+        type Command = CounterCommand;
 
         fn manifest(&self) -> &'static Manifest {
             self.manifest
         }
 
-        fn init(&self, _args: Option<NoArgs>) -> Result<Counter, Refusal> {
+        fn init(&self, args: Option<CounterArgs>) -> Result<Counter, Refusal> {
+            let count = args.map_or(0, |args| args.count);
+            if count > COUNTER_MAX {
+                return Err(count_refusal(count));
+            }
             match self.init {
                 TestInit::Zero => Ok(Counter {
-                    count: 0,
+                    count,
                     pad: String::new(),
                 }),
                 TestInit::Refuse => Err(Refusal::new(
@@ -549,18 +703,46 @@ mod support {
                     "init отказал по плану теста",
                 )),
                 TestInit::Oversize => Ok(Counter {
-                    count: 0,
+                    count,
                     pad: "x".repeat(STATE_LIMIT),
                 }),
             }
         }
 
-        fn reopen(&self, state: &Counter, _args: Option<NoArgs>) -> Result<Counter, Refusal> {
-            Ok(state.clone())
+        fn reopen(&self, state: &Counter, args: Option<CounterArgs>) -> Result<Counter, Refusal> {
+            let Some(CounterArgs { count }) = args else {
+                return Ok(state.clone());
+            };
+            if count > COUNTER_MAX {
+                return Err(count_refusal(count));
+            }
+            Ok(Counter {
+                count,
+                pad: state.pad.clone(),
+            })
         }
 
-        fn apply(&self, _state: &Counter, command: NoCommand) -> Result<Counter, Refusal> {
-            match command {}
+        fn apply(&self, state: &Counter, command: CounterCommand) -> Result<Counter, Refusal> {
+            match command {
+                CounterCommand::Add { by } => {
+                    let count = state.count.saturating_add(by);
+                    if count > COUNTER_MAX {
+                        return Err(Refusal::new(
+                            "by",
+                            "count_out_of_range",
+                            format!("счётчик {count} больше {COUNTER_MAX}"),
+                        ));
+                    }
+                    Ok(Counter {
+                        count,
+                        pad: state.pad.clone(),
+                    })
+                }
+                CounterCommand::Pad { size } => Ok(Counter {
+                    count: state.count,
+                    pad: "x".repeat(size),
+                }),
+            }
         }
 
         fn migrate(&self, from: u32, data: Value) -> Result<Counter, Refusal> {

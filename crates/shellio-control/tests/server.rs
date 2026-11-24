@@ -22,9 +22,9 @@ use shellio_core::test_support::{
     SequentialIds, registry,
 };
 use shellio_core::{
-    CommandValue, Core, CoreError, Entity, ErrorCode, Event, EventsSince, ProjectId, Reply,
-    ReplyValue, Revision, Route, SUBSCRIBER_CAPACITY, Snapshot, StatusView, TreeView, UnixMillis,
-    WorkbenchId, WorkspaceId,
+    CommandValue, Core, CoreError, CoreHandle, Entity, ErrorCode, Event, EventsSince, OpenOutcome,
+    ProjectId, Reply, ReplyValue, Revision, Route, SUBSCRIBER_CAPACITY, Snapshot, StatusView,
+    TreeView, UnixMillis, WorkbenchId, WorkspaceId,
 };
 use tempfile::TempDir;
 use tokio::io::{AsyncWriteExt, BufReader};
@@ -78,6 +78,7 @@ impl LaunchHandler for FakeLauncher {
 /// Ядро на `MemoryPersist` и сервер на сокете во временном каталоге `/tmp`.
 struct Fixture {
     server: Option<Server<ManualClock, FakeLauncher>>,
+    core: CoreHandle,
     memory: MemoryPersist,
     faults: Faults,
     clock: ManualClock,
@@ -122,7 +123,7 @@ impl Fixture {
         let server = Server::start(
             &Handle::current(),
             listener,
-            core,
+            core.clone(),
             launcher.clone(),
             WithoutUi,
             clock.clone(),
@@ -130,6 +131,7 @@ impl Fixture {
         )?;
         Ok(Self {
             server: Some(server),
+            core,
             memory,
             faults,
             clock,
@@ -1249,5 +1251,65 @@ async fn shutdown_finishes_admitted_command_and_closes_the_rest() -> TestResult 
             other => return Err(format!("неожиданный кадр подписки {other:?}").into()),
         }
     }
+    Ok(())
+}
+
+/// Гонка `panel.open` двух клиентов сокета (ADR-0021, «Уточнено в P1.5 (планирование)»): первая
+/// команда держит запись на барьере, вторая подтверждённо стоит в очереди ядра. Навигатор —
+/// singleton рабочей области: после его закрытия оба клиента открывают его заново.
+#[tokio::test]
+async fn two_clients_racing_panel_open_get_one_panel_and_one_revision() -> TestResult {
+    let fixture = Fixture::start().await?;
+    let mut first = fixture.greeted().await?;
+    let mut second = fixture.greeted().await?;
+    let w = world(&mut first).await?;
+    let navigator = fixture.memory.state().layouts[&w.home_workbench]
+        .navigator
+        .ok_or("в раскладке нет навигатора")?;
+    let close = json!({"cmd": "panel.close", "panel": navigator});
+    let base = first.command(200, close, all()).await??.revision;
+    assert_eq!(fixture.memory.revision(), base);
+
+    let open = json!({"cmd": "panel.open", "plugin": "navigator", "workbench": w.home_workbench});
+    let mut barrier = fixture.faults.barrier_next_commit();
+    let line = json!({"id": 201, "command": open, "scope": "all"});
+    first.send(&line.to_string()).await?;
+    barrier.entered().await;
+    let line = json!({"id": 202, "command": open, "scope": in_workspace(w.home)});
+    second.send(&line.to_string()).await?;
+    while fixture.core.queued() == 0 {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(
+        fixture.memory.revision(),
+        base,
+        "первая запись ещё на барьере"
+    );
+    barrier.release();
+
+    let opened = |reply: Reply| match reply.value {
+        ReplyValue::Command(CommandValue::Opened {
+            panel,
+            workbench,
+            outcome,
+        }) => Ok((panel, workbench, outcome, reply.revision)),
+        other => Err(format!("ожидался исход panel.open, получено {other:?}")),
+    };
+    let one = opened(reply_or_core_error(201, first.recv().await?)??)?;
+    let two = opened(reply_or_core_error(202, second.recv().await?)??)?;
+    let next = base.next();
+    assert_eq!(one.1, w.home_workbench);
+    assert_eq!((one.2, one.3), (OpenOutcome::Created, next));
+    // Вторая нашла ту же панель и ничего не записала: её квитанция несёт ту же ревизию.
+    assert_eq!(two, (one.0, w.home_workbench, OpenOutcome::Focused, next));
+    assert_eq!(fixture.memory.revision(), next);
+    let state = fixture.memory.state();
+    let navigators: Vec<_> = state
+        .workbench_panels(w.home_workbench)
+        .filter(|panel| panel.plugin.as_str() == "navigator")
+        .map(|panel| panel.id)
+        .collect();
+    assert_eq!(navigators, [one.0]);
+    assert_eq!(state.layouts[&w.home_workbench].navigator, Some(one.0));
     Ok(())
 }

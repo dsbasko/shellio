@@ -17,10 +17,10 @@ use serde_json::Value;
 use shellio_core::test_support::{SequentialIds, registry};
 use shellio_core::{
     Change, Command, CommandValue, CoreError, Diagnostic, Entity, ErrorCode, Event, EventsSince,
-    IdGen, Panel, PanelData, PanelId, PanelStatus, PluginId, Project, ProjectId, ProjectRoot,
-    ProjectRootId, Query, Reply, ReplyValue, Revision, RootError, RootKey, RootKind, Route,
-    Snapshot, State, StorageInfo, Title, TreeScope, TreeView, UnixMillis, WindowState, Workbench,
-    WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId, read,
+    IdGen, OpenOutcome, Panel, PanelData, PanelId, PanelStatus, PluginId, Project, ProjectId,
+    ProjectRoot, ProjectRootId, Query, Reply, ReplyValue, Revision, RootError, RootKey, RootKind,
+    Route, Snapshot, State, StorageInfo, Title, TreeScope, TreeView, UnixMillis, WindowState,
+    Workbench, WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId, read,
 };
 use shellio_layout::{Direction, Edge, Hideable, Viewport, Zone};
 
@@ -157,6 +157,8 @@ fn command_golden(command: &Command) -> &'static str {
         Command::LayoutZoom { .. } => "command.layout.zoom",
         Command::LayoutOnly { .. } => "command.layout.only",
         Command::LayoutVisibility { .. } => "command.layout.visibility",
+        Command::PanelOpen { .. } => "command.panel.open",
+        Command::PanelCommand { .. } => "command.panel.command",
     }
 }
 
@@ -234,6 +236,17 @@ fn commands() -> Vec<Command> {
             target: Hideable::Plate,
             visible: false,
         },
+        Command::PanelOpen {
+            plugin: "demo-list".into(),
+            workbench: Some(ids.workbench),
+            zone: Some(Zone::Right),
+            args: Some(serde_json::json!({"key": "c"})),
+        },
+        Command::PanelCommand {
+            panel: ids.terminal,
+            name: "demo-list.select".into(),
+            args: Some(serde_json::json!({"key": "d"})),
+        },
     ]
 }
 
@@ -254,6 +267,8 @@ fn query_golden(query: &Query) -> &'static str {
         } => "query.tree.all",
         Query::Status {} => "query.status",
         Query::Layout { .. } => "query.layout",
+        Query::Panel { .. } => "query.panel",
+        Query::Plugins {} => "query.plugins",
     }
 }
 
@@ -271,6 +286,11 @@ fn query_samples() -> Samples {
             scope: TreeScope::Workspace(ids.workspace),
             workbench: Some(ids.workbench),
         },
+        Query::Panel {
+            scope: TreeScope::All,
+            panel: ids.terminal,
+        },
+        Query::Plugins {},
     ]
     .into_iter()
     .map(|query| sample(query_golden(&query), query))
@@ -530,6 +550,9 @@ fn reply_golden(reply: &Reply) -> &'static str {
         ReplyValue::Tree(TreeView { route: None, .. }) => "reply.tree.scoped_inactive",
         ReplyValue::Status(_) => "reply.status",
         ReplyValue::Layout(_) => "reply.layout",
+        ReplyValue::Panel(_) => "reply.panel_view",
+        ReplyValue::Plugins(_) => "reply.plugins",
+        ReplyValue::Command(CommandValue::Opened { .. }) => "reply.opened",
         ReplyValue::Command(CommandValue::Panel { .. }) => "reply.panel",
         ReplyValue::Command(CommandValue::Workspace { .. }) => "reply.workspace",
         ReplyValue::Command(CommandValue::Project { .. }) => "reply.project",
@@ -596,6 +619,36 @@ fn reply_samples() -> Result<Samples, String> {
         },
     )
     .map_err(|error| error.to_string())?;
+    state.apply(&Change::PanelData {
+        panel: ids.terminal,
+        version: 1,
+        data: "null".into(),
+    });
+    state.apply(&Change::PanelOpenedFrom {
+        panel: ids.terminal,
+        opened_from: Some(ids.navigator),
+    });
+    let panel = read(
+        &state,
+        &registry,
+        Revision(12),
+        &storage(),
+        None,
+        &Query::Panel {
+            scope: TreeScope::All,
+            panel: ids.terminal,
+        },
+    )
+    .map_err(|error| error.to_string())?;
+    let plugins = read(
+        &state,
+        &registry,
+        Revision(12),
+        &storage(),
+        None,
+        &Query::Plugins {},
+    )
+    .map_err(|error| error.to_string())?;
     let command = |revision, value: CommandValue| Reply {
         revision: Revision(revision),
         value: value.into(),
@@ -605,6 +658,16 @@ fn reply_samples() -> Result<Samples, String> {
         scoped_inactive,
         status,
         layout,
+        panel,
+        plugins,
+        command(
+            14,
+            CommandValue::Opened {
+                panel: ids.terminal,
+                workbench: ids.workbench,
+                outcome: OpenOutcome::Moved,
+            },
+        ),
         command(
             13,
             CommandValue::Panel {

@@ -199,8 +199,9 @@ impl Actor {
     ) -> Result<Reply, CoreError> {
         scope.check(&self.state)?;
         let viewport = *self.viewport.borrow();
-        let mut ctx =
-            Ctx::new(&*self.clock, &mut *self.ids, &self.registry).with_viewport(viewport);
+        let mut ctx = Ctx::new(&*self.clock, &mut *self.ids, &self.registry)
+            .with_viewport(viewport)
+            .with_scope(scope.scope());
         let Outcome { value, changes } = handle(&self.state, command, &mut ctx)?;
         if !changes.is_empty() {
             self.storage.commit(self.revision, changes.clone()).await?;

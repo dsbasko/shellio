@@ -9,8 +9,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use shellio_core::test_support::{
-    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
+    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, TestPlugin,
+    registry, registry_of,
 };
+use shellio_core::{Change, OpenOutcome};
 use shellio_core::{
     Command, CommandValue, Core, CoreError, CoreHandle, Entity, ErrorCode, EventsSince, IdGen,
     PanelId, Project, ProjectId, ProjectRoot, ProjectRootId, Query, ReplyValue, ResolvedRoot,
@@ -18,6 +20,7 @@ use shellio_core::{
     TreeView, UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
+use shellio_plugin_api::{Cardinality, Registry};
 use tokio::runtime::Handle;
 
 type TestResult<T> = Result<T, Box<dyn Error>>;
@@ -38,6 +41,14 @@ impl RootResolver for CountingResolver {
 }
 
 fn start_with(memory: &MemoryPersist, resolver: FakeRootResolver) -> TestResult<Started> {
+    start_in(memory, resolver, registry())
+}
+
+fn start_in(
+    memory: &MemoryPersist,
+    resolver: FakeRootResolver,
+    registry: Arc<Registry>,
+) -> TestResult<Started> {
     let (persist, faults) = FaultyPersist::new(memory.clone());
     let calls = Arc::new(AtomicUsize::new(0));
     let core = Core::start(
@@ -49,7 +60,7 @@ fn start_with(memory: &MemoryPersist, resolver: FakeRootResolver) -> TestResult<
             inner: resolver,
             calls: Arc::clone(&calls),
         }),
-        registry(),
+        registry,
     )?;
     Ok(Started {
         core,
@@ -80,6 +91,10 @@ struct World {
 const MISSING_PATH: &str = "/missing";
 
 async fn world() -> TestResult<World> {
+    world_with(registry()).await
+}
+
+async fn world_with(registry: Arc<Registry>) -> TestResult<World> {
     let resolver = FakeRootResolver::new().with(
         MISSING_PATH,
         Err(RootError::NotFound {
@@ -90,7 +105,7 @@ async fn world() -> TestResult<World> {
         core,
         faults,
         resolutions,
-    } = start_with(&MemoryPersist::new(), resolver)?;
+    } = start_in(&MemoryPersist::new(), resolver, registry)?;
     let home = snapshot(&core)
         .await?
         .state
@@ -875,5 +890,162 @@ async fn viewport_reaches_commands_and_reads_without_revision() -> TestResult<()
         ReplyValue::Layout(view) => assert_eq!(view.frames, None),
         other => return Err(format!("ожидалась раскладка, получено {other:?}").into()),
     }
+    Ok(())
+}
+
+fn open(plugin: &str, workbench: WorkbenchId) -> Command {
+    Command::PanelOpen {
+        plugin: plugin.into(),
+        workbench: Some(workbench),
+        zone: None,
+        args: None,
+    }
+}
+
+async fn opened(
+    core: &CoreHandle,
+    scope: TreeScope,
+    command: Command,
+) -> TestResult<(PanelId, WorkbenchId, OpenOutcome, Revision)> {
+    let reply = core.request_in(scope, command).await?;
+    match reply.value {
+        ReplyValue::Command(CommandValue::Opened {
+            panel,
+            workbench,
+            outcome,
+        }) => Ok((panel, workbench, outcome, reply.revision)),
+        other => Err(format!("ожидался исход panel.open, получено {other:?}").into()),
+    }
+}
+
+/// Матрица области `panel.open` двух воркспейсов: экземпляры singleton живут в `work`, после
+/// подготовки меняется только `home`. Чужой экземпляр не раскрывается ни ответом, ни ревизией.
+#[tokio::test]
+async fn panel_open_under_workspace_scope_never_reveals_a_foreign_instance() -> TestResult<()> {
+    let w = world_with(registry_of(vec![
+        TestPlugin::new("field")
+            .cardinality(Cardinality::PerApp)
+            .actions(),
+        TestPlugin::new("ws")
+            .cardinality(Cardinality::PerWorkspace)
+            .actions(),
+    ]))
+    .await?;
+    w.core.set_viewport(Some(Viewport {
+        width: 1180,
+        height: 720,
+    }));
+    let all = TreeScope::All;
+    let (field, ..) = opened(&w.core, all, open("field", w.work_workbench)).await?;
+    let (foreign, ..) = opened(&w.core, all, open("ws", w.work_workbench)).await?;
+    let home = TreeScope::Workspace(w.home);
+    let (_, home_terminal) = panels_of(&w.core, w.home_workbench).await?;
+    let hidden = [field.to_string(), foreign.to_string()];
+    let reveals = |error: &CoreError| {
+        let text = serde_json::to_string(error).unwrap_or_default();
+        hidden.iter().any(|id| text.contains(id))
+    };
+
+    // `PerApp` под областью воркспейса: отказ до поиска экземпляра, даже в своей рабочей области.
+    let requires_all = [
+        (
+            open("field", w.home_workbench),
+            CoreError::scope_requires_all("panel.open"),
+        ),
+        (
+            Command::LayoutSplit {
+                panel: home_terminal,
+                open: Some("field".into()),
+            },
+            CoreError::scope_requires_all("layout.split"),
+        ),
+        // Чужая рабочая область и чужие панели — как несуществующие.
+        (
+            open("ws", w.work_workbench),
+            CoreError::not_found(Entity::Workbench, w.work_workbench),
+        ),
+        (
+            Command::PanelCommand {
+                panel: field,
+                name: "field.add".into(),
+                args: Some(serde_json::json!({"by": 1})),
+            },
+            CoreError::not_found(Entity::Panel, field),
+        ),
+        (
+            Command::PanelClose { panel: foreign },
+            CoreError::not_found(Entity::Panel, foreign),
+        ),
+    ];
+    for (command, expected) in requires_all {
+        // Отказ называет только то, что прислал сам вызывающий: чужих экземпляров в нём нет.
+        if expected.detail_str("entity") != Some("panel") {
+            assert!(!reveals(&expected), "{expected}");
+        }
+        assert_refused(&w.core, &w.faults, home, command, &expected).await?;
+    }
+    for panel in [field, foreign] {
+        let error = w
+            .core
+            .query(Query::Panel { scope: home, panel })
+            .await
+            .unwrap_err();
+        assert_eq!(error, CoreError::not_found(Entity::Panel, panel));
+    }
+
+    // `PerWorkspace` в своём воркспейсе: новый экземпляр, чужой не тронут и не назван.
+    let before = snapshot(&w.core).await?;
+    let (own, workbench, outcome, revision) =
+        opened(&w.core, home, open("ws", w.home_workbench)).await?;
+    assert_eq!(
+        (workbench, outcome, revision),
+        (
+            w.home_workbench,
+            OpenOutcome::Created,
+            before.revision.next()
+        )
+    );
+    assert_ne!(own, foreign);
+    let EventsSince::Events(events) = w.core.events_since(before.revision).await? else {
+        return Err("ожидались события".into());
+    };
+    let [event] = events.as_slice() else {
+        return Err(format!("ожидалось одно событие: {events:?}").into());
+    };
+    for change in &event.changes {
+        let touched = match change {
+            Change::PanelAdd { panel } => panel.workbench,
+            Change::PanelData { panel, .. } => {
+                assert_eq!(*panel, own);
+                w.home_workbench
+            }
+            Change::LayoutSet { workbench, .. } => *workbench,
+            other => return Err(format!("неожиданная дельта {other:?}").into()),
+        };
+        assert_eq!(touched, w.home_workbench);
+    }
+    let after = snapshot(&w.core).await?;
+    assert_eq!(after.state.panels[&foreign], before.state.panels[&foreign]);
+    assert_eq!(
+        after.state.layouts[&w.work_workbench],
+        before.state.layouts[&w.work_workbench]
+    );
+    // Повтор под областью находит свой экземпляр без ревизии.
+    let (again, _, outcome, revision) = opened(&w.core, home, open("ws", w.home_workbench)).await?;
+    assert_eq!(
+        (again, outcome, revision),
+        (own, OpenOutcome::Focused, after.revision)
+    );
+    let view = w
+        .core
+        .query(Query::Panel {
+            scope: home,
+            panel: own,
+        })
+        .await?;
+    let ReplyValue::Panel(view) = view.value else {
+        return Err("ожидалась панель".into());
+    };
+    assert_eq!((view.panel.id, view.canonical), (own, None));
     Ok(())
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::change::Change;
 use crate::command::CommandValue;
 use crate::model::Revision;
-use crate::query::{LayoutView, StatusView};
+use crate::query::{LayoutView, PanelView, PluginsView, StatusView};
 use crate::tree::TreeView;
 
 /// Успешный ответ команды или чтения.
@@ -31,6 +31,10 @@ pub enum ReplyValue {
     Status(StatusView),
     /// `query.layout`.
     Layout(Box<LayoutView>),
+    /// `query.panel`.
+    Panel(Box<PanelView>),
+    /// `query.plugins`.
+    Plugins(PluginsView),
     /// Команда: идентификаторы созданных записей или `null`.
     Command(CommandValue),
 }

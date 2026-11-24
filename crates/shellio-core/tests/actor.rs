@@ -7,7 +7,8 @@ use std::error::Error;
 use std::sync::Arc;
 
 use shellio_core::test_support::{
-    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, registry,
+    FakeRootResolver, Faults, FaultyPersist, ManualClock, MemoryPersist, SequentialIds, TestPlugin,
+    registry, registry_of,
 };
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, Core, CoreError, CoreHandle, EVENT_BUFFER,
@@ -16,6 +17,9 @@ use shellio_core::{
     StartError, State, StatusView, TERMINAL_PLUGIN, Title, TreeRoot, TreeScope, TreeView,
     UnixMillis, WindowState, Workbench, WorkbenchId, Workspace, WorkspaceId, fingerprint,
 };
+use shellio_core::{OpenOutcome, PanelData, PanelId, Reply};
+use shellio_layout::Viewport;
+use shellio_plugin_api::Cardinality;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 use tokio::sync::oneshot;
@@ -892,5 +896,313 @@ async fn every_command_result_is_read_through_query_tree() {
             (Revision(9), view.clone()),
             "отказ {name} изменил дерево"
         );
+    }
+}
+
+/// Гонка открытия панели (ADR-0021, «Уточнено в P1.5 (планирование)»): первая команда держит
+/// запись на барьере, вторая подтверждённо стоит в очереди актора до его отпускания.
+struct Race {
+    core: CoreHandle,
+    faults: Faults,
+    memory: MemoryPersist,
+    workspace: WorkspaceId,
+    workbench: WorkbenchId,
+    terminal: PanelId,
+    base: Revision,
+}
+
+/// Каким входом подана команда: квитанцией главного потока или ожиданием в области воркспейса.
+#[derive(Clone, Copy, Debug)]
+enum Entry {
+    Try,
+    Scoped,
+}
+
+type Pending = tokio::task::JoinHandle<Result<Reply, CoreError>>;
+
+impl Race {
+    async fn new() -> TestResult<Self> {
+        let memory = MemoryPersist::new();
+        let (persist, faults) = FaultyPersist::new(memory.clone());
+        let core = Core::start(
+            &Handle::current(),
+            Box::new(persist),
+            Box::new(ManualClock::new(NOW)),
+            Box::new(SequentialIds::new()),
+            Arc::new(FakeRootResolver::new()),
+            registry_of(vec![
+                TestPlugin::new("list")
+                    .cardinality(Cardinality::PerWorkbench)
+                    .actions(),
+            ]),
+        )?;
+        core.set_viewport(Some(Viewport {
+            width: 1180,
+            height: 720,
+        }));
+        let workspace = active(&core).await?;
+        let reply = core
+            .request(Command::ProjectAdd {
+                workspace,
+                path: "/src/app".into(),
+                title: None,
+            })
+            .await?;
+        let ReplyValue::Command(CommandValue::Project { project, .. }) = reply.value else {
+            return Err(format!("ожидался проект: {reply:?}").into());
+        };
+        let reply = core
+            .request(Command::WorkbenchCreate {
+                project,
+                title: "Основная".into(),
+            })
+            .await?;
+        let ReplyValue::Command(CommandValue::Workbench { workbench }) = reply.value else {
+            return Err(format!("ожидалась рабочая область: {reply:?}").into());
+        };
+        let reply = core.request(Command::WorkbenchOpen { workbench }).await?;
+        let state = snapshot(&core).await?.state;
+        let terminal = state.layouts[&workbench]
+            .focused()
+            .ok_or("в раскладке нет фокуса")?;
+        Ok(Self {
+            core,
+            faults,
+            memory,
+            workspace,
+            workbench,
+            terminal,
+            base: reply.revision,
+        })
+    }
+
+    fn open(&self, plugin: &str, count: Option<u32>) -> Command {
+        Command::PanelOpen {
+            plugin: plugin.into(),
+            workbench: Some(self.workbench),
+            zone: None,
+            args: count.map(|count| serde_json::json!({"count": count})),
+        }
+    }
+
+    fn split(&self) -> Command {
+        Command::LayoutSplit {
+            panel: self.terminal,
+            open: Some("list".into()),
+        }
+    }
+
+    /// Подать команду входом `entry`. Ответ приходит задачей.
+    fn submit(&self, entry: Entry, command: Command) -> TestResult<Pending> {
+        Ok(match entry {
+            Entry::Try => {
+                let receipt = self.core.try_request(command)?;
+                tokio::spawn(async move {
+                    receipt
+                        .await
+                        .unwrap_or_else(|_| Err(CoreError::shutting_down()))
+                })
+            }
+            Entry::Scoped => {
+                let core = self.core.clone();
+                let scope = TreeScope::Workspace(self.workspace);
+                tokio::spawn(async move { core.request_in(scope, command).await })
+            }
+        })
+    }
+
+    /// Первая команда держит запись на барьере, вторая стоит в очереди; затем барьер отпущен.
+    async fn overlap(
+        &self,
+        first: (Entry, Command),
+        second: (Entry, Command),
+    ) -> TestResult<(Result<Reply, CoreError>, Result<Reply, CoreError>)> {
+        let mut barrier = self.faults.barrier_next_commit();
+        let first = self.submit(first.0, first.1)?;
+        barrier.entered().await;
+        let second = self.submit(second.0, second.1)?;
+        while self.core.queued() == 0 {
+            tokio::task::yield_now().await;
+        }
+        // Вторая ждёт: до отпускания барьера ни записи, ни ответов нет.
+        assert_eq!(self.core.queued(), 1);
+        assert_eq!(self.memory.revision(), self.base);
+        assert!(!first.is_finished() && !second.is_finished());
+        barrier.release();
+        Ok((first.await?, second.await?))
+    }
+
+    /// События после подготовки и согласие зеркала с хранилищем.
+    async fn after(&self) -> TestResult<Vec<Event>> {
+        let snapshot = snapshot(&self.core).await?;
+        assert_eq!(snapshot.revision, self.memory.revision());
+        assert_eq!(*snapshot.state, self.memory.state());
+        assert_eq!(snapshot.state.check_invariants(), Vec::new());
+        events(self.core.events_since(self.base).await?)
+    }
+}
+
+fn opened(reply: &Result<Reply, CoreError>) -> TestResult<(PanelId, OpenOutcome, Revision)> {
+    match reply {
+        Ok(Reply {
+            revision,
+            value: ReplyValue::Command(CommandValue::Opened { panel, outcome, .. }),
+        }) => Ok((*panel, *outcome, *revision)),
+        other => Err(format!("ожидался исход panel.open: {other:?}").into()),
+    }
+}
+
+fn added(events: &[Event]) -> Vec<PanelId> {
+    events
+        .iter()
+        .flat_map(|event| &event.changes)
+        .filter_map(|change| match change {
+            Change::PanelAdd { panel } => Some(panel.id),
+            _ => None,
+        })
+        .collect()
+}
+
+const ENTRIES: [(Entry, Entry); 2] = [(Entry::Try, Entry::Scoped), (Entry::Scoped, Entry::Try)];
+
+#[tokio::test]
+async fn racing_opens_of_singleton_with_same_context_give_one_panel_and_one_revision() {
+    for (first, second) in ENTRIES {
+        let race = Race::new().await.unwrap();
+        let (one, two) = race
+            .overlap(
+                (first, race.open("list", None)),
+                (second, race.open("list", None)),
+            )
+            .await
+            .unwrap();
+        let (panel, outcome, revision) = opened(&one).unwrap();
+        let next = race.base.next();
+        assert_eq!((outcome, revision), (OpenOutcome::Created, next));
+        // Вторая нашла ту же панель и ничего не записала: её квитанция несёт ту же ревизию.
+        assert_eq!(opened(&two).unwrap(), (panel, OpenOutcome::Focused, next));
+        let events = race.after().await.unwrap();
+        assert_eq!(revisions(&events), [next.0], "{first:?} {second:?}");
+        assert_eq!(added(&events), [panel]);
+        assert_eq!(race.memory.revision(), next);
+    }
+}
+
+#[tokio::test]
+async fn racing_opens_with_different_context_keep_one_panel_and_data_of_the_later() {
+    for (first, second) in ENTRIES {
+        let race = Race::new().await.unwrap();
+        let (one, two) = race
+            .overlap(
+                (first, race.open("list", Some(1))),
+                (second, race.open("list", Some(2))),
+            )
+            .await
+            .unwrap();
+        let (panel, outcome, revision) = opened(&one).unwrap();
+        let next = race.base.next();
+        assert_eq!((outcome, revision), (OpenOutcome::Created, next));
+        assert_eq!(
+            opened(&two).unwrap(),
+            (panel, OpenOutcome::Focused, next.next())
+        );
+        let events = race.after().await.unwrap();
+        assert_eq!(revisions(&events), [next.0, next.0 + 1]);
+        assert_eq!(added(&events), [panel]);
+        assert_eq!(
+            race.memory.state().panel_data.get(&panel),
+            Some(&PanelData::Text {
+                version: 1,
+                raw: r#"{"count":2}"#.into(),
+            })
+        );
+    }
+}
+
+#[tokio::test]
+async fn racing_opens_of_multi_plugin_give_two_panels() {
+    for (first, second) in ENTRIES {
+        let race = Race::new().await.unwrap();
+        let (one, two) = race
+            .overlap(
+                (first, race.open(TERMINAL_PLUGIN, None)),
+                (second, race.open(TERMINAL_PLUGIN, None)),
+            )
+            .await
+            .unwrap();
+        let (one, outcome_one, revision_one) = opened(&one).unwrap();
+        let (two, outcome_two, revision_two) = opened(&two).unwrap();
+        assert_ne!(one, two);
+        assert_eq!(
+            (outcome_one, outcome_two),
+            (OpenOutcome::Created, OpenOutcome::Created)
+        );
+        let next = race.base.next();
+        assert_eq!((revision_one, revision_two), (next, next.next()));
+        assert_eq!(added(&race.after().await.unwrap()), [one, two]);
+    }
+}
+
+#[tokio::test]
+async fn failed_commit_of_first_open_lets_the_waiting_second_create_the_panel() {
+    for (first, second) in ENTRIES {
+        let race = Race::new().await.unwrap();
+        let commits = race.faults.commits();
+        race.faults.fail_commit(commits + 1);
+        let (one, two) = race
+            .overlap(
+                (first, race.open("list", None)),
+                (second, race.open("list", None)),
+            )
+            .await
+            .unwrap();
+        // Один отказ, один успех, одна запись.
+        assert_eq!(one.unwrap_err().code(), ErrorCode::StorageUnavailable);
+        let next = race.base.next();
+        let (panel, outcome, revision) = opened(&two).unwrap();
+        assert_eq!((outcome, revision), (OpenOutcome::Created, next));
+        assert_eq!(race.faults.commits(), commits + 2);
+        assert_eq!(race.memory.revision(), next);
+        // У отказавшей первой события нет: единственное событие — запись второй.
+        let events = race.after().await.unwrap();
+        assert_eq!(revisions(&events), [next.0]);
+        assert_eq!(added(&events), [panel]);
+        let panels = race.memory.state().workbench_panel_ids(race.workbench);
+        assert_eq!(panels.len(), 3, "{panels:?}");
+    }
+}
+
+#[tokio::test]
+async fn racing_split_open_and_panel_open_give_one_panel_in_both_orders() {
+    for (first, second) in ENTRIES {
+        // Деление первым: `panel.open` находит его панель.
+        let race = Race::new().await.unwrap();
+        let (one, two) = race
+            .overlap((first, race.split()), (second, race.open("list", None)))
+            .await
+            .unwrap();
+        let next = race.base.next();
+        let one = one.unwrap();
+        let ReplyValue::Command(CommandValue::Panel { panel }) = one.value else {
+            panic!("ожидалась панель деления: {one:?}");
+        };
+        assert_eq!(one.revision, next);
+        assert_eq!(opened(&two).unwrap(), (panel, OpenOutcome::Focused, next));
+        assert_eq!(added(&race.after().await.unwrap()), [panel]);
+
+        // `panel.open` первым: деление отказывает `singleton_exists` с его панелью.
+        let race = Race::new().await.unwrap();
+        let (one, two) = race
+            .overlap((first, race.open("list", None)), (second, race.split()))
+            .await
+            .unwrap();
+        let (panel, outcome, revision) = opened(&one).unwrap();
+        assert_eq!((outcome, revision), (OpenOutcome::Created, next));
+        let error = two.unwrap_err();
+        assert_eq!(error.detail_str("reason"), Some("singleton_exists"));
+        assert_eq!(error.detail_str("panel"), Some(panel.to_string().as_str()));
+        let events = race.after().await.unwrap();
+        assert_eq!(revisions(&events), [next.0]);
+        assert_eq!(added(&events), [panel]);
     }
 }

@@ -8,14 +8,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use rusqlite::Connection;
-use shellio_core::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
+use shellio_core::test_support::{
+    FakeRootResolver, ManualClock, SequentialIds, TestPlugin, registry, registry_of,
+};
 use shellio_core::{
     BOOTSTRAP_WORKSPACE, Change, Command, CommandValue, CommitError, Core, CoreHandle, ErrorCode,
     EventsSince, IdGen, Loaded, PanelId, Persist, Project, ProjectId, ProjectRoot, ProjectRootId,
     Query, Reply, ReplyValue, Revision, RootKey, RootKind, RootResolver, Route, Snapshot, State,
     Title, TreeScope, UnixMillis, Workbench, WorkbenchId, Workspace, WorkspaceId, fingerprint,
 };
+use shellio_core::{OpenOutcome, PanelData};
 use shellio_layout::{Hideable, Viewport, Zone};
+use shellio_plugin_api::{Cardinality, Registry};
 use shellio_store::{Database, Profile, SqlitePersist};
 use tempfile::TempDir;
 use tokio::runtime::Handle;
@@ -81,13 +85,22 @@ fn start(
     clock: &ManualClock,
     resolver: impl RootResolver + 'static,
 ) -> TestResult<CoreHandle> {
+    start_with(persist, clock, resolver, registry())
+}
+
+fn start_with(
+    persist: SqlitePersist,
+    clock: &ManualClock,
+    resolver: impl RootResolver + 'static,
+    registry: Arc<Registry>,
+) -> TestResult<CoreHandle> {
     Ok(Core::start(
         &Handle::current(),
         Box::new(persist),
         Box::new(clock.clone()),
         Box::new(SequentialIds::new()),
         Arc::new(resolver),
-        registry(),
+        registry,
     )
     .map_err(|error| error.to_string())?)
 }
@@ -506,6 +519,252 @@ async fn commit_fault_mid_transaction_changes_nothing_and_next_command_passes() 
     let reloaded = store.load().unwrap();
     assert_eq!(reloaded.revision, after.revision);
     assert_eq!(reloaded.state, *after.state);
+}
+
+fn open_panel(plugin: &str, workbench: WorkbenchId, count: u32) -> Command {
+    Command::PanelOpen {
+        plugin: plugin.into(),
+        workbench: Some(workbench),
+        zone: None,
+        args: Some(serde_json::json!({"count": count})),
+    }
+}
+
+fn opened(reply: &Reply) -> TestResult<(PanelId, OpenOutcome)> {
+    match created(reply)? {
+        CommandValue::Opened { panel, outcome, .. } => Ok((panel, outcome)),
+        other => Err(format!("ожидался исход panel.open, получено {other:?}").into()),
+    }
+}
+
+/// Переезд `PerApp` пишет одной записью `PanelRehome`, две раскладки, данные и `opened_from`.
+/// Отказ после любого её оператора оставляет базу прежней.
+#[tokio::test]
+async fn commit_fault_mid_panel_move_keeps_database_and_retry_moves_once() -> TestResult {
+    let store = Store::new()?;
+    let clock = ManualClock::new(NOW);
+    let persist = store.persist()?;
+    let fault = persist.commit_fault();
+    let registry = registry_of(vec![
+        TestPlugin::new("field")
+            .cardinality(Cardinality::PerApp)
+            .actions(),
+    ]);
+    let core = start_with(persist, &clock, resolver(), registry)?;
+    let workspace = active(&snapshot(&core).await?)?;
+    let project = add_project(&core, workspace, REPO, None).await?;
+    let from = create_workbench(&core, project, "a").await?;
+    let to = create_workbench(&core, project, "b").await?;
+    let (panel, outcome) = opened(&request(&core, open_panel("field", from, 1)).await?)?;
+    assert_eq!(outcome, OpenOutcome::Created);
+    let (before, mut events) = core.subscribe().await?;
+    let caller = before.state.layouts[&to].focused().ok_or("нет фокуса")?;
+    assert_ne!(before.state.opened_from.get(&panel), Some(&caller));
+
+    // Операторы записи: `PanelRehome`, две раскладки, данные, `opened_from` и ревизия.
+    const STATEMENTS: usize = 6;
+    for statements in 0..STATEMENTS {
+        fault.fail_next_commit_after(statements);
+        let error = core.request(open_panel("field", to, 2)).await.unwrap_err();
+        assert_eq!(error.code(), ErrorCode::StorageUnavailable, "{statements}");
+        assert_eq!(snapshot(&core).await?, before, "сбой после {statements}");
+        assert_eq!(events.try_recv().unwrap_err(), TryRecvError::Empty);
+        let stored = store.load()?;
+        assert_eq!(stored.revision, before.revision, "сбой после {statements}");
+        assert_eq!(stored.state, *before.state, "сбой после {statements}");
+    }
+
+    fault.fail_next_commit_after(STATEMENTS);
+    let reply = request(&core, open_panel("field", to, 2)).await?;
+    assert_eq!(opened(&reply)?, (panel, OpenOutcome::Moved));
+    assert_eq!(reply.revision, before.revision.next());
+    let event = events.try_recv()?;
+    assert_eq!(event.changes.len(), STATEMENTS - 1, "{:?}", event.changes);
+    let after = snapshot(&core).await?;
+    core.shutdown().await;
+
+    let reloaded = store.load()?;
+    assert_eq!(reloaded.revision, after.revision);
+    assert_eq!(reloaded.state, *after.state);
+    assert_eq!(reloaded.state.panels[&panel].workbench, to);
+    assert_eq!(reloaded.state.layouts[&from].locate(panel), None);
+    assert!(reloaded.state.layouts[&to].locate(panel).is_some());
+    assert_eq!(reloaded.state.opened_from.get(&panel), Some(&caller));
+    assert_eq!(
+        reloaded.state.panel_data.get(&panel),
+        Some(&PanelData::Text {
+            version: 1,
+            raw: r#"{"count":2}"#.into(),
+        })
+    );
+    Ok(())
+}
+
+/// Отказ записи посреди `panel.open` singleton и успешный повтор: одна панель, её данные,
+/// раскладка и одна прибавка ревизии, в том числе после повторного открытия базы.
+#[tokio::test]
+async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> TestResult {
+    let store = Store::new()?;
+    let clock = ManualClock::new(NOW);
+    let persist = store.persist()?;
+    let fault = persist.commit_fault();
+    let registry = registry_of(vec![
+        TestPlugin::new("list")
+            .cardinality(Cardinality::PerWorkbench)
+            .actions(),
+    ]);
+    let core = start_with(persist, &clock, resolver(), Arc::clone(&registry))?;
+    let workspace = active(&snapshot(&core).await?)?;
+    let project = add_project(&core, workspace, REPO, None).await?;
+    let workbench = create_workbench(&core, project, "a").await?;
+    let before = snapshot(&core).await?;
+    let lists = |state: &State| -> Vec<PanelId> {
+        state
+            .workbench_panels(workbench)
+            .filter(|panel| panel.plugin.as_str() == "list")
+            .map(|panel| panel.id)
+            .collect()
+    };
+
+    // Запись создания: панель, данные, раскладка и ревизия. Сбой после панели и данных.
+    fault.fail_next_commit_after(2);
+    let error = core
+        .request(open_panel("list", workbench, 3))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), ErrorCode::StorageUnavailable);
+    assert_eq!(snapshot(&core).await?, before);
+    assert_eq!(store.count("panel_states")?, store.count("panels")?);
+    assert_eq!(lists(&store.load()?.state), Vec::new());
+
+    let reply = request(&core, open_panel("list", workbench, 3)).await?;
+    let (panel, outcome) = opened(&reply)?;
+    assert_eq!(outcome, OpenOutcome::Created);
+    assert_eq!(reply.revision, before.revision.next());
+    // Повтор находит созданную панель и ревизию не прибавляет.
+    let again = request(&core, open_panel("list", workbench, 3)).await?;
+    assert_eq!(opened(&again)?, (panel, OpenOutcome::Focused));
+    assert_eq!(again.revision, before.revision.next());
+    let after = snapshot(&core).await?;
+    core.shutdown().await;
+
+    let reloaded = store.load()?;
+    assert_eq!(reloaded.revision, before.revision.next());
+    assert_eq!(reloaded.state, *after.state);
+    assert_eq!(lists(&reloaded.state), [panel]);
+    assert!(reloaded.state.layouts[&workbench].locate(panel).is_some());
+    assert_eq!(
+        reloaded.state.panel_data.get(&panel),
+        Some(&PanelData::Text {
+            version: 1,
+            raw: r#"{"count":3}"#.into(),
+        })
+    );
+
+    // Следующий запуск на той же базе находит ту же панель и ничего не пишет.
+    let core = start_with(store.persist()?, &clock, resolver(), registry)?;
+    let restarted = snapshot(&core).await?;
+    assert_eq!(restarted.revision, before.revision.next());
+    let again = request(&core, open_panel("list", workbench, 3)).await?;
+    assert_eq!(opened(&again)?, (panel, OpenOutcome::Focused));
+    assert_eq!(again.revision, before.revision.next());
+    core.shutdown().await;
+    Ok(())
+}
+
+/// Унаследованные дубликаты на настоящей базе: две панели создал реестр, где плагин `Multi`,
+/// следующий запуск считает его `PerApp`. Команда дубликату отказывает, закрытие канонического
+/// передаёт право той же записью, холодный запуск после этого ничего не пишет.
+#[tokio::test]
+async fn legacy_duplicate_takes_the_right_after_close_and_survives_cold_start() -> TestResult {
+    let store = Store::new()?;
+    let clock = ManualClock::new(NOW);
+    let multi = registry_of(vec![TestPlugin::new("field").actions()]);
+    let per_app = registry_of(vec![
+        TestPlugin::new("field")
+            .cardinality(Cardinality::PerApp)
+            .actions(),
+    ]);
+    let core = start_with(store.persist()?, &clock, resolver(), multi)?;
+    let workspace = active(&snapshot(&core).await?)?;
+    let project = add_project(&core, workspace, REPO, None).await?;
+    let first = create_workbench(&core, project, "a").await?;
+    let second = create_workbench(&core, project, "b").await?;
+    let (old, _) = opened(&request(&core, open_panel("field", first, 1)).await?)?;
+    clock.advance(10);
+    let (young, _) = opened(&request(&core, open_panel("field", second, 2)).await?)?;
+    core.shutdown().await;
+
+    let core = start_with(store.persist()?, &clock, resolver(), Arc::clone(&per_app))?;
+    let restored = snapshot(&core).await?;
+    assert_eq!(
+        restored.state.status_of(old),
+        shellio_core::PanelStatus::Ready
+    );
+    assert_eq!(
+        restored.state.status_of(young),
+        shellio_core::PanelStatus::Duplicate
+    );
+    let command = |panel| Command::PanelCommand {
+        panel,
+        name: "field.add".into(),
+        args: Some(serde_json::json!({"by": 1})),
+    };
+    let error = core.request(command(young)).await.unwrap_err();
+    assert_eq!(error.detail_str("reason"), Some("panel_unavailable"));
+    assert_eq!(error.detail_str("status"), Some("duplicate"));
+    // Открытие в рабочей области дубликата переносит канонический экземпляр.
+    let reply = request(&core, open_panel("field", second, 1)).await?;
+    assert_eq!(opened(&reply)?, (old, OpenOutcome::Moved));
+    // Закрытие канонического: дубликат получает право, его байты прежние. Статус приходит
+    // дельтой того же события: снимок и событие дают состояние актора.
+    let (base, mut events) = core.subscribe().await?;
+    request(&core, Command::PanelClose { panel: old }).await?;
+    let event = events.try_recv()?;
+    assert!(
+        event.changes.contains(&Change::PanelStatus {
+            panel: young,
+            status: shellio_core::PanelStatus::Ready,
+        }),
+        "{:?}",
+        event.changes
+    );
+    let mut mirror = (*base.state).clone();
+    mirror.apply_all(&event.changes);
+    let after = snapshot(&core).await?;
+    assert_eq!(*after.state, mirror, "зеркало разошлось с актором");
+    assert_eq!(
+        after.state.panel_data.get(&young),
+        base.state.panel_data.get(&young)
+    );
+    assert_eq!(
+        after.state.status_of(young),
+        shellio_core::PanelStatus::Ready
+    );
+    request(&core, command(young)).await?;
+    let reply = request(&core, open_panel("field", first, 3)).await?;
+    assert_eq!(opened(&reply)?, (young, OpenOutcome::Moved));
+    let last = snapshot(&core).await?;
+    core.shutdown().await;
+
+    // Холодный запуск: тот же экземпляр готов, записи запуска нет.
+    let core = start_with(store.persist()?, &clock, resolver(), per_app)?;
+    let cold = snapshot(&core).await?;
+    assert_eq!(cold.revision, last.revision);
+    assert_eq!(*cold.state, *last.state);
+    assert_eq!(
+        cold.state.status_of(young),
+        shellio_core::PanelStatus::Ready
+    );
+    assert_eq!(
+        cold.state.panel_data.get(&young),
+        Some(&PanelData::Text {
+            version: 1,
+            raw: r#"{"count":3}"#.into(),
+        })
+    );
+    core.shutdown().await;
+    Ok(())
 }
 
 #[tokio::test]

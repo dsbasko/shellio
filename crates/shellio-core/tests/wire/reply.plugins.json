@@ -1,0 +1,45 @@
+{
+  "revision": 12,
+  "value": {
+    "plugins": [
+      {
+        "id": "terminal",
+        "title": "Терминал",
+        "icon": "square",
+        "placements": [
+          "left",
+          "right",
+          "center",
+          "bottom"
+        ],
+        "default_zone": "center",
+        "cardinality": "multi",
+        "min_size": {
+          "width": 200.0,
+          "height": 120.0
+        },
+        "commands": [],
+        "state_version": 1
+      },
+      {
+        "id": "navigator",
+        "title": "Навигатор",
+        "icon": "square",
+        "placements": [
+          "left",
+          "right",
+          "center",
+          "bottom"
+        ],
+        "default_zone": "left",
+        "cardinality": "per_workbench",
+        "min_size": {
+          "width": 200.0,
+          "height": 120.0
+        },
+        "commands": [],
+        "state_version": 1
+      }
+    ]
+  }
+}

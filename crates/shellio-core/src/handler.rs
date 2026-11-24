@@ -15,9 +15,11 @@ use crate::model::{Project, ProjectRoot, Route, State, WindowState, Workbench, W
 use crate::panel::{
     NAVIGATOR_PLUGIN, Panel, PluginId, TERMINAL_PLUGIN, WorkbenchLayout, recovered_layout,
 };
+use crate::panel_cmd::{panel_command, panel_open};
 use crate::plugin_host::created;
 use crate::root::ResolvedRoot;
 use crate::title::Title;
+use crate::tree::TreeScope;
 
 /// Имя воркспейса, который создаёт первый запуск.
 pub const BOOTSTRAP_WORKSPACE: &str = "Основной";
@@ -30,6 +32,8 @@ pub(crate) struct Ctx<'a> {
     /// Размер окна на момент команды. `None` — окна нет (ADR-0007, «Внутренний вход размера
     /// окна»).
     pub(crate) viewport: Option<Viewport>,
+    /// Область команды: её сверяют `panel.open` и `layout.split {open}`.
+    pub(crate) scope: TreeScope,
 }
 
 impl<'a> Ctx<'a> {
@@ -44,7 +48,14 @@ impl<'a> Ctx<'a> {
             ids,
             registry,
             viewport: None,
+            scope: TreeScope::All,
         }
+    }
+
+    /// Контекст с областью команды.
+    pub(crate) const fn with_scope(mut self, scope: TreeScope) -> Self {
+        self.scope = scope;
+        self
     }
 
     /// Контекст с размером окна.
@@ -103,6 +114,15 @@ pub(crate) fn handle(
             Ok(focus(state, record))
         }
         PreparedCommand::Layout(command) => layout_command(state, command, ctx),
+        PreparedCommand::PanelOpen {
+            plugin,
+            workbench,
+            zone,
+            args,
+        } => panel_open(state, &plugin, workbench, zone, args, ctx),
+        PreparedCommand::PanelCommand { panel, name, args } => {
+            panel_command(state, panel, &name, args, ctx)
+        }
     }
 }
 
@@ -417,7 +437,7 @@ fn workbench_rename(
     ))
 }
 
-fn workbench_open(
+pub(crate) fn workbench_open(
     state: &State,
     workbench: WorkbenchId,
     ctx: &mut Ctx<'_>,

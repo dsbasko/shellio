@@ -1,0 +1,9 @@
+{
+  "cmd": "panel.open",
+  "plugin": "demo-list",
+  "workbench": "00000000-0000-0000-0000-000000000004",
+  "zone": "right",
+  "args": {
+    "key": "c"
+  }
+}

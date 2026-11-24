@@ -5,17 +5,18 @@
 //! ревизии. Область доступа уже проверил актор на том же снимке.
 
 use serde_json::{Value, json};
-use shellio_layout::{Hideable, MinSize, OpError, Room, Viewport, Zone};
-use shellio_plugin_api::Registry;
+use shellio_layout::{Hideable, Location, MinSize, OpError, Room, Viewport, Zone};
+use shellio_plugin_api::{Cardinality, Registry};
 
 use crate::change::Change;
 use crate::command::{CommandValue, LayoutCommand, chosen_workbench, panel_workbench};
 use crate::error::{CoreError, Entity};
-use crate::handler::{Ctx, Outcome, new_panel};
+use crate::handler::{Ctx, Outcome};
 use crate::ids::{PanelId, WorkbenchId};
 use crate::model::State;
-use crate::panel::{PluginId, WorkbenchLayout, is_navigator, layout_metrics};
-use crate::plugin_host::{created, min_size};
+use crate::panel::{WorkbenchLayout, is_navigator, layout_metrics};
+use crate::panel_cmd::{allowed_for_panel, allowed_zone, create, registered, require_all};
+use crate::plugin_host::{heir, instance, min_size};
 
 /// Обработать команду раскладки над снимком состояния.
 pub(crate) fn layout_command(
@@ -30,29 +31,33 @@ pub(crate) fn layout_command(
         LayoutCommand::Split { panel, open } => {
             let workbench = panel_workbench(state, panel)?;
             let layout = current(state, workbench)?;
-            let plugin = open
-                .map(|raw| {
-                    PluginId::new(&raw).map_err(|error| {
-                        CoreError::invalid_argument("open", "plugin_invalid", error.to_string())
-                    })
-                })
-                .transpose()?;
-            let viewport = need_viewport(ctx, "layout.split")?;
-            let Some(plugin) = plugin else {
+            let Some(open) = open else {
+                let viewport = need_viewport(ctx, "layout.split")?;
                 let next = layout
                     .split(panel, None, viewport, &metrics, sizes)
                     .map_err(|error| refusal(error, "panel"))?;
                 return Ok(set(workbench, layout, next));
             };
-            let added = new_panel(workbench, plugin, ctx)?;
-            let id = added.id;
-            let need = min_size(registry, &added.plugin);
+            // Новую панель создаёт та же функция, что `panel.open`: существующий singleton —
+            // отказ, а не фокус.
+            let plugin = registered(registry, &open, "open")?;
+            let manifest = plugin.manifest();
+            require_all(manifest, ctx.scope, "layout.split")?;
+            if let Some(Location::Part { zone, .. }) = layout.locate(panel) {
+                allowed_zone(manifest, zone, "open")?;
+            }
+            if let Some(existing) = instance(state, plugin, workbench, None) {
+                return Err(CoreError::singleton_exists(existing));
+            }
+            let viewport = need_viewport(ctx, "layout.split")?;
+            let need = manifest.min_size;
+            let (id, mut changes) =
+                create(plugin, workbench, None, layout.focused(), Some("open"), ctx)?;
             let next = layout
                 .split(panel, Some(id), viewport, &metrics, |p| {
                     if p == id { need } else { sizes(p) }
                 })
                 .map_err(|error| refusal(error, "panel"))?;
-            let mut changes = created(registry, added);
             changes.push(Change::LayoutSet {
                 workbench,
                 layout: next,
@@ -69,6 +74,8 @@ pub(crate) fn layout_command(
             Ok(layout.focus_direction(direction, ctx.viewport, &metrics))
         }),
         LayoutCommand::Move { panel, zone } => {
+            panel_workbench(state, panel)?;
+            allowed_for_panel(state, registry, panel, zone, "zone")?;
             let navigator = state
                 .panels
                 .get(&panel)
@@ -84,6 +91,9 @@ pub(crate) fn layout_command(
         } => {
             let workbench = panel_workbench(state, panel)?;
             let layout = current(state, workbench)?;
+            if let Some(Location::Part { zone, .. }) = layout.locate(anchor) {
+                allowed_for_panel(state, registry, panel, zone, "anchor")?;
+            }
             let next = layout
                 .move_to_part(panel, anchor, edge)
                 .map_err(|error| refusal(error, "anchor"))?;
@@ -92,19 +102,34 @@ pub(crate) fn layout_command(
         LayoutCommand::Close { panel } => {
             let workbench = panel_workbench(state, panel)?;
             let layout = current(state, workbench)?;
-            let next = layout
+            let mut next = layout
                 .close(panel)
                 .map_err(|error| refusal(error, "panel"))?;
-            Ok(Outcome::new(
-                CommandValue::None,
-                vec![
-                    Change::LayoutSet {
-                        workbench,
-                        layout: next,
-                    },
-                    Change::PanelRemove { panel },
-                ],
-            ))
+            // Возврат фокуса `PerApp` (ADR-0008): вызывающей панели, если она стоит в показанной
+            // части этой раскладки. Скрытая зона не раскрывается.
+            let per_app = state
+                .panels
+                .get(&panel)
+                .and_then(|record| registry.get(&record.plugin))
+                .is_some_and(|plugin| plugin.manifest().cardinality == Cardinality::PerApp);
+            if per_app
+                && layout.focused() == Some(panel)
+                && let Some(&caller) = state.opened_from.get(&panel)
+                && part_shown(&next, caller)
+            {
+                next = next
+                    .focus_panel(caller)
+                    .map_err(|error| refusal(error, "panel"))?;
+            }
+            let mut changes = vec![
+                Change::LayoutSet {
+                    workbench,
+                    layout: next,
+                },
+                Change::PanelRemove { panel },
+            ];
+            changes.extend(heir(state, registry, panel));
+            Ok(Outcome::new(CommandValue::None, changes))
         }
         LayoutCommand::Resize {
             workbench,
@@ -168,12 +193,28 @@ pub(crate) fn panel_min_size(state: &State, registry: &Registry, panel: PanelId)
     })
 }
 
+/// Место панели показано: колонка навигатора или часть зоны без скрытия, чужого `only` и чужого
+/// `zoom`. Вкладка может быть невыбранной.
+fn part_shown(layout: &WorkbenchLayout, panel: PanelId) -> bool {
+    if layout.zoomed_panel().is_some_and(|zoomed| zoomed != panel) {
+        return false;
+    }
+    match layout.locate(panel) {
+        None => false,
+        Some(Location::Navigator) => layout.navigator_shown(),
+        Some(Location::Part { zone, .. }) => layout.zone_shown(zone),
+    }
+}
+
 fn need_viewport(ctx: &Ctx<'_>, command: &str) -> Result<Viewport, CoreError> {
     ctx.viewport.ok_or_else(|| CoreError::no_ui(command))
 }
 
 /// Раскладка рабочей области. После запуска и `workbench.create` она есть у каждой.
-fn current(state: &State, workbench: WorkbenchId) -> Result<&WorkbenchLayout, CoreError> {
+pub(crate) fn current(
+    state: &State,
+    workbench: WorkbenchId,
+) -> Result<&WorkbenchLayout, CoreError> {
     state
         .layouts
         .get(&workbench)
@@ -220,7 +261,7 @@ fn set(workbench: WorkbenchId, before: &WorkbenchLayout, after: WorkbenchLayout)
 
 /// Отказ модели как ошибка ядра. `column` — поле панели, которая оказалась в колонке
 /// навигатора: `panel` у деления, `anchor` у переноса в часть, `part_of` у размера части.
-fn refusal(error: OpError<PanelId>, column: &str) -> CoreError {
+pub(crate) fn refusal(error: OpError<PanelId>, column: &str) -> CoreError {
     match error {
         OpError::NotFound(panel) => CoreError::not_found(Entity::Panel, panel),
         OpError::AlreadyPresent(panel) => CoreError::storage_conflict(format!(
@@ -286,7 +327,7 @@ const fn target_name(target: Hideable) -> &'static str {
 mod tests {
     use std::sync::Arc;
 
-    use shellio_layout::{Direction, Edge, Location};
+    use shellio_layout::{Direction, Edge};
 
     use super::*;
     use crate::clock::UnixMillis;
@@ -296,7 +337,9 @@ mod tests {
     use crate::model::Route;
     use crate::panel::PanelStatus;
     use crate::query::{LayoutView, Query, StorageInfo, read};
-    use crate::test_support::{FakeRootResolver, ManualClock, SequentialIds, registry};
+    use crate::test_support::{
+        FakeRootResolver, ManualClock, SequentialIds, TestPlugin, registry, registry_of,
+    };
     use crate::tree::TreeScope;
     use crate::wire::ReplyValue;
 
@@ -470,12 +513,36 @@ mod tests {
         assert_eq!(added.title.as_str(), "Терминал");
         assert_eq!(h.center_tabs(), [vec![terminal], vec![panel]]);
         assert_eq!(h.layout().focused(), Some(panel));
+    }
 
-        // Незарегистрированный плагин: название — его id, данных нет, статус — `plugin_missing`.
-        let notes = h.split_open(panel, "notes");
-        assert_eq!(h.state.panels[&notes].title.as_str(), "notes");
-        assert_eq!(h.state.panel_data.get(&notes), None);
-        assert_eq!(h.state.status_of(notes), PanelStatus::PluginMissing);
+    #[test]
+    fn split_with_open_takes_title_and_data_from_the_registered_plugin() {
+        let mut h = H::new();
+        h.registry = registry_of(vec![TestPlugin::new("notes").title("Заметки")]);
+        let notes = h.split_open(h.terminal, "notes");
+        assert_eq!(h.state.panels[&notes].title.as_str(), "Заметки");
+        assert_eq!(
+            h.state.panel_data.get(&notes),
+            Some(&crate::panel::PanelData::Text {
+                version: 1,
+                raw: r#"{"count":0}"#.to_owned(),
+            })
+        );
+        assert_eq!(h.state.status_of(notes), PanelStatus::Ready);
+    }
+
+    #[test]
+    fn split_with_open_refuses_unregistered_plugin() {
+        let mut h = H::new();
+        let error = h.err(Command::LayoutSplit {
+            panel: h.terminal,
+            open: Some("notes".into()),
+        });
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "plugin_unknown"), ("field", "open")],
+        );
     }
 
     #[test]

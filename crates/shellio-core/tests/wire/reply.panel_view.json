@@ -1,0 +1,22 @@
+{
+  "revision": 12,
+  "value": {
+    "panel": {
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "workbench": "00000000-0000-0000-0000-000000000004",
+      "plugin": "terminal",
+      "title": "Терминал",
+      "created_at": 1795000000000
+    },
+    "status": "ready",
+    "version": 1,
+    "data": null,
+    "readable": true,
+    "opened_from": "00000000-0000-0000-0000-000000000009",
+    "canonical": null,
+    "min_size": {
+      "width": 200.0,
+      "height": 120.0
+    }
+  }
+}

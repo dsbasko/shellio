@@ -3,17 +3,18 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use shellio_layout::{Frames, MinSize, Viewport, geometry};
-use shellio_plugin_api::Registry;
+use shellio_plugin_api::{PluginInfo, Registry};
 
 use crate::clock::UnixMillis;
-use crate::command::scoped_workbench;
+use crate::command::{scoped_panel, scoped_workbench};
 use crate::error::{CoreError, Entity};
 use crate::ids::{PanelId, WorkbenchId};
 use crate::layout_cmd::panel_min_size;
 use crate::model::{Diagnostic, Revision, State};
-use crate::panel::{Panel, PluginId, WorkbenchLayout, layout_metrics};
-use crate::plugin_host::min_size;
+use crate::panel::{Panel, PanelData, PanelStatus, PluginId, WorkbenchLayout, layout_metrics};
+use crate::plugin_host::{instance, min_size};
 use crate::title::Title;
 use crate::tree::{TreeScope, TreeView};
 use crate::wire::{Reply, ReplyValue};
@@ -38,6 +39,13 @@ pub enum Query {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         workbench: Option<WorkbenchId>,
     },
+    /// Панель с данными и статусом, в области `scope`.
+    #[serde(rename = "panel")]
+    Panel { scope: TreeScope, panel: PanelId },
+    /// Описания плагинов реестра в порядке регистрации. Глобальное: манифесты не данные
+    /// пользователя.
+    #[serde(rename = "plugins")]
+    Plugins {},
 }
 
 impl Query {
@@ -47,6 +55,8 @@ impl Query {
             Self::Tree { .. } => "query.tree",
             Self::Status {} => "query.status",
             Self::Layout { .. } => "query.layout",
+            Self::Panel { .. } => "query.panel",
+            Self::Plugins {} => "query.plugins",
         }
     }
 }
@@ -137,6 +147,92 @@ impl LayoutView {
     }
 }
 
+/// Ответ `query.panel`: запись панели, статус и данные (ADR-0007, «Уточнено в P1.5
+/// (планирование)»).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PanelView {
+    pub panel: Panel,
+    pub status: PanelStatus,
+    /// Версия данных. `null` — строки данных нет или она нечитаема.
+    pub version: Option<u32>,
+    /// Разобранный JSON у панели в `ready`, иначе исходный текст строкой. `null` — строки нет
+    /// или она нечитаема.
+    pub data: Value,
+    /// `false` — строка данных есть, но прочитать её нельзя.
+    pub readable: bool,
+    /// Вызывающая панель `PerApp`.
+    pub opened_from: Option<PanelId>,
+    /// Канонический экземпляр дубликата, если он в области чтения.
+    pub canonical: Option<PanelId>,
+    pub min_size: MinSize,
+}
+
+impl PanelView {
+    fn build(
+        state: &State,
+        registry: &Registry,
+        scope: TreeScope,
+        panel: PanelId,
+    ) -> Result<Self, CoreError> {
+        scoped_panel(state, scope, panel)?;
+        let record = state
+            .panels
+            .get(&panel)
+            .ok_or_else(|| CoreError::not_found(Entity::Panel, panel))?;
+        let status = state.status_of(panel);
+        let (version, data, readable) = match state.panel_data.get(&panel) {
+            None => (None, Value::Null, true),
+            Some(PanelData::Unreadable {}) => (None, Value::Null, false),
+            Some(PanelData::Text { version, raw }) => {
+                let parsed = match status {
+                    PanelStatus::Ready => serde_json::from_str(raw).ok(),
+                    PanelStatus::PluginMissing
+                    | PanelStatus::Duplicate
+                    | PanelStatus::StateCorrupt
+                    | PanelStatus::InitFailed
+                    | PanelStatus::MigrateFailed
+                    | PanelStatus::StateNewer => None,
+                };
+                (
+                    Some(*version),
+                    parsed.unwrap_or_else(|| Value::String(raw.clone())),
+                    true,
+                )
+            }
+        };
+        let canonical = match status {
+            PanelStatus::Duplicate => registry
+                .get(&record.plugin)
+                .and_then(|plugin| instance(state, plugin, record.workbench, None))
+                .filter(|&canonical| scoped_panel(state, scope, canonical).is_ok()),
+            PanelStatus::Ready
+            | PanelStatus::PluginMissing
+            | PanelStatus::StateCorrupt
+            | PanelStatus::InitFailed
+            | PanelStatus::MigrateFailed
+            | PanelStatus::StateNewer => None,
+        };
+        Ok(Self {
+            panel: record.clone(),
+            status,
+            version,
+            data,
+            readable,
+            opened_from: state.opened_from.get(&panel).copied(),
+            canonical,
+            min_size: min_size(registry, &record.plugin),
+        })
+    }
+}
+
+/// Ответ `query.plugins`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PluginsView {
+    pub plugins: Vec<PluginInfo>,
+}
+
 /// Выполнить чтение над снимком состояния с ревизией `revision`. `viewport` — размер окна, по
 /// которому `query.layout` считает кадры, `registry` даёт `min_size` панелей.
 pub fn read(
@@ -157,6 +253,12 @@ pub fn read(
         Query::Layout { scope, workbench } => ReplyValue::Layout(Box::new(LayoutView::build(
             state, registry, *scope, *workbench, viewport,
         )?)),
+        Query::Panel { scope, panel } => {
+            ReplyValue::Panel(Box::new(PanelView::build(state, registry, *scope, *panel)?))
+        }
+        Query::Plugins {} => ReplyValue::Plugins(PluginsView {
+            plugins: registry.infos(),
+        }),
     };
     Ok(Reply { revision, value })
 }

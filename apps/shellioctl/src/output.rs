@@ -13,8 +13,8 @@ use shellio_control::{
     OkValue, OwnerState, Rect, Response, StatsView, TabRegime, UiReply, WindowView, encode_line,
 };
 use shellio_core::{
-    Change, CommandValue, Event, EventsSince, Reply, ReplyValue, RootKind, Route, StatusView,
-    TreeView,
+    Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
+    StatusView, TreeView,
 };
 
 use shellio_layout::{SizeClass, Zone};
@@ -175,8 +175,29 @@ fn reply_text(reply: &Reply) -> String {
             Ok(json) => format!("{json}\n"),
             Err(error) => format!("ревизия {revision}: раскладка не выводится: {error}\n"),
         },
+        ReplyValue::Panel(view) => match serde_json::to_string_pretty(view) {
+            Ok(json) => format!("{json}\n"),
+            Err(error) => format!("ревизия {revision}: панель не выводится: {error}\n"),
+        },
+        ReplyValue::Plugins(view) => match serde_json::to_string_pretty(view) {
+            Ok(json) => format!("{json}\n"),
+            Err(error) => format!("ревизия {revision}: плагины не выводятся: {error}\n"),
+        },
         ReplyValue::Command(value) => {
             let value = match value {
+                CommandValue::Opened {
+                    panel,
+                    workbench,
+                    outcome,
+                } => {
+                    let outcome = match outcome {
+                        OpenOutcome::Created => "создана",
+                        OpenOutcome::Focused => "в фокусе",
+                        OpenOutcome::Moved => "переехала",
+                        OpenOutcome::Routed => "окно перешло к ней",
+                    };
+                    format!("панель {panel} в рабочей области {workbench}: {outcome}")
+                }
                 CommandValue::Workspace { workspace } => format!("воркспейс {workspace}"),
                 CommandValue::Project { project, root } => {
                     format!("проект {project}, корень {root}")

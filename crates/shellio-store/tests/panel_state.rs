@@ -318,21 +318,26 @@ async fn statuses_keep_row_bytes_through_writes_and_restart() -> TestResult {
     );
     assert_eq!(store.rows(&kept)?, before, "запуск не тронул строки");
 
-    // Запись других панелей: одна с данными, одна со статусом. Снимок и события дают состояние
-    // актора вместе с данными и статусами.
+    // Запись другой панели с данными: снимок и события дают состояние актора вместе с данными и
+    // статусами. Отказ `init` новой панели — отказ команды без записи и без события. Дельту
+    // статуса в событии проверяет `legacy_duplicate_takes_the_right_after_close_and_survives_cold_start`.
     let mut mirror = (*initial.state).clone();
     let fresh = open(&core, panels["ready"], "ready").await?;
-    let failed = open(&core, panels["initfail"], "initfail").await?;
-    for _ in 0..2 {
-        mirror.apply_all(&events.try_recv()?.changes);
-    }
+    let refused = core
+        .request(Command::LayoutSplit {
+            panel: panels["initfail"],
+            open: Some("initfail".to_owned()),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(refused.detail_str("reason"), Some("init_refused"));
+    assert_eq!(refused.detail_str("field"), Some("open"));
+    mirror.apply_all(&events.try_recv()?.changes);
+    assert!(events.try_recv().is_err(), "отказ события не даёт");
     let after = snapshot(&core).await?;
-    assert_eq!(after.revision, Revision(loaded.0 + 3));
+    assert_eq!(after.revision, Revision(loaded.0 + 2));
     assert_eq!(*after.state, mirror, "зеркало разошлось с актором");
     assert_eq!(mirror.panel_data[&fresh], text(1, r#"{"count":0}"#));
-    assert_eq!(mirror.panel_data.get(&failed), None);
-    let mut expected = expected;
-    expected.insert(failed, PanelStatus::InitFailed);
     assert_eq!(mirror.panel_status, expected);
     assert_eq!(store.rows(&kept)?, before, "запись другой панели");
     core.shutdown().await;
