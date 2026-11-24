@@ -363,16 +363,26 @@ pub type Done = Box<dyn FnOnce(Result<(), Refusal>)>;   // на главном �
 - Create: `crates/shellio-plugin-api/{Cargo.toml,src/lib.rs,src/id.rs,src/manifest.rs,src/model.rs,src/registry.rs,src/contract.rs}`
 - Modify: `crates/shellio-core/{Cargo.toml,src/panel.rs,src/lib.rs}`, `Cargo.toml`, `Cargo.lock`
 
-- [ ] crate с `[lints] workspace = true`, `#![forbid(unsafe_code)]`, зависимости `serde`, `serde_json`, `shellio-layout`
-- [ ] `PluginId` и `PluginIdError` перенесены с прежней проверкой и JSON; `shellio-core` зависит от crate и переэкспортирует оба; `is_navigator` остаётся в ядре функцией над `PluginId` для `layout_cmd.rs` и `recovered_layout`; эталоны провода не меняются
-- [ ] `Manifest`, `Cardinality`, `ZoneSet`, `CommandSpec`, `KeyDefault`, `Presentation`, `Region`, `Reach`, `Refusal`, `PluginInfo`
-- [ ] `PanelModel` и `DynModel`: разбор команды по разделу «Разбор команды», ограничение 65 536 байт на результат
-- [ ] `Registry::build` со всеми проверками раздела «Контракт»
-- [ ] `contract::check` поверх `shellio_layout::contract::check` без изменения его сигнатуры
-- [ ] тесты реестра: каждая проверка на отказ и успех
-- [ ] тесты `DynModel`: неизвестное имя, лишнее поле `args`, `args: null`, отсутствующие `args`, неверный тип; результат 65 535, 65 536 и 65 537 байт с многобайтовым текстом
-- [ ] тесты контракта: подставная модель проходит; модель с одним вариантом везде не проходит; регион вне тела, перекрытие и недостижимое действие отвергаются; число вызовов `adapt` равно числу фикстур не ниже `min_size`
-- [ ] `make check`
+- [x] crate с `[lints] workspace = true`, `#![forbid(unsafe_code)]`, зависимости `serde`, `serde_json`, `shellio-layout`
+  - сверх списка файлов: `src/fake.rs` — подставная модель тестов crate под `#[cfg(test)]`
+- [x] `PluginId` и `PluginIdError` перенесены с прежней проверкой и JSON; `shellio-core` зависит от crate и переэкспортирует оба; `is_navigator` остаётся в ядре функцией над `PluginId` для `layout_cmd.rs` и `recovered_layout`; эталоны провода не меняются
+  - `shellio_core::is_navigator(&PluginId)` — свободная функция: метод чужому типу ядро добавить не может. Сверх списка файлов правлены её вызовы в `crates/shellio-core/src/layout_cmd.rs` и `crates/shellio-store/tests/recovery.rs`
+- [x] `Manifest`, `Cardinality`, `ZoneSet`, `CommandSpec`, `KeyDefault`, `Presentation`, `Region`, `Reach`, `Refusal`, `PluginInfo`
+  - ⚠️ решение исполнителя по правилу плана: `Refusal` — `{field, reason, message, details}`, ядро отдаёт его как `invalid_argument`. План не называет причину ошибки разбора `args`: выбрана `args_invalid` (поле `args`). Причины самой обёртки: `command_unknown` (поле `name`), `args_invalid`, `panel_state_too_large` (детали `size`, `limit`), `state_corrupt` (сохранённые данные не разобраны типом состояния, поле `panel`), `state_unserializable` (результат модели не пишется в JSON). Задача 5 следует этим именам или правит таблицу ADR-0007 в разделе вывода
+  - ⚠️ решение исполнителя по правилу плана: `PluginInfo.commands` — полные имена действий в порядке манифеста, без примеров `args`: пример нужен тесту плагина, а не чтению
+- [x] `PanelModel` и `DynModel`: разбор команды по разделу «Разбор команды», ограничение 65 536 байт на результат
+  - `DynModel` принимает и возвращает данные панели исходным текстом JSON, как их хранит ядро: `init`, `reopen`, `command`, `migrate` возвращают уже проверенный на предел текст, `reopen` и `command` — `Step::Unchanged` при равенстве состояний по `PartialEq`. `check` разбирает сохранённый текст типом состояния с инвариантами (правило статуса 6), `adapt` считает представление по тексту, `check_examples` разбирает примеры `args` манифеста
+  - ⚠️ решение исполнителя по правилу плана: `args` команды, отличные от объекта (не только `null`), — отказ `args_invalid`: провод и CLI передают объект. Действие без аргументов модель объявляет вариантом с пустыми фигурными скобками (`Back {}`): unit-вариант serde с `tag` и `content` пустой объект `{}` отвергает, это проверено пробой при исполнении и записано в документации `PanelModel`
+- [x] `Registry::build` со всеми проверками раздела «Контракт»
+  - ⚠️ решение исполнителя по правилу плана: «не совпадают с командами хоста» проверяется по пространству имён, а не по списку имён. `shellio-plugin-api` не зависит от ядра и списка его команд не знает, а имя действия начинается с id плагина, поэтому совпасть с командой хоста может только действие плагина, чей id равен первому сегменту имён хоста. `HOST_NAMESPACES` (`app`, `gallery`, `layout`, `panel`, `project`, `query`, `ui`, `window`, `workbench`, `workspace`) закрывает и будущие команды этих пространств. Новое пространство имён хоста ловит тест ядра `host_names_stay_in_namespaces_closed_to_plugins` по исходникам `command.rs`, `query.rs` и `ui_command.rs`. Плагин с таким id без действий реестр принимает
+  - ⚠️ решение исполнителя по правилу плана: хвост имени действия после `<plugin>.` — непустой, из `[a-z0-9_.-]`: имя идёт в провод, CLI и keymap. Правила названия повторены в crate (`TITLE_MAX_CHARS`), равенство предела с `Title::MAX_CHARS` сверяет тест ядра
+- [x] `contract::check` поверх `shellio_layout::contract::check` без изменения его сигнатуры
+  - ⚠️ решение исполнителя по правилу плана: у `contract::check(model, state, fixtures)` нет места для таблицы плагина, а задача 3 прогоняет проверку по всем зарегистрированным плагинам без веток по id. Таблица вариантов — данные `VariantTable` (зона × класс размера), четвёртый аргумент `check` и поле записи регистрации: `Entry::new(model, variants)`, у зарегистрированного плагина `Plugin::variants()`. Типаж `PanelModel` из ADR-0008 не меняется. `check` принимает `&DynModel` и текст данных. Дополнительно отвергаются регион без имени и повтор имени региона, действие в `reach` дважды; допуск сравнения кадров — 1e-6 точки
+- [x] тесты реестра: каждая проверка на отказ и успех
+- [x] тесты `DynModel`: неизвестное имя, лишнее поле `args`, `args: null`, отсутствующие `args`, неверный тип; результат 65 535, 65 536 и 65 537 байт с многобайтовым текстом
+- [x] тесты контракта: подставная модель проходит; модель с одним вариантом везде не проходит; регион вне тела, перекрытие и недостижимое действие отвергаются; число вызовов `adapt` равно числу фикстур не ниже `min_size`
+- [x] `make check`
+  - зелёный; поведение ядра не менялось: `min_size`, `Core::start`, `layout.split {open}` и эталоны провода прежние
 
 ### Task 3: Контракт вида, заполнители и регистрация
 

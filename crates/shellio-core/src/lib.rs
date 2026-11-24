@@ -44,7 +44,7 @@ pub use model::{
 };
 pub use panel::{
     NAVIGATOR_PLUGIN, NAVIGATOR_TITLE, Panel, PluginId, PluginIdError, TERMINAL_PLUGIN,
-    TERMINAL_TITLE, WorkbenchLayout, layout_metrics, min_size,
+    TERMINAL_TITLE, WorkbenchLayout, is_navigator, layout_metrics, min_size,
 };
 pub use persist::{CommitError, LoadError, Loaded, Persist};
 pub use query::{LayoutView, Query, StatusView, StorageInfo, read};

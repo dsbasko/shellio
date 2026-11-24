@@ -750,6 +750,44 @@ mod tests {
         }
     }
 
+    /// Имена команд, чтений и действий хоста в исходнике ядра до его тестов: строки вида
+    /// `<пространство>.<имя>`.
+    fn host_names(source: &str) -> Vec<&str> {
+        let code = source.split("#[cfg(test)]").next().unwrap_or(source);
+        code.split('"')
+            .filter(|piece| {
+                piece.contains('.')
+                    && piece.split('.').all(|segment| {
+                        !segment.is_empty()
+                            && segment
+                                .chars()
+                                .all(|ch| ch.is_ascii_lowercase() || ch == '_')
+                    })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn host_names_stay_in_namespaces_closed_to_plugins() {
+        let sources = [
+            (include_str!("command.rs"), "panel.close"),
+            (include_str!("query.rs"), "query.layout"),
+            (include_str!("ui_command.rs"), "app.quit"),
+        ];
+        for (source, known) in sources {
+            let names = host_names(source);
+            assert!(names.contains(&known), "{known}: {names:?}");
+            for name in names {
+                let namespace = name.split('.').next().unwrap();
+                assert!(
+                    shellio_plugin_api::HOST_NAMESPACES.contains(&namespace),
+                    "пространства имён «{namespace}» команды «{name}» нет в HOST_NAMESPACES: \
+                     плагин с таким id мог бы объявить действие с именем команды хоста"
+                );
+            }
+        }
+    }
+
     #[test]
     fn values_serialize_as_objects_of_ids() {
         let mut ids = SequentialIds::new();

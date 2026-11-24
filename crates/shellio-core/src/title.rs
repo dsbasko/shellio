@@ -125,6 +125,11 @@ mod tests {
     }
 
     #[test]
+    fn plugin_registry_checks_titles_by_the_same_limit() {
+        assert_eq!(shellio_plugin_api::TITLE_MAX_CHARS, Title::MAX_CHARS);
+    }
+
+    #[test]
     fn empty_is_rejected() {
         assert_eq!(Title::new(""), Err(TitleError::Empty));
         assert_eq!(Title::new("   \t\n "), Err(TitleError::Empty));

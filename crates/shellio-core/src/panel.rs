@@ -1,12 +1,12 @@
 //! Панели рабочей области и раскладка, которую ядро строит без команд (ADR-0009, ADR-0018,
 //! разделы «Уточнено в P1.4 (планирование)»).
 
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
 use shellio_layout::{
     Hidden, Layout, LayoutMetrics, MinSize, Part, SHARE_TOTAL, ZoneMap, ZoneSizes, ZoneState,
 };
+
+pub use shellio_plugin_api::{PluginId, PluginIdError};
 
 use crate::clock::UnixMillis;
 use crate::ids::{PanelId, WorkbenchId};
@@ -49,97 +49,10 @@ pub fn min_size(_plugin: &PluginId) -> MinSize {
     MinSize::DEFAULT
 }
 
-/// Строковый plugin id панели: от 1 до [`PluginId::MAX_CHARS`] символов из `[a-z0-9-]`
-/// (ADR-0007). До P1.5 хост рисует для любого id вид-заглушку, P1.5 подставляет фабрики по
-/// тому же id без миграции.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct PluginId(String);
-
-/// Причина отказа в plugin id.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PluginIdError {
-    Empty,
-    /// Символ вне `[a-z0-9-]`.
-    InvalidChar {
-        ch: char,
-    },
-    /// Длиннее [`PluginId::MAX_CHARS`] символов.
-    TooLong {
-        chars: usize,
-    },
-}
-
-impl fmt::Display for PluginIdError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => f.write_str("plugin id пустой"),
-            Self::InvalidChar { ch } => write!(
-                f,
-                "plugin id содержит символ U+{:04X} вне [a-z0-9-]",
-                u32::from(*ch)
-            ),
-            Self::TooLong { chars } => write!(
-                f,
-                "plugin id длиной {chars} символов длиннее {} символов",
-                PluginId::MAX_CHARS
-            ),
-        }
-    }
-}
-
-impl std::error::Error for PluginIdError {}
-
-impl PluginId {
-    /// Наибольшая длина plugin id в символах.
-    pub const MAX_CHARS: usize = 64;
-
-    /// Plugin id из строки как есть, без обрезки пробелов.
-    pub fn new(raw: &str) -> Result<Self, PluginIdError> {
-        if raw.is_empty() {
-            return Err(PluginIdError::Empty);
-        }
-        if let Some(ch) = raw
-            .chars()
-            .find(|ch| !matches!(ch, 'a'..='z' | '0'..='9' | '-'))
-        {
-            return Err(PluginIdError::InvalidChar { ch });
-        }
-        if raw.len() > Self::MAX_CHARS {
-            return Err(PluginIdError::TooLong { chars: raw.len() });
-        }
-        Ok(Self(raw.to_owned()))
-    }
-
-    /// Plugin id как строка.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Панель колонки навигатора.
-    pub fn is_navigator(&self) -> bool {
-        self.0 == NAVIGATOR_PLUGIN
-    }
-}
-
-impl TryFrom<String> for PluginId {
-    type Error = PluginIdError;
-
-    fn try_from(raw: String) -> Result<Self, Self::Error> {
-        Self::new(&raw)
-    }
-}
-
-impl From<PluginId> for String {
-    fn from(id: PluginId) -> Self {
-        id.0
-    }
-}
-
-impl fmt::Display for PluginId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
+/// Панель колонки навигатора. Особое место навигатора в раскладке — знание хоста, а не контракта
+/// плагина (ADR-0008, «Уточнено в P1.5 (планирование)»).
+pub fn is_navigator(plugin: &PluginId) -> bool {
+    plugin.as_str() == NAVIGATOR_PLUGIN
 }
 
 /// Панель рабочей области. Сессии у панели до P2.1 нет.
@@ -164,7 +77,7 @@ pub(crate) fn recovered_layout<'a>(
     ordered.sort_by_key(|panel| (panel.created_at, panel.id));
     let navigator = ordered
         .iter()
-        .find(|panel| panel.plugin.is_navigator())
+        .find(|panel| is_navigator(&panel.plugin))
         .map(|panel| panel.id);
     let center: Vec<PanelId> = ordered
         .iter()
@@ -226,50 +139,21 @@ mod tests {
     }
 
     #[test]
-    fn plugin_id_follows_wire_rule() {
-        let longest = "a".repeat(PluginId::MAX_CHARS);
-        for ok in [
-            "navigator",
-            "terminal",
-            "a",
-            "git-diff",
-            "x9",
-            longest.as_str(),
-        ] {
-            assert_eq!(
-                PluginId::new(ok).map(|id| id.to_string()),
-                Ok(ok.to_owned())
-            );
-        }
-        assert_eq!(PluginId::new(""), Err(PluginIdError::Empty));
+    fn plugin_id_comes_from_the_plugin_contract() {
+        let id: shellio_plugin_api::PluginId = PluginId::new(TERMINAL_PLUGIN).unwrap();
+        assert_eq!(serde_json::to_string(&id).unwrap(), "\"terminal\"");
         assert_eq!(
-            PluginId::new(&"a".repeat(65)),
-            Err(PluginIdError::TooLong { chars: 65 })
+            PluginId::new("Terminal"),
+            Err(PluginIdError::InvalidChar { ch: 'T' })
         );
-        for (raw, ch) in [
-            ("Terminal", 'T'),
-            ("git_diff", '_'),
-            (" terminal", ' '),
-            ("терминал", 'т'),
-            ("a.b", '.'),
-        ] {
-            assert_eq!(
-                PluginId::new(raw),
-                Err(PluginIdError::InvalidChar { ch }),
-                "{raw}"
-            );
-        }
-        assert!(PluginId::new(NAVIGATOR_PLUGIN).unwrap().is_navigator());
-        assert!(!PluginId::new(TERMINAL_PLUGIN).unwrap().is_navigator());
+        assert!(serde_json::from_str::<PluginId>("\"Terminal\"").is_err());
     }
 
     #[test]
-    fn plugin_id_is_checked_when_parsed() {
-        let id: PluginId = serde_json::from_str("\"terminal\"").unwrap();
-        assert_eq!(id.as_str(), "terminal");
-        assert_eq!(serde_json::to_string(&id).unwrap(), "\"terminal\"");
-        assert!(serde_json::from_str::<PluginId>("\"Terminal\"").is_err());
-        assert!(serde_json::from_str::<PluginId>("\"\"").is_err());
+    fn only_the_navigator_plugin_is_the_navigator() {
+        assert!(is_navigator(&PluginId::new(NAVIGATOR_PLUGIN).unwrap()));
+        assert!(!is_navigator(&PluginId::new(TERMINAL_PLUGIN).unwrap()));
+        assert!(!is_navigator(&PluginId::new("navigator-2").unwrap()));
     }
 
     struct Panels {

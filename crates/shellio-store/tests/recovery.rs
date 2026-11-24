@@ -966,7 +966,7 @@ impl Generator {
             0 => (Command::PanelClose { panel }, Written),
             1 => {
                 let zone = self.rng.pick(&Zone::ALL);
-                let navigator = state.panels[&panel].plugin.is_navigator();
+                let navigator = shellio_core::is_navigator(&state.panels[&panel].plugin);
                 (
                     Command::PanelMove { panel, zone },
                     changed(current.move_to_zone(panel, zone, navigator))?,

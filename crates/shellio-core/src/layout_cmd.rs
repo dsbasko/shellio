@@ -13,7 +13,7 @@ use crate::error::{CoreError, Entity};
 use crate::handler::{Ctx, Outcome, new_panel};
 use crate::ids::{PanelId, WorkbenchId};
 use crate::model::State;
-use crate::panel::{PluginId, WorkbenchLayout, layout_metrics, min_size};
+use crate::panel::{PluginId, WorkbenchLayout, is_navigator, layout_metrics, min_size};
 
 /// Обработать команду раскладки над снимком состояния.
 pub(crate) fn layout_command(
@@ -73,7 +73,7 @@ pub(crate) fn layout_command(
             let navigator = state
                 .panels
                 .get(&panel)
-                .is_some_and(|record| record.plugin.is_navigator());
+                .is_some_and(|record| is_navigator(&record.plugin));
             with_panel(state, panel, |layout| {
                 layout.move_to_zone(panel, zone, navigator)
             })
