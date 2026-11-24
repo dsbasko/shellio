@@ -1,0 +1,17 @@
+[package]
+name = "shellio-plugin-view"
+description = "Контракт вида плагина shellio на главном потоке: фабрика, тело, запросы к хосту и работа вида"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json = "1.0"
+shellio-appkit = { path = "../shellio-appkit" }
+shellio-layout = { path = "../shellio-layout" }
+shellio-plugin-api = { path = "../shellio-plugin-api" }
+shellio-theme = { path = "../shellio-theme" }
+
+[lints]
+workspace = true

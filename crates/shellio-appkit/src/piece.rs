@@ -14,7 +14,7 @@ use crate::components::text_field::TextField;
 use crate::components::tree_list::TreeList;
 use crate::components::virtual_list::VirtualList;
 use crate::marker::GenerationMarker;
-use crate::panel_stub::{EmptyNote, ExpandStub, PanelView};
+use crate::panel_stub::{EmptyNote, ExpandStub, NeutralCard, PanelView};
 use crate::plate::Plate;
 use crate::split_view::{Pane, SplitView};
 use crate::status_line::StatusLine;
@@ -35,6 +35,7 @@ pub enum Piece<'a> {
     Pane(&'a Pane),
     Plate(&'a Plate),
     PanelView(&'a PanelView),
+    Card(&'a NeutralCard),
     Stub(&'a ExpandStub),
     Note(&'a EmptyNote),
     Status(&'a StatusLine),
@@ -54,6 +55,7 @@ impl Piece<'_> {
             Piece::Pane(pane) => pane.ns_view(),
             Piece::Plate(plate) => plate.ns_view(),
             Piece::PanelView(panel) => panel.ns_view(),
+            Piece::Card(card) => card.ns_view(),
             Piece::Stub(stub) => stub.ns_view(),
             Piece::Note(note) => note.ns_view(),
             Piece::Status(line) => line.ns_view(),
@@ -130,6 +132,12 @@ impl<'a> From<&'a Plate> for Piece<'a> {
 impl<'a> From<&'a PanelView> for Piece<'a> {
     fn from(panel: &'a PanelView) -> Self {
         Piece::PanelView(panel)
+    }
+}
+
+impl<'a> From<&'a NeutralCard> for Piece<'a> {
+    fn from(card: &'a NeutralCard) -> Self {
+        Piece::Card(card)
     }
 }
 

@@ -20,9 +20,9 @@ use shellio::scene::{
 };
 use shellio_appkit::{
     App, EmptyNote, ExpandStub, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem,
-    Pane, PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot,
-    SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus, TabStripState,
-    ZoneSide,
+    NeutralCard, Pane, PanelCard, PanelView, Plate, Presentation, SplitDirection, SplitDrag,
+    SplitSlot, SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus,
+    TabStripState, ZoneSide,
 };
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, State, layout_metrics};
@@ -79,6 +79,8 @@ pub struct LayoutUi {
     /// Заглушки «Развернуть» по месту тела: создаются при первой нужде и переиспользуются.
     stubs: BTreeMap<Host, ExpandStub>,
     views: BTreeMap<PanelId, PanelView>,
+    /// Тела панелей до фабрик плагинов: нейтральная карточка в каждом контейнере.
+    cards: BTreeMap<PanelId, NeutralCard>,
     plates: BTreeMap<PartKey, Plate>,
     zoom: Option<Plate>,
     note: EmptyNote,
@@ -149,6 +151,7 @@ impl LayoutUi {
         LayoutUi {
             stubs: BTreeMap::new(),
             views: BTreeMap::new(),
+            cards: BTreeMap::new(),
             plates: BTreeMap::new(),
             zoom: None,
             note,
@@ -248,12 +251,14 @@ impl LayoutUi {
                     Op::AddPlate(key) => self.add_plate(app, key, bench),
                     Op::AddView(panel, _) => {
                         if let Some(slot) = bench.views.get(&panel) {
-                            let card = card(slot);
                             let on_panel = Rc::clone(&self.on_panel);
-                            let view = PanelView::new(app, &self.theme, card, move || {
+                            let view = PanelView::new(app, &self.theme, &slot.title, move || {
                                 on_panel(PanelAction::Focus(panel));
                             });
+                            let body = NeutralCard::new(app, &self.theme, card(slot));
+                            view.set_body(&body);
                             self.views.insert(panel, view);
+                            self.cards.insert(panel, body);
                         }
                     }
                     Op::Reparent(..)
@@ -279,6 +284,7 @@ impl LayoutUi {
                 Op::Show(panel) => self.set_view_hidden(panel, false),
                 Op::Hide(panel) => self.set_view_hidden(panel, true),
                 Op::RemoveView(panel) => {
+                    self.cards.remove(&panel);
                     self.views.remove(&panel);
                 }
                 Op::RemovePlate(key) => {
@@ -304,6 +310,9 @@ impl LayoutUi {
         }
         for view in self.views.values() {
             view.set_theme(theme);
+        }
+        for card in self.cards.values() {
+            card.set_theme(theme);
         }
         for stub in self.stubs.values() {
             stub.set_theme(theme);
@@ -581,7 +590,10 @@ impl LayoutUi {
                 let Some(view) = self.views.get(panel) else {
                     continue;
                 };
-                view.set_card(card(slot));
+                view.set_title(&slot.title);
+                if let Some(body) = self.cards.get(panel) {
+                    body.set_card(card(slot));
+                }
                 match slot.host {
                     Host::Navigator => {
                         let insets = slot

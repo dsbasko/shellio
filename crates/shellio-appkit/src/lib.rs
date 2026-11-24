@@ -25,8 +25,11 @@
 //! [`GenerationMarker`] и слабое наблюдение за видами освобождённого дерева [`ViewWatch`].
 //!
 //! P1.4 добавляет компоненты раскладки: сплит [`SplitView`] на обычных `NSSplitViewItem` с
-//! контейнером [`Pane`], плитку части [`Plate`], нейтральный вид панели [`PanelView`], заглушку
+//! контейнером [`Pane`], плитку части [`Plate`], контейнер панели [`PanelView`], заглушку
 //! «Развернуть» [`ExpandStub`] и сообщение области зон [`EmptyNote`].
+//!
+//! P1.5 отделяет от контейнера панели его тело: нейтральная карточка [`NeutralCard`] — отдельный
+//! компонент, контейнер [`PanelView`] держит любое тело ([`PanelView::set_body`]).
 
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -97,8 +100,8 @@ pub use main_menu::{MainMenu, MenuAction, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
 pub use panel_stub::{
-    EXPAND_TITLE, EmptyNote, ExpandStub, PanelCard, PanelView, StubCard, StubFrames, StubIntent,
-    stub_layout,
+    EXPAND_TITLE, EmptyNote, ExpandStub, NeutralCard, PanelCard, PanelView, StubCard, StubFrames,
+    StubIntent, stub_layout,
 };
 pub use piece::{Piece, ViewWatch};
 pub use plate::{Plate, plate_spec};

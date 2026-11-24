@@ -1,8 +1,9 @@
-//! Нейтральный вид панели до фабрик P1.5 ([`PanelView`]): название, plugin id, зона и класс размера
-//! тела. Хост рисует его для любого plugin id; вид живёт столько же, сколько панель, и переносится
-//! между плитками без пересоздания. [`ExpandStub`] — заглушка «Развернуть» хоста на месте тела
-//! меньше `min_size` панели (ADR-0009, ADR-0031): вид панели под ней скрыт и жив. [`EmptyNote`] —
-//! сообщение на месте области зон: «Нет открытых панелей» или «Рабочая область не открыта».
+//! Контейнер панели хоста ([`PanelView`]) и нейтральная карточка ([`NeutralCard`]). Контейнер живёт
+//! столько же, сколько панель, переносится между плитками без пересоздания и держит тело панели.
+//! Карточка — тело без собственного содержимого: название, plugin id, зона и класс размера.
+//! [`ExpandStub`] — заглушка «Развернуть» хоста на месте тела меньше `min_size` панели (ADR-0009,
+//! ADR-0031): контейнер панели под ней скрыт и жив. [`EmptyNote`] — сообщение на месте области зон:
+//! «Нет открытых панелей» или «Рабочая область не открыта».
 
 use std::cell::{Cell, RefCell};
 
@@ -23,23 +24,210 @@ use crate::counters::{Live, counter};
 use crate::inspect::{self, InspectNode};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
-use crate::piece::ns_rect;
+use crate::piece::{Piece, ns_rect};
 use crate::runloop;
 
 counter!(PANEL_OWNER, Owner, "PanelView");
 counter!(PANEL_VIEW, Class, "ShellioPanelView");
+counter!(CARD_OWNER, Owner, "NeutralCard");
+counter!(CARD_VIEW, Class, "ShellioNeutralCard");
 counter!(STUB_OWNER, Owner, "ExpandStub");
 counter!(STUB_VIEW, Class, "ShellioExpandStub");
 counter!(STUB_BUTTON, Class, "ShellioExpandButton");
 counter!(NOTE_OWNER, Owner, "EmptyNote");
 counter!(NOTE_VIEW, Class, "ShellioEmptyNote");
 
-/// Отступ текста вида панели от краёв тела.
+/// Отступ текста карточки от краёв тела.
 const PAD: f64 = 14.0;
-/// Высота строки текста вида панели.
+/// Высота строки текста карточки.
 const LINE: f64 = 18.0;
 
-/// Что показывает вид панели.
+struct PanelModel {
+    id: ComponentId,
+    theme: Cell<AppTheme>,
+    title: RefCell<String>,
+    on_press: Box<dyn Fn()>,
+}
+
+/// Контейнер панели на главном потоке: место тела панели и её имя в AX. Освобождение убирает его
+/// из иерархии.
+pub struct PanelView {
+    view: View<PanelStubView, PanelModel>,
+}
+
+impl PanelView {
+    /// Контейнер панели с названием `title`; `on_press` получает щелчок в тело на главном потоке
+    /// изнутри AppKit.
+    pub fn new(
+        app: &App,
+        theme: &AppTheme,
+        title: &str,
+        on_press: impl Fn() + 'static,
+    ) -> PanelView {
+        let mtm = app.mtm();
+        let model = PanelModel {
+            id: ComponentId::next(),
+            theme: Cell::new(*theme),
+            title: RefCell::new(title.to_owned()),
+            on_press: Box::new(on_press),
+        };
+        let view = View::new(&PANEL_OWNER, model, "PanelView.updateLayer", |owner| {
+            PanelStubView::new(mtm, owner)
+        });
+        let panel = PanelView { view };
+        panel.show_title();
+        panel
+    }
+
+    pub fn id(&self) -> ComponentId {
+        self.view.rust().id
+    }
+
+    pub fn title(&self) -> String {
+        self.view.rust().title.borrow().clone()
+    }
+
+    pub fn set_title(&self, title: &str) {
+        let model = self.view.rust();
+        if *model.title.borrow() != title {
+            model.title.replace(title.to_owned());
+            self.show_title();
+        }
+    }
+
+    pub fn set_theme(&self, theme: &AppTheme) {
+        let model = self.view.rust();
+        if model.theme.get() != *theme {
+            model.theme.set(*theme);
+            self.view.view().setNeedsDisplay(true);
+        }
+    }
+
+    /// Ставит тело на всю площадь контейнера; дальше оно растягивается вместе с ним. Тело из
+    /// другого родителя переставляется без пересоздания.
+    pub fn set_body<'a>(&self, piece: impl Into<Piece<'a>>) {
+        let piece = piece.into();
+        let body = piece.ns_view();
+        let host: &NSView = self.view.view();
+        let bounds = host.bounds();
+        if body.frame() != bounds {
+            body.setFrame(bounds);
+        }
+        // SAFETY: `superview` у живого вида только читается.
+        let parent = unsafe { body.superview() };
+        if !parent.is_some_and(|parent| std::ptr::eq(&*parent, host)) {
+            host.addSubview(body);
+        }
+        body.setAutoresizingMask(
+            NSAutoresizingMaskOptions::ViewWidthSizable
+                | NSAutoresizingMaskOptions::ViewHeightSizable,
+        );
+    }
+
+    /// Прячет или показывает контейнер без неявных анимаций.
+    pub fn set_hidden(&self, hidden: bool) {
+        let view = self.view.view();
+        if view.isHidden() != hidden {
+            without_actions(|| view.setHidden(hidden));
+        }
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.view.view().isHidden()
+    }
+
+    pub(crate) fn ns_view(&self) -> &NSView {
+        self.view.view()
+    }
+
+    /// Контейнер для `ui.inspect`.
+    pub fn inspect(&self, id: &str, parent: Option<&str>) -> InspectNode {
+        inspect::node(id, "PanelView", parent, self.view.view(), None, None)
+    }
+
+    fn show_title(&self) {
+        let title = self.view.rust().title.borrow();
+        self.view
+            .view()
+            .setAccessibilityLabel(Some(&NSString::from_str(&title)));
+    }
+}
+
+struct PanelIvars {
+    _live: Live,
+    owner: Callback<PanelModel>,
+}
+
+define_class!(
+    // SAFETY: NSView не требует от подкласса ничего сверх переопределённых ниже методов, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioPanelView"]
+    #[ivars = PanelIvars]
+    struct PanelStubView;
+
+    impl PanelStubView {
+        // SAFETY: селектор и результат — как у `isFlipped` NSView.
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `wantsUpdateLayer` NSView.
+        #[unsafe(method(wantsUpdateLayer))]
+        fn wants_update_layer(&self) -> bool {
+            true
+        }
+
+        // SAFETY: селектор и результат — как у `updateLayer` NSView.
+        #[unsafe(method(updateLayer))]
+        fn update_layer(&self) {
+            let Some(theme) = self.ivars().owner.call(|model| {
+                runloop::mark_draw(model.id);
+                model.theme.get()
+            }) else {
+                return;
+            };
+            if let Some(layer) = self.layer() {
+                without_actions(|| layer::set_fill(&layer, theme.colors.panel));
+            }
+        }
+
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Щелчок в тело, которое его
+        // не обработало, приходит сюда по цепочке ответчиков.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, _event: &NSEvent) {
+            self.ivars().owner.call(|model| (model.on_press)());
+        }
+
+        // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+    }
+);
+
+impl PanelStubView {
+    fn new(mtm: MainThreadMarker, owner: Callback<PanelModel>) -> Retained<PanelStubView> {
+        let this = PanelStubView::alloc(mtm).set_ivars(PanelIvars {
+            _live: PANEL_VIEW.live(),
+            owner,
+        });
+        // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
+        let view: Retained<PanelStubView> = unsafe {
+            msg_send![super(this), initWithFrame: NSRect::new(NSPoint::ZERO, NSSize::new(2.0 * PAD, 3.0 * LINE))]
+        };
+        layered(&view);
+        view.setAccessibilityElement(true);
+        // SAFETY: роль доступности — неизменяемая константа AppKit.
+        view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
+        view
+    }
+}
+
+/// Что показывает нейтральная карточка.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PanelCard {
     pub title: String,
@@ -57,40 +245,34 @@ impl PanelCard {
     }
 }
 
-struct PanelModel {
+struct CardModel {
     id: ComponentId,
     theme: Cell<AppTheme>,
     card: RefCell<PanelCard>,
-    on_press: Box<dyn Fn()>,
 }
 
-/// Вид панели на главном потоке. Освобождение убирает его из иерархии.
-pub struct PanelView {
-    view: View<PanelStubView, PanelModel>,
+/// Нейтральная карточка на главном потоке: тело панели без собственного содержимого. В AX её нет:
+/// имя панели несёт контейнер. Щелчок она не обрабатывает, он уходит контейнеру. Освобождение
+/// убирает её из иерархии.
+pub struct NeutralCard {
+    view: View<CardView, CardModel>,
 }
 
-impl PanelView {
-    /// Вид панели; `on_press` получает щелчок в тело на главном потоке изнутри AppKit.
-    pub fn new(
-        app: &App,
-        theme: &AppTheme,
-        card: PanelCard,
-        on_press: impl Fn() + 'static,
-    ) -> PanelView {
+impl NeutralCard {
+    pub fn new(app: &App, theme: &AppTheme, card: PanelCard) -> NeutralCard {
         let mtm = app.mtm();
-        let model = PanelModel {
+        let model = CardModel {
             id: ComponentId::next(),
             theme: Cell::new(*theme),
             card: RefCell::new(card),
-            on_press: Box::new(on_press),
         };
-        let view = View::new(&PANEL_OWNER, model, "PanelView.updateLayer", |owner| {
-            PanelStubView::new(mtm, owner)
+        let view = View::new(&CARD_OWNER, model, "NeutralCard.updateLayer", |owner| {
+            CardView::new(mtm, owner)
         });
-        let panel = PanelView { view };
-        panel.show_card();
-        panel.apply_theme();
-        panel
+        let card = NeutralCard { view };
+        card.show_card();
+        card.apply_theme();
+        card
     }
 
     pub fn id(&self) -> ComponentId {
@@ -117,34 +299,20 @@ impl PanelView {
         }
     }
 
-    /// Прячет или показывает вид без неявных анимаций.
-    pub fn set_hidden(&self, hidden: bool) {
-        let view = self.view.view();
-        if view.isHidden() != hidden {
-            without_actions(|| view.setHidden(hidden));
-        }
-    }
-
-    pub fn is_hidden(&self) -> bool {
-        self.view.view().isHidden()
-    }
-
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
     }
 
-    /// Вид для `ui.inspect`.
+    /// Карточка для `ui.inspect`.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> InspectNode {
-        inspect::node(id, "PanelView", parent, self.view.view(), None, None)
+        inspect::node(id, "NeutralCard", parent, self.view.view(), None, None)
     }
 
     fn show_card(&self) {
-        let view = self.view.view();
         let card = self.view.rust().card.borrow();
-        let parts = view.ivars();
+        let parts = self.view.view().ivars();
         parts.title.setStringValue(&NSString::from_str(&card.title));
         parts.meta.setStringValue(&NSString::from_str(&card.meta()));
-        view.setAccessibilityLabel(Some(&NSString::from_str(&card.title)));
     }
 
     fn apply_theme(&self) {
@@ -186,9 +354,9 @@ fn label(mtm: MainThreadMarker) -> Retained<NSTextField> {
     label
 }
 
-struct PanelIvars {
+struct CardIvars {
     _live: Live,
-    owner: Callback<PanelModel>,
+    owner: Callback<CardModel>,
     title: Retained<NSTextField>,
     meta: Retained<NSTextField>,
 }
@@ -198,11 +366,11 @@ define_class!(
     // класса нет.
     #[unsafe(super(NSView, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
-    #[name = "ShellioPanelView"]
-    #[ivars = PanelIvars]
-    struct PanelStubView;
+    #[name = "ShellioNeutralCard"]
+    #[ivars = CardIvars]
+    struct CardView;
 
-    impl PanelStubView {
+    impl CardView {
         // SAFETY: селектор и результат — как у `isFlipped` NSView.
         #[unsafe(method(isFlipped))]
         fn is_flipped(&self) -> bool {
@@ -229,13 +397,8 @@ define_class!(
             }
         }
 
-        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder.
-        #[unsafe(method(mouseDown:))]
-        fn mouse_down(&self, _event: &NSEvent) {
-            self.ivars().owner.call(|model| (model.on_press)());
-        }
-
-        // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView.
+        // SAFETY: селектор и результат — как у `acceptsFirstMouse:` NSView: первый щелчок в
+        // неактивном окне доходит до контейнера панели.
         #[unsafe(method(acceptsFirstMouse:))]
         fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
             true
@@ -243,16 +406,16 @@ define_class!(
     }
 );
 
-impl PanelStubView {
-    fn new(mtm: MainThreadMarker, owner: Callback<PanelModel>) -> Retained<PanelStubView> {
-        let this = PanelStubView::alloc(mtm).set_ivars(PanelIvars {
-            _live: PANEL_VIEW.live(),
+impl CardView {
+    fn new(mtm: MainThreadMarker, owner: Callback<CardModel>) -> Retained<CardView> {
+        let this = CardView::alloc(mtm).set_ivars(CardIvars {
+            _live: CARD_VIEW.live(),
             owner,
             title: label(mtm),
             meta: label(mtm),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
-        let view: Retained<PanelStubView> = unsafe {
+        let view: Retained<CardView> = unsafe {
             msg_send![super(this), initWithFrame: NSRect::new(NSPoint::ZERO, NSSize::new(2.0 * PAD, 3.0 * LINE))]
         };
         layered(&view);
@@ -267,9 +430,7 @@ impl PanelStubView {
             text.setAutoresizingMask(width);
             view.addSubview(text);
         }
-        view.setAccessibilityElement(true);
-        // SAFETY: роль доступности — неизменяемая константа AppKit.
-        view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
+        view.setAccessibilityElement(false);
         view
     }
 }
