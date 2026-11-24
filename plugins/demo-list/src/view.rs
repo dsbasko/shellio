@@ -1,9 +1,10 @@
 //! Вид «Демо: список»: список строк и список деталей на одной подложке. Кадры и видимость списков
 //! задают регионы представления модели, содержимое — данные панели. Клавиши списков становятся
-//! командами панели через отправитель хоста, сам вид данные не меняет.
+//! командами панели через отправитель хоста, сам вид данные не меняет. Свой запрошенный выбор
+//! списки показывают сразу, не дожидаясь данных панели.
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -13,7 +14,7 @@ use shellio_appkit::{
 };
 use shellio_layout::Geometry;
 use shellio_plugin_api::Presentation;
-use shellio_plugin_view::{PanelRequest, PluginView, ViewCtx, ViewFactory};
+use shellio_plugin_view::{PanelRequest, PanelSink, PluginView, ViewCtx, ViewFactory};
 use shellio_theme::AppTheme;
 
 use crate::model::{
@@ -45,11 +46,75 @@ enum Pane {
     Details,
 }
 
-/// Что тело показывает: данные панели и вариант последнего представления.
+/// Что тело показывает: данные панели, вариант последнего представления и свой запрошенный выбор.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Shown {
     state: State,
     variant: Option<&'static str>,
+    /// Ключи своих `select`, данных которых тело ещё не видело, по порядку отправки. Последний —
+    /// запрошенный выбор: списки показывают его сразу, и следующая стрелка считается от него.
+    sent: Vec<String>,
+    /// Хост принял последний запрос тела: ядро выполнило все свои `select`, в пути только их
+    /// данные.
+    settled: bool,
+}
+
+impl Shown {
+    fn new(state: State) -> Shown {
+        Shown {
+            state,
+            variant: None,
+            sent: Vec::new(),
+            settled: false,
+        }
+    }
+
+    /// Строка, которую показывают списки.
+    fn key(&self) -> &str {
+        self.sent.last().map_or(&self.state.key, String::as_str)
+    }
+
+    /// Запрос хосту на намерение списка `pane`. Свой `select` становится запрошенным выбором,
+    /// другой запрос снимает все: исхода прежних `select` тело уже не узнает.
+    fn ask(&mut self, pane: Pane, intent: &ListIntent) -> Option<PanelRequest> {
+        let request = request(pane, intent, self)?;
+        match (pane, intent) {
+            (Pane::List, ListIntent::Select { id }) => self.sent.push(id.clone()),
+            (Pane::List | Pane::Details, _) => self.sent.clear(),
+        }
+        self.settled = false;
+        Some(request)
+    }
+
+    /// Новые данные панели. Данные приходят по порядку ревизий, поэтому совпавший ключ подтверждает
+    /// самый ранний свой `select` с ним, а не запрошенный выбор: тот уходит только со своими
+    /// данными. Чужие данные после принятого запроса снимают все свои `select`: `select`, который
+    /// остался без данных, выбор не держит. `false` — данные прежние.
+    fn update(&mut self, state: State) -> bool {
+        if self.state == state {
+            return false;
+        }
+        match self.sent.iter().position(|key| *key == state.key) {
+            Some(own) => {
+                self.sent.drain(..=own);
+            }
+            None if self.settled => self.sent.clear(),
+            None => {}
+        }
+        self.state = state;
+        true
+    }
+
+    /// Исход последнего запроса тела. Отказ возвращает выбор данных панели. Успех оставляет
+    /// запрошенный выбор до его данных: исход приходит независимо от них и может обогнать данные
+    /// прежних своих `select`.
+    fn done(&mut self, accepted: bool) {
+        if accepted {
+            self.settled = true;
+        } else {
+            self.sent.clear();
+        }
+    }
 }
 
 /// Кадры списков по регионам представления. `None` — список не показан.
@@ -107,7 +172,7 @@ fn request(pane: Pane, intent: &ListIntent, shown: &Shown) -> Option<PanelReques
     let back = || (!shown.state.history.is_empty()).then(|| command(BACK, json!({})));
     match (pane, intent) {
         (Pane::List, ListIntent::Select { id }) => {
-            (*id != shown.state.key).then(|| command(SELECT, json!({"key": id})))
+            (id != shown.key()).then(|| command(SELECT, json!({"key": id})))
         }
         (Pane::List, ListIntent::Activate { .. }) => {
             drill.then(|| command(DETAILS, json!({"open": true})))
@@ -128,13 +193,12 @@ fn rows() -> Rc<[Row]> {
         .collect()
 }
 
-fn list_state(rows: &Rc<[Row]>, state: &State) -> ListState {
-    ListState::new(MANIFEST.title, Rc::clone(rows), Some(&state.key))
+fn list_state(rows: &Rc<[Row]>, key: &str) -> ListState {
+    ListState::new(MANIFEST.title, Rc::clone(rows), Some(key))
 }
 
-fn details_state(state: &State) -> ListState {
-    let (title, lines) =
-        model::find(&state.key).map_or(("", [""; 3]), |item| (item.title, item.details));
+fn details_state(key: &str) -> ListState {
+    let (title, lines) = model::find(key).map_or(("", [""; 3]), |item| (item.title, item.details));
     let rows: Vec<Row> = lines
         .iter()
         .enumerate()
@@ -160,14 +224,55 @@ fn build_list(
     }
 }
 
-struct View {
-    root: Surface,
+/// Часть тела, которую делят вид, обработчики намерений списков и исход запроса.
+struct Shared {
+    shown: RefCell<Shown>,
+    /// Обработчики списков держат на общую часть слабую ссылку.
     list: VirtualList,
     details: VirtualList,
     /// Строки списка общие для всех состояний: смена выбора не пересобирает набор.
     rows: Rc<[Row]>,
-    /// Читают обработчики намерений списков.
-    shown: Rc<RefCell<Shown>>,
+    sink: PanelSink,
+}
+
+impl Shared {
+    /// Списки получают выбор тела. Отказа нет: строки фиксированы, выбор проверен разбором или взят
+    /// из строк списка.
+    fn show(&self) {
+        let (list, details) = {
+            let shown = self.shown.borrow();
+            (
+                list_state(&self.rows, shown.key()),
+                details_state(shown.key()),
+            )
+        };
+        let _ = self.list.set_state(list);
+        let _ = self.details.set_state(details);
+    }
+
+    fn intent(this: &Rc<Shared>, pane: Pane, intent: &ListIntent) {
+        let request = this.shown.borrow_mut().ask(pane, intent);
+        let Some(request) = request else {
+            return;
+        };
+        this.show();
+        let shared = Rc::downgrade(this);
+        // Общая часть свободна: хост вправе вернуть исход раньше, чем вернётся отправка.
+        this.sink.send(
+            request,
+            Box::new(move |outcome| {
+                if let Some(shared) = shared.upgrade() {
+                    shared.shown.borrow_mut().done(outcome.is_ok());
+                    shared.show();
+                }
+            }),
+        );
+    }
+}
+
+struct View {
+    root: Surface,
+    shared: Rc<Shared>,
     frames: Frames,
     focused: bool,
 }
@@ -177,20 +282,6 @@ impl View {
         // Хост строит тело только для панели в `ready`, её данные разобраны моделью.
         let state = parse(state).unwrap_or_else(State::initial);
         let rows = rows();
-        let shown = Rc::new(RefCell::new(Shown {
-            state: state.clone(),
-            variant: None,
-        }));
-        let sender = |pane| {
-            let shown = Rc::clone(&shown);
-            let sink = ctx.sink.clone();
-            move |intent: ListIntent| {
-                let request = request(pane, &intent, &shown.borrow());
-                if let Some(request) = request {
-                    sink.send(request, Box::new(|_| {}));
-                }
-            }
-        };
         let root = Surface::new(
             ctx.app,
             ctx.theme,
@@ -201,29 +292,41 @@ impl View {
                 layer: FocusLayer::Plain,
             },
         );
-        let list = build_list(
-            ctx.app,
-            ctx.theme,
-            list_state(&rows, &state),
-            sender(Pane::List),
-        );
-        let details = build_list(
-            ctx.app,
-            ctx.theme,
-            details_state(&state),
-            sender(Pane::Details),
-        );
+        let shared = Rc::new_cyclic(|weak: &Weak<Shared>| {
+            let sender = |pane| {
+                let shared = weak.clone();
+                move |intent: ListIntent| {
+                    if let Some(shared) = shared.upgrade() {
+                        Shared::intent(&shared, pane, &intent);
+                    }
+                }
+            };
+            Shared {
+                list: build_list(
+                    ctx.app,
+                    ctx.theme,
+                    list_state(&rows, &state.key),
+                    sender(Pane::List),
+                ),
+                details: build_list(
+                    ctx.app,
+                    ctx.theme,
+                    details_state(&state.key),
+                    sender(Pane::Details),
+                ),
+                shown: RefCell::new(Shown::new(state)),
+                rows,
+                sink: ctx.sink.clone(),
+            }
+        });
         // До первого представления списки стоят в подложке скрытыми.
-        for pane in [&list, &details] {
+        for pane in [&shared.list, &shared.details] {
             root.place(pane, Frame::new(0.0, 0.0, 0.0, 0.0));
             pane.set_hidden(true);
         }
         View {
             root,
-            list,
-            details,
-            rows,
-            shown,
+            shared,
             frames: Frames::default(),
             focused: false,
         }
@@ -231,16 +334,9 @@ impl View {
 
     fn pane(&self, pane: Pane) -> &VirtualList {
         match pane {
-            Pane::List => &self.list,
-            Pane::Details => &self.details,
+            Pane::List => &self.shared.list,
+            Pane::Details => &self.shared.details,
         }
-    }
-
-    /// Списки получают данные панели. Отказа нет: строки фиксированы, выбор проверен разбором.
-    fn show_state(&self) {
-        let shown = self.shown.borrow();
-        let _ = self.list.set_state(list_state(&self.rows, &shown.state));
-        let _ = self.details.set_state(details_state(&shown.state));
     }
 
     /// Списки встают в кадры регионов. Ввод переходит в список нового уровня до того, как прежний
@@ -277,7 +373,7 @@ impl PluginView for View {
     }
 
     fn adapt(&mut self, _geometry: &Geometry, presentation: &Presentation) {
-        self.shown.borrow_mut().variant = Some(presentation.variant);
+        self.shared.shown.borrow_mut().variant = Some(presentation.variant);
         self.show_frames(Frames::of(presentation));
     }
 
@@ -285,17 +381,16 @@ impl PluginView for View {
         let Some(state) = parse(state) else {
             return;
         };
-        if self.shown.borrow().state == state {
-            return;
+        let changed = self.shared.shown.borrow_mut().update(state);
+        if changed {
+            self.shared.show();
         }
-        self.shown.borrow_mut().state = state;
-        self.show_state();
     }
 
     fn set_theme(&mut self, theme: &AppTheme) {
         self.root.set_theme(theme);
-        let _ = self.list.set_theme(theme);
-        let _ = self.details.set_theme(theme);
+        let _ = self.shared.list.set_theme(theme);
+        let _ = self.shared.details.set_theme(theme);
     }
 
     fn set_active(&mut self, _active: bool) {}
@@ -328,7 +423,7 @@ impl PluginView for View {
 
 #[cfg(test)]
 mod tests {
-    use shellio_appkit::check_list;
+    use shellio_appkit::{ListKey, check_list, list_key_intent};
     use shellio_layout::Zone;
     use shellio_plugin_api::PanelModel;
 
@@ -345,9 +440,14 @@ mod tests {
 
     fn shown(variant: &'static str, state: State) -> Shown {
         Shown {
-            state,
             variant: Some(variant),
+            ..Shown::new(state)
         }
+    }
+
+    /// Намерение стрелки вниз от строки, которую список показывает.
+    fn down(rows: &Rc<[Row]>, shown: &Shown) -> ListIntent {
+        list_key_intent(&list_state(rows, shown.key()), ListKey::Down).unwrap()
     }
 
     fn select(id: &str) -> ListIntent {
@@ -373,13 +473,13 @@ mod tests {
         assert_eq!(rows.len(), 8);
         for item in &ITEMS {
             let state = state(item.key, &[], false);
-            let list = list_state(&rows, &state);
+            let list = list_state(&rows, &state.key);
             assert_eq!(check_list(&list), Ok(()));
             assert_eq!(list.selected.as_deref(), Some(item.key));
             assert_eq!(list.label, "Демо: список");
             assert!(Rc::ptr_eq(&list.rows, &rows), "набор строк общий");
 
-            let details = details_state(&state);
+            let details = details_state(&state.key);
             assert_eq!(check_list(&details), Ok(()));
             assert_eq!(details.selected, None);
             assert_eq!(details.label, format!("Детали: {}", item.title));
@@ -433,11 +533,159 @@ mod tests {
                 None
             );
         }
-        let before_adapt = Shown {
-            state: closed,
-            variant: None,
-        };
+        let before_adapt = Shown::new(closed);
         assert_eq!(request(Pane::List, &activate("e"), &before_adapt), None);
+    }
+
+    #[test]
+    fn arrows_ahead_of_the_data_move_from_the_requested_row() {
+        let rows = rows();
+        let mut at = shown(SPLIT, state("a", &[], false));
+        let first = down(&rows, &at);
+        assert_eq!(
+            at.ask(Pane::List, &first),
+            Some(command(SELECT, json!({"key": "b"})))
+        );
+        assert_eq!(at.key(), "b", "список показывает запрошенную строку");
+        // Вторая стрелка до данных первой идёт от `b`, а не повторяет её.
+        let second = down(&rows, &at);
+        assert_eq!(
+            at.ask(Pane::List, &second),
+            Some(command(SELECT, json!({"key": "c"})))
+        );
+        assert_eq!(at.key(), "c");
+
+        // Данные первой стрелки выбор назад не сдвигают, исход успеха его не снимает.
+        assert!(at.update(state("b", &[], false)));
+        at.done(true);
+        assert_eq!(at.key(), "c");
+        assert!(at.update(state("c", &[], false)));
+        assert!(at.sent.is_empty());
+        assert_eq!(at.key(), "c");
+    }
+
+    /// Вниз, вниз, вверх от `a`: запросы `b`, `c`, `b`.
+    fn down_down_up() -> Shown {
+        let mut at = shown(SPLIT, state("a", &[], false));
+        for key in ["b", "c", "b"] {
+            assert!(at.ask(Pane::List, &select(key)).is_some());
+        }
+        at
+    }
+
+    #[test]
+    fn data_of_an_earlier_select_do_not_confirm_a_later_one_of_the_same_row() {
+        let rows = rows();
+        // Успех последнего запроса приходит до данных, между ними и после них.
+        for accepted_after in 0..=3 {
+            let mut at = down_down_up();
+            for (seen, key) in ["b", "c", "b"].into_iter().enumerate() {
+                if seen == accepted_after {
+                    at.done(true);
+                }
+                assert!(at.update(state(key, &[], false)));
+                assert_eq!(at.key(), "b", "исход после {accepted_after}, данные {seen}");
+            }
+            if accepted_after == 3 {
+                at.done(true);
+            }
+            assert!(at.sent.is_empty(), "исход после {accepted_after}");
+        }
+
+        // Стрелка между данными `c` и последними данными `b` идёт от `b`.
+        let mut at = down_down_up();
+        at.update(state("b", &[], false));
+        at.update(state("c", &[], false));
+        let next = down(&rows, &at);
+        assert_eq!(
+            at.ask(Pane::List, &next),
+            Some(command(SELECT, json!({"key": "c"})))
+        );
+    }
+
+    #[test]
+    fn select_without_data_does_not_hold_the_row() {
+        // Данные пришли снимком: промежуточных ревизий тело не видело.
+        for accepted_first in [true, false] {
+            let mut at = down_down_up();
+            if accepted_first {
+                at.done(true);
+            }
+            at.update(state("b", &[], false));
+            if !accepted_first {
+                at.done(true);
+            }
+            assert_eq!(at.key(), "b");
+            assert!(at.update(state("d", &[], false)));
+            assert_eq!(at.key(), "d", "чужое изменение после принятого запроса");
+            assert!(at.sent.is_empty());
+        }
+    }
+
+    #[test]
+    fn requested_row_is_compared_instead_of_the_stale_one() {
+        let mut at = shown(DRILL, state("a", &[], false));
+        assert!(at.ask(Pane::List, &select("b")).is_some());
+        assert_eq!(at.ask(Pane::List, &select("b")), None, "та же строка");
+        assert_eq!(
+            at.ask(Pane::List, &select("a")),
+            Some(command(SELECT, json!({"key": "a"}))),
+            "возврат к строке данных, пока `b` в пути"
+        );
+        assert_eq!(at.key(), "a");
+        // Данные `b` выбор не сдвигают, данные `a` его подтверждают.
+        at.update(state("b", &[], false));
+        assert_eq!(at.key(), "a");
+        at.update(state("a", &[], false));
+        assert!(at.sent.is_empty());
+    }
+
+    #[test]
+    fn requested_row_leaves_with_its_request() {
+        let pending = || {
+            let mut at = shown(DRILL, state("a", &["h"], false));
+            assert!(at.ask(Pane::List, &select("b")).is_some());
+            at
+        };
+
+        let mut at = pending();
+        at.done(false);
+        assert_eq!(at.key(), "a", "отказ возвращает выбор данных панели");
+
+        // Другой запрос тела: исхода `select` оно уже не узнает.
+        let mut at = pending();
+        assert_eq!(
+            at.ask(Pane::List, &activate("b")),
+            Some(command(DETAILS, json!({"open": true})))
+        );
+        assert!(at.sent.is_empty());
+        let mut at = pending();
+        assert_eq!(
+            at.ask(Pane::List, &ListIntent::Cancel),
+            Some(command(BACK, json!({})))
+        );
+        assert!(at.sent.is_empty());
+
+        // Намерение без запроса выбор не трогает.
+        let mut at = pending();
+        assert_eq!(at.ask(Pane::Details, &select("1")), None);
+        assert_eq!(at.key(), "b");
+
+        // Возврат к строке данных: успех обгоняет данные `b`, и они выбор не сдвигают.
+        let mut at = pending();
+        assert!(at.ask(Pane::List, &select("a")).is_some());
+        at.done(true);
+        assert!(at.update(state("b", &["h"], false)));
+        assert_eq!(at.key(), "a");
+        assert!(at.update(state("a", &["h"], false)));
+        assert!(at.sent.is_empty());
+
+        // Чужое изменение запрошенный выбор не снимает, пока исхода запроса нет.
+        let mut at = pending();
+        at.update(state("d", &["h"], false));
+        assert_eq!(at.key(), "b");
+        at.update(state("b", &["h"], false));
+        assert!(at.sent.is_empty());
     }
 
     #[test]
