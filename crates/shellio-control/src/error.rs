@@ -41,7 +41,8 @@ pub enum ControlErrorCode {
     UiTimeout,
     /// Запрос `gallery.*` вне режима галереи.
     GalleryOnly,
-    /// Запрос `ui.cell` владельцу, запущенному без явного `SHELLIO_STATE_DIR`.
+    /// Запрос `ui.cell` или `ui.window.size` владельцу, запущенному без явного
+    /// `SHELLIO_STATE_DIR`.
     IsolatedProfileOnly,
 }
 

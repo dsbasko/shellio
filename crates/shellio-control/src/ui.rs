@@ -46,6 +46,10 @@ pub enum UiRequest {
         contrast: Option<CellContrast>,
         motion: Option<CellMotion>,
     },
+    /// `ui.window.size`: размер окна владельца с явным `SHELLIO_STATE_DIR` в точках. Сторона меньше
+    /// наименьшего размера окна поднимается до него, верхний левый угол остаётся на месте. Итог
+    /// читает `ui.window`.
+    WindowSize { width: u32, height: u32 },
 }
 
 /// Контраст в запросе `ui.cell`.
@@ -255,6 +259,7 @@ impl UiRequest {
             Self::Command(command) => command.name(),
             Self::Gallery(command) => command.name(),
             Self::Cell { .. } => "ui.cell",
+            Self::WindowSize { .. } => "ui.window.size",
         }
     }
 
@@ -262,7 +267,9 @@ impl UiRequest {
     pub const fn is_mutation(self) -> bool {
         match self {
             Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } => false,
-            Self::Command(_) | Self::Gallery(_) | Self::Cell { .. } => true,
+            Self::Command(_) | Self::Gallery(_) | Self::Cell { .. } | Self::WindowSize { .. } => {
+                true
+            }
         }
     }
 
@@ -274,7 +281,10 @@ impl UiRequest {
                 | (Self::Inspect, UiReply::Inspect(_))
                 | (Self::Stats, UiReply::Stats(_))
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
-                | (Self::Command(_) | Self::Gallery(_), UiReply::Accepted(_))
+                | (
+                    Self::Command(_) | Self::Gallery(_) | Self::WindowSize { .. },
+                    UiReply::Accepted(_)
+                )
                 | (Self::Cell { .. }, UiReply::Cell(_))
         )
     }
@@ -314,6 +324,13 @@ struct UiCellArgs {
     contrast: Option<CellContrast>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     motion: Option<CellMotion>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WindowSizeArgs {
+    width: u32,
+    height: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -383,6 +400,8 @@ enum WireUiRequest {
     AppearanceSet(AppearanceArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
+    #[serde(rename = "ui.window.size")]
+    WindowSize(WindowSizeArgs),
     #[serde(rename = "gallery.cell")]
     GalleryCell(CellArgs),
     #[serde(rename = "gallery.motion")]
@@ -426,6 +445,9 @@ impl From<WireUiRequest> for UiRequest {
                 Self::Command(UiCommand::AppearanceSet(appearance))
             }
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
+            WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
+                Self::WindowSize { width, height }
+            }
             WireUiRequest::GalleryCell(CellArgs {
                 appearance,
                 contrast,
@@ -483,6 +505,9 @@ impl From<UiRequest> for WireUiRequest {
                 Self::AppearanceSet(AppearanceArgs { appearance })
             }
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
+            UiRequest::WindowSize { width, height } => {
+                Self::WindowSize(WindowSizeArgs { width, height })
+            }
             UiRequest::Gallery(command) => match command {
                 GalleryCommand::Cell {
                     appearance,
@@ -1409,7 +1434,7 @@ pub enum UiRefusal {
     NoUi,
     /// Запрос `gallery.*` вне режима галереи.
     GalleryOnly,
-    /// Запрос `ui.cell` владельцу без явного `SHELLIO_STATE_DIR`.
+    /// Запрос `ui.cell` или `ui.window.size` владельцу без явного `SHELLIO_STATE_DIR`.
     IsolatedProfileOnly,
 }
 
@@ -1485,6 +1510,14 @@ mod tests {
                     motion: None,
                 },
                 "ui.cell",
+                true,
+            ),
+            (
+                UiRequest::WindowSize {
+                    width: 1600,
+                    height: 720,
+                },
+                "ui.window.size",
                 true,
             ),
             (
@@ -1620,6 +1653,11 @@ mod tests {
             json!({"ui.cell": {"motion": "reduce"}}),
             json!({"ui.cell": {"appearance": "dark"}}),
             json!({"ui.cell": null}),
+            json!({"ui.window.size": {}}),
+            json!({"ui.window.size": {"width": 1600}}),
+            json!({"ui.window.size": {"width": -1, "height": 720}}),
+            json!({"ui.window.size": {"width": 1600.5, "height": 720}}),
+            json!({"ui.window.size": {"width": 1600, "height": 720, "screen": 0}}),
             json!({"gallery.cell": {"appearance": "sepia"}}),
             json!({"gallery.cell": {"extra": 1}}),
             json!({"gallery.motion": {}}),

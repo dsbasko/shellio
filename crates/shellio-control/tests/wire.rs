@@ -197,6 +197,7 @@ fn request_golden_static(request: &Request) -> &'static str {
             "request.ui.appearance_set"
         }
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
+        RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
             GalleryCommand::Cell { .. } => "request.ui.gallery_cell",
             GalleryCommand::Motion(_) => "request.ui.gallery_motion",
@@ -293,6 +294,14 @@ fn requests() -> Vec<Request> {
             RequestBody::Ui(UiRequest::Cell {
                 contrast: Some(CellContrast::Increased),
                 motion: Some(CellMotion::System),
+            }),
+        ),
+        // `prototype-conformance`, задача 11: размер окна.
+        request(
+            45,
+            RequestBody::Ui(UiRequest::WindowSize {
+                width: 1600,
+                height: 720,
             }),
         ),
         // P1.3, задача 8: служебные команды галереи.

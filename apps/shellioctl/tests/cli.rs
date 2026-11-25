@@ -16,13 +16,13 @@ use std::sync::{Arc, Mutex};
 use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
+    Accepted, Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast,
+    FontView, InspectView, Lightness, Motion, Rect, Size, StyleView,
+};
+use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
     OwnerState, Ownership, ReceiptView, ReceiptsView, RequestId, Response, SHUTDOWN_GRACE,
     SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
-};
-use shellio_control::{
-    Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast, FontView,
-    InspectView, Lightness, Motion, Rect, Size, StyleView,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
@@ -1120,6 +1120,12 @@ impl UiHandler for CellUi {
                 Ok(UiReply::Cell(self.cell(contrast, motion)))
             }
             UiRequest::Inspect if gate.begin() => Ok(UiReply::Inspect(Box::new(Self::inspect()))),
+            UiRequest::WindowSize { .. } if !self.explicit => Err(UiRefusal::IsolatedProfileOnly),
+            UiRequest::WindowSize { .. } if gate.begin() => Ok(UiReply::Accepted(Accepted {
+                command: request.name().to_owned(),
+                pid: std::process::id(),
+                generation: 1,
+            })),
             _ => Err(UiRefusal::NoUi),
         };
         std::future::ready(reply)
@@ -1223,6 +1229,38 @@ async fn ui_cell_needs_an_isolated_owner_and_an_axis() -> TestResult {
     assert!(text.stderr.contains("isolated_profile_only"), "{text:?}");
     let usage = dir.run(&["ui", "cell"]).await?.expect(2)?;
     assert!(usage.stderr.contains("--contrast"), "{usage:?}");
+    owner.stop().await
+}
+
+/// `ui window size` отдельным процессом: владелец с явным каталогом состояния отвечает квитанцией
+/// с именем запроса, владелец без него — `isolated_profile_only`, код 1; неверные стороны — ошибка
+/// использования, код 2.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_window_size_reaches_only_an_isolated_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, CellUi::new(true)).await?;
+    let done = dir
+        .run(&["ui", "window", "size", "1600", "720", "--json"])
+        .await?
+        .expect(0)?;
+    assert!(done.stdout.contains("\"ui.window.size\""), "{done:?}");
+    let usage = dir
+        .run(&["ui", "window", "size", "1600"])
+        .await?
+        .expect(2)?;
+    assert!(usage.stderr.contains("ширина и высота"), "{usage:?}");
+    owner.stop().await?;
+
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, CellUi::new(false)).await?;
+    let refused = dir
+        .run(&["ui", "window", "size", "1600", "720", "--json"])
+        .await?
+        .expect(1)?;
+    assert_eq!(
+        refused.control_code()?,
+        ControlErrorCode::IsolatedProfileOnly
+    );
     owner.stop().await
 }
 

@@ -464,6 +464,25 @@ impl OwnerWindow {
         })
     }
 
+    /// `ui.window.size`: окно получает размер в точках, раскладка встаёт по нему до ответа.
+    /// Поколение растёт на каждом запросе: сценарий ждёт его по `ui.window`.
+    fn set_window_size(
+        &mut self,
+        app: &App,
+        request: UiRequest,
+        width: u32,
+        height: u32,
+    ) -> UiReply {
+        self.window.set_size(f64::from(width), f64::from(height));
+        self.render_layout(app);
+        self.bump();
+        UiReply::Accepted(Accepted {
+            command: request.name().to_owned(),
+            pid: std::process::id(),
+            generation: self.generation.get(),
+        })
+    }
+
     /// Оси окна с источниками.
     fn axes(
         &self,
@@ -1508,6 +1527,9 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         }
         UiRequest::Cell { contrast, motion } => {
             with_window(|owner| owner.set_cell(contrast, motion))
+        }
+        UiRequest::WindowSize { width, height } => {
+            with_window(|owner| owner.set_window_size(app, request, width, height))
         }
         UiRequest::Gallery(_) => None,
     };

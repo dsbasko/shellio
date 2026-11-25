@@ -57,6 +57,7 @@ pub const USAGE: &str = "\
   events --since <курсор> --all
   events --follow --all
   ui window
+  ui window size <ширина> <высота>
   ui inspect
   ui stats
   ui receipts [--after <номер>]
@@ -89,6 +90,8 @@ ui receipts — служебное чтение тестов: квитанции
 --after.
 ui cell — служебный вход тестов: контраст и движение окна владельца с явным SHELLIO_STATE_DIR;
 system снимает переопределение оси, пропущенная ось не меняется.
+ui window size — служебный вход тестов: размер окна того же владельца в целых точках, не меньше
+наименьшего размера окна; итог читает ui window.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -942,6 +945,26 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 (None, false) => Err(usage("events: нужен --since <курсор> или --follow")),
             }
         }
+        "ui window" if rest.first().is_some_and(|verb| verb == "size") => {
+            given.only(call, &[])?;
+            let [_, width, height] = operands("ui window size", rest)
+                .map_err(|_| usage("ui window size: ожидаются ширина и высота"))?;
+            let side = |name: &str, value: &str| {
+                value
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|side| *side > 0)
+                    .ok_or_else(|| {
+                        usage(format!(
+                            "ui window size: {name} — целое число точек больше нуля, получено «{value}»"
+                        ))
+                    })
+            };
+            Ok(Action::Ui(UiRequest::WindowSize {
+                width: side("ширина", &width)?,
+                height: side("высота", &height)?,
+            }))
+        }
         "ui window" | "ui inspect" | "ui stats" | "window close" | "app quit" => {
             given.only(call, &[])?;
             operands::<0>(call, rest)?;
@@ -1459,6 +1482,35 @@ mod tests {
         ] {
             let message = refused(args);
             assert!(message.contains("не применим"), "{args:?}: {message}");
+        }
+    }
+
+    #[test]
+    fn ui_window_size_takes_two_whole_sides() {
+        assert_eq!(
+            action_of(&["ui", "window", "size", "1600", "720"]),
+            Action::Ui(UiRequest::WindowSize {
+                width: 1600,
+                height: 720,
+            })
+        );
+        for (args, expected) in [
+            (&["ui", "window", "size"][..], "ширина и высота"),
+            (&["ui", "window", "size", "1600"], "ширина и высота"),
+            (
+                &["ui", "window", "size", "1600", "720", "0"],
+                "ширина и высота",
+            ),
+            (&["ui", "window", "size", "0", "720"], "ширина"),
+            (&["ui", "window", "size", "1600", "x"], "высота"),
+            (&["ui", "window", "size", "1600.5", "720"], "ширина"),
+            (
+                &["ui", "window", "size", "1600", "720", "--all"],
+                "не применим",
+            ),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
         }
     }
 

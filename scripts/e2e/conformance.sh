@@ -12,7 +12,7 @@
 # вкладок по плагинам, активная вкладка и фокус; расхождение — ошибка исполнения.
 #
 # Состояние реестра собирается из чистой сцены по своему рецепту conformance/recipes/<состояние>.json: размер окна
-# рецепта задаётся через AX (AXSize окна, System Events) и проверяется по ui.window, шаги выполняет штатный CLI
+# рецепта задаёт служебная команда ui window size и проверяет ui.window, шаги выполняет штатный CLI
 # (hide_zone и show_zone — layout hide|show, split — layout split --open, zoom — layout zoom, focus — panel focus,
 # move — panel move, с new_part — panel move-part к последней части зоны с краем after, close_tab — panel close),
 # постусловия рецепта сверяются с query.layout. Левая зона сцены — колонка навигатора (часть 1) и части левой
@@ -1195,7 +1195,8 @@ size_is() {
     -v W="$2" -v H="$3" 'BEGIN { exit !(w - W <= 1 && W - w <= 1 && h - H <= 1 && H - h <= 1) }'
 }
 
-# Окно владельца размера W×H: AXSize окна через System Events, затем опрос ui.window; иначе WHY.
+# Окно владельца размера W×H: ui window size, затем опрос ui.window; иначе WHY. AX размер окна не задаёт: шире
+# экрана окно через AXSize не становится.
 resize_window() {
   local dir="$1" w="$2" h="$3" deadline
   WHY=""
@@ -1204,22 +1205,14 @@ resize_window() {
     return 1
   }
   ! size_is "$dir/size-before.stdout" "$w" "$h" || return 0
-  osascript -l JavaScript -e "
-    const se = Application('System Events');
-    const win = se.processes.whose({unixId: $owner_pid})[0].windows[0];
-    win.position = [0, 30];
-    win.size = [$w, $h];
-    'ok'" >"$dir/resize.stdout" 2>"$dir/resize.stderr" || {
-    WHY="AX не задал размер окна ${w}×${h}: $(oneline "$dir/resize.stderr")"
-    return 1
-  }
+  ui_cmd "$profile" "$dir/resize" ui window size "$w" "$h" || return 1
   deadline=$(($(now_ms) + MIRROR_MS))
   while :; do
     if ui_read "$profile" "$dir/size-after" window && size_is "$dir/size-after.stdout" "$w" "$h"; then
       return 0
     fi
     if (($(now_ms) >= deadline)); then
-      WHY="за $MIRROR_MS мс после AXSize окно не стало ${w}×${h}: $(jv "$dir/size-after.stdout" ok.ui.window.frame || echo "ui.window не прочитан")"
+      WHY="за $MIRROR_MS мс после ui window size окно не стало ${w}×${h}: $(jv "$dir/size-after.stdout" ok.ui.window.frame || echo "ui.window не прочитан")"
       return 1
     fi
     sleep "$POLL"

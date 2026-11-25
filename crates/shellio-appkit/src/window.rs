@@ -186,6 +186,16 @@ impl MainWindow {
         true
     }
 
+    /// Задаёт размер окна в точках: сторона меньше наименьшего размера поднимается до него, верхний
+    /// левый угол остаётся на месте. Край экрана размер не ограничивает.
+    pub fn set_size(&self, width: f64, height: f64) {
+        let window = &self.parts.window;
+        let frame = window.frame();
+        let (width, height) = sized((WINDOW_WIDTH, WINDOW_HEIGHT), (width, height));
+        let origin = NSPoint::new(frame.origin.x, frame.origin.y + frame.size.height - height);
+        window.setFrame_display(NSRect::new(origin, NSSize::new(width, height)), true);
+    }
+
     pub(crate) fn ns_window(&self) -> &NSWindow {
         &self.parts.window
     }
@@ -321,6 +331,11 @@ impl Drop for MainWindow {
         // Окно уходит из списка окон приложения, и последняя ссылка Rust освобождает его.
         window.close();
     }
+}
+
+/// Размер окна по запросу: не меньше наименьшего `min` по каждой стороне.
+fn sized(min: (f64, f64), asked: (f64, f64)) -> (f64, f64) {
+    (asked.0.max(min.0), asked.1.max(min.1))
 }
 
 fn new_window(mtm: MainThreadMarker, theme: &AppTheme) -> Retained<NSWindow> {
@@ -513,5 +528,19 @@ impl WindowDelegate {
     /// Кадр окна или его заголовка изменился: AppKit мог вернуть кнопки окна на место.
     fn relayout(&self) {
         self.call(|parts| parts.chrome.relayout());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `ui.window.size` поднимает сторону до наименьшего размера окна и не ограничивает сверху.
+    #[test]
+    fn asked_size_is_raised_to_the_minimum_and_not_capped() {
+        let min = (WINDOW_WIDTH, WINDOW_HEIGHT);
+        assert_eq!(sized(min, (1600.0, 720.0)), (1600.0, 720.0));
+        assert_eq!(sized(min, (1.0, 1.0)), min);
+        assert_eq!(sized(min, (4000.0, 100.0)), (4000.0, WINDOW_HEIGHT));
     }
 }

@@ -549,12 +549,16 @@ impl<U: Ui> UiHandler for UiPort<U> {
     }
 }
 
-/// Допуск запроса `ui` до главного потока: `ui.cell` принимает только владелец с явным каталогом
-/// состояния (ADR-0007, «Уточнено в `prototype-conformance`»). Отказ приходит до изменения.
+/// Допуск запроса `ui` до главного потока: `ui.cell` и `ui.window.size` принимает только владелец
+/// с явным каталогом состояния (ADR-0007, «Уточнено в `prototype-conformance`»). Отказ приходит до
+/// изменения.
 pub const fn admit_ui(request: UiRequest, explicit: bool) -> Result<(), UiRefusal> {
     match request {
-        UiRequest::Cell { .. } if !explicit => Err(UiRefusal::IsolatedProfileOnly),
+        UiRequest::Cell { .. } | UiRequest::WindowSize { .. } if !explicit => {
+            Err(UiRefusal::IsolatedProfileOnly)
+        }
         UiRequest::Cell { .. }
+        | UiRequest::WindowSize { .. }
         | UiRequest::Window
         | UiRequest::Inspect
         | UiRequest::Stats
@@ -776,8 +780,8 @@ mod tests {
 
     use super::*;
 
-    /// `ui.cell` принимает только владелец с явным каталогом состояния; остальные запросы `ui`
-    /// от профиля не зависят.
+    /// `ui.cell` и `ui.window.size` принимает только владелец с явным каталогом состояния;
+    /// остальные запросы `ui` от профиля не зависят.
     #[test]
     fn cell_is_admitted_only_on_an_explicit_profile() {
         use shellio_control::{CellContrast, CellMotion, GalleryCommand};
@@ -797,6 +801,10 @@ mod tests {
             UiRequest::Cell {
                 contrast: None,
                 motion: None,
+            },
+            UiRequest::WindowSize {
+                width: 1600,
+                height: 720,
             },
         ];
         for cell in cells {
