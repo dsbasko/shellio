@@ -1,12 +1,12 @@
-//! Модель «Демо: список»: выбранная строка, история «назад» и флаг раскрытых деталей. Строки и их
-//! детали фиксированы и в данные панели не входят.
+//! Модель «Демо: список»: выбранная строка, история «назад», флаг раскрытых деталей и текст
+//! фильтра. Строки и их детали фиксированы и в данные панели не входят.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shellio_layout::{Geometry, MinSize, Rect, SizeClass, Zone};
 use shellio_plugin_api::{
-    Cardinality, CommandSpec, Manifest, PanelModel, Presentation, Reach, Refusal, Region,
-    SizeVariants, VariantTable, Via, ZoneSet,
+    Cardinality, CommandSpec, KeyDefault, Manifest, PanelModel, Presentation, Reach, Refusal,
+    Region, SizeVariants, VariantTable, Via, ZoneSet,
 };
 
 /// Выбор строки без записи в историю.
@@ -15,6 +15,8 @@ pub const SELECT: &str = "demo-list.select";
 pub const DETAILS: &str = "demo-list.details";
 /// Вернуться к последней строке истории.
 pub const BACK: &str = "demo-list.back";
+/// Текст фильтра строк, пустой снимает фильтр.
+pub const FILTER: &str = "demo-list.filter";
 
 pub const MANIFEST: Manifest = Manifest {
     id: "demo-list",
@@ -40,12 +42,19 @@ pub const MANIFEST: Manifest = Manifest {
             name: BACK,
             args: "{}",
         },
+        CommandSpec {
+            name: FILTER,
+            args: r#"{"text":"та"}"#,
+        },
     ],
-    keymap: &[],
-    list_keys: false,
-    filter: false,
+    keymap: &[KeyDefault {
+        action: BACK,
+        key: "u",
+    }],
+    list_keys: true,
+    filter: true,
     input: false,
-    state_version: 1,
+    state_version: 2,
     builtin: true,
 };
 
@@ -149,10 +158,22 @@ pub const ITEMS: [Item; 8] = [
 /// Сколько ключей держит история: старейший вытесняется.
 pub const HISTORY_MAX: usize = 32;
 
+/// Наибольшая длина текста фильтра в знаках.
+pub const FILTER_MAX: usize = 64;
+
 /// Строка с ключом `key`.
 #[must_use]
 pub fn find(key: &str) -> Option<&'static Item> {
     ITEMS.iter().find(|item| item.key == key)
+}
+
+/// Строки, которые проходят фильтр: название содержит текст без учёта регистра. Пустой фильтр
+/// пропускает все.
+pub fn visible(filter: &str) -> impl Iterator<Item = &'static Item> + use<> {
+    let needle = filter.to_lowercase();
+    ITEMS
+        .iter()
+        .filter(move |item| item.title.to_lowercase().contains(&needle))
 }
 
 /// Данные панели.
@@ -165,11 +186,24 @@ pub struct State {
     pub history: Vec<String>,
     /// Детали раскрыты. На представление влияет только в варианте `drill`.
     pub details: bool,
+    /// Текст фильтра строк. Выбор с фильтром не связан: выбранная строка может его не проходить,
+    /// тогда список показывает строки без выбора.
+    pub filter: String,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawState {
+    key: String,
+    history: Vec<String>,
+    details: bool,
+    filter: String,
+}
+
+/// Данные версии 1: без фильтра.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StateV1 {
     key: String,
     history: Vec<String>,
     details: bool,
@@ -191,10 +225,17 @@ impl TryFrom<RawState> for State {
         if let Some(key) = raw.history.iter().find(|key| find(key).is_none()) {
             return Err(format!("в истории строка «{key}», которой нет"));
         }
+        let filter = raw.filter.chars().count();
+        if filter > FILTER_MAX {
+            return Err(format!(
+                "фильтр из {filter} знаков при пределе {FILTER_MAX}"
+            ));
+        }
         Ok(Self {
             key: raw.key,
             history: raw.history,
             details: raw.details,
+            filter: raw.filter,
         })
     }
 }
@@ -207,6 +248,7 @@ impl State {
             key: ITEMS[0].key.to_owned(),
             history: Vec::new(),
             details: false,
+            filter: String::new(),
         }
     }
 }
@@ -227,10 +269,14 @@ pub enum Command {
     Details { open: bool },
     #[serde(rename = "demo-list.back")]
     Back {},
+    #[serde(rename = "demo-list.filter")]
+    Filter { text: String },
 }
 
 /// Причина отказа: строки с таким ключом нет.
 pub const KEY_UNKNOWN: &str = "key_unknown";
+/// Причина отказа: текст фильтра длиннее [`FILTER_MAX`].
+pub const FILTER_TOO_LONG: &str = "filter_too_long";
 
 fn known(key: String) -> Result<String, Refusal> {
     if find(&key).is_some() {
@@ -333,16 +379,47 @@ impl PanelModel for Model {
                     next.key = key;
                 }
             }
+            Command::Filter { text } => {
+                let length = text.chars().count();
+                if length > FILTER_MAX {
+                    return Err(Refusal::new(
+                        "text",
+                        FILTER_TOO_LONG,
+                        format!("фильтр из {length} знаков при пределе {FILTER_MAX}"),
+                    ));
+                }
+                // Выбор уходит на первую показанную строку, только когда прежняя фильтр не
+                // прошла: строка, которую видно, остаётся выбранной.
+                let mut shown = visible(&text);
+                if let Some(first) = shown.next()
+                    && first.key != next.key
+                    && !shown.any(|item| item.key == next.key)
+                {
+                    first.key.clone_into(&mut next.key);
+                }
+                next.filter = text;
+            }
         }
         Ok(next)
     }
 
-    fn migrate(&self, from: u32, _data: Value) -> Result<State, Refusal> {
-        Err(Refusal::new(
-            "panel",
-            "state_version_unknown",
-            format!("у плагина «{}» нет данных версии {from}", MANIFEST.id),
-        ))
+    fn migrate(&self, from: u32, data: Value) -> Result<State, Refusal> {
+        let refusal = |reason: &str, message: String| Refusal::new("panel", reason, message);
+        if from != 1 {
+            return Err(refusal(
+                "state_version_unknown",
+                format!("у плагина «{}» нет данных версии {from}", MANIFEST.id),
+            ));
+        }
+        let old: StateV1 = serde_json::from_value(data)
+            .map_err(|error| refusal(Refusal::STATE_CORRUPT, error.to_string()))?;
+        State::try_from(RawState {
+            key: old.key,
+            history: old.history,
+            details: old.details,
+            filter: String::new(),
+        })
+        .map_err(|message| refusal(Refusal::STATE_CORRUPT, message))
     }
 
     fn adapt(&self, geometry: &Geometry, state: &State) -> Presentation {
@@ -376,6 +453,10 @@ impl PanelModel for Model {
                 },
                 Reach {
                     action: BACK,
+                    via: list,
+                },
+                Reach {
+                    action: FILTER,
                     via: list,
                 },
             ],
@@ -412,10 +493,15 @@ mod tests {
 
     /// Данные панели текстом, как их пишет модель: порядок полей — порядок `State`.
     fn text(key: &str, history: &[&str], details: bool) -> String {
+        filtered(key, history, details, "")
+    }
+
+    fn filtered(key: &str, history: &[&str], details: bool, filter: &str) -> String {
         serde_json::to_string(&State {
             key: key.to_owned(),
             history: history.iter().map(|&key| key.to_owned()).collect(),
             details,
+            filter: filter.to_owned(),
         })
         .unwrap()
     }
@@ -586,7 +672,7 @@ mod tests {
     fn examples_of_every_action_parse() {
         model().check_examples().unwrap();
         let names: Vec<&str> = MANIFEST.commands.iter().map(|spec| spec.name).collect();
-        assert_eq!(names, [SELECT, DETAILS, BACK]);
+        assert_eq!(names, [SELECT, DETAILS, BACK, FILTER]);
         for name in names {
             assert!(name.starts_with("demo-list."));
         }
@@ -603,6 +689,8 @@ mod tests {
             (SELECT, json!({"key": "a", "extra": 1})),
             (DETAILS, json!({"open": "yes"})),
             (BACK, json!({"key": "a"})),
+            (FILTER, json!({})),
+            (FILTER, json!({"text": 1})),
         ] {
             let refusal = model.command(&current, name, Some(args)).unwrap_err();
             assert_eq!(refusal.reason, Refusal::ARGS_INVALID, "{name}");
@@ -620,8 +708,11 @@ mod tests {
             text("z", &[], false),
             text("a", &["z"], false),
             text("a", &over, false),
-            json!({"key": "a", "history": []}).to_string(),
-            json!({"key": "a", "history": [], "details": false, "extra": 1}).to_string(),
+            filtered("a", &[], false, &"я".repeat(FILTER_MAX + 1)),
+            json!({"key": "a", "history": [], "filter": ""}).to_string(),
+            json!({"key": "a", "history": [], "details": false}).to_string(),
+            json!({"key": "a", "history": [], "details": false, "filter": "", "extra": 1})
+                .to_string(),
             "null".to_owned(),
         ];
         for data in broken {
@@ -631,9 +722,110 @@ mod tests {
     }
 
     #[test]
-    fn older_data_does_not_exist() {
-        assert_eq!(MANIFEST.state_version, 1);
-        assert!(model().migrate(0, "null").is_err());
+    fn manifest_declares_list_keys_the_filter_and_a_key_for_back() {
+        assert_eq!(
+            (MANIFEST.list_keys, MANIFEST.filter, MANIFEST.input),
+            (true, true, false)
+        );
+        assert_eq!(
+            MANIFEST.keymap,
+            [KeyDefault {
+                action: BACK,
+                key: "u"
+            }]
+        );
+    }
+
+    #[test]
+    fn filter_keeps_the_rows_whose_title_contains_the_text() {
+        let keys = |filter: &str| -> Vec<&str> { visible(filter).map(|item| item.key).collect() };
+        assert_eq!(keys(""), ["a", "b", "c", "d", "e", "f", "g", "h"]);
+        assert_eq!(keys("та"), ["b", "d", "f", "g", "h"]);
+        assert_eq!(keys("ТА"), keys("та"), "регистр не важен");
+        assert_eq!(keys("эта"), ["g"]);
+        assert_eq!(keys("нет такой"), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn filter_text_is_stored_and_moves_the_row_only_when_it_is_hidden() {
+        let start = text("b", &["a"], true);
+        // «Бета» фильтр проходит: выбор прежний.
+        let next = changed(command(&start, FILTER, json!({"text": "та"})));
+        assert_eq!(next, filtered("b", &["a"], true, "та"));
+        // «Бета» скрыта: выбор уходит на первую показанную строку, история прежняя.
+        let next = changed(command(&next, FILTER, json!({"text": "эта"})));
+        assert_eq!(next, filtered("g", &["a"], true, "эта"));
+        // Ни одной строки: выбор остаётся.
+        let none = changed(command(&next, FILTER, json!({"text": "нет"})));
+        assert_eq!(none, filtered("g", &["a"], true, "нет"));
+        assert_eq!(
+            command(&none, FILTER, json!({"text": "нет"})),
+            Step::Unchanged
+        );
+        // Пустой текст снимает фильтр.
+        let cleared = changed(command(&none, FILTER, json!({"text": ""})));
+        assert_eq!(cleared, text("g", &["a"], true));
+        model().check(&cleared).unwrap();
+    }
+
+    #[test]
+    fn filter_longer_than_the_limit_is_refused_on_the_text_field() {
+        let start = text("a", &[], false);
+        let full = "я".repeat(FILTER_MAX);
+        let next = changed(command(&start, FILTER, json!({"text": full})));
+        model().check(&next).unwrap();
+        let refusal = model()
+            .command(&start, FILTER, Some(json!({"text": format!("{full}я")})))
+            .unwrap_err();
+        assert_eq!(
+            (refusal.field.as_str(), refusal.reason.as_str()),
+            ("text", FILTER_TOO_LONG)
+        );
+    }
+
+    #[test]
+    fn rows_hidden_by_the_filter_stay_selectable_by_commands() {
+        let start = filtered("g", &[], false, "эта");
+        let next = changed(command(&start, SELECT, json!({"key": "a"})));
+        assert_eq!(next, filtered("a", &[], false, "эта"));
+        model().check(&next).unwrap();
+        let next = changed(reopen(&next, "c"));
+        assert_eq!(next, filtered("c", &["a"], false, "эта"));
+        let next = changed(command(&next, BACK, json!({})));
+        assert_eq!(next, filtered("a", &[], false, "эта"));
+    }
+
+    #[test]
+    fn data_of_version_one_get_an_empty_filter() {
+        assert_eq!(MANIFEST.state_version, 2);
+        let model = model();
+        let old = r#"{"key":"e","history":["a","c"],"details":true}"#;
+        let new = model.migrate(1, old).unwrap();
+        assert_eq!(new, text("e", &["a", "c"], true));
+        model.check(&new).unwrap();
+        // Данные версии 1 под версией 2 не читаются: поля фильтра в них нет.
+        assert_eq!(model.check(old).unwrap_err().reason, Refusal::STATE_CORRUPT);
+    }
+
+    #[test]
+    fn broken_or_unknown_old_data_are_refused() {
+        let model = model();
+        for old in [
+            r#"{"key":"z","history":[],"details":false}"#,
+            r#"{"key":"a","history":["z"],"details":false}"#,
+            r#"{"key":"a","history":[],"details":false,"filter":""}"#,
+            r#"{"key":"a","history":[]}"#,
+            "null",
+        ] {
+            let refusal = model.migrate(1, old).unwrap_err();
+            assert_eq!(refusal.reason, Refusal::STATE_CORRUPT, "{old}");
+        }
+        for from in [0, 3] {
+            let refusal = model
+                .migrate(from, r#"{"key":"a","history":[],"details":false}"#)
+                .unwrap_err();
+            assert_eq!(refusal.reason, "state_version_unknown", "{from}");
+        }
     }
 
     /// Размер тела каждого класса: не ниже `min_size` плагина.
@@ -705,7 +897,12 @@ mod tests {
         let mut all = fixtures(&METRICS);
         let from_layout = all.len();
         all.extend(pair_fixtures());
-        for data in [text("a", &[], false), text("e", &["a"], true)] {
+        for data in [
+            text("a", &[], false),
+            text("e", &["a"], true),
+            filtered("g", &[], false, "эта"),
+            filtered("a", &[], true, "нет"),
+        ] {
             let report = contract::check(&model, &data, &all, &VARIANTS);
             assert!(report.passed(), "{data}\n{report}");
             assert_eq!(report.entries.len(), all.len());
@@ -847,7 +1044,8 @@ mod tests {
             [
                 (SELECT, Via::Direct),
                 (DETAILS, Via::Drill),
-                (BACK, Via::Direct)
+                (BACK, Via::Direct),
+                (FILTER, Via::Direct)
             ]
         );
         assert_eq!(
@@ -855,7 +1053,8 @@ mod tests {
             [
                 (SELECT, Via::Drill),
                 (DETAILS, Via::Drill),
-                (BACK, Via::Drill)
+                (BACK, Via::Drill),
+                (FILTER, Via::Drill)
             ]
         );
         for data in [&closed, &open] {
@@ -864,7 +1063,8 @@ mod tests {
                 [
                     (SELECT, Via::Direct),
                     (DETAILS, Via::Direct),
-                    (BACK, Via::Direct)
+                    (BACK, Via::Direct),
+                    (FILTER, Via::Direct)
                 ]
             );
         }

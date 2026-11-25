@@ -1,7 +1,8 @@
 //! Вид «Демо: список»: список строк и список деталей на одной подложке. Кадры и видимость списков
 //! задают регионы представления модели, содержимое — данные панели. Клавиши списков становятся
 //! командами панели через отправитель хоста, сам вид данные не меняет. Свой запрошенный выбор
-//! списки показывают сразу, не дожидаясь данных панели.
+//! списки показывают сразу, не дожидаясь данных панели. Намерения хоста — движения `list.*` и текст
+//! фильтра — становятся теми же командами: список показывает только строки, прошедшие фильтр.
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -14,12 +15,17 @@ use shellio_appkit::{
 };
 use shellio_layout::Geometry;
 use shellio_plugin_api::Presentation;
-use shellio_plugin_view::{PanelRequest, PanelSink, PluginView, ViewCtx, ViewFactory};
+use shellio_plugin_view::{
+    Handled, ListMove, PanelRequest, PanelSink, PluginView, ViewCtx, ViewFactory, ViewIntent,
+};
 use shellio_theme::AppTheme;
 
 use crate::model::{
-    self, BACK, DETAILS, DETAILS_REGION, DRILL, ITEMS, LIST_REGION, MANIFEST, SELECT, State,
+    self, BACK, DETAILS, DETAILS_REGION, DRILL, FILTER, LIST_REGION, MANIFEST, SELECT, State,
 };
+
+/// Шаг `list.page_down` и `list.page_up` в строках.
+const PAGE: usize = 4;
 
 /// Фабрика тела панели на главном потоке.
 #[must_use]
@@ -84,6 +90,60 @@ impl Shown {
         }
         self.settled = false;
         Some(request)
+    }
+
+    /// Строка, на которую движение `step` переводит выбор среди строк, прошедших фильтр. Без
+    /// выбора среди них шаг вниз и к началу берёт первую строку, шаг вверх и к концу — последнюю.
+    /// `None` — показанных строк нет или шаг не движение выбора.
+    fn target(&self, step: ListMove) -> Option<&'static str> {
+        let keys: Vec<&'static str> = model::visible(&self.state.filter)
+            .map(|item| item.key)
+            .collect();
+        let last = keys.len().checked_sub(1)?;
+        let at = keys.iter().position(|key| *key == self.key());
+        let index = match step {
+            ListMove::Down => at.map_or(0, |at| (at + 1).min(last)),
+            ListMove::Up => at.map_or(last, |at| at.saturating_sub(1)),
+            ListMove::Top => 0,
+            ListMove::Bottom => last,
+            ListMove::PageDown => at.map_or(0, |at| (at + PAGE).min(last)),
+            ListMove::PageUp => at.map_or(last, |at| at.saturating_sub(PAGE)),
+            ListMove::Collapse | ListMove::Expand | ListMove::Activate => return None,
+        };
+        Some(keys[index])
+    }
+
+    /// Запрос хосту на намерение панели, пока ввод у списка `input`. Движения выбора и раскрытие
+    /// принадлежат списку строк, `list.collapse` закрывает детали `drill` и выбор не трогает.
+    /// `None` — намерение принято, но менять нечего: клавиша остаётся в панели.
+    fn host(&mut self, input: Pane, intent: &ViewIntent) -> Option<PanelRequest> {
+        let step = match intent {
+            ViewIntent::List(step) => *step,
+            ViewIntent::Filter { text } => {
+                if *text == self.state.filter {
+                    return None;
+                }
+                self.sent.clear();
+                self.settled = false;
+                return Some(command(FILTER, json!({"text": text})));
+            }
+        };
+        match (input, step) {
+            (Pane::Details, ListMove::Collapse) if self.variant == Some(DRILL) => {
+                self.ask(Pane::Details, &ListIntent::Cancel)
+            }
+            (Pane::List | Pane::Details, ListMove::Collapse) => None,
+            (Pane::List, ListMove::Expand | ListMove::Activate) => {
+                let id = self.key().to_owned();
+                self.ask(Pane::List, &ListIntent::Activate { id })
+            }
+            (Pane::List, _) => {
+                let id = self.target(step)?.to_owned();
+                self.ask(Pane::List, &ListIntent::Select { id })
+            }
+            // Строки деталей не выбираются и не открываются.
+            (Pane::Details, _) => None,
+        }
     }
 
     /// Новые данные панели. Данные приходят по порядку ревизий, поэтому совпавший ключ подтверждает
@@ -186,15 +246,17 @@ fn request(pane: Pane, intent: &ListIntent, shown: &Shown) -> Option<PanelReques
     }
 }
 
-fn rows() -> Rc<[Row]> {
-    ITEMS
-        .iter()
+/// Строки списка, прошедшие фильтр.
+fn rows(filter: &str) -> Rc<[Row]> {
+    model::visible(filter)
         .map(|item| Row::new(item.key, item.title))
         .collect()
 }
 
+/// Список строк `rows`. Выбранная строка, которую фильтр скрыл, выбора в списке не оставляет.
 fn list_state(rows: &Rc<[Row]>, key: &str) -> ListState {
-    ListState::new(MANIFEST.title, Rc::clone(rows), Some(key))
+    let selected = rows.iter().any(|row| row.id == key).then_some(key);
+    ListState::new(MANIFEST.title, Rc::clone(rows), selected)
 }
 
 fn details_state(key: &str) -> ListState {
@@ -230,8 +292,8 @@ struct Shared {
     /// Обработчики списков держат на общую часть слабую ссылку.
     list: VirtualList,
     details: VirtualList,
-    /// Строки списка общие для всех состояний: смена выбора не пересобирает набор.
-    rows: Rc<[Row]>,
+    /// Строки списка и фильтр, по которому они собраны: смена выбора набор не пересобирает.
+    rows: RefCell<(String, Rc<[Row]>)>,
     sink: PanelSink,
 }
 
@@ -241,10 +303,11 @@ impl Shared {
     fn show(&self) {
         let (list, details) = {
             let shown = self.shown.borrow();
-            (
-                list_state(&self.rows, shown.key()),
-                details_state(shown.key()),
-            )
+            let mut rows = self.rows.borrow_mut();
+            if rows.0 != shown.state.filter {
+                *rows = (shown.state.filter.clone(), self::rows(&shown.state.filter));
+            }
+            (list_state(&rows.1, shown.key()), details_state(shown.key()))
         };
         let _ = self.list.set_state(list);
         let _ = self.details.set_state(details);
@@ -252,6 +315,16 @@ impl Shared {
 
     fn intent(this: &Rc<Shared>, pane: Pane, intent: &ListIntent) {
         let request = this.shown.borrow_mut().ask(pane, intent);
+        Shared::send(this, request);
+    }
+
+    /// Намерение хоста, пока ввод у списка `input`.
+    fn host(this: &Rc<Shared>, input: Pane, intent: &ViewIntent) {
+        let request = this.shown.borrow_mut().host(input, intent);
+        Shared::send(this, request);
+    }
+
+    fn send(this: &Rc<Shared>, request: Option<PanelRequest>) {
         let Some(request) = request else {
             return;
         };
@@ -281,7 +354,7 @@ impl View {
     fn new(ctx: &ViewCtx<'_>, state: &Value) -> View {
         // Хост строит тело только для панели в `ready`, её данные разобраны моделью.
         let state = parse(state).unwrap_or_else(State::initial);
-        let rows = rows();
+        let rows = rows(&state.filter);
         let root = Surface::new(
             ctx.app,
             ctx.theme,
@@ -314,8 +387,8 @@ impl View {
                     details_state(&state.key),
                     sender(Pane::Details),
                 ),
+                rows: RefCell::new((state.filter.clone(), rows)),
                 shown: RefCell::new(Shown::new(state)),
-                rows,
                 sink: ctx.sink.clone(),
             }
         });
@@ -418,6 +491,11 @@ impl PluginView for View {
         nodes
     }
 
+    fn intent(&mut self, intent: &ViewIntent) -> Handled {
+        Shared::host(&self.shared, self.frames.input(), intent);
+        Handled::Yes
+    }
+
     fn close_view(&mut self) {}
 }
 
@@ -428,13 +506,18 @@ mod tests {
     use shellio_plugin_api::PanelModel;
 
     use super::*;
-    use crate::model::{BAR, Model, SPLIT};
+    use crate::model::{BAR, ITEMS, Model, SPLIT};
 
     fn state(key: &str, history: &[&str], details: bool) -> State {
+        filtered(key, history, details, "")
+    }
+
+    fn filtered(key: &str, history: &[&str], details: bool, filter: &str) -> State {
         State {
             key: key.to_owned(),
             history: history.iter().map(|&key| key.to_owned()).collect(),
             details,
+            filter: filter.to_owned(),
         }
     }
 
@@ -469,7 +552,7 @@ mod tests {
 
     #[test]
     fn list_states_are_valid() {
-        let rows = rows();
+        let rows = rows("");
         assert_eq!(rows.len(), 8);
         for item in &ITEMS {
             let state = state(item.key, &[], false);
@@ -490,11 +573,16 @@ mod tests {
 
     #[test]
     fn data_of_the_panel_parse_with_the_invariants_of_the_model() {
-        let value = json!({"key": "e", "history": ["a"], "details": true});
-        assert_eq!(parse(&value), Some(state("e", &["a"], true)));
+        let value = json!({"key": "e", "history": ["a"], "details": true, "filter": "эп"});
+        assert_eq!(parse(&value), Some(filtered("e", &["a"], true, "эп")));
         assert_eq!(
-            parse(&json!({"key": "z", "history": [], "details": false})),
+            parse(&json!({"key": "z", "history": [], "details": false, "filter": ""})),
             None
+        );
+        assert_eq!(
+            parse(&json!({"key": "a", "history": [], "details": false})),
+            None,
+            "данные версии 1"
         );
         assert_eq!(parse(&Value::Null), None);
     }
@@ -539,7 +627,7 @@ mod tests {
 
     #[test]
     fn arrows_ahead_of_the_data_move_from_the_requested_row() {
-        let rows = rows();
+        let rows = rows("");
         let mut at = shown(SPLIT, state("a", &[], false));
         let first = down(&rows, &at);
         assert_eq!(
@@ -575,7 +663,7 @@ mod tests {
 
     #[test]
     fn data_of_an_earlier_select_do_not_confirm_a_later_one_of_the_same_row() {
-        let rows = rows();
+        let rows = rows("");
         // Успех последнего запроса приходит до данных, между ними и после них.
         for accepted_after in 0..=3 {
             let mut at = down_down_up();
@@ -771,6 +859,180 @@ mod tests {
             };
             model.command(&data, &name, Some(args)).unwrap();
         }
+    }
+
+    fn list(step: ListMove) -> ViewIntent {
+        ViewIntent::List(step)
+    }
+
+    fn filter(text: &str) -> ViewIntent {
+        ViewIntent::Filter {
+            text: text.to_owned(),
+        }
+    }
+
+    #[test]
+    fn filtered_list_shows_the_passing_rows_and_drops_a_hidden_selection() {
+        let rows = rows("та");
+        let ids: Vec<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, ["b", "d", "f", "g", "h"]);
+        let shown = list_state(&rows, "d");
+        assert_eq!(check_list(&shown), Ok(()));
+        assert_eq!(shown.selected.as_deref(), Some("d"));
+        let hidden = list_state(&rows, "a");
+        assert_eq!(check_list(&hidden), Ok(()));
+        assert_eq!(hidden.selected, None);
+        let empty = list_state(&self::rows("нет"), "a");
+        assert_eq!(check_list(&empty), Ok(()));
+        assert!(empty.rows.is_empty());
+    }
+
+    #[test]
+    fn list_moves_select_the_row_of_the_step() {
+        let select_of = |key: &str, step| {
+            let mut at = shown(SPLIT, state(key, &[], false));
+            at.host(Pane::List, &list(step))
+        };
+        let to = |key: &str| Some(command(SELECT, json!({"key": key})));
+        assert_eq!(select_of("c", ListMove::Down), to("d"));
+        assert_eq!(select_of("c", ListMove::Up), to("b"));
+        assert_eq!(select_of("c", ListMove::Top), to("a"));
+        assert_eq!(select_of("c", ListMove::Bottom), to("h"));
+        assert_eq!(select_of("c", ListMove::PageDown), to("g"));
+        assert_eq!(select_of("f", ListMove::PageDown), to("h"));
+        assert_eq!(select_of("f", ListMove::PageUp), to("b"));
+        assert_eq!(select_of("c", ListMove::PageUp), to("a"));
+        // За краем менять нечего: запроса нет, намерение всё равно принято видом.
+        for (key, step) in [
+            ("h", ListMove::Down),
+            ("h", ListMove::Bottom),
+            ("h", ListMove::PageDown),
+            ("a", ListMove::Up),
+            ("a", ListMove::Top),
+            ("a", ListMove::PageUp),
+        ] {
+            assert_eq!(select_of(key, step), None, "{key} {step:?}");
+        }
+    }
+
+    #[test]
+    fn list_moves_ahead_of_the_data_go_from_the_requested_row() {
+        let mut at = shown(SPLIT, state("a", &[], false));
+        for key in ["b", "c"] {
+            assert_eq!(
+                at.host(Pane::List, &list(ListMove::Down)),
+                Some(command(SELECT, json!({"key": key})))
+            );
+            assert_eq!(at.key(), key);
+        }
+    }
+
+    #[test]
+    fn list_moves_stay_inside_the_filtered_rows() {
+        // Показаны b, d, f, g, h.
+        let mut at = shown(SPLIT, filtered("d", &[], false, "та"));
+        assert_eq!(
+            at.host(Pane::List, &list(ListMove::Down)),
+            Some(command(SELECT, json!({"key": "f"})))
+        );
+        let mut at = shown(SPLIT, filtered("d", &[], false, "та"));
+        assert_eq!(
+            at.host(Pane::List, &list(ListMove::Top)),
+            Some(command(SELECT, json!({"key": "b"})))
+        );
+        // Выбранная строка скрыта фильтром: шаг вниз берёт первую показанную, вверх — последнюю.
+        let mut at = shown(SPLIT, filtered("a", &[], false, "та"));
+        assert_eq!(
+            at.host(Pane::List, &list(ListMove::Down)),
+            Some(command(SELECT, json!({"key": "b"})))
+        );
+        let mut at = shown(SPLIT, filtered("a", &[], false, "та"));
+        assert_eq!(
+            at.host(Pane::List, &list(ListMove::Up)),
+            Some(command(SELECT, json!({"key": "h"})))
+        );
+        // Ни одной строки: двигаться некуда.
+        let mut at = shown(SPLIT, filtered("a", &[], false, "нет"));
+        for step in ListMove::ALL {
+            assert_eq!(at.host(Pane::List, &list(step)), None, "{step:?}");
+        }
+    }
+
+    #[test]
+    fn expand_and_activate_open_details_and_collapse_closes_them_only_in_drill() {
+        for step in [ListMove::Expand, ListMove::Activate] {
+            let mut at = shown(DRILL, state("e", &["a"], false));
+            assert_eq!(
+                at.host(Pane::List, &list(step)),
+                Some(command(DETAILS, json!({"open": true}))),
+                "{step:?}"
+            );
+            for variant in [SPLIT, BAR] {
+                let mut at = shown(variant, state("e", &["a"], false));
+                assert_eq!(at.host(Pane::List, &list(step)), None, "{variant} {step:?}");
+            }
+        }
+        let mut open = shown(DRILL, state("e", &["a"], true));
+        assert_eq!(
+            open.host(Pane::Details, &list(ListMove::Collapse)),
+            Some(command(DETAILS, json!({"open": false})))
+        );
+        // `h` в списке историю «назад» не трогает: выбор прежний.
+        for variant in [DRILL, SPLIT, BAR] {
+            let mut at = shown(variant, state("e", &["a"], false));
+            assert_eq!(
+                at.host(Pane::List, &list(ListMove::Collapse)),
+                None,
+                "{variant}"
+            );
+        }
+        // Пока открыты детали `drill`, выбор не двигается.
+        for step in [ListMove::Down, ListMove::Top, ListMove::Activate] {
+            assert_eq!(open.host(Pane::Details, &list(step)), None, "{step:?}");
+        }
+    }
+
+    #[test]
+    fn filter_text_becomes_the_filter_command_once() {
+        let mut at = shown(SPLIT, state("a", &[], false));
+        assert!(at.ask(Pane::List, &select("b")).is_some());
+        assert_eq!(
+            at.host(Pane::List, &filter("та")),
+            Some(command(FILTER, json!({"text": "та"})))
+        );
+        assert!(at.sent.is_empty(), "другой запрос снимает свой выбор");
+        assert!(at.update(filtered("a", &[], false, "та")));
+        assert_eq!(at.host(Pane::List, &filter("та")), None, "тот же текст");
+        assert_eq!(
+            at.host(Pane::Details, &filter("")),
+            Some(command(FILTER, json!({"text": ""})))
+        );
+    }
+
+    #[test]
+    fn requests_of_host_intents_parse_as_commands_of_the_model() {
+        let model = shellio_plugin_api::DynModel::new(Model);
+        let data = serde_json::to_string(&state("c", &["a"], false)).unwrap();
+        let mut intents: Vec<ViewIntent> = ListMove::ALL.into_iter().map(list).collect();
+        intents.push(filter("та"));
+        let mut sent = 0;
+        for variant in [DRILL, SPLIT, BAR] {
+            for intent in &intents {
+                let mut at = shown(variant, state("c", &["a"], false));
+                if let Some(request) = at.host(Pane::List, intent) {
+                    let PanelRequest::Command { name, args } = request else {
+                        panic!("ожидалась команда панели");
+                    };
+                    model.command(&data, &name, Some(args)).unwrap();
+                    sent += 1;
+                }
+            }
+        }
+        assert!(
+            sent >= 3 * 7,
+            "движения выбора и фильтр дают запросы: {sent}"
+        );
+        assert_eq!(ITEMS.len(), 8);
     }
 
     #[test]

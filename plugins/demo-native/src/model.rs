@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shellio_layout::{Geometry, MinSize, Rect, SizeClass, Zone};
 use shellio_plugin_api::{
-    Cardinality, CommandSpec, Manifest, PanelModel, Presentation, Reach, Refusal, Region,
-    SizeVariants, VariantTable, Via, ZoneSet,
+    Cardinality, CommandSpec, KeyDefault, Manifest, PanelModel, Presentation, Reach, Refusal,
+    Region, SizeVariants, VariantTable, Via, ZoneSet,
 };
 use shellio_theme::METRICS;
 
@@ -28,7 +28,10 @@ pub const MANIFEST: Manifest = Manifest {
         name: SET,
         args: r#"{"value":"shellio"}"#,
     }],
-    keymap: &[],
+    keymap: &[KeyDefault {
+        action: SET,
+        key: "s",
+    }],
     list_keys: false,
     filter: false,
     input: true,

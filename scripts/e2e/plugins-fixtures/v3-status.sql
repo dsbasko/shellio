@@ -105,7 +105,7 @@ INSERT INTO workbench_layouts (workbench, layout) VALUES
 INSERT INTO panel_states (panel, version, data) VALUES
     (X'019a8f2e00007000800000000000e301', 1, 'null'),
     (X'019a8f2e00007000800000000000e302', 1, 'null'),
-    (X'019a8f2e00007000800000000000e303', 2, '{"key":"a","history":[],"details":false}'),
+    (X'019a8f2e00007000800000000000e303', 3, '{"key":"a","history":[],"details":false}'),
     (X'019a8f2e00007000800000000000e304', 1, '{');
 
 PRAGMA user_version = 3;

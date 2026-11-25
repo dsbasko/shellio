@@ -49,6 +49,12 @@ pub fn request(value: &str) -> PanelRequest {
     }
 }
 
+/// `args` действия `action`, вызванного клавишей без своих `args`: `set` берёт черновик поля, как
+/// `Return` в поле, пустой черновик сохраняет пустое значение. Другого действия у вида нет.
+fn resolve(form: &Form, action: &str) -> Option<Value> {
+    (action == SET).then(|| json!({"value": form.draft()}))
+}
+
 /// Кадры поля и подписи по регионам представления. `None` — региона нет.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Frames {
@@ -249,6 +255,10 @@ impl PluginView for View {
         nodes
     }
 
+    fn resolve_args(&self, action: &str) -> Option<Value> {
+        resolve(&self.shared.form.borrow(), action)
+    }
+
     fn close_view(&mut self) {}
 }
 
@@ -271,6 +281,34 @@ mod tests {
     #[test]
     fn factory_names_the_plugin_of_the_manifest() {
         assert_eq!(factory().plugin(), "demo-native");
+    }
+
+    #[test]
+    fn key_without_args_saves_the_draft_of_the_field() {
+        let model = DynModel::new(Model);
+        let data = model.init(None).unwrap();
+        let mut form = Form::new(State::default());
+        // Пустой черновик — тоже значение: `Return` в пустом поле шлёт то же самое.
+        assert_eq!(resolve(&form, SET), Some(json!({"value": ""})));
+        form.edited("черновик");
+        let args = resolve(&form, SET).unwrap();
+        assert_eq!(args, json!({"value": "черновик"}));
+        let PanelRequest::Command { args: sent, .. } = request(form.draft()) else {
+            panic!("ожидалась команда панели");
+        };
+        assert_eq!(args, sent, "клавиша и Return шлют одни args");
+        assert_eq!(
+            model.command(&data, SET, Some(args)).unwrap(),
+            Step::Changed(r#"{"value":"черновик","edits":1}"#.into())
+        );
+        // Действие, которого у вида нет, остаётся без аргументов и не выполняется.
+        assert_eq!(resolve(&form, "demo-native.clear"), None);
+        assert_eq!(resolve(&form, "demo-list.back"), None);
+        assert_eq!(MANIFEST.keymap.len(), 1);
+        assert_eq!(
+            (MANIFEST.keymap[0].action, MANIFEST.keymap[0].key),
+            (SET, "s")
+        );
     }
 
     #[test]

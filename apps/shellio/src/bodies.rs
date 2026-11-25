@@ -822,7 +822,7 @@ mod tests {
     }
 
     fn list(key: &str, details: bool) -> Value {
-        json!({"key": key, "history": [], "details": details})
+        json!({"key": key, "history": [], "details": details, "filter": ""})
     }
 
     #[test]
@@ -832,7 +832,7 @@ mod tests {
         assert_eq!(
             host.of(panel),
             [
-                r#"build {"details":false,"history":[],"key":"a"}"#,
+                r#"build {"details":false,"filter":"","history":[],"key":"a"}"#,
                 "adapt Right Narrow drill",
                 "active true",
                 "focused true",
@@ -974,6 +974,24 @@ mod tests {
     }
 
     #[test]
+    fn intent_goes_to_the_focused_panel_whose_plugin_declares_it() {
+        let mut host = Host::new();
+        let panel = host.open_list(list("a", false));
+        let scene = host.scene();
+        let down = ViewIntent::List(list_move(ListAction::Down));
+        let filter = ViewIntent::Filter {
+            text: "та".to_owned(),
+        };
+        for intent in [&down, &filter] {
+            assert_eq!(
+                scene::intent_target(&scene, &host.registry, intent),
+                Some(panel),
+                "{intent:?}"
+            );
+        }
+    }
+
+    #[test]
     fn min_size_stub_deactivates_the_body_once_and_keeps_it() {
         let mut host = Host::new();
         let panel = host.open_list(list("a", false));
@@ -1023,7 +1041,7 @@ mod tests {
         host.set_data(panel, &list("c", false));
         assert_eq!(
             host.of(panel),
-            [r#"update {"details":false,"history":[],"key":"c"}"#]
+            [r#"update {"details":false,"filter":"","history":[],"key":"c"}"#]
         );
 
         // Детали раскрыты при той же геометрии: тот же вариант, другие регионы.
@@ -1031,7 +1049,7 @@ mod tests {
         assert_eq!(
             host.of(panel),
             [
-                r#"update {"details":true,"history":[],"key":"c"}"#,
+                r#"update {"details":true,"filter":"","history":[],"key":"c"}"#,
                 "adapt Right Narrow drill",
             ]
         );
@@ -1048,7 +1066,7 @@ mod tests {
         host.set_data(panel, &list("a", true));
         assert_eq!(
             host.of(panel),
-            [r#"update {"details":true,"history":[],"key":"a"}"#]
+            [r#"update {"details":true,"filter":"","history":[],"key":"a"}"#]
         );
         host.layout(|layout| layout.set_visible(Hideable::Right, true).unwrap());
         assert_eq!(
@@ -1085,7 +1103,7 @@ mod tests {
         let again = host.of(panel);
         assert_eq!(
             again.first().map(String::as_str),
-            Some(r#"build {"details":false,"history":[],"key":"a"}"#)
+            Some(r#"build {"details":false,"filter":"","history":[],"key":"a"}"#)
         );
         assert_eq!(again.last().map(String::as_str), Some("focus_preferred"));
         let second = host.shell.generations.last().copied().unwrap();
@@ -1131,7 +1149,7 @@ mod tests {
         host.set_data(panel, &list("d", false));
         assert_eq!(
             host.of(panel),
-            [r#"update {"details":false,"history":[],"key":"d"}"#]
+            [r#"update {"details":false,"filter":"","history":[],"key":"d"}"#]
         );
 
         let first = host.fixture.workbench;

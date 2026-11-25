@@ -3452,10 +3452,12 @@ item_restore_cold() {
 }
 
 # Профиль схемы v3 с каноническими панелями демо, данные которых запуск не принимает: заглушки с причиной, тела не
-# строятся, байты строк целы после перезапуска.
+# строятся, байты строк целы после перезапуска. Отдельный случай на втором профиле: та же фикстура со строкой списка
+# версии 1 — запуск переносит данные в версию 2 с пустым фильтром, перезапуск строку не трогает.
 item_status_stubs() {
-  local item=status-stubs dir="$run/status-stubs" state pid rows0 rows turn
-  local rows_re='^2\|[0-9A-F]+ 1\|7B$'
+  local item=status-stubs dir="$run/status-stubs" state pid rows0 rows turn old migrated got
+  local rows_re='^3\|[0-9A-F]+ 1\|7B$'
+  local want='{"details":false,"filter":"","history":[],"key":"a"}'
   failures=()
   log "== $item"
   if [[ -n "$owner_pid" ]]; then
@@ -3470,7 +3472,7 @@ item_status_stubs() {
   rows0="$(row_of "$state" "$STATUS_LIST") $(row_of "$state" "$STATUS_FIELD")"
   printf '%s\n' "$rows0" >"$dir/rows-fixture.txt"
   [[ "$rows0" =~ $rows_re ]] ||
-    fatal "фикстура v3-status: строки panel_states «${rows0}», ожидались версия 2 у списка и данные { у поля"
+    fatal "фикстура v3-status: строки panel_states «${rows0}», ожидались версия 3 у списка и данные { у поля"
   for turn in first second; do
     launch_normal "$state" "$dir/$turn"
     pid="$OWNER_PID"
@@ -3487,7 +3489,43 @@ item_status_stubs() {
     printf '%s\n' "$rows" >"$dir/rows-$turn.txt"
     [[ "$rows" == "$rows0" ]] || failures+=("запуск $turn: строки panel_states «${rows}», в фикстуре «${rows0}»")
   done
-  conclude "$item" "state.db схемы v3: демо-список с данными версии 2 — заглушка «${STATUS_NEWER}», статус state_newer; демо-поле с данными { — заглушка «${STATUS_CORRUPT}», статус state_corrupt; заглушки без кнопки по ui.inspect и AX, статусы в ui.inspect и query.panel, bodies_built обеих 0; строки panel_states $rows0 побайтно прежние после первого запуска и после перезапуска"
+  new_profile
+  old="$NEW_PROFILE"
+  chmod 700 "$old"
+  /usr/bin/sed "s/e303', 3, /e303', 1, /" "$fixture_status" >"$dir/v3-status-v1.sql"
+  /usr/bin/sqlite3 "$old/state.db" <"$dir/v3-status-v1.sql" >"$dir/sqlite-v1.log" 2>&1 ||
+    fatal "фикстура v3-status со списком версии 1 не загружена: $(oneline "$dir/sqlite-v1.log")"
+  rows="$(row_of "$old" "$STATUS_LIST")"
+  printf '%s\n' "$rows" >"$dir/rows-v1-fixture.txt"
+  [[ "$rows" == 1\|* ]] || fatal "фикстура v3-status со списком версии 1: строка panel_states «${rows}»"
+  migrated=""
+  for turn in migrate-first migrate-second; do
+    launch_normal "$old" "$dir/$turn"
+    pid="$OWNER_PID"
+    if settle_layout "$old" "$dir/$turn-settle" "$STATUS_BENCH" 0; then
+      if panel_get "$old" "$dir/$turn-list" "$STATUS_LIST"; then
+        got="$(pv "$dir/$turn-list.stdout" status || echo ?)"
+        [[ "$got" == ready ]] || failures+=("запуск $turn: статус списка версии 1 $got, ожидался ready")
+        got="$(data_canon "$dir/$turn-list.stdout" || echo ?)"
+        [[ "$got" == "$want" ]] || failures+=("запуск $turn: данные списка версии 1 $got, ожидались $want")
+      else
+        failures+=("запуск $turn: query.panel списка не прочитан: $(oneline "$dir/$turn-list.stderr")")
+      fi
+    else
+      failures+=("запуск $turn: $WHY")
+    fi
+    quit_owner "$old" "$dir/$turn" "$pid"
+    rows="$(row_of "$old" "$STATUS_LIST")"
+    printf '%s\n' "$rows" >"$dir/rows-$turn.txt"
+    if [[ -z "$migrated" ]]; then
+      migrated="$rows"
+      [[ "$rows" == 2\|* ]] || failures+=("запуск $turn: строка panel_states списка «${rows}», ожидалась версия 2")
+    else
+      [[ "$rows" == "$migrated" ]] ||
+        failures+=("запуск $turn: строка panel_states списка «${rows}», после миграции была «${migrated}»")
+    fi
+  done
+  conclude "$item" "state.db схемы v3: демо-список с данными версии 3 — заглушка «${STATUS_NEWER}», статус state_newer; демо-поле с данными { — заглушка «${STATUS_CORRUPT}», статус state_corrupt; заглушки без кнопки по ui.inspect и AX, статусы в ui.inspect и query.panel, bodies_built обеих 0; строки panel_states $rows0 побайтно прежние после первого запуска и после перезапуска; второй профиль со списком версии 1: статус ready, данные $want, строка panel_states $migrated версии 2 после запуска и побайтно прежняя после перезапуска"
 }
 
 # Профиль схемы v2 с двумя панелями demo-native в A и B: старшая в A готова, младшая в B — дубликат с заглушкой;

@@ -164,7 +164,7 @@ fn status_fixture_holds_a_newer_list_and_a_corrupt_field() -> Result<()> {
         )?,
         "navigator|Навигатор|1|null\n\
          terminal|Терминал|1|null\n\
-         demo-list|Демо: список|2|{\"key\":\"a\",\"history\":[],\"details\":false}\n\
+         demo-list|Демо: список|3|{\"key\":\"a\",\"history\":[],\"details\":false}\n\
          demo-native|Демо: поле|1|{"
     );
     // Обе панели демо канонические: по одной на плагин во всей базе.
