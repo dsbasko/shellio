@@ -131,10 +131,19 @@ surface = "statusline"
 scene = "p15"
 recipe = "status-split-no-room"
 
-# Исключения: таблицы «Исключения этого плана» планов prototype-conformance и conformance-closure.
+# Состояния шага P1.6 (план navigation-keymap).
+
+[[state]]
+id = "panel-filter"
+step = "P1.6"
+surface = "layout"
+scene = "p15"
+recipe = "panel-filter"
+
+# Исключения: таблицы «Исключения этого плана» планов prototype-conformance, conformance-closure и navigation-keymap.
 
 [[exception]]
-states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["frame", "radius", "fill"]
 adr = "ADR-0023"
 reason = "Кнопки окна системные: кадр, диаметр и заливку задаёт macOS"
@@ -142,7 +151,7 @@ reason = "Кнопки окна системные: кадр, диаметр и 
 keys = ["chrome.window.*"]
 
 [[exception]]
-states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["frame_x"]
 adr = "ADR-0023"
 reason = "Начало кнопки воркспейса следует за системными кнопками окна: 81 против 84"
@@ -181,7 +190,7 @@ reason = "Галерея компонентов P1.3: состояний гал�
 mode = "gallery"
 
 [[exception]]
-states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["all"]
 adr = "ADR-0037"
 reason = "Тела демо-плагинов P1.5 в прототипе пустые: сверяются плитка, строка вкладок, вуаль и заглушка"
@@ -190,7 +199,7 @@ plugin = "demo-*"
 body = "ready"
 
 [[exception]]
-states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["icon_name", "icon_mask"]
 adr = "ADR-0037"
 reason = "Значки демо-плагинов — символы SF вне набора P: размер и место значка сверяются"
@@ -199,7 +208,7 @@ plugin = "demo-*"
 keys = ["*.tabs.tab.*.icon"]
 
 [[exception]]
-states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["all"]
 adr = "ADR-0037"
 reason = "Нейтральная карточка навигатора P1.4: тело строит P1.7"
@@ -209,7 +218,7 @@ plugin = "navigator"
 body = "ready"
 
 [[exception]]
-states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["all"]
 adr = "ADR-0037"
 reason = "Нейтральная карточка терминала P1.4: тело строит P2.2"
@@ -219,7 +228,7 @@ plugin = "terminal"
 body = "ready"
 
 [[exception]]
-states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part", "panel-filter"]
 fields = ["all"]
 adr = "ADR-0008"
 reason = "Шесть заглушек статуса панели P1.5: содержимое тела"

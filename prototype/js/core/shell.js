@@ -250,15 +250,20 @@
 
   function renderFilter(p, el) {
     let box = el.parentElement.querySelector('.pfilter');
+    // Ключи сверки строки идут за частью: её номер меняют перенос, разворот и скрытая колонка.
+    const ck = `${el.dataset.ck.replace(/\.body$/, '')}.filter`;
     if (!box) {
       box = document.createElement('div'); box.className = 'pfilter'; box.dataset.k = `pfilter-${p.id}`;
-      box.innerHTML = `${icon('filter', 13)}<input placeholder="Фильтр" data-pfilter="${p.id}" data-own-esc>`;
+      box.innerHTML = `${icon('filter', 13, `${ck}.icon`)}<input placeholder="Фильтр" data-pfilter="${p.id}" data-own-esc>`;
       el.parentElement.appendChild(box);
       const inp = box.querySelector('input'); inp.value = p.filter || '';
       inp.addEventListener('input', () => { p.filter = inp.value; S.render(); });
       inp.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (e.key === 'Escape') p.filter = ''; p.filtering = false; box.remove(); S.render(); } }, true);
       inp.focus();
     }
+    box.dataset.ck = ck;
+    box.querySelector('svg').dataset.ck = `${ck}.icon`;
+    box.querySelector('input').dataset.ck = `${ck}.input`;
   }
 
   let queued = false;

@@ -288,11 +288,13 @@
       const parent = el.parentElement && el.parentElement.closest('[data-ck]');
       const cs = getComputedStyle(el);
       const leaf = el.children.length === 0 || el.tagName === 'KBD' || el.classList.contains('row-t');
+      // Поле показывает значение, а без него — placeholder: textContent у него пуст.
+      const shown = el.tagName === 'INPUT' ? el.value || el.placeholder : el.textContent;
       return {
         ck: ck(el), tag: el.tagName.toLowerCase(), parent: parent ? ck(parent) : null,
         frame: { x: r.x, y: r.y, w: r.width, h: r.height },
         visible: cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0,
-        text: leaf && el.tagName !== 'svg' ? el.textContent : null,
+        text: leaf && el.tagName !== 'svg' ? shown : null,
         truncated: leaf && cs.textOverflow === 'ellipsis' ? el.scrollWidth > el.clientWidth : false,
         icon: el.dataset.icon ? { name: el.dataset.icon, size: +el.getAttribute('width') } : null,
         style: {

@@ -67,6 +67,9 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         // Крестик вкладки — контрол, хотя прототип рисует его строчным элементом со значком.
         "span" if last == "close" => ElementKind::Control,
         "span" | "em" | "strong" | "b" | "label" => ElementKind::Text,
+        // Строка фильтра панели — контрол с подложкой, её поле — текст: значение или placeholder.
+        "input" => ElementKind::Text,
+        "div" if last == "filter" => ElementKind::Control,
         // Часть зоны — плитка с рамкой и радиусом; меню и выбор — плавающие плитки.
         "section" if numbered(".part.") => ElementKind::Plate,
         _ if last == "menu" || ck == "picker" => ElementKind::Plate,

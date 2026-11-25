@@ -402,6 +402,35 @@ fn css_values_parse() {
 }
 
 #[test]
+fn filter_row_is_a_control_with_a_text_input() {
+    assert_eq!(
+        kind_of("div", "zone.right.part.1.filter"),
+        ElementKind::Control
+    );
+    assert_eq!(
+        kind_of("svg", "zone.right.part.1.filter.icon"),
+        ElementKind::Icon
+    );
+    assert_eq!(
+        kind_of("input", "zone.right.part.1.filter.input"),
+        ElementKind::Text
+    );
+    let field = shellio_conformance::cdp::element(&json!({
+        "ck": "zone.right.part.1.filter.input", "tag": "input", "parent": "zone.right.part.1.filter",
+        "frame": {"x": 1.0, "y": 2.0, "w": 170.0, "h": 16.0}, "visible": true,
+        "text": "альфа", "truncated": false,
+        "style": {"fontFamily": "-apple-system", "fontWeight": "400", "fontSize": "13px",
+                  "lineHeight": "16px", "letterSpacing": "normal", "color": "rgb(1, 2, 3)",
+                  "background": "rgba(0, 0, 0, 0)", "border": [], "radius": "0px",
+                  "padding": ["0px", "0px", "0px", "0px"], "shadow": "none"},
+    }))
+    .unwrap();
+    assert_eq!(field.text.as_deref(), Some("альфа"));
+    assert_eq!(field.truncated, Some(false));
+    assert_eq!(field.font.as_ref().map(|f| f.size), Some(13.0));
+}
+
+#[test]
 fn surface_keeps_only_its_keys() {
     let whole = assemble(&scene(), &recipe(), &capture()).unwrap();
     assert!(whole.elements.iter().any(|e| e.ck.starts_with("zone.")));
