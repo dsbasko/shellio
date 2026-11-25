@@ -406,16 +406,14 @@ impl LayoutUi {
         let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
         // Под развёрнутой панелью плитки частей скрыты: ключи сверки несёт только она.
         let zoomed = bench.is_some_and(|bench| bench.zoomed.is_some());
+        // Контейнеры зон для сверки: кадр каждого — объединение кадров плиток его зоны.
+        let mut zones: Vec<(Zone, ComponentView, Option<shellio_control::Rect>)> = Vec::new();
         push(&mut nodes, self.root.inspect(ROOT_SPLIT_ID, Some(ROOT_ID)));
         push(
             &mut nodes,
             self.root
                 .with_pane(0, |pane| {
-                    let node = pane.inspect(NAVIGATOR_ID, "NavigatorColumn", Some(ROOT_SPLIT_ID));
-                    vec![match host_ck(Host::Navigator, zoomed) {
-                        Some(ck) if node.facts.visible => node.with_root_ck(ck),
-                        _ => node,
-                    }]
+                    vec![pane.inspect(NAVIGATOR_ID, "NavigatorColumn", Some(ROOT_SPLIT_ID))]
                 })
                 .unwrap_or_default(),
         );
@@ -432,40 +430,50 @@ impl LayoutUi {
             let shown = !zoomed
                 && bench.is_some_and(|bench| bench.plates.keys().any(|key| key.zone == zone));
             let list = self.zones.get(zone).inspect(&id, Some(parent));
-            push(
-                &mut nodes,
-                list.into_iter()
-                    .map(|node| {
-                        if shown && node.id == id && node.facts.visible {
-                            node.with_root_ck(zone_ck(zone))
-                        } else {
-                            node
-                        }
-                    })
-                    .collect(),
-            );
+            if let Some(split) = list.iter().find(|node| node.id == id)
+                && shown
+                && split.facts.visible
+            {
+                zones.push((zone, window_ui::component(zone_node(split, zone)), None));
+            }
+            push(&mut nodes, list);
         }
         if let Some(bench) = bench {
+            let mut plates = Vec::new();
             for (key, plate) in &self.plates {
                 let Some(slot) = bench.plates.get(key) else {
                     continue;
                 };
                 let id = part_id(*key);
                 let base = host_ck(Host::Part(*key), zoomed);
-                let mut list = keyed(
-                    plate.inspect(&id, Some(&split_id(key.zone))),
-                    &id,
-                    base.as_deref(),
-                );
+                let zone = zones.iter_mut().find(|(zone, ..)| *zone == key.zone);
+                let parent = match &zone {
+                    Some((_, zone, _)) => zone.id.clone(),
+                    None => split_id(key.zone),
+                };
+                let mut list = keyed(plate.inspect(&id, Some(&parent)), &id, base.as_deref());
                 if let Some(first) = list.first_mut() {
                     let view = part_view(key.zone, key.index, slot, false);
                     let mut component = window_ui::component(first.clone());
                     component.state = Some(ComponentState::Part(Box::new(view)));
-                    nodes.push(component);
+                    if let Some((.., frame)) = zone {
+                        *frame = Some(match *frame {
+                            Some(frame) => bounds(frame, component.frame),
+                            None => component.frame,
+                        });
+                    }
+                    plates.push(component);
                     list.remove(0);
                 }
-                nodes.extend(list.into_iter().map(window_ui::component));
+                plates.extend(list.into_iter().map(window_ui::component));
             }
+            // Зона без кадра плитки контейнера не получает.
+            nodes.extend(zones.into_iter().filter_map(|(_, mut zone, frame)| {
+                zone.frame = frame?;
+                zone.object = 0;
+                Some(zone)
+            }));
+            nodes.extend(plates);
             if let (Some(zoom), Some(zoomed)) = (&self.zoom, &bench.zoomed) {
                 let base = host_ck(Host::Zoom, true);
                 let mut list = keyed(
@@ -474,8 +482,12 @@ impl LayoutUi {
                     base.as_deref(),
                 );
                 if !list.is_empty() {
-                    nodes.extend(zoom_zone(&list[0]).map(window_ui::component));
+                    let zone = zoom_zone(&list[0]).map(window_ui::component);
                     let mut component = window_ui::component(list.remove(0));
+                    if let Some(zone) = zone {
+                        component.parent = Some(zone.id.clone());
+                        nodes.push(zone);
+                    }
                     let slot = PlateSlot {
                         tabs: vec![zoomed.active],
                         active: zoomed.active,
@@ -497,11 +509,20 @@ impl LayoutUi {
                     continue;
                 };
                 let parent = host_id(slot.host);
-                let mut component =
-                    window_ui::component(view.inspect(&panel_id(*panel), Some(&parent)));
-                if slot.shown() && component.visible {
-                    component.ck = host_ck(slot.host, zoomed).map(|host| format!("{host}.body"));
-                }
+                let node = view.inspect(&panel_id(*panel), Some(&parent));
+                let host =
+                    host_ck(slot.host, zoomed).filter(|_| slot.shown() && node.facts.visible);
+                // Своей плитки у колонки навигатора нет: место части — контейнер её панели, а
+                // тело — производный узел того же кадра.
+                let (node, body) = match (slot.host, host) {
+                    (Host::Navigator, Some(host)) => {
+                        let body = column_body(&node, &host);
+                        (node.with_root_ck(host), Some(body))
+                    }
+                    (_, Some(host)) => (node.with_ck(format!("{host}.body")), None),
+                    (_, None) => (node, None),
+                };
+                let mut component = window_ui::component(node);
                 component.state = Some(ComponentState::Panel(Box::new(PanelNodeView {
                     panel: *panel,
                     component: view.id().get(),
@@ -516,6 +537,7 @@ impl LayoutUi {
                     variant: self.bodies.variant(*panel).map(str::to_owned),
                 })));
                 nodes.push(component);
+                nodes.extend(body.map(window_ui::component));
                 if let Some(body) = self.bodies.view(*panel) {
                     nodes.extend(body_nodes(*panel, body));
                 }
@@ -976,27 +998,83 @@ fn host_ck(host: Host, zoomed: bool) -> Option<String> {
     }
 }
 
+/// Производный узел сверки без собственного вида: кадр и видимость — вида `source`, из свойств
+/// только заливка `fill`.
+fn derived(
+    source: &shellio_appkit::InspectNode,
+    id: String,
+    class: &'static str,
+    ck: String,
+    fill: Option<shellio_appkit::Rgba>,
+) -> shellio_appkit::InspectNode {
+    let mut node = source.clone();
+    node.id = id;
+    node.class = class;
+    node.ck = Some(ck);
+    node.style = fill.map(|fill| shellio_appkit::Style {
+        fill: Some(fill),
+        ..shellio_appkit::Style::default()
+    });
+    node.truncated = None;
+    node.state = None;
+    node.facts.role = None;
+    node.facts.label = None;
+    node.facts.help = None;
+    node.facts.first_responder = false;
+    node.facts.animation_keys = 0;
+    node
+}
+
 /// Контейнер центра под развёрнутой панелью для сверки. Отдельного вида у него нет: область зон
 /// скрыта, развёрнутая плитка — ребёнок корня раскладки. Его кадр — кадр плитки, заливка — та,
 /// что видна за ней. `None` — плитка не показана.
 fn zoom_zone(plate: &shellio_appkit::InspectNode) -> Option<shellio_appkit::InspectNode> {
     plate.ck.as_ref()?;
-    let mut zone = plate.clone();
-    zone.id = format!("{}.zone", plate.id);
-    zone.class = "ZoomZone";
-    zone.ck = Some(zone_ck(Zone::Center));
-    zone.style = plate.behind.map(|fill| shellio_appkit::Style {
-        fill: Some(fill),
-        ..shellio_appkit::Style::default()
-    });
-    zone.truncated = None;
-    zone.state = None;
-    zone.facts.role = None;
-    zone.facts.label = None;
-    zone.facts.help = None;
-    zone.facts.first_responder = false;
-    zone.facts.animation_keys = 0;
-    Some(zone)
+    Some(derived(
+        plate,
+        format!("{}.zone", plate.id),
+        "ZoomZone",
+        zone_ck(Zone::Center),
+        plate.behind,
+    ))
+}
+
+fn zone_id(zone: Zone) -> String {
+    format!("layout.zone.{}", zone_name(zone))
+}
+
+/// Контейнер зоны для сверки. Вид деления зоны держит ещё и промежутки вокруг плиток, поэтому
+/// контейнер — производный узел: ребёнок вида деления с заливкой, видимой под ним. Кадр ему
+/// даёт объединение кадров плиток зоны.
+fn zone_node(split: &shellio_appkit::InspectNode, zone: Zone) -> shellio_appkit::InspectNode {
+    let mut node = derived(split, zone_id(zone), "Zone", zone_ck(zone), split.under);
+    node.parent = Some(split.id.clone());
+    node
+}
+
+/// Тело колонки навигатора для сверки: производный узел с кадром контейнера панели, его ребёнок.
+fn column_body(panel: &shellio_appkit::InspectNode, host: &str) -> shellio_appkit::InspectNode {
+    let mut node = derived(
+        panel,
+        format!("{NAVIGATOR_ID}.body"),
+        "ColumnBody",
+        format!("{host}.body"),
+        None,
+    );
+    node.parent = Some(panel.id.clone());
+    node
+}
+
+/// Наименьший кадр, который вмещает оба.
+fn bounds(a: shellio_control::Rect, b: shellio_control::Rect) -> shellio_control::Rect {
+    let x = a.x.min(b.x);
+    let y = a.y.min(b.y);
+    shellio_control::Rect {
+        x,
+        y,
+        width: (a.x + a.width).max(b.x + b.width) - x,
+        height: (a.y + a.height).max(b.y + b.height) - y,
+    }
 }
 
 /// Промежуток между кадрами соседних частей: части рядом — по горизонтали, одна над другой —
@@ -1288,6 +1366,32 @@ mod tests {
     /// Каждый ключ сверки, который назначают заголовок, строка статуса и раскладка, есть в
     /// таблице шаблонов `shellio-conformance`.
     /// Разделитель — промежуток между соседними плитками зоны; колонка навигатора не плитка.
+    #[test]
+    fn zone_frame_is_the_bounds_of_its_plates_without_the_gaps() {
+        let rect = |x, y, width, height| shellio_control::Rect {
+            x,
+            y,
+            width,
+            height,
+        };
+        // Две части правой зоны одна над другой с промежутком 6 точек.
+        assert_eq!(
+            bounds(
+                rect(802.0, 356.0, 372.0, 318.0),
+                rect(802.0, 32.0, 372.0, 318.0)
+            ),
+            rect(802.0, 32.0, 372.0, 642.0)
+        );
+        // Две части центра рядом; порядок кадров исход не меняет.
+        assert_eq!(
+            bounds(
+                rect(519.0, 274.0, 277.0, 400.0),
+                rect(236.0, 274.0, 277.0, 400.0)
+            ),
+            rect(236.0, 274.0, 560.0, 400.0)
+        );
+    }
+
     #[test]
     fn dividers_fill_the_gaps_between_zone_plates() {
         use shellio_conformance::keys::check_key;

@@ -139,6 +139,9 @@ struct StateView {
     tab_strip: Option<TabStripView>,
     #[serde(default)]
     part: Option<PartView>,
+    /// Состояние панели: у колонки навигатора плитки нет, фокус части несёт её панель.
+    #[serde(default)]
+    panel: Option<PartView>,
     #[serde(default)]
     menu: Option<MenuView>,
 }
@@ -234,7 +237,7 @@ pub fn composition(product: &Product, titlebar: &[String], statusline: &[String]
                 break;
             };
             let state = part.state.clone().unwrap_or_default();
-            if state.part.is_some_and(|p| p.focused) {
+            if state.part.or(state.panel).is_some_and(|p| p.focused) {
                 focus = Some(PartRef { zone, part: index });
             }
             let strip = product
@@ -1642,6 +1645,41 @@ mod tests {
             ]
         });
         Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    #[test]
+    fn navigator_column_focus_is_read_from_its_panel_state() {
+        let tree = |focused: bool| {
+            let tree = serde_json::json!({
+                "content": {"width": 400.0, "height": 200.0},
+                "components": [
+                    {"id": "column", "frame": {"x": 0.0, "y": 0.0, "width": 100.0, "height": 200.0},
+                     "visible": true},
+                    {"id": "panel", "parent": "column", "ck": "zone.left.part.1",
+                     "frame": {"x": 8.0, "y": 8.0, "width": 84.0, "height": 184.0}, "visible": true,
+                     "state": {"panel": {"plugin": "navigator", "focused": focused}}},
+                    {"id": "plate", "ck": "zone.center.part.1",
+                     "frame": {"x": 100.0, "y": 0.0, "width": 300.0, "height": 200.0},
+                     "visible": true, "state": {"part": {"zone": "center", "focused": !focused}}}
+                ]
+            });
+            Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("{e}"))
+        };
+        let focus = |focused: bool| composition(&tree(focused), &[], &[]).focus;
+        assert_eq!(
+            focus(true),
+            Some(PartRef {
+                zone: Zone::Left,
+                part: 1
+            })
+        );
+        assert_eq!(
+            focus(false),
+            Some(PartRef {
+                zone: Zone::Center,
+                part: 1
+            })
+        );
     }
 
     /// Снимок при масштабе 2: фон полосы и диагональ значка, на границе порога и за ней.

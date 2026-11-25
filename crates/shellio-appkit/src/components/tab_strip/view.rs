@@ -409,8 +409,11 @@ impl TabStrip {
                     .close
                     .contentTintColor()
                     .and_then(|color| crate::style::rgba(&color));
-                nodes
-                    .push(part("close.icon", "TabCloseIcon", cross).with_icon("close", size, tint));
+                // Значок рисует кнопка закрытия: его родитель — она, а не вкладка.
+                let mut icon =
+                    part("close.icon", "TabCloseIcon", cross).with_icon("close", size, tint);
+                icon.parent = Some(format!("{tab_id}.close"));
+                nodes.push(icon);
             }
         }
         nodes.push(inspect::node(
