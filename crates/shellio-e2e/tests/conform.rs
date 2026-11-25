@@ -9,7 +9,8 @@ use shellio_conformance::fields::{Field, is_ring};
 use shellio_conformance::passport::{Element, Passport};
 use shellio_conformance::registry::Registry;
 use shellio_e2e::conform::{
-    BUNDLED_FONTS, Mismatch, Product, Report, SnapshotKind, Tolerances, judge,
+    BUNDLED_FONTS, Mismatch, Product, Report, Snapshot, SnapshotKind, Staged, Tolerances, judge,
+    snapshot_stage,
 };
 
 const TOLERANCES: Tolerances = Tolerances {
@@ -724,4 +725,224 @@ fn body_exception_covers_content_without_pair_but_not_keys_outside_the_body() {
     let outside = extra("zone.center.part.1.tabs.extra");
     assert_eq!(outside.len(), 1);
     assert_eq!(outside[0].field, Field::Composition);
+}
+
+#[test]
+fn calibration_gives_tolerances_and_rejects_bad_numbers() {
+    let good = json!({"schema": 1, "text": {"tolerance_pt": 0.75}, "icons": {"threshold": 0.81}});
+    assert_eq!(
+        Tolerances::from_calibration(&good.to_string()).unwrap_or_else(|e| panic!("{e}")),
+        Tolerances {
+            text_width: 0.75,
+            mask_iou: 0.81
+        }
+    );
+    for bad in [
+        json!({"schema": 2, "text": {"tolerance_pt": 0.75}, "icons": {"threshold": 0.81}}),
+        json!({"schema": 1, "text": {}, "icons": {"threshold": 0.81}}),
+        json!({"schema": 1, "text": {"tolerance_pt": 0.75}, "icons": {"threshold": 1.2}}),
+        json!({"schema": 1, "text": {"tolerance_pt": -1.0}, "icons": {"threshold": 0.81}}),
+    ] {
+        assert!(
+            Tolerances::from_calibration(&bad.to_string()).is_err(),
+            "{bad}"
+        );
+    }
+}
+
+fn staged(passport: &Passport, tree: &Value, color: [u8; 3]) -> (Report, Staged) {
+    let state = "layout-all-zones";
+    let report = run(state, passport, tree);
+    let product =
+        Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
+    let pixel = move |_: u32, _: u32| Some(color);
+    let mask = |ck: &str| Err(format!("нет маски {ck}"));
+    let staged = snapshot_stage(
+        passport,
+        &product,
+        &registry(),
+        state,
+        &report,
+        TOLERANCES,
+        &Snapshot {
+            scale: 2.0,
+            pixel: &pixel,
+            mask: &mask,
+        },
+    );
+    (report, staged)
+}
+
+#[test]
+fn snapshot_stage_judges_opaque_fill_and_names_what_it_left() {
+    let passport = passport("layout-all-zones", "dark-normal");
+    let tree = mirror(&passport);
+    let report = run("layout-all-zones", &passport, &tree);
+    // Непрозрачная заливка участка, который кадр покрывает хотя бы одним целым пикселем.
+    let (ck, fill) = report
+        .snapshot
+        .iter()
+        .filter(|c| c.kind == SnapshotKind::Region && c.field == Field::Fill)
+        .find_map(|c| {
+            let e = passport.elements.iter().find(|e| e.ck == c.ck)?;
+            let fill = e.fill.filter(|f| f.a >= 1.0)?;
+            (e.frame.w >= 2.0 && e.frame.h >= 2.0).then(|| (c.ck.clone(), fill))
+        })
+        .unwrap_or_else(|| panic!("в паспорте есть непрозрачный участок"));
+    let touches = |staged: &Staged| {
+        (
+            staged.mismatches.iter().any(|m| m.ck == ck),
+            staged
+                .unjudged
+                .iter()
+                .any(|u| u.ck == ck && u.field == Field::Fill),
+        )
+    };
+    let (_, exact) = staged(&passport, &tree, [fill.r, fill.g, fill.b]);
+    assert_eq!(touches(&exact), (false, false), "{ck}");
+    let within = [fill.r.saturating_add(3), fill.g, fill.b];
+    assert_eq!(touches(&staged(&passport, &tree, within).1), (false, false));
+    let off = if fill.r > 127 { fill.r - 4 } else { fill.r + 4 };
+    let (_, wrong) = staged(&passport, &tree, [off, fill.g, fill.b]);
+    assert_eq!(touches(&wrong), (true, false), "{ck}");
+    let mismatch = wrong
+        .mismatches
+        .iter()
+        .find(|m| m.ck == ck)
+        .unwrap_or_else(|| panic!("расхождение"));
+    assert_eq!(
+        (mismatch.field, mismatch.difference),
+        (Field::Fill, Some(4.0))
+    );
+    // Что стадия не судит, названо с причиной: линия под вкладкой, цвет цветного значка, маска
+    // без эталона.
+    for (key, kind) in [
+        (
+            "zone.center.part.1.tabs.tab.1::after",
+            SnapshotKind::Underline,
+        ),
+        ("chrome.workspace.chevron", SnapshotKind::IconColor),
+        ("chrome.search.icon", SnapshotKind::Mask),
+    ] {
+        assert!(
+            exact
+                .unjudged
+                .iter()
+                .any(|u| u.ck == key && u.kind == kind && !u.reason.is_empty()),
+            "{key}"
+        );
+    }
+}
+
+fn oracle(args: &[&str]) -> (Option<i32>, Value) {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_shellio-e2e-oracle"))
+        .args(args)
+        .output()
+        .unwrap_or_else(|e| panic!("оракул запускается: {e}"));
+    let report = serde_json::from_slice(&output.stdout).unwrap_or(Value::Null);
+    (output.status.code(), report)
+}
+
+#[test]
+fn conform_subcommand_refuses_a_verdict_while_a_snapshot_field_is_unjudged() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let passport_path = root().join("conformance/passports/chrome-titlebar/dark-normal.json");
+    let passport = passport("chrome-titlebar", "dark-normal");
+    let (width, height) = (passport.window.width, passport.window.height);
+    let mut tree = mirror(&passport);
+    tree["window_number"] = json!(7);
+    tree["generation"] = json!(1);
+    let window = json!({"ok": {"ui": {"window": {
+        "pid": 1, "mode": "normal", "window_number": 7,
+        "frame": {"x": 0.0, "y": 0.0, "width": width, "height": height},
+        "backing_scale_factor": 2.0, "visible": true, "key": true,
+        "color_space": {"name": "sRGB IEC61966-2.1", "srgb": true},
+        "title": "Основной", "appearance_choice": "dark",
+        "lightness": {"value": "dark", "source": "choice"},
+        "contrast": {"value": "normal", "source": "system"},
+        "motion": {"value": "normal", "source": "system"},
+        "screen": 0, "maximum_frames_per_second": 120, "screens": [],
+        "mirror_revision": 1, "generation": 1
+    }}}});
+    let (w, h) = ((width * 2.0) as u32, (height * 2.0) as u32);
+    let mut png_bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png_bytes, w, h);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+        let mut writer = encoder
+            .write_header()
+            .unwrap_or_else(|e| panic!("png: {e}"));
+        writer
+            .write_image_data(&vec![255; (w * h * 4) as usize])
+            .unwrap_or_else(|e| panic!("png: {e}"));
+    }
+    let file = |name: &str, bytes: &[u8]| {
+        let path = dir.path().join(name);
+        fs::write(&path, bytes).unwrap_or_else(|e| panic!("{name}: {e}"));
+        path.display().to_string()
+    };
+    let inspect = file("inspect.json", tree.to_string().as_bytes());
+    let window = file("window.json", window.to_string().as_bytes());
+    let png = file("window.png", &png_bytes);
+    let calibration = file(
+        "calibration.json",
+        json!({"schema": 1, "text": {"tolerance_pt": 1.25}, "icons": {"threshold": 0.9}})
+            .to_string()
+            .as_bytes(),
+    );
+    let registry = root()
+        .join("conformance/registry.toml")
+        .display()
+        .to_string();
+    let passport_arg = passport_path.display().to_string();
+    let (code, report) = oracle(&[
+        "conform",
+        "--passport",
+        &passport_arg,
+        "--inspect",
+        &inspect,
+        "--window",
+        &window,
+        "--png",
+        &png,
+        "--registry",
+        &registry,
+        "--calibration",
+        &calibration,
+    ]);
+    assert_eq!(code, Some(1), "{report:#}");
+    assert_eq!(report["verdict"], "error");
+    assert_eq!(report["state"], "chrome-titlebar");
+    let unjudged = report["unjudged"]
+        .as_array()
+        .unwrap_or_else(|| panic!("список несуженных полей: {report:#}"));
+    assert!(
+        unjudged
+            .iter()
+            .any(|u| u["ck"] == "chrome.workspace.chevron" && u["kind"] == "icon_color")
+    );
+    // Белый снимок: силуэт значка поиска — расхождение маски, оно названо и при ошибке.
+    assert!(
+        report["mismatches"].as_array().is_some_and(|m| m
+            .iter()
+            .any(|m| m["ck"] == "chrome.search.icon" && m["field"] == "icon_mask")),
+        "{report:#}"
+    );
+    // Неполный вызов и чужой флаг — код 2.
+    let (code, _) = oracle(&["conform", "--passport", &passport_arg]);
+    assert_eq!(code, Some(2));
+    let (code, _) = oracle(&[
+        "marker",
+        "--passport",
+        &passport_arg,
+        "--inspect",
+        &inspect,
+        "--window",
+        &window,
+        "--png",
+        &png,
+    ]);
+    assert_eq!(code, Some(2));
 }

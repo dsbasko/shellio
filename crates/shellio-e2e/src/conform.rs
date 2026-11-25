@@ -1157,6 +1157,143 @@ pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) ->
     })
 }
 
+impl Tolerances {
+    /// Допуски из `conformance/calibration/calibration.json`: `text.tolerance_pt` и
+    /// `icons.threshold`, записанные `make calibrate`.
+    pub fn from_calibration(text: &str) -> Result<Tolerances, Error> {
+        let value: serde_json::Value = serde_json::from_str(text)
+            .map_err(|e| Error::new(format!("калибровка: не JSON: {e}")))?;
+        let number = |pointer: &str| {
+            value
+                .pointer(pointer)
+                .and_then(serde_json::Value::as_f64)
+                .filter(|v| v.is_finite() && *v > 0.0)
+                .ok_or_else(|| Error::new(format!("калибровка: нет числа {pointer}")))
+        };
+        if value.pointer("/schema").and_then(serde_json::Value::as_u64) != Some(1) {
+            return Err(Error::new("калибровка: схема не 1"));
+        }
+        let mask_iou = number("/icons/threshold")?;
+        if mask_iou > 1.0 {
+            return Err(Error::new(format!(
+                "калибровка: порог маски {mask_iou} больше 1"
+            )));
+        }
+        Ok(Tolerances {
+            text_width: number("/text/tolerance_pt")?,
+            mask_iou,
+        })
+    }
+}
+
+/// Снимок окна для стадии снимка.
+pub struct Snapshot<'a> {
+    /// Пикселей снимка на точку окна.
+    pub scale: f64,
+    /// Цвет пикселя снимка в sRGB по столбцу и строке от верхнего левого угла.
+    pub pixel: &'a dyn Fn(u32, u32) -> Option<[u8; 3]>,
+    /// Эталонная маска значка паспорта по ключу.
+    pub mask: &'a dyn Fn(&str) -> Result<Mask, String>,
+}
+
+/// Поле снимка, которое стадия не судила: исход сверки с ним — ошибка исполнения.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Unjudged {
+    pub ck: String,
+    pub field: Field,
+    pub kind: SnapshotKind,
+    pub reason: String,
+}
+
+/// Итог стадии снимка.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct Staged {
+    pub mismatches: Vec<Mismatch>,
+    pub unjudged: Vec<Unjudged>,
+}
+
+/// Стадия снимка: судит поля [`Report::snapshot`] по снимку окна. Маска значка — против эталонной
+/// маски паспорта, подпись кнопки — чернилами, непрозрачная заливка — медианой участка: у
+/// элемента с узлом продукта по кадру узла (место судит поле кадра), у псевдоэлемента — по кадру
+/// паспорта. Остальное (полупрозрачный участок, кольцо кнопок окна, цвет цветного значка, линия
+/// под вкладкой) попадает в [`Staged::unjudged`].
+pub fn snapshot_stage(
+    passport: &Passport,
+    product: &Product,
+    registry: &Registry,
+    state: &str,
+    report: &Report,
+    tolerances: Tolerances,
+    snapshot: &Snapshot<'_>,
+) -> Staged {
+    let exceptions = Exceptions::new(registry, state, &passport.composition);
+    let mut staged = Staged::default();
+    for check in &report.snapshot {
+        let ck = check.ck.as_str();
+        let element = judge_parent(passport, ck);
+        let node = product.keyed(ck).filter(|n| n.visible);
+        let judged: Result<Option<Mismatch>, String> = match (check.kind, check.field) {
+            (SnapshotKind::Mask, _) => {
+                node.ok_or_else(|| "нет узла продукта".to_owned())
+                    .and_then(|node| {
+                        let reference = (snapshot.mask)(ck)?;
+                        let mask = product_mask(product, node, snapshot.scale, snapshot.pixel)?;
+                        Ok(mask_mismatch(ck, &reference, &mask, tolerances.mask_iou))
+                    })
+            }
+            (SnapshotKind::ButtonTitleInk, _) => match (element, node) {
+                (Some(element), Some(node)) => {
+                    ink_span(product, node, snapshot.scale, snapshot.pixel).map(|ink| {
+                        // Начала — от общего начала: у предка с исключением `frame_x`.
+                        let origin = element
+                            .parent
+                            .as_deref()
+                            .filter(|parent| exceptions.covers(parent, Field::FrameX))
+                            .and_then(|parent| {
+                                let want = judge_parent(passport, parent)?.frame.x;
+                                let got = product.frame(product.keyed(parent)?).x;
+                                Some((want, got))
+                            })
+                            .unwrap_or((0.0, 0.0));
+                        title_mismatch(
+                            ck,
+                            (element.frame.x - origin.0, element.frame.w),
+                            ink.map(|(x, width)| (x - origin.1, width)),
+                            tolerances,
+                        )
+                    })
+                }
+                _ => Err("нет пары подписи".to_owned()),
+            },
+            (SnapshotKind::Region, Field::Fill) => match element.and_then(|e| Some((e, e.fill?))) {
+                Some((_, fill)) if fill.a < 1.0 => {
+                    Err("полупрозрачный участок стадией не судится".to_owned())
+                }
+                Some((element, fill)) => {
+                    let frame = node.map_or(element.frame, |n| product.frame(n));
+                    region_median(&frame, snapshot.scale, snapshot.pixel)
+                        .map(|median| fill_mismatch(ck, Field::Fill, fill, median))
+                }
+                None => Err("у элемента паспорта нет заливки".to_owned()),
+            },
+            (SnapshotKind::Region, _) => Err("кольцо и тень участком не судятся".to_owned()),
+            (SnapshotKind::IconColor, _) => Err("цвет цветного значка не судится".to_owned()),
+            (SnapshotKind::Underline, _) => Err("линия под вкладкой не судится".to_owned()),
+        };
+        match judged {
+            Ok(None) => {}
+            Ok(Some(mismatch)) => staged.mismatches.push(mismatch),
+            Err(reason) => staged.unjudged.push(Unjudged {
+                ck: ck.to_owned(),
+                field: check.field,
+                kind: check.kind,
+                reason,
+            }),
+        }
+    }
+    staged
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

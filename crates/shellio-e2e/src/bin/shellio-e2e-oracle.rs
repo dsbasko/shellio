@@ -17,6 +17,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use shellio_conformance::mask::Mask;
+use shellio_conformance::passport::Passport;
+use shellio_conformance::registry::Registry;
+use shellio_e2e::conform::{self, Mismatch, Product, Snapshot, Tolerances, Unjudged};
 use shellio_e2e::css::{Layer, Palette};
 use shellio_e2e::expect::{self, Geometry};
 use shellio_e2e::underline::{UnderlineInputs, UnderlineReport, underline};
@@ -32,12 +36,18 @@ const USAGE: &str = "\
   shellio-e2e-oracle compare|underline … --previous-window <ui.window.json>
                              --previous-png <снимок sRGB> --elapsed-ms <мс>
   shellio-e2e-oracle marker --inspect <ui.inspect.json> --window <ui.window.json> --png <снимок sRGB>
+  shellio-e2e-oracle conform --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
+                             --window <ui.window.json> --png <снимок sRGB>
+                             --registry <registry.toml> --calibration <calibration.json>
 
 compare и underline печатают отчёт JSON в stdout. Ожидаемое поколение — --generation или
 поколение ui.window. underline меряет поперечной серией линию под вкладкой (слой по умолчанию
 none). marker печатает поколение из маркера снимка. С --previous-* маркер не читается: снимок
 принимается, когда участки двух снимков подряд совпадают в допуске, а поколение ui.window то же;
 код 4 и \"retry\": true — нужен следующий снимок, \"retry\": false — срок истёк.
+conform сверяет паспорт прототипа с продуктом: состав, элементы по ключу, поля контракта и
+стадию снимка; состояние — имя каталога паспорта, маски значков — <ячейка>.icons/ рядом с ним.
+Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1.
 коды: 0 — совпадение, линия в допуске или маркер прочитан, 1 — ошибка исполнения, 2 — неверный
 вызов, 3 — участок или линия вне допуска, 4 — отрисовка ожидаемого поколения не наблюдалась
 ";
@@ -59,12 +69,16 @@ struct Args {
     previous_window: Option<PathBuf>,
     previous_png: Option<PathBuf>,
     elapsed_ms: Option<u64>,
+    passport: Option<PathBuf>,
+    registry: Option<PathBuf>,
+    calibration: Option<PathBuf>,
 }
 
 enum Command {
     Compare(Args),
     Underline(Args),
     Marker(Args),
+    Conform(Args),
     Help,
 }
 
@@ -94,6 +108,9 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
                     .map_err(|_| format!("--elapsed-ms: не число {text:?}"))?;
                 parsed.elapsed_ms = Some(elapsed);
             }
+            "--passport" => parsed.passport = Some(value()?.into()),
+            "--registry" => parsed.registry = Some(value()?.into()),
+            "--calibration" => parsed.calibration = Some(value()?.into()),
             "--tab" => parsed.tab = Some(value()?),
             "--layer" => {
                 let text = value()?;
@@ -128,7 +145,31 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "{command}: режим без маркера не принимает marker и --generation"
         ));
     }
+    let conform_only =
+        parsed.passport.is_some() || parsed.registry.is_some() || parsed.calibration.is_some();
+    if conform_only && command != "conform" {
+        return Err(format!(
+            "{command}: --passport, --registry и --calibration принимает только conform"
+        ));
+    }
     match command.as_str() {
+        "conform" => {
+            if parsed.expect.is_some() || parsed.generation.is_some() || underline_only || stable[0]
+            {
+                return Err(
+                    "conform: принимает только --passport, --inspect, --window, --png, \
+                            --registry и --calibration"
+                        .to_owned(),
+                );
+            }
+            required("--passport", parsed.passport.is_some())?;
+            required("--inspect", parsed.inspect.is_some())?;
+            required("--window", parsed.window.is_some())?;
+            required("--png", parsed.png.is_some())?;
+            required("--registry", parsed.registry.is_some())?;
+            required("--calibration", parsed.calibration.is_some())?;
+            Ok(Command::Conform(parsed))
+        }
         "compare" | "marker" if underline_only => Err(format!(
             "{command}: --tab и --layer принимает только underline"
         )),
@@ -334,11 +375,145 @@ fn marker_command(args: &Args) -> u8 {
     }
 }
 
+/// Отчёт подкоманды `conform`.
+#[derive(Debug, serde::Serialize)]
+struct ConformReport {
+    verdict: Verdict,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+    mismatches: Vec<Mismatch>,
+    unjudged: Vec<Unjudged>,
+}
+
+fn run_conform(args: &Args) -> Result<ConformReport, Error> {
+    let path = args
+        .passport
+        .as_ref()
+        .ok_or_else(|| Error::new("нет пути паспорта"))?;
+    // Состояние — имя каталога паспорта: `passports/<состояние>/<ячейка>.json`.
+    let state = path
+        .parent()
+        .and_then(|dir| dir.file_name())
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| Error::new(format!("{}: нет каталога состояния", path.display())))?
+        .to_owned();
+    let text = |e: shellio_conformance::Error| Error::new(e.to_string());
+    let passport = Passport::parse(
+        &path.display().to_string(),
+        &read_text(Some(path), "паспорт")?,
+    )
+    .map_err(text)?;
+    let registry = Registry::parse(
+        "registry.toml",
+        &read_text(args.registry.as_ref(), "реестр")?,
+    )
+    .map_err(text)?;
+    let tolerances =
+        Tolerances::from_calibration(&read_text(args.calibration.as_ref(), "калибровка")?)?;
+    let inspect_text = read_text(args.inspect.as_ref(), "ui.inspect")?;
+    let window = expect::parse_window(&read_text(args.window.as_ref(), "ui.window")?)?;
+    let inspect = expect::parse_inspect(&inspect_text)?;
+    let image = read_image(args.png.as_ref())?;
+    let geometry = Geometry::new(&window, &inspect, (image.width, image.height))?;
+    let product = Product::parse(&inspect_text)?;
+    let report = conform::judge(&passport, &product, &registry, &state, tolerances)?;
+    let icons = path.with_extension("icons");
+    let pixel = |x: u32, y: u32| image.pixel(x, y).map(|p| [p.rgb.r, p.rgb.g, p.rgb.b]);
+    let mask = |ck: &str| {
+        let file = icons.join(format!("{ck}.png"));
+        let bytes = std::fs::read(&file)
+            .map_err(|e| format!("эталонная маска {} не читается: {e}", file.display()))?;
+        Mask::read_png(&bytes)
+    };
+    let staged = conform::snapshot_stage(
+        &passport,
+        &product,
+        &registry,
+        &state,
+        &report,
+        tolerances,
+        &Snapshot {
+            scale: geometry.scale,
+            pixel: &pixel,
+            mask: &mask,
+        },
+    );
+    let mut mismatches = report.mismatches;
+    mismatches.extend(staged.mismatches);
+    // Поле снимка без суждения — ошибка исполнения: `pass` и `fail` без него не выносятся.
+    let (verdict, reason) = if let Some(first) = staged.unjudged.first() {
+        (
+            Verdict::Error,
+            Some(format!(
+                "стадия снимка не судила полей: {}; первое — {} ({})",
+                staged.unjudged.len(),
+                first.ck,
+                first.reason
+            )),
+        )
+    } else if let Some(first) = mismatches.first() {
+        (
+            Verdict::Mismatch,
+            Some(format!(
+                "расхождений: {}; первое — {:?} {:?}",
+                mismatches.len(),
+                first.ck,
+                first.field
+            )),
+        )
+    } else {
+        (Verdict::Pass, None)
+    };
+    Ok(ConformReport {
+        verdict,
+        state: Some(state),
+        reason,
+        mismatches,
+        unjudged: staged.unjudged,
+    })
+}
+
+fn conform_command(args: &Args) -> u8 {
+    let report = run_conform(args).unwrap_or_else(|error| ConformReport {
+        verdict: Verdict::Error,
+        state: None,
+        reason: Some(error.to_string()),
+        mismatches: Vec::new(),
+        unjudged: Vec::new(),
+    });
+    if let Err(error) = print_json(&report) {
+        eprintln!("shellio-e2e-oracle: {error}");
+        return EXIT_ERROR;
+    }
+    let reason = report.reason.as_deref().unwrap_or("");
+    match report.verdict {
+        Verdict::Pass => {
+            eprintln!("shellio-e2e-oracle: паспорт и продукт совпали");
+            0
+        }
+        Verdict::Mismatch => {
+            eprintln!("shellio-e2e-oracle: вне допуска — {reason}");
+            EXIT_MISMATCH
+        }
+        Verdict::Generation => {
+            eprintln!("shellio-e2e-oracle: отрисовка поколения не наблюдалась — {reason}");
+            EXIT_GENERATION
+        }
+        Verdict::Error => {
+            eprintln!("shellio-e2e-oracle: ошибка исполнения — {reason}");
+            EXIT_ERROR
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let code = match parse(std::env::args().skip(1)) {
         Ok(Command::Compare(args)) => compare_command(&args),
         Ok(Command::Underline(args)) => underline_command(&args),
         Ok(Command::Marker(args)) => marker_command(&args),
+        Ok(Command::Conform(args)) => conform_command(&args),
         Ok(Command::Help) => {
             print!("{USAGE}");
             0
