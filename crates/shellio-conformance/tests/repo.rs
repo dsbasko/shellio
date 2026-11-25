@@ -27,12 +27,9 @@ fn unfinished_plans_have_conformance_section() {
 fn registry_passports_are_valid() {
     let root = root();
     let path = root.join("conformance/registry.toml");
-    // Реестр появляется с первым состоянием; без него паспортов, которые нужно проверять, нет.
-    let registry = match std::fs::read_to_string(&path) {
-        Ok(text) => Registry::parse(&path.display().to_string(), &text).unwrap(),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Registry::default(),
-        Err(e) => panic!("{}: {e}", path.display()),
-    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let registry = Registry::parse(&path.display().to_string(), &text).unwrap();
+    assert!(!registry.states.is_empty(), "в реестре нет состояний");
     let inputs = Inputs::from_root(&root).unwrap();
     let findings = check_registry(&inputs, &registry).unwrap();
     let report: Vec<String> = findings.iter().map(ToString::to_string).collect();

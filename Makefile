@@ -38,7 +38,7 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle e2e \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts conformance-tools probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts conformance-tools passports probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -59,6 +59,9 @@ setup:
 # Браузер съёмщика паспортов сверки (ADR-0037). make setup, make check и CI его не загружают.
 conformance-tools:
 	$(CONFORMANCE_TOOLS) chrome
+
+passports:
+	STATES="$(STATES)" scripts/conformance/passports.sh
 
 $(LOCKED_TARGETS):
 	@$(GHOSTTY_LOCK) $(MAKE) --no-print-directory locked-$@

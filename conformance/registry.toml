@@ -1,0 +1,8 @@
+# Реестр состояний сверки с прототипом (ADR-0037, «Реестр»): назначения, состояния и исключения.
+
+[[state]]
+id = "chrome-titlebar"
+step = "P1.3"
+surface = "titlebar"
+scene = "p15"
+recipe = "chrome-titlebar"

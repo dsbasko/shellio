@@ -17,8 +17,9 @@ use serde_json::{Value, json};
 use shellio_conformance::cdp;
 use shellio_conformance::passport::{Cell, Element, FontFace, Passport, Window};
 use shellio_conformance::recipe::Recipe;
+use shellio_conformance::registry::Registry;
 use shellio_conformance::scene::{Composition, Scene};
-use shellio_conformance::validity::Inputs;
+use shellio_conformance::validity::{Inputs, check_registry};
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
 struct Args {
@@ -318,7 +319,64 @@ fn fonts(cdp: &mut Cdp, elements: &mut [Element]) -> Result<(), String> {
     Ok(())
 }
 
+fn read_registry(root: &Path) -> Result<Registry, String> {
+    let path = root.join("conformance/registry.toml");
+    let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    Registry::parse(&path.display().to_string(), &text).map_err(|e| e.to_string())
+}
+
+/// `states --root <р> [имя…]`: строки «состояние рецепт ячейка» выбранных состояний реестра.
+fn states(root: &Path, names: &[String]) -> Result<ExitCode, String> {
+    let registry = read_registry(root)?;
+    if let Some(unknown) = names.iter().find(|n| registry.state(n).is_none()) {
+        eprintln!("shellio-snap: состояния «{unknown}» нет в реестре");
+        return Ok(ExitCode::from(2));
+    }
+    for state in &registry.states {
+        if names.is_empty() || names.contains(&state.id) {
+            for cell in state.cells() {
+                println!("{} {} {cell}", state.id, state.recipe);
+            }
+        }
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `check --root <р>`: годность всех паспортов реестра; негодные перечисляются, код 1.
+fn check(root: &Path) -> Result<ExitCode, String> {
+    let registry = read_registry(root)?;
+    let inputs = Inputs::from_root(root).map_err(|e| e.to_string())?;
+    let findings = check_registry(&inputs, &registry).map_err(|e| e.to_string())?;
+    for finding in &findings {
+        eprintln!("{finding}");
+    }
+    Ok(if findings.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    })
+}
+
 fn main() -> ExitCode {
+    let all: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(sub) = all.first().filter(|s| *s == "states" || *s == "check") {
+        let root = match (all.get(1).map(String::as_str), all.get(2)) {
+            (Some("--root"), Some(root)) => PathBuf::from(root),
+            _ => {
+                eprintln!("shellio-snap: {sub} --root <репозиторий>");
+                return ExitCode::from(2);
+            }
+        };
+        let run = if sub == "states" {
+            states(&root, &all[3..])
+        } else {
+            check(&root)
+        };
+        return run.unwrap_or_else(|e| {
+            eprintln!("shellio-snap: {e}");
+            ExitCode::from(1)
+        });
+    }
     let args = match parse_args() {
         Ok(a) => a,
         Err(e) => {
