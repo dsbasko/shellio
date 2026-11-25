@@ -14,6 +14,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod calibrate;
 pub mod conform;
 pub mod css;
 pub mod expect;

@@ -526,7 +526,7 @@ impl Judge<'_> {
         // Кадр подписи кнопки — место заголовка: начало и ширину судят чернила на снимке.
         let title = node.class == BUTTON_TITLE;
         let width = if element.kind == ElementKind::Text && element.text.is_some() {
-            self.tolerances.text_width.max(FRAME_TOLERANCE)
+            self.tolerances.text_width_limit()
         } else {
             FRAME_TOLERANCE
         };
@@ -545,7 +545,7 @@ impl Judge<'_> {
         let x_over = !title
             && x_gap > FRAME_TOLERANCE
             && !self.exceptions.covers(&element.ck, Field::FrameX);
-        let w_over = !title && w_gap > width;
+        let w_over = !title && over(w_gap, width);
         if x_over || w_over || y_gap > FRAME_TOLERANCE {
             let worst = if title {
                 y_gap
@@ -914,6 +914,17 @@ fn judge_parent<'a>(passport: &'a Passport, ck: &str) -> Option<&'a Element> {
     passport.elements.iter().find(|e| e.ck == ck)
 }
 
+/// Разница вне допуска. Одно правило у судьи и у вывода допусков калибровки: разница, равная
+/// допуску, проходит.
+pub fn over(gap: f64, tolerance: f64) -> bool {
+    gap > tolerance
+}
+
+/// Силуэт в допуске: мера, равная порогу, проходит. Одно правило у судьи и у калибровки.
+pub fn mask_within(iou: f64, threshold: f64) -> bool {
+    iou >= threshold
+}
+
 /// Пересечение к объединению масок значка с выравниванием: кадр паспорта с дробным началом даёт
 /// маску на пиксель шире маски продукта. Обе маски кладутся на общий холст наибольшего размера,
 /// берётся наибольшее значение по целым сдвигам в пределах разницы размеров. Разница больше
@@ -1028,7 +1039,7 @@ pub fn mask_mismatch(
 ) -> Option<Mismatch> {
     let expected = format!("пересечение к объединению не меньше {threshold}");
     match aligned_iou(reference, product) {
-        Ok(iou) if iou >= threshold => None,
+        Ok(iou) if mask_within(iou, threshold) => None,
         Ok(iou) => Some(Mismatch {
             ck: ck.to_owned(),
             field: Field::IconMask,
@@ -1100,14 +1111,12 @@ pub fn title_mismatch(
         });
     };
     let (x_gap, w_gap) = ((expected.0 - x).abs(), (expected.1 - width).abs());
-    (x_gap > FRAME_TOLERANCE || w_gap > tolerances.text_width.max(FRAME_TOLERANCE)).then(|| {
-        Mismatch {
-            ck: ck.to_owned(),
-            field: Field::Frame,
-            expected: wanted,
-            actual: format!("чернила: начало {x}, ширина {width}"),
-            difference: Some(x_gap.max(w_gap)),
-        }
+    (x_gap > FRAME_TOLERANCE || over(w_gap, tolerances.text_width_limit())).then(|| Mismatch {
+        ck: ck.to_owned(),
+        field: Field::Frame,
+        expected: wanted,
+        actual: format!("чернила: начало {x}, ширина {width}"),
+        difference: Some(x_gap.max(w_gap)),
     })
 }
 
@@ -1158,6 +1167,12 @@ pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) ->
 }
 
 impl Tolerances {
+    /// Допуск ширины, которую задаёт текст, как его применяет судья: больший из допуска
+    /// калибровки и точки кадра.
+    pub fn text_width_limit(&self) -> f64 {
+        self.text_width.max(FRAME_TOLERANCE)
+    }
+
     /// Допуски из `conformance/calibration/calibration.json`: `text.tolerance_pt` и
     /// `icons.threshold`, записанные `make calibrate`.
     pub fn from_calibration(text: &str) -> Result<Tolerances, Error> {
