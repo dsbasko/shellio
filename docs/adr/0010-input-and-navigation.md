@@ -155,7 +155,7 @@ Keymap: `~/.config/shellio/keymap.toml` с контекстами `global`, `nav
 ### Клавиши по умолчанию
 
 Клавиши прототипа входят в keymap по умолчанию (владелец): `Space z h/j/l` и `Cmd-j` для зон, `Cmd-Alt-t` для цикла оформления, голые `h/j/k/l` для запасного фокуса.
-Таблица заменяет таблицу раздела «Решение» в части, которую строит план `navigation-keymap`.
+Таблица уточняет таблицу раздела «Решение» в части, которую строит план `navigation-keymap`: называет контекст и имя действия каждой клавиши.
 
 | Контекст | Последовательность | Действие |
 | --- | --- | --- |
@@ -176,7 +176,7 @@ Keymap: `~/.config/shellio/keymap.toml` с контекстами `global`, `nav
 | `navigation` | `/` | `panel.filter` |
 | `panel.<plugin>` из `LIST_KEYS` | `j`, `k`, `g g`, `G`, `Ctrl-d`, `Ctrl-u`, `h`, `l`, `Enter` | `list.down`, `list.up`, `list.top`, `list.bottom`, `list.page_down`, `list.page_up`, `list.collapse`, `list.expand`, `list.activate` |
 
-- Имена без клавиш по умолчанию: `ui.appearance.light`, `ui.appearance.dark`, `ui.appearance.system`, `layout.toggle.plate`, `layout.toggle.right`, `panel.move_part.next`, `panel.move_part.prev`, `panel.select`, `panel.open` (id пунктов `panel.open.<plugin>`), действия плагинов без `KeyDefault`.
+- Имена без клавиш по умолчанию: `ui.appearance.light`, `ui.appearance.dark`, `ui.appearance.system`, `layout.toggle.plate`, `layout.toggle.right`, `panel.move_part.next`, `panel.move_part.prev`, `panel.select`, `panel.open` (id пунктов `panel.open.<plugin>`), `keymap.reload`, действия плагинов без `KeyDefault`.
 - `Cmd-1`…`Cmd-9` остаются за P1.7 и в этом плане не привязываются.
 - Деление по оси. `Ctrl-w v` привязан к оси `row`, `Ctrl-w s` к оси `stack`. Ось, не совпавшая с осью зоны ([ADR-0031](0031-zone-splits.md)), зону не делит: отказ `split_wrong_axis`, строка статуса называет действующую клавишу нужной оси из keymap («Правая зона делится одна над другой: `Ctrl-w s`»).
 - Шаг размера. `layout.grow`, `layout.shrink`, `layout.wider` и `layout.narrower` меняют размер на 40 точек за нажатие, как прототип. Шаг высоты центра переводится в размер нижней зоны. При фокусе в колонке навигатора `wider` и `narrower` меняют ширину колонки, `grow` и `shrink` не действуют, строка статуса называет причину. Отказ по `min_size`: прежний отказ размера P1.4 `resize_out_of_range` ([ADR-0007](0007-control-api.md)).

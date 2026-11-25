@@ -768,7 +768,7 @@ AX `AXSize` не делает окно шире экрана: на встрое�
 
 | Действие | Запрос | CLI `shellioctl` | Чтение результата | Имя в keymap |
 | --- | --- | --- | --- | --- |
-| применить `keymap.toml` сейчас | `keymap.reload` | `keymap reload` | `query.keymap` | нет |
+| применить `keymap.toml` сейчас | `keymap.reload` | `keymap reload` | `query.keymap` | `keymap.reload`, без клавиши по умолчанию |
 | действующая таблица | `query.keymap` | `keymap list [--json] [--follow]` | оно само | нет |
 | режим панели | UI-команды `mode.navigation`, `mode.input`, `mode.toggle` | `ui mode navigation\|input\|toggle\|get` | `ui.mode` | `mode.navigation`, `mode.input`, `mode.toggle` |
 | история переходов | UI-команды `history.back`, `history.forward` | `ui history back\|forward\|get` | `ui.history` | `history.back`, `history.forward` |
@@ -846,7 +846,7 @@ AX `AXSize` не делает окно шире экрана: на встрое�
 
 У каждого действия таблицы есть команда, обработчик, CLI, чтение результата, имя в keymap и тесты.
 Меню, клавиша, кнопка и CLI зовут один обработчик, палитру подключает план `command-overlays`.
-Служебные `gallery.input.*`, `keymap.reload` и чтения имени в keymap не имеют.
+Служебные `gallery.input.*` и чтения имени в keymap не имеют.
 
 Передачи: палитра и имя `palette.open`: план `command-overlays`; имена keymap действий над воркспейсами, проектами и рабочими областями: P1.7; редактор keymap: P1.8; граница с nvim по `query.keymap` и подписке: P3.6 и P3.7.
 
