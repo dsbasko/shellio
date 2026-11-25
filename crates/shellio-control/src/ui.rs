@@ -880,7 +880,7 @@ pub struct StripButtonView {
     /// `split`, `zoom`, `restore` или `menu`.
     pub id: String,
     pub label: String,
-    /// Системный значок; у «Разделить» он показывает ось.
+    /// Имя значка набора прототипа; у «Разделить» он показывает ось.
     pub symbol: String,
     /// `toolTip`: действие и клавиша.
     pub hint: String,

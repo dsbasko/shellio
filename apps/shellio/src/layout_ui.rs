@@ -689,6 +689,7 @@ impl LayoutUi {
                     continue;
                 };
                 view.set_title(&slot.title);
+                view.set_flat(slot.host == Host::Navigator);
                 match slot.host {
                     Host::Navigator => {
                         let insets = slot
@@ -764,6 +765,7 @@ impl LayoutUi {
                 continue;
             };
             view.set_card(card);
+            view.set_flat(host == Host::Navigator);
             match host {
                 Host::Navigator => {
                     let insets = splits.root_panes.first().map_or(Insets::ZERO, |pane| {
@@ -930,7 +932,7 @@ fn icon(registry: &Registry, plugin: &str) -> &'static str {
     PluginId::new(plugin)
         .ok()
         .and_then(|id| registry.get(&id).map(|plugin| plugin.manifest().icon))
-        .unwrap_or("square.dashed")
+        .unwrap_or(shellio_theme::icons::FALLBACK)
 }
 
 /// Узлы тела панели для `ui.inspect`: id начинаются с `layout.panel.<PanelId>.`, кадры тело уже
@@ -1192,9 +1194,9 @@ mod tests {
                 plugin.manifest().icon
             );
         }
-        assert_eq!(icon(&registry, "terminal"), "terminal");
-        assert_eq!(icon(&registry, "navigator"), "sidebar.left");
-        assert_eq!(icon(&registry, "gone-plugin"), "square.dashed");
-        assert_eq!(icon(&registry, "Не id"), "square.dashed");
+        assert_eq!(icon(&registry, "terminal"), "term");
+        assert_eq!(icon(&registry, "navigator"), "grid");
+        assert_eq!(icon(&registry, "gone-plugin"), "file");
+        assert_eq!(icon(&registry, "Не id"), "file");
     }
 }

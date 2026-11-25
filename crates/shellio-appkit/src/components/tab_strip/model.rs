@@ -227,14 +227,14 @@ impl StripButton {
         }
     }
 
-    /// Системный значок: глиф деления показывает ось зоны.
+    /// Значок набора прототипа: глиф деления показывает ось зоны.
     pub const fn symbol(self) -> &'static str {
         match self {
-            StripButton::Split(SplitAxis::Columns) => "rectangle.split.2x1",
-            StripButton::Split(SplitAxis::Rows) => "rectangle.split.1x2",
-            StripButton::Zoom => "arrow.up.left.and.arrow.down.right",
-            StripButton::Restore => "arrow.down.right.and.arrow.up.left",
-            StripButton::Menu => "ellipsis",
+            StripButton::Split(SplitAxis::Columns) => "splitCols",
+            StripButton::Split(SplitAxis::Rows) => "splitRows",
+            StripButton::Zoom => "expand",
+            StripButton::Restore => "shrink",
+            StripButton::Menu => "more",
         }
     }
 

@@ -1199,13 +1199,9 @@ fn inspect_tab_strip_view() -> InspectView {
                     tab("review", "Ревью", TabStatusView::None, None, false, true),
                 ],
                 buttons: vec![
-                    button("split", "Разделить: одна над другой", "rectangle.split.1x2"),
-                    button(
-                        "zoom",
-                        "Развернуть панель",
-                        "arrow.up.left.and.arrow.down.right",
-                    ),
-                    button("menu", "Действия панели", "ellipsis"),
+                    button("split", "Разделить: одна над другой", "splitRows"),
+                    button("zoom", "Развернуть панель", "expand"),
+                    button("menu", "Действия панели", "more"),
                 ],
             }))),
         }],

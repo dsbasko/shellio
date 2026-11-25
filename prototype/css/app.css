@@ -33,7 +33,7 @@ kbd + kbd { margin-left: 3px; }
 .ib.sm { width: 22px; height: 22px; flex: none; }
 
 .work { flex: 1; display: flex; min-height: 0; }
-.side { position: relative; flex: none; display: flex; flex-direction: column; min-height: 0; padding: 6px 6px 8px 8px; }
+.side { position: relative; flex: none; display: flex; flex-direction: column; min-height: 0; padding: var(--gap) var(--gap) var(--side-pad) var(--side-pad); }
 .side-sash { position: absolute; right: 0; top: 0; bottom: 0; }
 .zones { flex: 1; display: flex; min-width: 0; min-height: 0; padding: 6px 6px 6px 0; }
 .zones.nonav { padding-left: 6px; }

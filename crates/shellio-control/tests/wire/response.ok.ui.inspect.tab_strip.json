@@ -69,21 +69,21 @@
                   {
                     "id": "split",
                     "label": "Разделить: одна над другой",
-                    "symbol": "rectangle.split.1x2",
+                    "symbol": "splitRows",
                     "hint": "Разделить: одна над другой  Клавиша не назначена",
                     "help": "Клавиша не назначена"
                   },
                   {
                     "id": "zoom",
                     "label": "Развернуть панель",
-                    "symbol": "arrow.up.left.and.arrow.down.right",
+                    "symbol": "expand",
                     "hint": "Развернуть панель  Клавиша не назначена",
                     "help": "Клавиша не назначена"
                   },
                   {
                     "id": "menu",
                     "label": "Действия панели",
-                    "symbol": "ellipsis",
+                    "symbol": "more",
                     "hint": "Действия панели  Клавиша не назначена",
                     "help": "Клавиша не назначена"
                   }

@@ -138,7 +138,8 @@ pub struct KeyDefault {
 pub struct Manifest {
     pub id: &'static str,
     pub title: &'static str,
-    /// Имя символа SF Symbols.
+    /// Имя значка набора прототипа (`shellio_theme::icons`). Имя вне набора рисуется системным
+    /// символом: так живут значки без пары в прототипе (ADR-0037).
     pub icon: &'static str,
     pub placements: ZoneSet,
     pub default_zone: Zone,

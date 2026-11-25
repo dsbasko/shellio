@@ -1502,7 +1502,7 @@ pub(crate) mod tests {
         let column = splits.root_panes[0];
         assert_eq!(
             insets(navigator.body.unwrap(), column),
-            [6.0, 6.0, 6.0, 6.0]
+            [8.0, 6.0, 6.0, 8.0]
         );
     }
 

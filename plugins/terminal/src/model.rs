@@ -11,7 +11,7 @@ use shellio_plugin_api::{
 pub const MANIFEST: Manifest = Manifest {
     id: "terminal",
     title: "Терминал",
-    icon: "terminal",
+    icon: "term",
     placements: ZoneSet::ALL,
     default_zone: Zone::Center,
     cardinality: Cardinality::Multi,

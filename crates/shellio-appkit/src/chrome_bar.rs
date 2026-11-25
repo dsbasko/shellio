@@ -14,7 +14,7 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::{
     NSAccessibility, NSAccessibilityGroupRole, NSAccessibilityToggleSubrole,
     NSAutoresizingMaskOptions, NSButton, NSCellImagePosition, NSControl, NSEvent, NSFont,
-    NSFontWeightMedium, NSFontWeightRegular, NSImage, NSImageView, NSLineBreakMode, NSResponder,
+    NSFontWeightMedium, NSFontWeightRegular, NSImageView, NSLineBreakMode, NSResponder,
     NSTextField, NSView, NSViewLayerContentsRedrawPolicy, NSWindow, NSWindowButton,
 };
 use objc2_foundation::{NSNumber, NSObject, NSPoint, NSRect, NSSize, NSString, NSUserDefaults};
@@ -23,6 +23,7 @@ use shellio_theme::{AppTheme, AppearanceChoice};
 
 use crate::app::App;
 use crate::counters::{Live, counter};
+use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
@@ -59,6 +60,10 @@ pub const ICON_HEIGHT: f64 = 24.0;
 pub const RIGHT_GAP: f64 = 8.0;
 /// Радиус поля поиска и группы зон.
 const FIELD_RADIUS: f64 = 6.0;
+/// Сторона значка кнопок зон и оформления (`icon(name, 15)` прототипа).
+const BUTTON_ICON: f64 = 15.0;
+/// Сторона шеврона кнопки воркспейса.
+const CHEVRON_ICON: f64 = 11.0;
 /// Знак сокращения имени.
 pub const ELLIPSIS: char = '…';
 /// Имя без активного воркспейса.
@@ -156,7 +161,9 @@ impl ChromeLayout {
             ICON_WIDTH,
             ICON_HEIGHT,
         );
-        let zones_width = ZONE_COUNT as f64 * ZONE_WIDTH + (ZONE_COUNT as f64 + 1.0) * SEG_BORDER;
+        // Разделитель — левая линия второй и третьей кнопки внутри их ширины (`.seg .ib + .ib`
+        // прототипа), поэтому к ширине группы добавляется только её рамка.
+        let zones_width = ZONE_COUNT as f64 * ZONE_WIDTH + 2.0 * SEG_BORDER;
         let zones_height = ZONE_HEIGHT + 2.0 * SEG_BORDER;
         let zones = Frame::new(
             appearance.x - RIGHT_GAP - zones_width,
@@ -166,7 +173,7 @@ impl ChromeLayout {
         );
         let zone_buttons = std::array::from_fn(|index| {
             Frame::new(
-                SEG_BORDER + index as f64 * (ZONE_WIDTH + SEG_BORDER),
+                SEG_BORDER + index as f64 * ZONE_WIDTH,
                 SEG_BORDER,
                 ZONE_WIDTH,
                 ZONE_HEIGHT,
@@ -216,11 +223,12 @@ pub fn shorten(name: &str, max_width: f64, measure: impl Fn(&str) -> f64) -> Str
     candidate(fits)
 }
 
-/// Значок и подпись кнопки оформления по текущему выбору.
+/// Значок и подпись кнопки оформления по текущему выбору. У системного выбора пары в наборе
+/// прототипа нет, его значок — системный символ.
 pub fn appearance_button(choice: AppearanceChoice) -> (&'static str, &'static str) {
     match choice {
         AppearanceChoice::System => ("circle.lefthalf.filled", "Оформление: системное"),
-        AppearanceChoice::Light => ("sun.max", "Оформление: светлое"),
+        AppearanceChoice::Light => ("sun", "Оформление: светлое"),
         AppearanceChoice::Dark => ("moon", "Оформление: тёмное"),
     }
 }
@@ -291,13 +299,13 @@ impl ZoneButton {
         [ZoneButton::Navigator, ZoneButton::Bottom, ZoneButton::Side];
 }
 
-/// Значок и подпись кнопки зон при цели третьей кнопки `side_plate`.
+/// Значок набора прототипа и подпись кнопки зон при цели третьей кнопки `side_plate`.
 pub fn zone_button(button: ZoneButton, side_plate: bool) -> (&'static str, &'static str) {
     match (button, side_plate) {
-        (ZoneButton::Navigator, _) => ("sidebar.left", "Навигация"),
-        (ZoneButton::Bottom, _) => ("rectangle.bottomthird.inset.filled", "Нижняя зона"),
-        (ZoneButton::Side, false) => ("sidebar.right", "Правая зона"),
-        (ZoneButton::Side, true) => ("rectangle.leftthird.inset.filled", "Левая зона"),
+        (ZoneButton::Navigator, _) => ("sideL", "Навигация"),
+        (ZoneButton::Bottom, _) => ("sideB", "Нижняя зона"),
+        (ZoneButton::Side, false) => ("sideR", "Правая зона"),
+        (ZoneButton::Side, true) => ("sideLP", "Левая зона"),
     }
 }
 
@@ -505,7 +513,7 @@ impl ChromeBar {
                 .accessibilityLabel()
                 .is_none_or(|current| *current != *label)
             {
-                button.setImage(symbol_image(symbol, &label).as_deref());
+                button.setImage(icon::image(symbol, BUTTON_ICON, &label).as_deref());
                 button.setAccessibilityLabel(Some(&label));
                 button.setToolTip(Some(&label));
             }
@@ -515,7 +523,7 @@ impl ChromeBar {
         let text = NSString::from_str(text);
         parts
             .appearance
-            .setImage(symbol_image(symbol, &text).as_deref());
+            .setImage(icon::image(symbol, BUTTON_ICON, &text).as_deref());
         parts.appearance.setAccessibilityLabel(Some(&text));
         parts.appearance.setToolTip(Some(&text));
         self.relayout();
@@ -563,6 +571,16 @@ impl ChromeBar {
         let muted = layer::ns_color(colors.text_3);
         parts.workspace.setContentTintColor(Some(&text));
         parts.measure.setContentTintColor(Some(&text));
+        // Шеврон приглушён (`.ws-btn svg`), название — цвета текста: значок несёт свой цвет.
+        let chevron = icon::colored(
+            "chevD",
+            CHEVRON_ICON,
+            colors.text_3,
+            colors.line_2,
+            &NSString::from_str("Выбрать воркспейс"),
+        );
+        parts.workspace.setImage(Some(&chevron));
+        parts.measure.setImage(Some(&chevron));
         let body = font(theme.metrics.font.body, Weight::Medium);
         parts.workspace.setFont(Some(&body));
         parts.measure.setFont(Some(&body));
@@ -571,10 +589,20 @@ impl ChromeBar {
         let search = parts.search.ivars();
         search.icon.setContentTintColor(Some(&muted));
         search.label.setTextColor(Some(&muted));
-        search.key.setTextColor(Some(&muted));
-        let small = font(theme.metrics.font.small, Weight::Regular);
-        search.label.setFont(Some(&small));
-        search.key.setFont(Some(&small));
+        search
+            .key
+            .setTextColor(Some(&layer::ns_color(colors.text_2)));
+        search
+            .label
+            .setFont(Some(&font(theme.metrics.font.body, Weight::Regular)));
+        search.key.setFont(Some(&mono_font(KEY_FONT)));
+        if let Some(key_box) = search.key_box.layer() {
+            without_actions(|| {
+                layer::set_fill(&key_box, colors.kbd);
+                layer::set_line(&key_box, Some((colors.line_2, 1.0)));
+                layer::set_radius(&key_box, KEY_RADIUS);
+            });
+        }
         if let Some(seg) = parts.zones.layer() {
             without_actions(|| {
                 layer::set_fill(&seg, colors.chrome);
@@ -606,13 +634,6 @@ fn font(size: f64, weight: Weight) -> Retained<NSFont> {
         }
     };
     NSFont::systemFontOfSize_weight(size, weight)
-}
-
-fn symbol_image(name: &str, description: &NSString) -> Option<Retained<NSImage>> {
-    NSImage::imageWithSystemSymbolName_accessibilityDescription(
-        &NSString::from_str(name),
-        Some(description),
-    )
 }
 
 struct ChromeIvars {
@@ -710,13 +731,10 @@ impl ChromeBarView {
         let workspace = ChromeButton::new(mtm, false);
         workspace.setImagePosition(NSCellImagePosition::ImageTrailing);
         workspace.setImageHugsTitle(true);
-        let chevron = NSString::from_str("Выбрать воркспейс");
-        workspace.setImage(symbol_image("chevron.down", &chevron).as_deref());
         workspace.setLineBreakMode(NSLineBreakMode::ByClipping);
         let measure = ChromeButton::new(mtm, false);
         measure.setImagePosition(NSCellImagePosition::ImageTrailing);
         measure.setImageHugsTitle(true);
-        measure.setImage(symbol_image("chevron.down", &chevron).as_deref());
 
         let zones = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
         layered(&zones);
@@ -734,7 +752,7 @@ impl ChromeBarView {
                 // SAFETY: подроль доступности — неизменяемая константа AppKit.
                 button.setAccessibilitySubrole(Some(unsafe { NSAccessibilityToggleSubrole }));
                 button.setImagePosition(NSCellImagePosition::ImageOnly);
-                button.setImage(symbol_image(symbol, &label).as_deref());
+                button.setImage(icon::image(symbol, BUTTON_ICON, &label).as_deref());
                 button.setAccessibilityLabel(Some(&label));
                 button.setToolTip(Some(&label));
                 zones.addSubview(&button);
@@ -744,6 +762,9 @@ impl ChromeBarView {
         let separators: Vec<_> = (1..ZONE_COUNT)
             .map(|_| {
                 let separator = CALayer::new();
+                // Слои кнопок AppKit кладёт после своих слоёв группы: без подъёма заливка
+                // нажатой кнопки закрывает её левую линию.
+                separator.setZPosition(1.0);
                 if let Some(seg) = zones.layer() {
                     seg.addSublayer(&separator);
                 }
@@ -818,7 +839,7 @@ impl ChromeBarView {
                 button.setFrame(frame.rect());
             }
             for (index, separator) in parts.separators.iter().enumerate() {
-                let x = layout.zone_buttons[index].right();
+                let x = layout.zone_buttons[index + 1].x;
                 separator.setFrame(Frame::new(x, 0.0, SEG_BORDER, layout.zones.height).rect());
             }
             parts.appearance.setFrame(layout.appearance.rect());
@@ -887,6 +908,8 @@ struct SearchIvars {
     owner: Callback<ChromeModel>,
     icon: Retained<NSImageView>,
     label: Retained<NSTextField>,
+    /// Плашка клавиши (`kbd` прототипа) с подписью внутри.
+    key_box: Retained<NSView>,
     key: Retained<NSTextField>,
 }
 
@@ -962,21 +985,45 @@ define_class!(
 const SEARCH_INSET: f64 = 9.0;
 const SEARCH_ICON: f64 = 14.0;
 const SEARCH_ICON_GAP: f64 = 8.0;
+/// Плашка клавиши — правило `kbd` прототипа: высота и наименьшая ширина 17, поля 4, линия 1,
+/// радиус 4, моноширинный кегль 10,5. Правый отступ — поле 6 и линия поля поиска.
+const KEY_SIZE: f64 = 17.0;
+const KEY_PAD: f64 = 4.0;
+const KEY_RADIUS: f64 = 4.0;
+/// Моноширинный шрифт по стеку прототипа: первый установленный, иначе системный.
+fn mono_font(size: f64) -> Retained<NSFont> {
+    shellio_theme::MONO_FAMILIES
+        .iter()
+        .find_map(|name| NSFont::fontWithName_size(&NSString::from_str(name), size))
+        .unwrap_or_else(|| {
+            // SAFETY: вес шрифта — неизменяемая константа AppKit.
+            NSFont::monospacedSystemFontOfSize_weight(size, unsafe { NSFontWeightRegular })
+        })
+}
+const KEY_FONT: f64 = 10.5;
+const KEY_INSET: f64 = 7.0;
+/// Поля ячейки подписи AppKit по горизонтали. Собственный размер подписи их не содержит: кадру
+/// уже текста с полями ячейка обрезает последний знак.
+const LABEL_CELL_PAD: f64 = 4.0;
 
 impl SearchView {
     fn new(mtm: MainThreadMarker, owner: Callback<ChromeModel>) -> Retained<SearchView> {
         let description = NSString::from_str("Поиск");
-        let icon = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
-        icon.setImage(symbol_image("magnifyingglass", &description).as_deref());
+        let glass = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
+        glass.setImage(icon::image("search", SEARCH_ICON, &description).as_deref());
         let label =
             NSTextField::labelWithString(&NSString::from_str("Сессии, файлы, команды"), mtm);
         label.setLineBreakMode(NSLineBreakMode::ByTruncatingTail);
         let key = NSTextField::labelWithString(&NSString::from_str("⌘K"), mtm);
+        let key_box = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
+        layered(&key_box);
+        key_box.addSubview(&key);
         let this = SearchView::alloc(mtm).set_ivars(SearchIvars {
             _live: CHROME_SEARCH.live(),
             owner,
-            icon,
+            icon: glass,
             label,
+            key_box,
             key,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
@@ -986,7 +1033,7 @@ impl SearchView {
         let parts = view.ivars();
         view.addSubview(&parts.icon);
         view.addSubview(&parts.label);
-        view.addSubview(&parts.key);
+        view.addSubview(&parts.key_box);
         view.setAccessibilityElement(true);
         // SAFETY: роль доступности — неизменяемая константа AppKit.
         view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
@@ -1000,7 +1047,9 @@ impl SearchView {
         let height = bounds.size.height;
         let key = parts.key.intrinsicContentSize();
         let label = parts.label.intrinsicContentSize();
-        let key_x = bounds.size.width - SEARCH_INSET + 3.0 - key.width;
+        let box_width = (key.width + 2.0 * KEY_PAD + 2.0).ceil().max(KEY_SIZE);
+        let key_width = key.width + LABEL_CELL_PAD;
+        let key_x = bounds.size.width - KEY_INSET - box_width;
         let label_x = SEARCH_INSET + SEARCH_ICON + SEARCH_ICON_GAP;
         without_actions(|| {
             parts.icon.setFrame(
@@ -1021,11 +1070,20 @@ impl SearchView {
                 )
                 .rect(),
             );
-            parts.key.setFrame(
+            parts.key_box.setFrame(
                 Frame::new(
                     key_x,
-                    ((height - key.height) / 2.0).floor(),
-                    key.width,
+                    ((height - KEY_SIZE) / 2.0).floor(),
+                    box_width,
+                    KEY_SIZE,
+                )
+                .rect(),
+            );
+            parts.key.setFrame(
+                Frame::new(
+                    ((box_width - key_width) / 2.0).round(),
+                    ((KEY_SIZE - key.height) / 2.0).round(),
+                    key_width,
                     key.height,
                 )
                 .rect(),
@@ -1157,7 +1215,7 @@ mod tests {
             assert_eq!(layout.appearance.right(), width - PAD_RIGHT);
             assert_eq!(layout.appearance.width, ICON_WIDTH);
             assert_eq!(layout.zones.right() + RIGHT_GAP, layout.appearance.x);
-            assert_eq!(layout.zones.width, 94.0);
+            assert_eq!(layout.zones.width, 92.0);
             assert_eq!(layout.zones.height, 26.0);
             assert!(!layout.zones.intersects(&layout.search));
             assert!(layout.zones.x >= layout.search.right() + GRID_GAP);
@@ -1168,8 +1226,8 @@ mod tests {
                 if let Some(previous) = previous {
                     assert_eq!(
                         button.x,
-                        previous.right() + SEG_BORDER,
-                        "рамка между кнопками"
+                        previous.right(),
+                        "разделитель внутри ширины кнопки"
                     );
                 }
                 previous = Some(button);

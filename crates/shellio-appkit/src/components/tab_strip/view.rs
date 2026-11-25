@@ -33,6 +33,7 @@ use crate::app::App;
 use crate::chrome_bar::Frame;
 use crate::components::menu::{Menu, MenuButton, MenuError, MenuIntent};
 use crate::counters::{Live, counter};
+use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState, Transition, TransitionPath};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
@@ -52,6 +53,8 @@ const SCROLL_ANIMATION: &str = "shellio.tabs.scroll";
 const RING: f64 = 1.0;
 /// Скругление линии под вкладкой (`border-radius: 1px`).
 const UNDERLINE_RADIUS: f64 = 1.0;
+/// Скругление подложки кнопки закрытия (`.tab .x` прототипа).
+const CLOSE_RADIUS: f64 = 4.0;
 /// Толщина кольца точки «процесс жив» и высота черты «завершён».
 const IDLE_RING: f64 = 1.5;
 const EXIT_BAR: f64 = 2.0;
@@ -109,6 +112,8 @@ struct StripModel {
     offset: Cell<f64>,
     /// Вкладка под указателем.
     hover: RefCell<Option<String>>,
+    /// Указатель над кнопкой закрытия вкладки `hover`.
+    hover_close: Cell<bool>,
     /// Полоса — first responder окна: кольцо выбранной вкладки цвета режима.
     key_focus: Cell<bool>,
     on_intent: Rc<dyn Fn(TabIntent)>,
@@ -169,6 +174,7 @@ impl TabStrip {
             layout: RefCell::new(None),
             offset: Cell::new(0.0),
             hover: RefCell::new(None),
+            hover_close: Cell::new(false),
             key_focus: Cell::new(false),
             on_intent,
             drag: RefCell::new(DragState::Idle),
@@ -235,6 +241,7 @@ impl TabStrip {
             .is_some_and(|hover| !model.state.borrow().tabs.iter().any(|tab| &tab.id == hover));
         if stale {
             model.hover.replace(None);
+            model.hover_close.set(false);
         }
         let view = self.view.view();
         let mut reveal = false;
@@ -410,7 +417,7 @@ impl TabStrip {
                 TabFacts {
                     id: tab.id.clone(),
                     icon_shown: !tab_view.ivars().icon.isHidden(),
-                    close_visible: !tab_view.ivars().close.isHidden(),
+                    close_visible: !tab_view.ivars().close_box.isHidden(),
                     fully_visible: contains(clip, frame),
                 }
             })
@@ -704,11 +711,13 @@ fn contains(outer: NSRect, inner: NSRect) -> bool {
         && inner.origin.y + inner.size.height <= outer.origin.y + outer.size.height + EPSILON
 }
 
-fn symbol(name: &str, description: &str) -> Option<Retained<NSImage>> {
-    NSImage::imageWithSystemSymbolName_accessibilityDescription(
-        &NSString::from_str(name),
-        Some(&NSString::from_str(description)),
-    )
+/// Сторона значка типа вкладки, крестика и кнопок строки (`icon(…, 13)`, `10` и `14` прототипа).
+const TAB_ICON: f64 = 13.0;
+const CLOSE_ICON: f64 = 10.0;
+const BUTTON_ICON: f64 = 14.0;
+
+fn symbol(name: &str, size: f64, description: &str) -> Option<Retained<NSImage>> {
+    icon::image(name, size, &NSString::from_str(description))
 }
 
 /// Вид со своим слоем, который перерисовывается только по `setNeedsDisplay`.
@@ -846,21 +855,21 @@ define_class!(
         // SAFETY: селектор и аргумент — как у `mouseMoved:` NSResponder.
         #[unsafe(method(mouseMoved:))]
         fn mouse_moved(&self, event: &NSEvent) {
-            let hovered = self.tab_at(event.locationInWindow());
-            self.set_hover(hovered);
+            let (hovered, close) = self.hover_at(event.locationInWindow());
+            self.set_hover(hovered, close);
         }
 
         // SAFETY: селектор и аргумент — как у `mouseEntered:` NSResponder.
         #[unsafe(method(mouseEntered:))]
         fn mouse_entered(&self, event: &NSEvent) {
-            let hovered = self.tab_at(event.locationInWindow());
-            self.set_hover(hovered);
+            let (hovered, close) = self.hover_at(event.locationInWindow());
+            self.set_hover(hovered, close);
         }
 
         // SAFETY: селектор и аргумент — как у `mouseExited:` NSResponder.
         #[unsafe(method(mouseExited:))]
         fn mouse_exited(&self, _event: &NSEvent) {
-            self.set_hover(None);
+            self.set_hover(None, false);
         }
 
         // SAFETY: селектор и аргумент — как у `scrollWheel:` NSResponder.
@@ -1080,11 +1089,26 @@ impl StripView {
         })
     }
 
-    fn set_hover(&self, hovered: Option<String>) {
+    /// Вкладка под точкой окна и признак «указатель над её кнопкой закрытия».
+    fn hover_at(&self, point: NSPoint) -> (Option<String>, bool) {
+        let hovered = self.tab_at(point);
+        let close = hovered.as_deref().is_some_and(|id| {
+            self.ivars()
+                .tabs
+                .borrow()
+                .iter()
+                .find(|tab| tab.ivars().id.borrow().as_str() == id)
+                .is_some_and(|tab| tab.on_close(tab.convertPoint_fromView(point, None)))
+        });
+        (hovered, close)
+    }
+
+    fn set_hover(&self, hovered: Option<String>, close: bool) {
         let changed = self.ivars().owner.call(|model| {
             let mut hover = model.hover.borrow_mut();
-            let changed = *hover != hovered;
+            let changed = *hover != hovered || model.hover_close.get() != close;
             *hover = hovered;
+            model.hover_close.set(close);
             changed
         });
         if changed == Some(true) {
@@ -1113,7 +1137,7 @@ impl StripView {
             unsafe { tab_view.setAccessibilityValue(Some(&value)) };
             tab_view
                 .ivars()
-                .close
+                .close_box
                 .setHidden(!close_visible(&state, tab, hover.as_deref()));
             tab_view.setNeedsDisplay(true);
         }
@@ -1222,6 +1246,9 @@ struct TabIvars {
     underline: Retained<CALayer>,
     /// Кнопка закрытия в точках вкладки.
     close_frame: Cell<Frame>,
+    /// Кнопка закрытия целиком: подложка 16×16 со значком внутри. Стоит после названия и в
+    /// боковой зоне закрывает его конец.
+    close_box: Retained<NSView>,
 }
 
 define_class!(
@@ -1279,12 +1306,7 @@ define_class!(
         fn mouse_down(&self, event: &NSEvent) {
             let point = self.convertPoint_fromView(event.locationInWindow(), None);
             let id = self.ivars().id.borrow().clone();
-            let close = self.ivars().close_frame.get();
-            let on_close = !self.ivars().close.isHidden()
-                && point.x >= close.x
-                && point.x < close.right()
-                && point.y >= close.y
-                && point.y < close.y + close.height;
+            let on_close = !self.ivars().close_box.isHidden() && self.on_close(point);
             let pressed = content_point(self, event);
             self.ivars().owner.call(|model| {
                 model.drag.replace(match (on_close, pressed) {
@@ -1349,8 +1371,11 @@ impl TabView {
         title.setLineBreakMode(NSLineBreakMode::ByClipping);
         let close = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
         close.setImageScaling(NSImageScaling::ScaleProportionallyDown);
-        close.setImage(symbol("xmark", "Закрыть вкладку").as_deref());
+        close.setImage(symbol("close", CLOSE_ICON, "Закрыть вкладку").as_deref());
         close.setAccessibilityElement(false);
+        let close_box = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
+        layered(&close_box);
+        close_box.addSubview(&close);
         icon.setAccessibilityElement(false);
         title.setAccessibilityElement(false);
         let this = TabView::alloc(mtm).set_ivars(TabIvars {
@@ -1365,6 +1390,7 @@ impl TabView {
             ring: CALayer::new(),
             underline: CALayer::new(),
             close_frame: Cell::new(Frame::new(0.0, 0.0, 0.0, 0.0)),
+            close_box,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<TabView> =
@@ -1379,7 +1405,7 @@ impl TabView {
         }
         view.addSubview(&parts.icon);
         view.addSubview(&parts.title);
-        view.addSubview(&parts.close);
+        view.addSubview(&parts.close_box);
         view.setAccessibilityElement(true);
         // SAFETY: роль и подроль доступности — неизменяемые константы AppKit.
         unsafe {
@@ -1397,7 +1423,9 @@ impl TabView {
         if *parts.title.stringValue() != *title {
             parts.title.setStringValue(&title);
         }
-        parts.icon.setImage(symbol(&tab.icon, &tab.kind).as_deref());
+        parts
+            .icon
+            .setImage(symbol(&tab.icon, TAB_ICON, &tab.kind).as_deref());
         parts.icon.setHidden(!shows_icon);
         self.setAccessibilityLabel(Some(&title));
         if let Some(theme) = parts.owner.call(|model| model.theme.get()) {
@@ -1418,9 +1446,10 @@ impl TabView {
             .set(tab_parts.dot.unwrap_or(Frame::new(0.0, 0.0, 0.0, 0.0)));
         parts.close_frame.set(tab_parts.close);
         let close = tab_parts.close;
+        parts.close_box.setFrame(ns_rect(close));
         parts.close.setFrame(ns_rect(Frame::new(
-            close.x + CLOSE_INSET,
-            close.y + CLOSE_INSET,
+            CLOSE_INSET,
+            CLOSE_INSET,
             close.width - 2.0 * CLOSE_INSET,
             close.height - 2.0 * CLOSE_INSET,
         )));
@@ -1440,16 +1469,26 @@ impl TabView {
         self.setNeedsDisplay(true);
     }
 
+    /// Точка вкладки лежит в кадре кнопки закрытия.
+    fn on_close(&self, point: NSPoint) -> bool {
+        let close = self.ivars().close_frame.get();
+        point.x >= close.x
+            && point.x < close.right()
+            && point.y >= close.y
+            && point.y < close.y + close.height
+    }
+
     /// Цвета вкладки по выбору, наведению, фокусу и ячейке. Вызывается из `updateLayer`.
     fn style(&self) {
         let parts = self.ivars();
         let id = parts.id.borrow().clone();
-        let Some((theme, state, hover, key_focus)) = parts.owner.call(|model| {
+        let Some((theme, state, hover, hover_close, key_focus)) = parts.owner.call(|model| {
             runloop::mark_draw(model.id);
             (
                 model.theme.get(),
                 model.state.borrow().clone(),
                 model.hover.borrow().clone(),
+                model.hover_close.get(),
                 model.key_focus.get(),
             )
         }) else {
@@ -1471,13 +1510,31 @@ impl TabView {
         let ink = layer::ns_color(text);
         parts.title.setTextColor(Some(&ink));
         parts.icon.setContentTintColor(Some(&ink));
+        // Кнопка закрытия под указателем — цвет текста и нажатый тон; в боковой зоне она лежит
+        // поверх конца вкладки, и её подложка всегда тона наведения (`.tab .x` прототипа).
+        let on_close = hovered && hover_close;
+        let close_ink = if on_close { colors.text } else { colors.text_3 };
         parts
             .close
-            .setContentTintColor(Some(&layer::ns_color(colors.text_3)));
+            .setContentTintColor(Some(&layer::ns_color(close_ink)));
+        let close_fill = if !state.presentation.reserves_close() {
+            Some(colors.hover)
+        } else if on_close {
+            Some(colors.chrome_press)
+        } else {
+            None
+        };
         let Some(layer) = self.layer() else {
             return;
         };
         without_actions(|| {
+            if let Some(close_box) = parts.close_box.layer() {
+                close_box.setCornerRadius(CLOSE_RADIUS);
+                match close_fill {
+                    Some(color) => layer::set_fill(&close_box, color),
+                    None => close_box.setBackgroundColor(None),
+                }
+            }
             layer.setCornerRadius(theme.metrics.radius.row);
             if selected {
                 layer::set_fill(&layer, colors.panel);
@@ -1583,7 +1640,7 @@ impl StripButtonView {
     /// Значок, AX-имя действия, подсказка и клавиша в `accessibilityHelp` (ADR-0032).
     fn describe(&self, button: StripButton, key: Option<&str>) {
         let label = NSString::from_str(button.label());
-        self.setImage(symbol(button.symbol(), button.label()).as_deref());
+        self.setImage(symbol(button.symbol(), BUTTON_ICON, button.label()).as_deref());
         self.setAccessibilityLabel(Some(&label));
         self.setToolTip(Some(&NSString::from_str(&model::hint(button, key))));
         self.setAccessibilityHelp(Some(&NSString::from_str(&model::help(key))));

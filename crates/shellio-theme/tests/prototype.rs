@@ -6,8 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_theme::{
-    Adr0027Column, AppTheme, Appearance, Cell, Contrast, CubicBezier, KeyMode, Motion,
-    MotionTokens, Origin, Srgb8, Tint, Value,
+    Adr0027Column, AppTheme, Appearance, Cell, Contrast, CubicBezier, KeyMode, MONO_FAMILIES,
+    Motion, MotionTokens, Origin, Srgb8, Tint, Value,
 };
 
 const TOKENS_CSS: &str = include_str!("../../../prototype/css/tokens.css");
@@ -474,6 +474,24 @@ fn css_parser_handles_comments_cascade_and_late_var() -> Result<()> {
     let looped = parse_css(":root { --a: var(--b); --b: var(--a); }")?;
     assert!(resolve(&cascade(&looped, &[]), "--a").is_err());
     assert!(parse_css("body { --a: #000000; }").is_err());
+    Ok(())
+}
+
+#[test]
+fn mono_families_match_the_prototype_stack() -> Result<()> {
+    let line = TOKENS_CSS
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("--mono:"))
+        .ok_or("в tokens.css нет --mono")?;
+    let stack: Vec<&str> = line
+        .trim()
+        .trim_end_matches(';')
+        .split(',')
+        .map(|family| family.trim().trim_matches('"'))
+        .collect();
+    let mut expected: Vec<&str> = MONO_FAMILIES.to_vec();
+    expected.push("monospace");
+    assert_eq!(stack, expected);
     Ok(())
 }
 

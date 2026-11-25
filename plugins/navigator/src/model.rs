@@ -11,7 +11,7 @@ use shellio_plugin_api::{
 pub const MANIFEST: Manifest = Manifest {
     id: "navigator",
     title: "Навигатор",
-    icon: "sidebar.left",
+    icon: "grid",
     placements: ZoneSet::ALL,
     default_zone: Zone::Left,
     cardinality: Cardinality::PerWorkbench,

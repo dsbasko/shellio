@@ -37,6 +37,7 @@ mod app;
 mod chrome_bar;
 mod components;
 mod counters;
+mod icon;
 mod inspect;
 mod layer;
 mod main_menu;

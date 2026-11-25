@@ -23,7 +23,7 @@ use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, Message, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAccessibility, NSButton, NSCellImagePosition, NSControl, NSControlStateValueOff,
-    NSControlStateValueOn, NSEventModifierFlags, NSImage, NSMenu, NSMenuDelegate, NSMenuItem,
+    NSControlStateValueOn, NSEventModifierFlags, NSMenu, NSMenuDelegate, NSMenuItem,
     NSMenuItemValidation, NSResponder, NSView,
 };
 use objc2_foundation::{
@@ -922,13 +922,7 @@ impl MenuButton {
             button.setBordered(false);
             button.setTitle(&NSString::from_str(""));
             button.setImagePosition(NSCellImagePosition::ImageOnly);
-            button.setImage(
-                NSImage::imageWithSystemSymbolName_accessibilityDescription(
-                    &NSString::from_str("ellipsis"),
-                    Some(&label),
-                )
-                .as_deref(),
-            );
+            button.setImage(crate::icon::image("more", 14.0, &label).as_deref());
             button.setAccessibilityLabel(Some(&label));
             button.setToolTip(Some(&label));
             Retained::into_super(button)

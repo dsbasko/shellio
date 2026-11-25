@@ -117,16 +117,16 @@
           "height": 654.0
         },
         "body": {
-          "x": 6.0,
+          "x": 8.0,
           "y": 46.0,
-          "width": 224.0,
-          "height": 642.0
+          "width": 222.0,
+          "height": 640.0
         },
         "geometry": {
           "zone": "left",
           "size": "narrow",
-          "width": 224.0,
-          "height": 642.0
+          "width": 222.0,
+          "height": 640.0
         },
         "stub": false
       },

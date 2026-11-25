@@ -30,6 +30,8 @@ pub struct LayoutMetrics {
     pub status_bar: u32,
     /// Ширина полосы края тела части, где перетаскивание вкладки создаёт новую часть.
     pub drop_edge: u32,
+    /// Отступ тела колонки навигатора от левого и нижнего края; сверху и справа — `gap`.
+    pub side_pad: u32,
 }
 
 /// Кадр в точках.
@@ -323,7 +325,8 @@ pub fn geometry<P: Copy + Ord>(
     let column_width = navigator.map_or(0, |_| i64::from(layout.sizes.navigator).min(width));
     if let Some(panel) = navigator {
         let frame = Area::new(0, area.y, column_width, area.h);
-        let body = frame.inset(gap, gap, gap, gap);
+        let side = i64::from(metrics.side_pad);
+        let body = frame.inset(side, gap, gap, side);
         frames.zones.navigator = Some(frame.rect());
         frames.navigator = Some(NavigatorFrame {
             panel,
@@ -602,6 +605,7 @@ mod tests {
         line: 1,
         status_bar: 26,
         drop_edge: 24,
+        side_pad: 8,
     };
     const SMALL: Viewport = Viewport {
         width: 1180,
@@ -672,7 +676,7 @@ mod tests {
         let nav = f.navigator.as_ref().unwrap();
         assert_eq!(nav.panel, 1);
         assert_eq!(nav.frame, rect(0.0, 40.0, 236.0, 654.0));
-        assert_eq!(nav.body, rect(6.0, 46.0, 224.0, 642.0));
+        assert_eq!(nav.body, rect(8.0, 46.0, 222.0, 640.0));
         assert_eq!(nav.geometry.zone, Zone::Left);
         assert_eq!(nav.geometry.size, SizeClass::Narrow);
         assert!(!nav.stub);

@@ -2324,8 +2324,8 @@ item_tooltips_ax() {
       fatal "условие пункта: зона $zone не показана"
     strip="$(strip_label "$zone" 0 "$(parts_count "$dir/now.layout.stdout" "$zone")")"
     case "$zone" in
-      center) axis=columns want="Разделить: части рядом" symbol=rectangle.split.2x1 ;;
-      right) axis=rows want="Разделить: одна над другой" symbol=rectangle.split.1x2 ;;
+      center) axis=columns want="Разделить: части рядом" symbol=splitCols ;;
+      right) axis=rows want="Разделить: одна над другой" symbol=splitRows ;;
     esac
     strip_buttons "$owner_pid" "$strip" "$dir/$zone.buttons" || {
       failures+=("$WHY")

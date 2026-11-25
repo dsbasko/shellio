@@ -18,6 +18,7 @@ pub(crate) const METRICS: LayoutMetrics = LayoutMetrics {
     line: 1,
     status_bar: 26,
     drop_edge: 24,
+    side_pad: 8,
 };
 
 pub(crate) const MANIFEST: Manifest = Manifest {

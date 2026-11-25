@@ -35,6 +35,7 @@ pub fn layout_metrics() -> LayoutMetrics {
         line: whole_points(metrics.line),
         status_bar: whole_points(metrics.status_bar),
         drop_edge: whole_points(metrics.drop_edge),
+        side_pad: whole_points(metrics.side_pad),
     }
 }
 
@@ -168,6 +169,7 @@ mod tests {
             (metrics.line, theme.line),
             (metrics.status_bar, theme.status_bar),
             (metrics.drop_edge, theme.drop_edge),
+            (metrics.side_pad, theme.side_pad),
         ] {
             assert_eq!(f64::from(points), token);
         }
@@ -180,6 +182,7 @@ mod tests {
                 line: 1,
                 status_bar: 26,
                 drop_edge: 24,
+                side_pad: 8,
             }
         );
     }

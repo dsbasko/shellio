@@ -196,18 +196,18 @@ pub struct StripFixture {
 
 /// Восемь вкладок с типами и статусами.
 pub const TABS: [TabFixture; 8] = [
-    tab("term", "zsh", "terminal", "terminal", StripStatus::Running),
+    tab("term", "zsh", "terminal", "term", StripStatus::Running),
     tab("build", "Сборка", "task", "hammer", StripStatus::Done),
-    tab("agent", "Агент", "agent", "sparkles", StripStatus::Waiting),
+    tab("agent", "Агент", "agent", "agent", StripStatus::Waiting),
     tab(
         "changes",
         "Изменения",
         "changes",
-        "plusminus",
+        "changes",
         StripStatus::None,
     ),
     tab("log", "Журнал", "log", "doc.plaintext", StripStatus::Error),
-    tab("nvim", "nvim", "editor", "pencil", StripStatus::Idle),
+    tab("nvim", "nvim", "editor", "file", StripStatus::Idle),
     tab(
         "tests",
         "Тесты",
@@ -215,13 +215,7 @@ pub const TABS: [TabFixture; 8] = [
         "checkmark.circle",
         StripStatus::Exited,
     ),
-    tab(
-        "review",
-        "Ревью",
-        "review",
-        "text.bubble",
-        StripStatus::None,
-    ),
+    tab("review", "Ревью", "review", "review", StripStatus::None),
 ];
 
 const fn tab(

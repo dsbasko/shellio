@@ -944,6 +944,7 @@ mod tests {
         line: 1,
         status_bar: 26,
         drop_edge: 24,
+        side_pad: 8,
     };
     const SMALL: Viewport = Viewport {
         width: 1180,

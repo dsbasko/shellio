@@ -259,6 +259,7 @@ mod tests {
         line: 1,
         status_bar: 26,
         drop_edge: 24,
+        side_pad: 8,
     };
 
     /// Представление демонстрационной панели.

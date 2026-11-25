@@ -48,6 +48,8 @@ struct PanelModel {
     id: ComponentId,
     theme: Cell<AppTheme>,
     title: RefCell<String>,
+    /// Контейнер колонки навигатора лежит на фоне окна без своей плитки (ADR-0024).
+    flat: Cell<bool>,
     on_press: Box<dyn Fn()>,
 }
 
@@ -72,6 +74,7 @@ impl PanelView {
             id: ComponentId::next(),
             theme: Cell::new(*theme),
             title: RefCell::new(title.to_owned()),
+            flat: Cell::new(false),
             on_press: Box::new(on_press),
         };
         let view = View::new(&PANEL_OWNER, model, "PanelView.updateLayer", |owner| {
@@ -102,6 +105,15 @@ impl PanelView {
         let model = self.view.rust();
         if model.theme.get() != *theme {
             model.theme.set(*theme);
+            self.view.view().setNeedsDisplay(true);
+        }
+    }
+
+    /// Плоский контейнер красится фоном окна, обычный — фоном панели.
+    pub fn set_flat(&self, flat: bool) {
+        let model = self.view.rust();
+        if model.flat.get() != flat {
+            model.flat.set(flat);
             self.view.view().setNeedsDisplay(true);
         }
     }
@@ -216,14 +228,19 @@ define_class!(
         // SAFETY: селектор и результат — как у `updateLayer` NSView.
         #[unsafe(method(updateLayer))]
         fn update_layer(&self) {
-            let Some(theme) = self.ivars().owner.call(|model| {
+            let Some((theme, flat)) = self.ivars().owner.call(|model| {
                 runloop::mark_draw(model.id);
-                model.theme.get()
+                (model.theme.get(), model.flat.get())
             }) else {
                 return;
             };
+            let fill = if flat {
+                theme.colors.chrome
+            } else {
+                theme.colors.panel
+            };
             if let Some(layer) = self.layer() {
-                without_actions(|| layer::set_fill(&layer, theme.colors.panel));
+                without_actions(|| layer::set_fill(&layer, fill));
             }
         }
 
@@ -493,8 +510,10 @@ define_class!(
             }) else {
                 return;
             };
+            // Фон даёт контейнер панели: в плитке — фон панели, в колонке навигатора — фон окна.
+            let _ = theme;
             if let Some(layer) = self.layer() {
-                without_actions(|| layer::set_fill(&layer, theme.colors.panel));
+                without_actions(|| layer.setBackgroundColor(None));
             }
         }
 
@@ -616,6 +635,8 @@ struct StubModel {
     id: ComponentId,
     theme: Cell<AppTheme>,
     card: RefCell<StubCard>,
+    /// Заглушка стоит в плоской колонке навигатора, а не в плитке.
+    flat: Cell<bool>,
     on_intent: Box<dyn Fn(StubIntent)>,
 }
 
@@ -639,6 +660,7 @@ impl ExpandStub {
             id: ComponentId::next(),
             theme: Cell::new(*theme),
             card: RefCell::new(card),
+            flat: Cell::new(false),
             on_intent: Box::new(on_intent),
         };
         let mut view = View::new(&STUB_OWNER, model, "ExpandStub.view", |owner| {
@@ -661,6 +683,15 @@ impl ExpandStub {
 
     pub fn card(&self) -> StubCard {
         self.view.rust().card.borrow().clone()
+    }
+
+    /// Плоская заглушка красится фоном окна, обычная — фоном панели.
+    pub fn set_flat(&self, flat: bool) {
+        let model = self.view.rust();
+        if model.flat.get() != flat {
+            model.flat.set(flat);
+            self.apply_theme();
+        }
     }
 
     pub fn set_card(&self, card: StubCard) {
@@ -738,9 +769,16 @@ impl ExpandStub {
         let button = &parts.button;
         button.setFont(Some(&font(theme.metrics.font.tab, false)));
         button.setContentTintColor(Some(&layer::ns_color(theme.colors.text)));
+        // Кнопка берёт фон своей поверхности (`.btn` прототипа): в плитке — фон панели, в плоской
+        // колонке — фон поля.
+        let button_fill = if self.view.rust().flat.get() {
+            theme.colors.surface
+        } else {
+            theme.colors.panel
+        };
         if let Some(fill) = button.layer() {
             without_actions(|| {
-                layer::set_fill(&fill, theme.colors.surface);
+                layer::set_fill(&fill, button_fill);
                 layer::set_line(&fill, Some((theme.colors.line_2, theme.metrics.line)));
                 layer::set_radius(&fill, theme.metrics.radius.control);
             });
@@ -784,12 +822,18 @@ define_class!(
         fn update_layer(&self) {
             let Some(theme) = self.ivars().owner.call(|model| {
                 runloop::mark_draw(model.id);
-                model.theme.get()
+                (model.theme.get(), model.flat.get())
             }) else {
                 return;
             };
+            let (theme, flat) = theme;
+            let fill = if flat {
+                theme.colors.chrome
+            } else {
+                theme.colors.panel
+            };
             if let Some(layer) = self.layer() {
-                without_actions(|| layer::set_fill(&layer, theme.colors.panel));
+                without_actions(|| layer::set_fill(&layer, fill));
             }
         }
 

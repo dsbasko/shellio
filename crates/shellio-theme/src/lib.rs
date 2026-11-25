@@ -6,6 +6,7 @@
 mod cell;
 mod color;
 pub mod contrast;
+pub mod icons;
 mod tokens;
 
 pub use cell::{
@@ -14,5 +15,5 @@ pub use cell::{
 pub use color::{Srgb8, Tint, UnitRgb};
 pub use tokens::{
     Adr0027Column, AppTheme, Colors, CubicBezier, Focus, FontSizes, KeyMode, LineHeights, METRICS,
-    Metrics, MotionTokens, Origin, Radii, Slot, Value,
+    MONO_FAMILIES, Metrics, MotionTokens, Origin, Radii, Slot, Value,
 };

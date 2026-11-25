@@ -11,6 +11,7 @@ use objc2_app_kit::{
     NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSString};
+use objc2_quartz_core::CALayer;
 use shellio_theme::AppTheme;
 
 use crate::app::App;
@@ -121,6 +122,8 @@ struct StatusIvars {
     _live: Live,
     owner: Callback<StatusModel>,
     text: Retained<NSTextField>,
+    /// Линия над строкой (`.status { border-top }` прототипа).
+    line: Retained<CALayer>,
 }
 
 define_class!(
@@ -157,8 +160,25 @@ define_class!(
             if let Some(layer) = self.layer() {
                 without_actions(|| {
                     layer::set_fill(&layer, theme.colors.chrome);
+                    layer::set_fill(&self.ivars().line, theme.colors.line);
                 });
             }
+        }
+
+        // SAFETY: селектор и результат — как у `layout` NSView.
+        #[unsafe(method(layout))]
+        fn layout(&self) {
+            // SAFETY: `layout` у NSView без аргументов.
+            let _: () = unsafe { msg_send![super(self), layout] };
+            let (width, line) = self.ivars().owner.call(|model| {
+                (self.bounds().size.width, model.theme.get().metrics.line)
+            }).unwrap_or((0.0, 0.0));
+            without_actions(|| {
+                self.ivars().line.setFrame(NSRect::new(
+                    NSPoint::ZERO,
+                    NSSize::new(width, line),
+                ));
+            });
         }
     }
 );
@@ -174,6 +194,7 @@ impl StatusView {
             _live: STATUS_VIEW.live(),
             owner,
             text,
+            line: CALayer::new(),
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<StatusView> = unsafe {
@@ -181,6 +202,9 @@ impl StatusView {
         };
         view.setWantsLayer(true);
         view.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
+        if let Some(layer) = view.layer() {
+            layer.addSublayer(&view.ivars().line);
+        }
         let text = &view.ivars().text;
         text.setFrame(NSRect::new(
             NSPoint::new(PAD, LINE / 2.0),

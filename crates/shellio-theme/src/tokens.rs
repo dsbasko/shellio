@@ -111,6 +111,8 @@ pub struct Metrics {
     pub line: f64,
     /// Ширина полосы края тела части, где перетаскивание вкладки создаёт новую часть.
     pub drop_edge: f64,
+    /// Отступ содержимого колонки навигатора от левого и нижнего края.
+    pub side_pad: f64,
     pub radius: Radii,
     pub font: FontSizes,
     pub line_height: LineHeights,
@@ -275,6 +277,10 @@ const LIGHT_INCREASED: Colors = Colors {
 };
 
 /// Метрики, одинаковые во всех ячейках.
+/// Моноширинный стек прототипа (`--mono`) без родового `monospace`: берётся первый
+/// установленный шрифт, иначе системный моноширинный.
+pub const MONO_FAMILIES: [&str; 3] = ["JetBrains Mono", "SF Mono", "Menlo"];
+
 pub const METRICS: Metrics = Metrics {
     titlebar: 40.0,
     tabbar: 34.0,
@@ -283,6 +289,7 @@ pub const METRICS: Metrics = Metrics {
     gap: 6.0,
     line: 1.0,
     drop_edge: 24.0,
+    side_pad: 8.0,
     radius: Radii {
         row: 5.0,
         control: 6.0,
@@ -440,6 +447,7 @@ impl AppTheme {
             gap,
             line: plate_line,
             drop_edge,
+            side_pad,
             radius,
             font,
             line_height,
@@ -530,6 +538,7 @@ impl AppTheme {
             css("metrics.gap", "--gap", Points(gap)),
             css("metrics.line", "--plate-line", Points(plate_line)),
             css("metrics.drop_edge", "--drop-edge", Points(drop_edge)),
+            css("metrics.side_pad", "--side-pad", Points(side_pad)),
             css("metrics.radius.row", "--r-row", Points(radius_row)),
             css("metrics.radius.control", "--r-ctl", Points(radius_control)),
             css("metrics.radius.plate", "--r-plate", Points(radius_plate)),
