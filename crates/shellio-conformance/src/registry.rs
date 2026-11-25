@@ -30,6 +30,22 @@ pub enum Surface {
     Picker,
 }
 
+impl Surface {
+    /// Ключ принадлежит поверхности: заголовок — `chrome` и всё под ним, строка статуса —
+    /// `status` и всё под ним, остальные поверхности — всё окно.
+    pub fn owns(self, key: &str) -> bool {
+        let under = |root: &str| {
+            key.strip_prefix(root)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', ':']))
+        };
+        match self {
+            Surface::Titlebar => under("chrome"),
+            Surface::Statusline => under("status"),
+            Surface::Layout | Surface::Menu | Surface::Picker => true,
+        }
+    }
+}
+
 /// Назначение: сценарий инвентаря или пара «плагин × зона» → шаг дорожной карты.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

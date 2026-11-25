@@ -4,13 +4,14 @@
 use base64::Engine as _;
 use serde_json::{Value, json};
 use shellio_conformance::cdp::{
-    Capture, PseudoReply, assemble, elements, font_faces, kind_of, parse_color, parse_px,
-    pseudo_fact,
+    Capture, PseudoReply, assemble, assemble_surface, elements, font_faces, kind_of, line,
+    parse_color, parse_px, parse_shadows, pseudo_fact,
 };
 use shellio_conformance::fields::ElementKind;
 use shellio_conformance::mask::{ICON_FG, Mask, PixelClip, backdrop, foreground};
-use shellio_conformance::passport::{Rect, Rgba};
+use shellio_conformance::passport::{Rect, Rgba, Side};
 use shellio_conformance::recipe::Recipe;
+use shellio_conformance::registry::Surface;
 use shellio_conformance::scene::Scene;
 
 fn capture() -> Capture {
@@ -31,25 +32,14 @@ fn recipe() -> Recipe {
     .unwrap_or_else(|e| panic!("{e}"))
 }
 
-/// Захват с частью центра и её вуалью фокуса (`.panel::after`), записанный на копии прототипа с
-/// ключом у части.
+/// Захват всего окна: в нём есть часть центра с вуалью фокуса (`.panel::after`).
 fn with_veil() -> Capture {
-    let veil: Value =
-        serde_json::from_str(include_str!("fixtures/pseudo-center-veil-light-high.json"))
-            .unwrap_or_else(|e| panic!("{e}"));
-    let mut capture = capture();
-    capture.facts["elements"]
-        .as_array_mut()
-        .unwrap_or_else(|| panic!("в фактах нет списка elements"))
-        .push(veil["owner"].clone());
-    capture.pseudo =
-        serde_json::from_value(veil["pseudo"].clone()).unwrap_or_else(|e| panic!("{e}"));
-    capture
+    capture()
 }
 
 #[test]
 fn titlebar_capture_becomes_passport_elements() {
-    let out = assemble(&scene(), &recipe(), &capture()).unwrap();
+    let out = assemble_surface(Surface::Titlebar, &scene(), &recipe(), &capture()).unwrap();
     assert_eq!(out.elements.len(), 20);
     let kbd = out
         .elements
@@ -138,9 +128,9 @@ fn pseudo_element_follows_its_owner() {
     assert_eq!(veil.kind, ElementKind::Pseudo);
     assert_eq!(veil.parent.as_deref(), Some("zone.center.part.1"));
     assert!(veil.visible);
-    // Непрозрачность вуали входит в альфу заливки.
+    // Непрозрачность вуали входит в альфу заливки: `--focus-a` тёмной темы обычного контраста.
     let fill = veil.fill.unwrap();
-    assert!((fill.a - 0.04).abs() < 1e-9, "{fill:?}");
+    assert!((fill.a - 0.05).abs() < 1e-9, "{fill:?}");
     assert_eq!(veil.frame.w, out.elements[at].frame.w - 2.0);
 }
 
@@ -158,7 +148,10 @@ fn pseudo_without_box_is_invisible() {
 #[test]
 fn pseudo_without_owner_is_an_error() {
     let mut capture = capture();
-    capture.pseudo = with_veil().pseudo;
+    capture.facts["elements"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|e| e["ck"] != "zone.center.part.1");
     let err = assemble(&scene(), &recipe(), &capture).unwrap_err();
     assert!(err.contains("без элемента-владельца"), "{err}");
 }
@@ -328,5 +321,130 @@ fn css_values_parse() {
     assert_eq!(
         kind_of("button", "zone.center.part.1.tabs.tab.2"),
         ElementKind::Tab
+    );
+}
+
+#[test]
+fn surface_keeps_only_its_keys() {
+    let whole = assemble(&scene(), &recipe(), &capture()).unwrap();
+    assert!(whole.elements.iter().any(|e| e.ck.starts_with("zone.")));
+    assert!(whole.elements.iter().any(|e| e.ck == "status"));
+
+    let titlebar = assemble_surface(Surface::Titlebar, &scene(), &recipe(), &capture()).unwrap();
+    assert!(titlebar.elements.iter().all(|e| e.ck.starts_with("chrome")));
+    assert!(titlebar.masks.keys().all(|k| k.starts_with("chrome")));
+    // Состав и постусловия сверяются по всему окну при любой поверхности.
+    assert_eq!(titlebar.composition, whole.composition);
+
+    let status = assemble_surface(Surface::Statusline, &scene(), &recipe(), &capture()).unwrap();
+    let keys: Vec<&str> = status.elements.iter().map(|e| e.ck.as_str()).collect();
+    assert_eq!(keys, ["status"]);
+    assert!(status.masks.is_empty());
+
+    assert!(Surface::Titlebar.owns("chrome"));
+    assert!(Surface::Titlebar.owns("chrome.search.kbd"));
+    assert!(Surface::Titlebar.owns("chrome::after"));
+    assert!(!Surface::Titlebar.owns("chromeless"));
+    assert!(!Surface::Statusline.owns("chrome"));
+    assert!(Surface::Layout.owns("picker.item.1"));
+}
+
+#[test]
+fn line_is_read_from_every_side() {
+    let out = assemble(&scene(), &recipe(), &capture()).unwrap();
+    let sides = |ck: &str| {
+        let e = out.elements.iter().find(|e| e.ck == ck).unwrap();
+        (e.line_sides.clone(), e.line_width)
+    };
+    // Заголовок рисует нижнюю линию, строка статуса — верхнюю, кнопка зон — левый разделитель.
+    assert_eq!(sides("chrome"), (vec![Side::Bottom], Some(1.0)));
+    assert_eq!(sides("status"), (vec![Side::Top], Some(1.0)));
+    assert_eq!(sides("chrome.zones.bottom"), (vec![Side::Left], Some(1.0)));
+    assert_eq!(
+        sides("chrome.search"),
+        (
+            vec![Side::Top, Side::Right, Side::Bottom, Side::Left],
+            Some(1.0)
+        )
+    );
+    assert_eq!(sides("chrome.appearance"), (Vec::new(), Some(0.0)));
+
+    let side = |name: &str, color: &str, width: &str, style: &str| json!({"side": name, "color": color, "width": width, "style": style});
+    let none = json!({"border": [side("top", "rgb(1, 2, 3)", "0px", "none")]});
+    assert_eq!(line(&none).unwrap(), None);
+    let clear = json!({"border": [side("top", "rgba(0, 0, 0, 0)", "1px", "solid")]});
+    assert_eq!(line(&clear).unwrap(), None);
+    let mixed = json!({"border": [
+        side("top", "rgb(1, 2, 3)", "1px", "solid"),
+        side("left", "rgb(1, 2, 3)", "2px", "solid"),
+    ]});
+    assert!(line(&mixed).unwrap_err().contains("различаются"));
+    let unknown = json!({"border": [side("front", "rgb(1, 2, 3)", "1px", "solid")]});
+    assert!(line(&unknown).is_err());
+}
+
+#[test]
+fn box_shadow_is_parsed_outer_and_inset() {
+    assert!(parse_shadows("none").unwrap().is_empty());
+    assert!(parse_shadows("").unwrap().is_empty());
+    let out = assemble(&scene(), &recipe(), &capture()).unwrap();
+    let close = out
+        .elements
+        .iter()
+        .find(|e| e.ck == "chrome.window.close")
+        .unwrap();
+    assert_eq!(close.shadow.len(), 1);
+    assert!(close.shadow[0].inset);
+    assert_eq!(close.shadow[0].spread, 0.5);
+
+    let two = parse_shadows(
+        "rgba(0, 0, 0, 0.5) 0px 12px 32px 0px, rgb(48, 46, 43) 0px 0px 0px 1px inset",
+    )
+    .unwrap();
+    assert_eq!(two.len(), 2);
+    assert_eq!((two[0].y, two[0].blur, two[0].inset), (12.0, 32.0, false));
+    assert_eq!(two[0].color.a, 0.5);
+    assert_eq!((two[1].spread, two[1].inset), (1.0, true));
+    // Прозрачная тень не пишется.
+    assert!(
+        parse_shadows("rgba(0, 0, 0, 0) 0px 0px 0px 0px")
+            .unwrap()
+            .is_empty()
+    );
+    assert!(parse_shadows("0px 0px 4px").is_err());
+    assert!(parse_shadows("rgb(1, 2, 3) 0px 0px").is_err());
+}
+
+#[test]
+fn kinds_of_layout_keys() {
+    assert_eq!(kind_of("section", "zone.center.part.1"), ElementKind::Plate);
+    assert_eq!(
+        kind_of("div", "zone.center.part.2.menu"),
+        ElementKind::Plate
+    );
+    assert_eq!(kind_of("div", "picker"), ElementKind::Plate);
+    assert_eq!(
+        kind_of("span", "zone.center.part.1.tabs.tab.1.close"),
+        ElementKind::Control
+    );
+    assert_eq!(
+        kind_of("button", "zone.center.part.1.tabs.tab.12"),
+        ElementKind::Tab
+    );
+    assert_eq!(
+        kind_of("button", "zone.center.part.1.tabs.menu"),
+        ElementKind::Control
+    );
+    assert_eq!(
+        kind_of("div", "zone.center.part.1.body.stub.label"),
+        ElementKind::Text
+    );
+    assert_eq!(
+        kind_of("div", "zone.center.part.1.body"),
+        ElementKind::Container
+    );
+    assert_eq!(
+        kind_of("div", "zone.center.divider.1"),
+        ElementKind::Container
     );
 }

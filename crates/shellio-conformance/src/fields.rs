@@ -164,7 +164,13 @@ pub fn rule(field: Field, kind: ElementKind) -> Rule {
             K::Container | K::Icon | K::Plate | K::Pseudo => NotApplicable,
         },
         Field::Color | Field::Fill | Field::LineColor | Field::Shadow => IfSet,
-        Field::LineWidth | Field::Radius => match kind {
+        // Толщину линии несёт любой элемент с нарисованной стороной: заголовок рисует нижнюю
+        // линию, строка статуса — верхнюю.
+        Field::LineWidth => match kind {
+            K::Control | K::Plate | K::Badge => Required,
+            K::Container | K::Text | K::Icon | K::Tab | K::Pseudo => IfSet,
+        },
+        Field::Radius => match kind {
             K::Control | K::Plate | K::Badge => Required,
             K::Container | K::Text | K::Icon | K::Tab | K::Pseudo => NotApplicable,
         },
@@ -253,7 +259,7 @@ fn present(element: &Element, field: Field) -> Option<bool> {
         Field::LineWidth => element.line_width.is_some(),
         Field::Radius => element.radius.is_some(),
         Field::Padding => element.padding.is_some(),
-        Field::Shadow => element.shadow.is_some(),
+        Field::Shadow => !element.shadow.is_empty(),
         Field::Icon => element.icon.is_some(),
         Field::IconMask | Field::Underline | Field::All => return None,
     })

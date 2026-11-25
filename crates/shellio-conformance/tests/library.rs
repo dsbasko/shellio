@@ -67,7 +67,8 @@ fn element(ck: &str, kind: ElementKind) -> Element {
         line_width: None,
         radius: None,
         padding: None,
-        shadow: None,
+        line_sides: Vec::new(),
+        shadow: Vec::new(),
         icon: None,
     }
 }
@@ -395,9 +396,10 @@ fn key_templates_accept_semantic_paths() {
         "zone.center.part.2.tabs.zoom",
         "zone.bottom.part.10.menu.item.3.label",
         "status.mode",
-        "zone.center.part.1.veil::after",
+        "zone.center.part.1::after",
+        "zone.center.part.1.tabs.tab.1::after",
         "chrome.zones.right::before",
-        "picker.item.4.icon",
+        "picker.item.4.label",
     ] {
         assert!(check_key(key).is_ok(), "{key}");
     }
@@ -421,6 +423,8 @@ fn key_templates_reject_names_ids_and_unknown_paths() {
         "chrome.search::marker",
         "chrome.search.",
         "status.mode.extra.deep",
+        "zone.center.part.1.veil::after",
+        "picker.item.4.icon",
     ] {
         assert!(check_key(key).is_err(), "{key}");
     }

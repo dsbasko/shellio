@@ -299,7 +299,7 @@
     const style = `left:${left}px;width:${w}px;max-height:${Math.round(below ? roomBelow : roomAbove)}px;${below ? `top:${r.bottom + 6}px` : `bottom:${innerHeight - r.top + 6}px`}`;
     const o = {
       type: 'pop', on: spec.on || {}, state: spec.state || {},
-      render: (x) => `<div class="float pop" tabindex="-1" style="${style}">${spec.title ? `<div class="pop-h"><span>${spec.title}</span>${spec.head ? spec.head : ''}</div>` : ''}<div class="pop-b">${spec.body(x)}</div></div>`,
+      render: (x) => `<div class="float pop" tabindex="-1" style="${style}"${spec.ck ? ` data-ck="${spec.ck}"` : ''}>${spec.title ? `<div class="pop-h"><span${spec.ck ? ` data-ck="${spec.ck}.title"` : ''}>${spec.title}</span>${spec.head ? spec.head : ''}</div>` : ''}<div class="pop-b">${spec.body(x)}</div></div>`,
       onKey: (e, tok) => {
         if (tok === 'Esc') { S.ov.pop(o); return true; }
         if (trapKeys(o, tok)) return true;

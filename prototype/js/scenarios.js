@@ -34,7 +34,7 @@
   const splitOff = (id) => { const L = S.layout(); const g = S.groupOf(L, id); if (g && g.tabs.length > 1) S.moveTo(id, { split: g.id, side: 'after' }); };
   S.scenario({ id: 'split-right', group: G.app, title: 'Правая зона: история над изменениями', run: () => { if (!S.wb()) S.go('feature-sso'); const p = S.open('changes', { zone: 'right' }); if (p) splitOff(p.id); } });
   S.scenario({ id: 'split-bottom', group: G.app, title: 'Нижняя зона: пайплайны рядом с терминалом', run: () => { if (!S.wb()) S.go('feature-sso'); const p = S.open('pipelines', { zone: 'bottom' }); if (p) splitOff(p.id); } });
-  S.scenario({ id: 'light', group: G.app, title: 'Сменить тему', run: () => S.run('theme.toggle') });
+  S.scenario({ id: 'light', group: G.app, title: 'Сменить тему', run: () => S.setAppearance(St.prefs.theme === 'dark' ? 'light' : 'dark') });
   S.scenario({ id: 'contrast', group: G.app, title: 'Повышенный контраст', run: () => S.setPref('contrast', !St.prefs.contrast) });
   S.scenario({ id: 'motion', group: G.app, title: 'Без анимации', run: () => S.setPref('motion', !St.prefs.motion) });
 

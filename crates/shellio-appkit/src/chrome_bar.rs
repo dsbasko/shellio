@@ -224,11 +224,10 @@ pub fn shorten(name: &str, max_width: f64, measure: impl Fn(&str) -> f64) -> Str
     candidate(fits)
 }
 
-/// Значок и подпись кнопки оформления по текущему выбору. У системного выбора пары в наборе
-/// прототипа нет, его значок — системный символ.
+/// Значок набора `P` и подпись кнопки оформления по текущему выбору из трёх.
 pub fn appearance_button(choice: AppearanceChoice) -> (&'static str, &'static str) {
     match choice {
-        AppearanceChoice::System => ("circle.lefthalf.filled", "Оформление: системное"),
+        AppearanceChoice::System => ("appearanceSystem", "Оформление: системное"),
         AppearanceChoice::Light => ("sun", "Оформление: светлое"),
         AppearanceChoice::Dark => ("moon", "Оформление: тёмное"),
     }
@@ -1267,7 +1266,7 @@ mod tests {
     fn appearance_button_names_the_current_choice() {
         assert_eq!(
             appearance_button(AppearanceChoice::System),
-            ("circle.lefthalf.filled", "Оформление: системное")
+            ("appearanceSystem", "Оформление: системное")
         );
         assert_eq!(
             appearance_button(AppearanceChoice::Light).1,

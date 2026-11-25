@@ -137,7 +137,8 @@
   C('zone.right', 'Показать или скрыть правую зону', ['Space z l', 'Cmd-Alt-0'], () => S.toggleZone(S.sideZone()), { grp: 'Зоны', icon: 'sideR' });
   C('zone.toggle', '', [], (z) => S.toggleZone(z), { pal: false, hidden: true });
 
-  C('theme.toggle', 'Сменить тему', ['Cmd-Alt-t'], () => S.setTheme(St.prefs.theme === 'dark' ? 'light' : 'dark'), { icon: 'sun' });
+  // Кнопка оформления идёт по кругу «системное → светлое → тёмное» (docs/ux.md, поток 16).
+  C('theme.toggle', 'Сменить тему', ['Cmd-Alt-t'], () => S.setAppearance({ system: 'light', light: 'dark', dark: 'system' }[S.appearance()]), { icon: 'sun' });
   C('demo.drawer', 'Сценарии прототипа', [], () => S.palette('demo'), { icon: 'scenes', sub: 'потеря хоста, отказ хука, обновление и другие состояния' });
   C('app.quit', 'Выйти из shellio', [], () => S.quitFlow(), { icon: 'close' });
   S.native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.native ? (a) => window.webkit.messageHandlers.native.postMessage(a) : null;
@@ -170,16 +171,21 @@
 
   // Выбор для новой части, когда переносить нечего. Часть создаётся только после выбора.
   S.partPicker = (g) => {
-    const list = Object.values(S.plugins).filter((d) => !d.chromeless && !d.hiddenFromAdd && (!d.placements || d.placements.includes(g.zone)) && (S.wb() || d.cardinality === 'app' || d.cardinality === 'workspace'));
+    // Каталог в порядке регистрации, терминал первым. Недоступный плагин остаётся в списке с
+    // причиной в названии: singleton уже открыт или зона ему не подходит (ADR-0009, P1.5).
+    const list = Object.values(S.plugins).filter((d) => !d.hiddenFromAdd && (S.wb() || d.cardinality === 'app' || d.cardinality === 'workspace'));
     list.sort((a, b) => (a.id === 'terminal' ? -1 : b.id === 'terminal' ? 1 : 0));
+    const wbId = St.route.wb;
+    const exists = (d) => d.cardinality && d.cardinality !== 'multi' && Object.values(St.panels).some((x) => x.plugin === d.id && (d.cardinality !== 'workbench' || x.wb === wbId));
+    const reason = (d) => (exists(d) ? 'уже открыт' : d.placements && !d.placements.includes(g.zone) ? 'не для этой зоны' : null);
     const at = { split: g.id, side: 'after' };
     S.popover(document.querySelector(`.group[data-g="${g.id}"] [data-cmd^="split."]`) || document.querySelector(`.group[data-g="${g.id}"] .ib.sm`) || document.querySelector('.titlebar .seg'), {
-      title: 'Открыть в новой части', width: 260,
-      body: () => list.map((d) => K.row({ k: d.id, icon: d.icon, title: d.title, do: 'open', arg: d.id, quiet: true })).join(''),
+      title: 'Открыть в новой части', width: 260, ck: 'picker',
+      body: () => list.map((d, n) => { const why = reason(d); return K.row({ k: d.id, title: why ? `${d.title} (${why})` : d.title, do: why ? null : 'open', arg: d.id, quiet: true, dim: !!why, ck: `picker.item.${n + 1}` }); }).join(''),
       on: { open: (id, o) => {
         S.ov.pop(o);
         const room = S.splitRoom(g, [g.active ? St.panels[g.active].plugin : 'terminal', id]);
-        if (!room.ok) { S.notify({ title: 'Не хватает места для двух частей', text: `${S.plugins[id].title}: части нужно ${room.want} px, выйдет ${room.half}.`, tone: 'wait' }); return; }
+        if (!room.ok) { S.refuse(S.roomText(room)); return; }
         if (id === 'agent') S.newAgent(g.zone, at); else S.open(id, { zone: g.zone, at });
       } },
     });
@@ -187,28 +193,27 @@
 
   const tabsOverflow = (p) => { const el = document.querySelector(`.group[data-g="${S.groupOf(S.layout(), p.id).id}"] .tabs`); return !!el && el.scrollWidth > el.clientWidth; };
 
+  // Меню «…»: соседние части, затем зоны в порядке продукта без своей, затем «Закрыть»
+  // (docs/ux.md; apps/shellio/src/scene.rs, panel_menu).
   C('panel.menu', '', [], () => {
     const p = S.focused(); if (!p) return;
-    const def = S.plugins[p.plugin];
-    const acts = Object.entries(def.actions || {}).filter(([, a]) => a.title && a.menu !== false && (!a.when || a.when(p)));
-    const L = S.layout(); const zone = S.groupOf(L, p.id).zone;
-    const zones = [['left', 'Слева', 'Ctrl-w H'], ['center', 'В центр', 'Ctrl-w K'], ['bottom', 'Вниз', 'Ctrl-w J'], ['right', 'Справа', 'Ctrl-w L']].filter(([z]) => z !== zone);
-    const here = S.groupOf(L, p.id);
-    const others = here.nav ? [] : S.partsOf(L, zone).filter((g) => g !== here);
-    const axis = S.AXIS[zone];
-    const parts = `${others.map((g) => K.row({ k: `pt-${g.id}`, title: `В часть ${S.partName(here, g)}`, do: 'part', arg: g.id, quiet: true })).join('')}${here.nav ? '' : K.row({ k: 'split', title: axis === 'row' ? 'Разделить: части рядом' : 'Разделить: одна над другой', do: 'split', quiet: true, trail: K.kbd(axis === 'row' ? 'Ctrl-w v' : 'Ctrl-w s') })}`;
-    S.popover(event.target.closest('button'), {
-      title: def.title, width: 280,
-      head: (() => { const m = def.meter ? def.meter(p) : null; return m ? `<span class="meter">${m.text}</span>` : ''; })(),
-      body: () => `${tabsOverflow(p) ? `${K.sec('Вкладки')}${S.groupOf(L, p.id).tabs.map((id) => { const x = St.panels[id]; const d = S.plugins[x.plugin]; return K.row({ k: `t-${id}`, icon: d.icon, title: d.tabTitle ? d.tabTitle(x) : d.title, do: 'tab', arg: id, quiet: true }); }).join('')}${K.sec('Действия')}` : ''}${acts.map(([n, a]) => K.row({ k: n, title: a.title, do: 'act', arg: n, quiet: true, trail: a.key ? K.kbd([].concat(a.key)[0]) : '' })).join('')}${K.sec('Перенести')}${zones.map(([z, t, k]) => K.row({ k: z, title: t, do: 'mv', arg: z, quiet: true, trail: K.kbd(k) })).join('')}${parts ? `${K.sec('Части зоны')}${parts}` : ''}${K.sec('Панель')}${K.row({ k: 'add', title: 'Добавить панель в эту зону', do: 'add', quiet: true })}${K.row({ k: 'z', title: 'Развернуть', do: 'zoom', quiet: true, trail: K.kbd('Ctrl-w z') })}${K.row({ k: 'q', title: 'Закрыть', do: 'cl', quiet: true, trail: K.kbd('Ctrl-w q') })}`,
+    const L = S.layout(); const here = S.groupOf(L, p.id); const zone = here.zone;
+    const list = here.nav ? [] : S.partsOf(L, zone); const at = list.indexOf(here);
+    const rows = [];
+    [list[at - 1], list[at + 1]].filter(Boolean).forEach((g) => rows.push({ title: `В часть ${S.partName(here, g)}`, do: 'part', arg: g.id }));
+    if (rows.length) rows.push(null);
+    [['left', 'В левую зону'], ['right', 'В правую зону'], ['bottom', 'В нижнюю зону'], ['center', 'В центр']].filter(([z]) => z !== zone).forEach(([z, title]) => rows.push({ title, do: 'mv', arg: z }));
+    rows.push(null);
+    rows.push({ title: 'Закрыть', do: 'cl' });
+    const el = document.querySelector(`.group[data-g="${here.id}"]`);
+    const ck = `${el ? el.dataset.ck : `zone.${zone}.part.1`}.menu`;
+    let item = 0; let sep = 0;
+    S.popover((typeof event !== 'undefined' && event && event.target && event.target.closest && event.target.closest('button')) || (el && el.querySelector('[data-cmd="panel.menu"]')), {
+      width: 280, ck,
+      body: () => { item = 0; sep = 0; return rows.map((r) => (r ? K.row({ k: `${r.do}-${r.arg || ''}`, title: r.title, do: r.do, arg: r.arg, quiet: true, ck: `${ck}.item.${++item}` }) : `<div class="pop-sep" data-k="sep-${++sep}" data-ck="${ck}.separator.${sep}"></div>`)).join(''); },
       on: {
-        tab: (id, o) => { S.ov.pop(o); S.focus(id); },
-        act: (n, o) => { S.ov.pop(o); def.actions[n].run(p); S.render(); },
         mv: (z, o) => { S.ov.pop(o); S.move(p.id, z); },
         part: (g, o) => { S.ov.pop(o); S.moveTo(p.id, { group: g }); },
-        split: (_, o) => { S.ov.pop(o); S.split(axis); },
-        add: (_, o) => { S.ov.pop(o); S.run('zone.add', zone); },
-        zoom: (_, o) => { S.ov.pop(o); S.zoom(); },
         cl: (_, o) => { S.ov.pop(o); S.close(p.id); },
       },
     });

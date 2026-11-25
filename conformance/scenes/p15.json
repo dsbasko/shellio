@@ -19,5 +19,6 @@
     {"zone": "center", "parts": [{"tabs": [{"plugin": "terminal", "active": true}]}]}
   ],
   "focus": {"zone": "center", "part": 1},
-  "appearance": "system"
+  "appearance": "system",
+  "status": {}
 }

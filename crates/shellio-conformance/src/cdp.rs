@@ -9,8 +9,9 @@ use serde_json::{Value, json};
 
 use crate::fields::ElementKind;
 use crate::mask::{Mask, PixelClip, backdrop};
-use crate::passport::{Element, Font, FontFace, Insets, Rect, Rgba};
+use crate::passport::{Element, Font, FontFace, Insets, Rect, Rgba, Shadow, Side};
 use crate::recipe::Recipe;
+use crate::registry::Surface;
 use crate::scene::{Composition, Scene};
 
 /// Длина CSS в пикселях (`12px`); `normal` и пустое значение — нет значения.
@@ -54,15 +55,23 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         return ElementKind::Pseudo;
     }
     let last = ck.rsplit('.').next().unwrap_or_default();
-    let is_tab = ck
-        .rsplit_once(".tab.")
-        .is_some_and(|(_, n)| n.bytes().all(|b| b.is_ascii_digit()));
+    let numbered = |marker: &str| {
+        ck.rsplit_once(marker)
+            .is_some_and(|(_, n)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+    };
     match tag {
         "svg" => ElementKind::Icon,
         "kbd" => ElementKind::Badge,
-        "button" if is_tab => ElementKind::Tab,
+        "button" if numbered(".tab.") => ElementKind::Tab,
         "button" => ElementKind::Control,
-        "span" | "em" | "strong" | "b" | "label" if last != "plate" => ElementKind::Text,
+        // Крестик вкладки — контрол, хотя прототип рисует его строчным элементом со значком.
+        "span" if last == "close" => ElementKind::Control,
+        "span" | "em" | "strong" | "b" | "label" => ElementKind::Text,
+        // Часть зоны — плитка с рамкой и радиусом; меню и выбор — плавающие плитки.
+        "section" if numbered(".part.") => ElementKind::Plate,
+        _ if last == "menu" || ck == "picker" => ElementKind::Plate,
+        // Подписи заглушки и пустой части прототип рисует блочными элементами.
+        "div" if matches!(last, "label" | "title" | "hint") => ElementKind::Text,
         _ => ElementKind::Container,
     }
 }
@@ -79,6 +88,95 @@ fn num_of(value: &Value, key: &str) -> Result<f64, String> {
 }
 
 /// Первое семейство стека `font-family` без кавычек.
+/// Линия элемента: нарисованные стороны, их общий цвет и толщина. Сторона нарисована, если её
+/// толщина больше нуля, стиль не `none` и цвет не прозрачен. Стороны разного цвета или толщины —
+/// ошибка съёма: у контракта одна линия на элемент.
+pub fn line(style: &Value) -> Result<Option<(Vec<Side>, Rgba, f64)>, String> {
+    let mut sides = Vec::new();
+    let mut drawn: Option<(Rgba, f64)> = None;
+    for border in style
+        .get("border")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        let width = parse_px(str_of(border, "width")).unwrap_or(0.0);
+        let Some(color) = parse_color(str_of(border, "color")).filter(|c| c.a > 0.0) else {
+            continue;
+        };
+        if width <= 0.0 || matches!(str_of(border, "style"), "none" | "hidden" | "") {
+            continue;
+        }
+        let side = match str_of(border, "side") {
+            "top" => Side::Top,
+            "right" => Side::Right,
+            "bottom" => Side::Bottom,
+            "left" => Side::Left,
+            other => return Err(format!("сторона линии «{other}» неизвестна")),
+        };
+        match drawn {
+            Some(first) if first != (color, width) => {
+                return Err("стороны линии различаются цветом или толщиной".to_owned());
+            }
+            _ => drawn = Some((color, width)),
+        }
+        sides.push(side);
+    }
+    Ok(drawn.map(|(color, width)| (sides, color, width)))
+}
+
+/// Тени вычисленного `box-shadow`: записи через запятую вне скобок цвета, у каждой цвет, затем
+/// смещения, размытие и растяжение в точках и необязательное `inset`. Прозрачная тень не пишется.
+pub fn parse_shadows(text: &str) -> Result<Vec<Shadow>, String> {
+    let text = text.trim();
+    if text.is_empty() || text == "none" {
+        return Ok(Vec::new());
+    }
+    let mut parts = Vec::new();
+    let (mut depth, mut start) = (0_i32, 0_usize);
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(&text[start..index]);
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&text[start..]);
+    let mut out = Vec::new();
+    for part in parts {
+        let part = part.trim();
+        let bad = || format!("тень «{part}» не разобрана");
+        let close = part.find(')').ok_or_else(bad)?;
+        let color = parse_color(&part[..=close]).ok_or_else(bad)?;
+        let mut numbers = Vec::new();
+        let mut inset = false;
+        for token in part[close + 1..].split_whitespace() {
+            match token {
+                "inset" => inset = true,
+                px => numbers.push(parse_px(px).ok_or_else(bad)?),
+            }
+        }
+        let [x, y, blur, spread] = numbers.as_slice() else {
+            return Err(bad());
+        };
+        if color.a > 0.0 {
+            out.push(Shadow {
+                color,
+                x: *x,
+                y: *y,
+                blur: *blur,
+                spread: *spread,
+                inset,
+            });
+        }
+    }
+    Ok(out)
+}
+
 fn first_family(stack: &str) -> String {
     stack
         .split(',')
@@ -125,9 +223,10 @@ pub fn element(fact: &Value) -> Result<Element, String> {
         fill: None,
         line_color: None,
         line_width: None,
+        line_sides: Vec::new(),
         radius: None,
         padding: None,
-        shadow: None,
+        shadow: Vec::new(),
         icon: None,
     };
     let texty = matches!(
@@ -167,18 +266,19 @@ pub fn element(fact: &Value) -> Result<Element, String> {
         out.color = parse_color(str_of(&style, "color"));
     }
     out.fill = parse_color(str_of(&style, "background")).filter(|c| c.a > 0.0);
-    let border = parse_px(str_of(&style, "borderWidth")).unwrap_or(0.0);
-    let drawn = border > 0.0 && str_of(&style, "borderStyle") != "none";
-    if drawn {
-        out.line_color = parse_color(str_of(&style, "borderColor"));
+    if let Some((sides, color, width)) = line(&style).map_err(place)? {
+        out.line_sides = sides;
+        out.line_color = Some(color);
+        out.line_width = Some(width);
     }
     if matches!(
         kind,
         ElementKind::Control | ElementKind::Plate | ElementKind::Badge
     ) {
-        out.line_width = Some(if drawn { border } else { 0.0 });
+        out.line_width = Some(out.line_width.unwrap_or(0.0));
         out.radius = Some(parse_px(str_of(&style, "radius")).unwrap_or(0.0));
     }
+    out.shadow = parse_shadows(str_of(&style, "shadow")).map_err(place)?;
     if matches!(kind, ElementKind::Control | ElementKind::Badge) {
         let pad: Vec<f64> = style
             .get("padding")
@@ -343,6 +443,17 @@ pub fn pseudo_fact(reply: &PseudoReply) -> Result<Value, String> {
         && get("visibility") != "hidden"
         && frame.w > 0.0
         && frame.h > 0.0;
+    let border: Vec<Value> = ["top", "right", "bottom", "left"]
+        .iter()
+        .map(|side| {
+            json!({
+                "side": side,
+                "color": get(&format!("border-{side}-color")),
+                "width": get(&format!("border-{side}-width")),
+                "style": get(&format!("border-{side}-style")),
+            })
+        })
+        .collect();
     Ok(json!({
         "ck": ck,
         "tag": "pseudo",
@@ -355,9 +466,7 @@ pub fn pseudo_fact(reply: &PseudoReply) -> Result<Value, String> {
         "style": {
             "color": get("color"),
             "background": background.unwrap_or_default(),
-            "borderColor": get("border-top-color"),
-            "borderWidth": get("border-top-width"),
-            "borderStyle": get("border-top-style"),
+            "border": border,
             "radius": get("border-top-left-radius"),
             "shadow": get("box-shadow"),
         },
@@ -395,6 +504,17 @@ pub struct Assembled {
 /// за владельцем, шрифты по ключу, маски видимых значков. Невыполненное постусловие, узел текста
 /// без ответа о шрифтах, видимый значок без снимка или снимок не того размера — ошибка.
 pub fn assemble(scene: &Scene, recipe: &Recipe, capture: &Capture) -> Result<Assembled, String> {
+    assemble_surface(Surface::Layout, scene, recipe, capture)
+}
+
+/// Паспорт поверхности состояния: состав и постусловия сверяются по всему окну, а элементы,
+/// псевдоэлементы и маски берутся только у ключей поверхности.
+pub fn assemble_surface(
+    surface: Surface,
+    scene: &Scene,
+    recipe: &Recipe,
+    capture: &Capture,
+) -> Result<Assembled, String> {
     let observed: Composition = serde_json::from_value(
         capture
             .facts
@@ -410,11 +530,17 @@ pub fn assemble(scene: &Scene, recipe: &Recipe, capture: &Capture) -> Result<Ass
             unmet.join("; ")
         ));
     }
-    let base = elements(&capture.facts)?;
+    let base: Vec<Element> = elements(&capture.facts)?
+        .into_iter()
+        .filter(|e| surface.owns(&e.ck))
+        .collect();
     let mut pseudo: BTreeMap<&str, Vec<Element>> = BTreeMap::new();
     let mut order = capture.pseudo.iter().collect::<Vec<_>>();
     order.sort_by_key(|p| p.pseudo != "before");
     for reply in order {
+        if !surface.owns(&reply.owner) {
+            continue;
+        }
         if !base.iter().any(|e| e.ck == reply.owner) {
             return Err(format!(
                 "псевдоэлемент узла «{}» без элемента-владельца",
@@ -463,7 +589,11 @@ pub fn assemble(scene: &Scene, recipe: &Recipe, capture: &Capture) -> Result<Ass
         }
         masks.insert(icon.ck.clone(), mask.to_png()?);
     }
-    if let Some(stray) = capture.icons.keys().find(|k| !masks.contains_key(*k)) {
+    if let Some(stray) = capture
+        .icons
+        .keys()
+        .find(|k| surface.owns(k) && !masks.contains_key(*k))
+    {
         return Err(format!("{stray}: снимок без видимого значка"));
     }
     Ok(Assembled {

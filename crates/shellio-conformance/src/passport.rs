@@ -183,6 +183,19 @@ pub struct Shadow {
     pub x: f64,
     pub y: f64,
     pub blur: f64,
+    pub spread: f64,
+    /// Внутренняя тень (`inset`).
+    pub inset: bool,
+}
+
+/// Сторона элемента, у которой нарисована линия.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    Top,
+    Right,
+    Bottom,
+    Left,
 }
 
 /// Значок набора `P`.
@@ -222,12 +235,17 @@ pub struct Element {
     pub line_color: Option<Rgba>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_width: Option<f64>,
+    /// Стороны, у которых линия нарисована, в порядке сверху по часовой стрелке. Цвет и толщина у
+    /// них одни: `line_color` и `line_width`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub line_sides: Vec<Side>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<Insets>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub shadow: Option<Shadow>,
+    /// Тени по порядку записи `box-shadow`: внешние и внутренние.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shadow: Vec<Shadow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<Icon>,
 }

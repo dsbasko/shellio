@@ -278,9 +278,20 @@
     const len = size(el); const overhead = len - size(body);
     const half = Math.floor((len - 6) / 2 - overhead);
     const want = Math.max(...plugins.map((id) => need(id, axis)));
-    return { ok: half >= want, half, want };
+    const cross = Math.floor(axis === 'row' ? body.getBoundingClientRect().height : body.getBoundingClientRect().width);
+    return { ok: half >= want, half, want, axis, cross, plugins };
   };
-  function tight(g, room) { S.notify({ title: 'Не хватает места для двух частей', text: `Каждой части нужно ${room.want} px, выйдет ${room.half}. Скройте соседнюю зону, расширьте эту или закройте часть.`, tone: 'wait' }); }
+  // Отказ деления — одна строка в строке статуса, без уведомления (docs/ux.md, «Пограничные пути»).
+  // Следующее действие пользователя её убирает.
+  S.roomText = (room) => {
+    const parts = [...new Set(room.plugins)].filter((id) => need(id, room.axis) > room.half).map((id) => { const d = S.plugins[id]; const m = d.minSize || { w: 160, h: 90 }; return `«${d.title}» — нужно ${m.w}×${m.h}, будет ${room.axis === 'row' ? `${room.half}×${room.cross}` : `${room.cross}×${room.half}`}`; });
+    return parts.length ? `Не хватает места для новой части: ${parts.join('; ')}` : 'Не хватает места для новой части';
+  };
+  S.refuse = (text) => { St.statusMessage = text; S.render(); };
+  const forget = () => { if (St.statusMessage) { St.statusMessage = null; S.render(); } };
+  document.addEventListener('mousedown', forget, true);
+  document.addEventListener('keydown', forget, true);
+  function tight(g, room) { S.refuse(S.roomText(room)); }
 
   // Деление переносит активную вкладку в новую часть. Одну вкладку не переносят: рядом открывается выбор.
   S.split = (want) => {
@@ -399,7 +410,11 @@
   };
   S.agents = (wb) => Object.values(W.sessions).filter((s) => s.kind === 'agent' && s.host !== 'finished' && (wb ? s.wb === wb : S.wsOf(s.wb) === St.route.ws));
 
-  S.setTheme = (t) => { St.prefs.theme = t; document.documentElement.dataset.theme = t; S.render(); };
+  // Выбор оформления из трёх: светлое, тёмное или системное. Системный выбор берёт тему у системы.
+  const systemTheme = () => (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  S.appearance = () => St.prefs.appearance || St.prefs.theme;
+  S.setAppearance = (choice) => { St.prefs.appearance = choice; S.setTheme(choice === 'system' ? systemTheme() : choice); };
+  S.setTheme = (t) => { St.prefs.theme = t; if (St.prefs.appearance !== 'system') St.prefs.appearance = t; document.documentElement.dataset.theme = t; S.render(); };
   S.setPref = (k, v) => {
     St.prefs[k] = v;
     if (k === 'contrast') { if (v) document.documentElement.dataset.contrast = 'more'; else delete document.documentElement.dataset.contrast; }

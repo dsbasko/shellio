@@ -3,13 +3,13 @@
   const St = S.st;
   const { cx, icon } = S;
 
-  const tabHtml = (L, id, active, zone) => {
+  const tabHtml = (L, id, active, zone, ck) => {
     const p = St.panels[id]; const def = S.plugins[p.plugin];
     const title = def.tabTitle ? def.tabTitle(p) : def.title;
     const st = def.tabStatus ? def.tabStatus(p) : null;
     const count = def.tabCount ? def.tabCount(p) : null;
     const side = zone === 'left' || zone === 'right';
-    return `<button type="button" class="${cx('tab', active === id && 'on')}" data-k="tab-${id}" data-tab="${id}">${side ? '' : icon(def.icon, 13)}<span class="tab-t">${title}</span>${count ? `<span class="cnt">${count}</span>` : ''}<span class="dot ${st || 'none'}"></span><span class="x" data-close="${id}">${icon('close', 10)}</span></button>`;
+    return `<button type="button" class="${cx('tab', active === id && 'on')}" data-k="tab-${id}" data-tab="${id}" data-ck="${ck}">${side ? '' : icon(def.icon, 13, `${ck}.icon`)}<span class="tab-t" data-ck="${ck}.label">${title}</span>${count ? `<span class="cnt">${count}</span>` : ''}<span class="dot ${st || 'none'}"></span><span class="x" data-close="${id}" data-ck="${ck}.close">${icon('close', 10, `${ck}.close.icon`)}</span></button>`;
   };
 
   const meterHtml = (p) => {
@@ -23,25 +23,33 @@
 
   // Подсказка кнопки называет действие и клавишу из действующего keymap.
   const tip = (label, id, usual) => { const k = S.keyFor(id, usual); return k ? `${label}  ${K.keyLine(k)}` : `${label}. Клавиша не назначена`; };
-  const toolBtn = (cmd, name, label, keyId, usual) => `<button type="button" class="ib sm" data-cmd="${cmd}" data-k="tool-${cmd}" aria-label="${label}" title="${tip(label, keyId, usual)}">${icon(name, 14)}</button>`;
+  const toolBtn = (cmd, name, label, keyId, usual, ck) => `<button type="button" class="ib sm" data-cmd="${cmd}" data-k="tool-${cmd}" aria-label="${label}" title="${tip(label, keyId, usual)}" data-ck="${ck}">${icon(name, 14, `${ck}.icon`)}</button>`;
   // Деление идёт по оси зоны. Навигатор не делится, развёрнутая панель не делит раскладку под собой.
-  const toolsHtml = (L, g, zone) => {
-    if (L.zoom) return toolBtn('zoom', 'shrink', 'Вернуть раскладку', 'zoom', 'Ctrl-w z');
+  const toolsHtml = (L, g, zone, ck) => {
+    if (L.zoom) return toolBtn('zoom', 'shrink', 'Вернуть раскладку', 'zoom', 'Ctrl-w z', `${ck}.restore`);
     const row = S.AXIS[zone] === 'row';
-    const split = g.nav ? '' : row ? toolBtn('split.v', 'splitCols', 'Разделить: части рядом', 'split.v', 'Ctrl-w v') : toolBtn('split.s', 'splitRows', 'Разделить: одна над другой', 'split.s', 'Ctrl-w s');
-    return `${split}${toolBtn('zoom', 'expand', 'Развернуть панель', 'zoom', 'Ctrl-w z')}`;
+    const split = g.nav ? '' : row ? toolBtn('split.v', 'splitCols', 'Разделить: части рядом', 'split.v', 'Ctrl-w v', `${ck}.split`) : toolBtn('split.s', 'splitRows', 'Разделить: одна над другой', 'split.s', 'Ctrl-w s', `${ck}.split`);
+    return `${split}${toolBtn('zoom', 'expand', 'Развернуть панель', 'zoom', 'Ctrl-w z', `${ck}.zoom`)}`;
+  };
+
+  // Ключ сверки части: номер — порядок частей зоны на экране, колонка навигатора — левая часть 1.
+  const partKey = (L, g, zone) => {
+    if (L.zoom) return 'zone.center.part.1';
+    const column = zone === 'left' && !L.hidden.left && L.groups[L.nav].tabs.length ? 1 : 0;
+    return `zone.${zone}.part.${g.nav ? 1 : S.partsOf(L, zone).indexOf(g) + 1 + column}`;
   };
 
   const groupHtml = (L, g, zone, view = { tabs: g.tabs, active: g.active }, key = g.id) => {
+    const pk = partKey(L, g, zone);
     const activeP = view.active ? St.panels[view.active] : null;
     const def = activeP ? S.plugins[activeP.plugin] : null;
     const focus = activeP && L.focus === view.active;
-    const attrs = `data-g="${g.id}" data-k="${key}" data-zone="${zone}"${activeP ? ` data-panel="${activeP.id}" data-active="${activeP.id}"` : ''}`;
-    if (!activeP) return `<section class="group panel" ${attrs}><div class="zone-empty">${K.empty({ icon: 'grid', title: 'Здесь пока ничего нет', text: 'Откройте терминал или запустите агента. Они появятся в этой зоне.', actions: `${K.btn('Терминал', { cmd: 'terminal.new', key: 'Space t' })}${K.btn('Агент', { cmd: 'agent.new', key: 'Space a' })}${K.btn('nvim', { cmd: 'editor.open', key: 'Space e' })}` })}</div></section>`;
-    if (def.chromeless && zone === 'left' && view.tabs.length === 1) return `<section class="group panel flat" ${attrs}><div class="panel-body" data-keep data-body="${activeP.id}"></div></section>`;
+    const attrs = `data-g="${g.id}" data-k="${key}" data-zone="${zone}" data-ck="${pk}"${activeP ? ` data-panel="${activeP.id}" data-active="${activeP.id}"` : ''}`;
+    if (!activeP) return `<section class="group panel" ${attrs}><div class="zone-empty" data-ck="${pk}.body">${K.empty({ ck: `${pk}.body.empty`, icon: 'grid', title: 'Здесь пока ничего нет', text: 'Откройте терминал или запустите агента. Они появятся в этой зоне.', actions: `${K.btn('Терминал', { cmd: 'terminal.new', key: 'Space t', ck: `${pk}.body.empty.action.1` })}${K.btn('Агент', { cmd: 'agent.new', key: 'Space a', ck: `${pk}.body.empty.action.2` })}${K.btn('nvim', { cmd: 'editor.open', key: 'Space e', ck: `${pk}.body.empty.action.3` })}` })}</div></section>`;
+    if (def.chromeless && zone === 'left' && view.tabs.length === 1) return `<section class="group panel flat" ${attrs}><div class="panel-body" data-keep data-body="${activeP.id}" data-ck="${pk}.body"></div></section>`;
     return `<section class="${cx('group panel', focus && 'is-focus')}" ${attrs}>
-      <div class="tabbar"><div class="tabs">${view.tabs.map((id) => tabHtml(L, id, view.active, zone)).join('')}</div>${meterHtml(activeP)}${toolsHtml(L, g, zone)}<button type="button" class="ib sm" data-cmd="panel.menu" aria-label="Действия панели" title="Действия панели">${icon('more', 14)}</button></div>
-      <div class="panel-body" data-keep data-body="${activeP.id}"></div>
+      <div class="tabbar" data-ck="${pk}.tabs"><div class="tabs">${view.tabs.map((id, i) => tabHtml(L, id, view.active, zone, `${pk}.tabs.tab.${i + 1}`)).join('')}</div>${meterHtml(activeP)}${toolsHtml(L, g, zone, `${pk}.tabs`)}<button type="button" class="ib sm" data-cmd="panel.menu" aria-label="Действия панели" title="Действия панели" data-ck="${pk}.tabs.menu">${icon('more', 14, `${pk}.tabs.menu.icon`)}</button></div>
+      <div class="panel-body" data-keep data-body="${activeP.id}" data-ck="${pk}.body"></div>
     </section>`;
   };
 
@@ -52,7 +60,7 @@
     const axis = S.AXIS[zone];
     // Доли нормируются: после удаления части соседи занимают освободившееся место.
     const total = list.reduce((n, g) => n + g.w, 0) || 1;
-    return `<div class="parts by-${axis}" data-k="parts-${zone}">${list.map((g, i) => `${i ? `<div class="sash ${axis === 'row' ? 'w' : 'h'}" data-sash="part" data-zone="${zone}" data-i="${i}" data-k="ps-${g.id}"></div>` : ''}<div class="part" data-part="${g.id}" data-k="p-${g.id}" style="flex:${Math.round((g.w / total) * 1000) / 10} 1 0">${groupHtml(L, g, zone)}</div>`).join('')}</div>`;
+    return `<div class="parts by-${axis}" data-k="parts-${zone}">${list.map((g, i) => `${i ? `<div class="sash ${axis === 'row' ? 'w' : 'h'}" data-sash="part" data-zone="${zone}" data-i="${i}" data-k="ps-${g.id}" data-ck="zone.${zone}.divider.${i}"></div>` : ''}<div class="part" data-part="${g.id}" data-k="p-${g.id}" style="flex:${Math.round((g.w / total) * 1000) / 10} 1 0">${groupHtml(L, g, zone)}</div>`).join('')}</div>`;
   };
 
   const light = (cls, cmd, label, path, ck) => `<button type="button" class="tl ${cls}" data-cmd="${cmd}" aria-label="${label}" title="${label}" data-ck="chrome.window.${ck}"><svg viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">${path}</svg></button>`;
@@ -74,8 +82,9 @@
     const rightEmpty = !S.zoneTabs(L, 'right').length;
     const sideLeft = S.sideZone(L) === 'plate';
     const sideOn = sideLeft ? !L.hidden.plate : !L.hidden.right && !rightEmpty;
-    const dark = St.prefs.theme === 'dark';
-    const themeLabel = dark ? 'Светлая тема' : 'Тёмная тема';
+    // Кнопка показывает текущий выбор оформления из трёх, а не действие (docs/ux.md, поток 16).
+    const choice = S.appearance();
+    const themeLabel = { light: 'Оформление: светлое', dark: 'Оформление: тёмное', system: 'Оформление: системное' }[choice];
     return `<header class="titlebar" data-k="titlebar" data-ck="chrome">
       <div class="tb-left">
         ${lights}
@@ -88,7 +97,7 @@
           ${zoneBtn(!L.hidden.bottom, 'bottom', 'Нижняя зона', keyTip('zone.bottom', 'Cmd-j'), 'sideB', 'chrome.zones.bottom')}
           ${zoneBtn(sideOn, sideLeft ? 'plate' : 'right', sideLeft ? 'Левая зона' : 'Правая зона', keyTip('zone.right', 'Cmd-Alt-0'), sideLeft ? 'sideLP' : 'sideR', 'chrome.zones.right')}
         </div>
-        <button type="button" class="ib" data-cmd="theme.toggle" aria-label="${themeLabel}" title="${themeLabel}" data-ck="chrome.appearance">${icon(dark ? 'sun' : 'moon', 15, 'chrome.appearance.icon')}</button>
+        <button type="button" class="ib" data-cmd="theme.toggle" aria-label="${themeLabel}" title="${themeLabel}" data-ck="chrome.appearance">${icon({ light: 'sun', dark: 'moon', system: 'appearanceSystem' }[choice], 15, 'chrome.appearance.icon')}</button>
       </div>
     </header>`;
   };
@@ -131,7 +140,19 @@
     return `<span class="${cx('toast', (t.action || more) && 'act')}" role="status" data-k="toast">${tone ? `<span class="dot ${tone}"></span>` : ''}<span class="toast-t">${t.title}</span>${t.text ? ` <span class="toast-s" title="${S.esc(t.text.replace(/<[^>]+>/g, ''))}">${t.text}</span>` : ''}${t.action ? `<button type="button" class="lnk" data-cmd="toast.act" data-arg="${t.id}">${t.action.label}</button>` : ''}${more}</span>`;
   };
 
+  // Строка статуса сцены сверки: только то, что назвала сцена, без сводок демо-мира.
+  const sceneStatus = (sc) => {
+    const msg = St.statusMessage || sc.message;
+    const hints = (sc.hints || []).map((h, i) => `<span class="h" data-ck="status.hint.${i + 1}">${K.kbd(h.key, `status.hint.${i + 1}.key`)}<em data-ck="status.hint.${i + 1}.label">${h.label}</em></span>`).join('');
+    return `<footer class="status" data-k="status" data-ck="status">
+      ${sc.mode ? `<button type="button" class="mode" data-cmd="mode.toggle" aria-label="Режим клавиатуры: ${sc.mode === 'input' ? 'ввод' : 'навигация'}" data-ck="status.mode">${sc.mode === 'input' ? 'ВВОД' : 'НАВИГАЦИЯ'}</button>` : ''}
+      ${msg ? `<span class="sb-msg" role="status" data-ck="status.message">${msg}</span>` : `<div class="hints">${hints}</div>`}
+      ${sc.load ? `<div class="sb-right"><button type="button" class="sb num" data-cmd="status.resources" data-ck="status.load"><span class="lab" data-ck="status.load.label">shellio</span><span data-ck="status.load.value">${sc.load}</span></button></div>` : ''}
+    </footer>`;
+  };
+
   const statusbar = () => {
+    if (St.scene) return sceneStatus(St.scene.status || {});
     const mode = S.mode();
     const repo = S.repo();
     const L = S.layout();
@@ -150,7 +171,7 @@
     const sepOpt = '<span class="vsep sb-opt"></span>';
     return `<footer class="${cx('status', shown && 'has-toast', shown && (shown.action || S.toasts().length > 1) && 'has-act')}" data-k="status">
       <button type="button" class="mode" data-cmd="mode.toggle" title="Переключить режим  ${S.modeKey()}" aria-label="Режим клавиатуры: ${mode === 'input' ? 'ввод' : 'навигация'}">${mode === 'input' ? 'ВВОД' : 'НАВИГАЦИЯ'}</button>
-      <div class="hints">${hintsHtml()}</div>
+      ${St.statusMessage ? `<span class="sb-msg" role="status">${St.statusMessage}</span>` : `<div class="hints">${hintsHtml()}</div>`}
       ${toastHtml()}
       <div class="sb-right">
         ${L.zoom ? `<button type="button" class="sb" data-cmd="zoom">${icon('expand', 13)}Вернуть раскладку</button>${sep}` : ''}
@@ -168,7 +189,7 @@
     const L = S.layout();
     if (L.zoom && St.panels[L.zoom]) {
       const g = S.groupOf(L, L.zoom);
-      return `${titlebar(L)}<div class="work" data-k="work"><main class="zones nonav" data-k="zones"><div class="col-c" data-k="col"><div class="zone-c" data-k="zc">${groupHtml(L, g, 'center', { tabs: [L.zoom], active: L.zoom })}</div></div></main></div>${statusbar()}`;
+      return `${titlebar(L)}<div class="work" data-k="work"><main class="zones nonav" data-k="zones"><div class="col-c" data-k="col"><div class="zone-c" data-k="zc" data-ck="zone.center">${groupHtml(L, g, 'center', { tabs: [L.zoom], active: L.zoom })}</div></div></main></div>${statusbar()}`;
     }
     const { g: navG, navId, others } = leftParts(L);
     const showNav = !L.hidden.left && !!navId;
@@ -179,21 +200,26 @@
       <div class="work" data-k="work">
         ${showNav ? `<aside class="side" data-k="side" style="width:${L.size.left}px" aria-label="Навигация">${groupHtml(L, navG, 'left', { tabs: [navId], active: navId }, `${navG.id}-nav`)}<div class="sash w side-sash" data-sash="left" data-k="sl"></div></aside>` : ''}
         <main class="${cx('zones', !showNav && 'nonav')}" data-k="zones">
-          ${plate ? `<div class="zone-r" data-k="zl" data-zone-el="left" style="width:${L.size.plate}px">${zoneHtml(L, 'left')}</div><div class="sash w" data-sash="plate" data-k="sp"></div>` : ''}
+          ${plate ? `<div class="zone-r" data-k="zl" data-zone-el="left" data-ck="zone.left" style="width:${L.size.plate}px">${zoneHtml(L, 'left')}</div><div class="sash w" data-sash="plate" data-k="sp"></div>` : ''}
           <div class="col-c" data-k="col">
-            <div class="zone-c" data-k="zc" data-zone-el="center">${zoneHtml(L, 'center')}</div>
-            ${showB ? `<div class="sash h" data-sash="bottom" data-k="sb"></div><div class="zone-b" data-k="zb" data-zone-el="bottom" style="height:${L.size.bottom}px">${zoneHtml(L, 'bottom')}</div>` : ''}
+            <div class="zone-c" data-k="zc" data-zone-el="center" data-ck="zone.center">${zoneHtml(L, 'center')}</div>
+            ${showB ? `<div class="sash h" data-sash="bottom" data-k="sb"></div><div class="zone-b" data-k="zb" data-zone-el="bottom" data-ck="zone.bottom" style="height:${L.size.bottom}px">${zoneHtml(L, 'bottom')}</div>` : ''}
           </div>
-          ${showR ? `<div class="sash w" data-sash="right" data-k="sr"></div><div class="zone-r" data-k="zr" data-zone-el="right" style="width:${L.size.right}px">${zoneHtml(L, 'right')}</div>` : ''}
+          ${showR ? `<div class="sash w" data-sash="right" data-k="sr"></div><div class="zone-r" data-k="zr" data-zone-el="right" data-ck="zone.right" style="width:${L.size.right}px">${zoneHtml(L, 'right')}</div>` : ''}
         </main>
       </div>
       ${statusbar()}`;
   }
 
-  const sizeClass = (zone, w, h) => (zone === 'bottom' || h < 200 ? (h < 300 ? 'ShortBar' : (w < 860 ? 'Regular' : 'Wide')) : w < 460 ? 'Narrow' : w < 860 ? 'Regular' : 'Wide');
+  // Пороги ADR-0009 (проба P0.6), сравнения строгие: ширина ровно 480 — Regular.
+  const sizeClass = (zone, w, h) => (h < 240 ? 'ShortBar' : w < 480 ? 'Narrow' : w >= 1100 ? 'Wide' : 'Regular');
 
-  function stub(p, def) {
-    return `<div class="stub">${icon(def.icon, 20)}<div>${def.title}: здесь тесно</div><div style="display:flex;gap:6px">${K.btn('Развернуть', { cmd: 'zoom', key: 'Ctrl-w z' })}${K.btn('В центр', { cmd: 'panel.tocenter', key: 'Ctrl-w K' })}</div></div>`;
+  // Заглушка «Развернуть» (ADR-0009): подпись над одной кнопкой. В низком теле подпись уходит
+  // раньше кнопки (18 + 8 + 26 и отступы по 12), у развёрнутой панели кнопки нет.
+  function stub(p, def, geo, ck) {
+    const expandable = !S.layout().zoom;
+    const label = !expandable || geo.height >= 76;
+    return `<div class="stub" data-ck="${ck}.stub">${label ? `<div data-ck="${ck}.stub.label">${def.title}: здесь тесно</div>` : ''}${expandable ? K.btn('Развернуть', { cmd: 'zoom', arg: p.id, ck: `${ck}.stub.expand` }) : ''}</div>`;
   }
 
   function renderPanels() {
@@ -208,7 +234,7 @@
       const min = def.minSize || { w: 160, h: 90 };
       const fresh = el._shown !== p.id;
       el._shown = p.id;
-      const html = geo.width < min.w || geo.height < min.h ? stub(p, def) : def.view(p, geo);
+      const html = geo.width < min.w || geo.height < min.h ? stub(p, def, geo, el.dataset.ck) : def.view(p, geo);
       S.morph(el, html);
       el.querySelectorAll('.term[data-follow]').forEach((t) => { if (t.dataset.stick !== '0') t.scrollTop = t.scrollHeight; });
       if (fresh && p.scrollTops) el.querySelectorAll('.scroll').forEach((s, i) => { if (p.scrollTops[i]) s.scrollTop = p.scrollTops[i]; });
@@ -349,7 +375,8 @@
   }
 
   // Цель перетаскивания: часть целиком, край части вдоль оси зоны (новая часть) или скрытая зона.
-  const EDGE = 0.25;
+  // Полоса края — 24 точки внутри тела и не шире его половины (ADR-0009).
+  const EDGE = 24;
   function partTarget(id, x, y) {
     const L = S.layout(); const from = S.groupOf(L, id);
     for (const el of document.querySelectorAll('[data-zone-el] .group[data-g]')) {
@@ -359,9 +386,10 @@
       const row = S.AXIS[g.zone] === 'row';
       const body = el.querySelector('.panel-body') || el;
       const b = body.getBoundingClientRect();
-      const t = row ? (x - b.left) / b.width : (y - b.top) / b.height;
+      const len = row ? b.width : b.height; const at = row ? x - b.left : y - b.top;
+      const edge = Math.min(EDGE, len / 2);
       const inBody = y >= b.top;
-      const side = inBody && t < EDGE ? 'before' : inBody && t > 1 - EDGE ? 'after' : null;
+      const side = inBody && at < edge ? 'before' : inBody && at > len - edge ? 'after' : null;
       const fits = () => { const stay = g.tabs.filter((x) => x !== id); return !stay.length || S.splitRoom(g, [S.st.panels[id].plugin, S.st.panels[stay.includes(g.active) ? g.active : stay[0]].plugin]).ok; };
       if (side && !(from === g && g.tabs.length === 1) && fits()) {
         const half = row ? { left: side === 'before' ? r.left : r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height } : { left: r.left, top: side === 'before' ? r.top : r.top + r.height / 2, width: r.width, height: r.height / 2 };

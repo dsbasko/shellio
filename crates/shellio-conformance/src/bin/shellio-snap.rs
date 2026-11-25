@@ -3,7 +3,8 @@
 //! `?conformance=1` прототипа и пишет канонический паспорт.
 //!
 //! Вызов: `shellio-snap --chrome <путь> --root <репозиторий> --recipe <имя> --cell <ячейка>
-//! --out <файл> [--record <файл>]`. Маски значков ложатся рядом: `<файл без .json>.icons/`.
+//! --out <файл> [--record <файл>] [--surface <поверхность>]`. Без `--surface` в паспорт идут элементы
+//! всего окна, с ним — только ключи поверхности состояния. Маски значков ложатся рядом: `<файл без .json>.icons/`.
 //! `--record` записывает все ответы браузера ([`cdp::Capture`]) для тестов на записанных ответах.
 //! Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
 
@@ -23,6 +24,7 @@ use shellio_conformance::mask::PixelClip;
 use shellio_conformance::passport::{Cell, Passport, Window};
 use shellio_conformance::recipe::Recipe;
 use shellio_conformance::registry::Registry;
+use shellio_conformance::registry::Surface;
 use shellio_conformance::scene::Scene;
 use shellio_conformance::validity::{Inputs, check_registry};
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
@@ -34,12 +36,14 @@ struct Args {
     cell: Cell,
     out: PathBuf,
     record: Option<PathBuf>,
+    surface: Surface,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let (mut chrome, mut root, mut recipe, mut cell, mut out) = (None, None, None, None, None);
     let mut record = None;
+    let mut surface = Surface::Layout;
     while let Some(flag) = it.next() {
         let value = it.next().ok_or_else(|| format!("{flag}: нет значения"))?;
         match flag.as_str() {
@@ -49,6 +53,10 @@ fn parse_args() -> Result<Args, String> {
             "--cell" => cell = Some(value.parse::<Cell>().map_err(|e| e.to_string())?),
             "--out" => out = Some(PathBuf::from(value)),
             "--record" => record = Some(PathBuf::from(value)),
+            "--surface" => {
+                surface = serde_json::from_value(json!(value))
+                    .map_err(|_| format!("неизвестная поверхность {value}"))?;
+            }
             other => return Err(format!("неизвестный флаг {other}")),
         }
     }
@@ -59,6 +67,7 @@ fn parse_args() -> Result<Args, String> {
         cell: cell.ok_or("нет --cell")?,
         out: out.ok_or("нет --out")?,
         record,
+        surface,
     })
 }
 
@@ -312,7 +321,7 @@ fn snap(args: &Args) -> Result<(String, BTreeMap<String, Vec<u8>>), String> {
 
     let scene =
         Scene::parse(&scene_path.display().to_string(), &scene_text).map_err(|e| e.to_string())?;
-    let assembled = cdp::assemble(&scene, &recipe, &capture)?;
+    let assembled = cdp::assemble_surface(args.surface, &scene, &recipe, &capture)?;
     let inputs = Inputs::from_root(&args.root).map_err(|e| e.to_string())?;
     let passport = Passport {
         validity: inputs
@@ -446,7 +455,11 @@ fn states(root: &Path, names: &[String]) -> Result<ExitCode, String> {
     for state in &registry.states {
         if names.is_empty() || names.contains(&state.id) {
             for cell in state.cells() {
-                println!("{} {} {cell}", state.id, state.recipe);
+                let surface = serde_json::to_value(state.surface)
+                    .ok()
+                    .and_then(|v| v.as_str().map(str::to_owned))
+                    .unwrap_or_default();
+                println!("{} {} {cell} {surface}", state.id, state.recipe);
             }
         }
     }

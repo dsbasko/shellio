@@ -9,6 +9,7 @@ window.K = {};
     if (o.arg != null) s += ` data-arg="${esc(o.arg)}"`;
     if (o.k != null) s += ` data-k="${esc(o.k)}"`;
     if (o.tip) s += ` title="${esc(o.tip)}"`;
+    if (o.ck) s += ` data-ck="${o.ck}"`;
     return s;
   };
 
@@ -49,7 +50,7 @@ window.K = {};
     return k ? `${k.ctrl ? 'Ctrl-' : ''}${k.signs.join('')}${k.key}` : (KEY[tok] || tok);
   }).join(' ');
 
-  K.btn = (label, o = {}) => `<button type="button" class="${cx('btn', o.kind, o.small && 'small', o.icon && !label && 'only')}"${data(o)}${o.disabled ? ' disabled' : ''}>${o.icon ? icon(o.icon, 13) : ''}${label ? `<span>${label}</span>` : ''}${o.key ? `<span class="btn-k">${K.kbd(o.key)}</span>` : ''}</button>`;
+  K.btn = (label, o = {}) => `<button type="button" class="${cx('btn', o.kind, o.small && 'small', o.icon && !label && 'only')}"${data(o)}${o.disabled ? ' disabled' : ''}>${o.icon ? icon(o.icon, 13, o.ck && `${o.ck}.icon`) : ''}${label ? `<span${o.ck ? ` data-ck="${o.ck}.label"` : ''}>${label}</span>` : ''}${o.key ? `<span class="btn-k">${K.kbd(o.key)}</span>` : ''}</button>`;
 
   K.iconBtn = (name, o = {}) => K.btn('', { ...o, icon: name, kind: cx('flat', o.kind) });
 
@@ -86,7 +87,7 @@ window.K = {};
   K.job = (o) => `<div class="${cx('job', o.state === 'failed' && 'fail', o.on && 'on', o.kb && 'kb')}" role="button"${data(o)}>${jobIcon(o.state, 16)}${o.name}${o.retry ? `<button type="button" class="retry" aria-label="Перезапустить задание" title="${o.retryOff ? 'Нет аккаунта в этом воркспейсе' : 'Перезапустить задание'}" data-do="${o.retry}" data-arg="${esc(o.name)}"${o.retryOff ? ' disabled' : ''}>${icon('retry', 12)}</button>` : ''}</div>`;
   K.graph = (stages) => `<div class="graph">${stages.map((s, i) => `${i ? '<div class="link" aria-hidden="true"></div>' : ''}<div class="stage"><div class="stage-t">${s.title}</div>${s.jobs.map(K.job).join('')}</div>`).join('')}</div>`;
 
-  K.row = (o) => `<div class="${cx('row', o.on && 'on', o.quiet && 'quiet', o.dim && 'dim', o.indent && `in-${o.indent}`, o.tall && 'tall')}"${data(o)}${o.on ? ' data-cur="1"' : ''}>${o.lead || ''}${o.st ? `<span class="row-g">${K.status(o.st)}</span>` : o.icon ? `<span class="row-g">${icon(o.icon, 15)}</span>` : ''}<span class="row-m"><span class="${cx('row-t', o.mono && 'mono')}">${o.title}</span>${o.sub ? `<span class="row-s">${o.sub}</span>` : ''}</span>${o.trail != null ? `<span class="row-r">${o.trail}</span>` : ''}</div>`;
+  K.row = (o) => `<div class="${cx('row', o.on && 'on', o.quiet && 'quiet', o.dim && 'dim', o.indent && `in-${o.indent}`, o.tall && 'tall')}"${data(o)}${o.on ? ' data-cur="1"' : ''}>${o.lead || ''}${o.st ? `<span class="row-g">${K.status(o.st)}</span>` : o.icon ? `<span class="row-g">${icon(o.icon, 15)}</span>` : ''}<span class="row-m"><span class="${cx('row-t', o.mono && 'mono')}"${o.ck ? ` data-ck="${o.ck}.label"` : ''}>${o.title}</span>${o.sub ? `<span class="row-s">${o.sub}</span>` : ''}</span>${o.trail != null ? `<span class="row-r">${o.trail}</span>` : ''}</div>`;
 
   K.check = (state, o = {}) => `<span class="${cx('check', state === true && 'on', state === 'mixed' && 'mixed')}"${data(o)}>${state === true ? icon('check', 10) : state === 'mixed' ? '<i></i>' : ''}</span>`;
 
@@ -98,7 +99,7 @@ window.K = {};
 
   K.banner = (tone, title, text = '', actions = '') => `<div class="${cx('banner', tone)}">${icon(tone === 'err' ? 'warn' : tone === 'ok' ? 'check' : tone === 'wait' ? 'warn' : 'info', 15)}<div class="banner-m"><b>${title}</b>${text ? `<span>${text}</span>` : ''}</div>${actions ? `<div class="banner-a">${actions}</div>` : ''}</div>`;
 
-  K.empty = (o) => `<div class="empty">${o.icon ? `<div class="empty-i">${icon(o.icon, 22)}</div>` : ''}<div class="empty-t">${o.title}</div>${o.text ? `<div class="empty-s">${o.text}</div>` : ''}${o.actions ? `<div class="empty-a">${o.actions}</div>` : ''}</div>`;
+  K.empty = (o) => `<div class="empty"${o.ck ? ` data-ck="${o.ck}"` : ''}>${o.icon ? `<div class="empty-i">${icon(o.icon, 22, o.ck && `${o.ck}.icon`)}</div>` : ''}<div class="empty-t"${o.ck ? ` data-ck="${o.ck}.title"` : ''}>${o.title}</div>${o.text ? `<div class="empty-s"${o.ck ? ` data-ck="${o.ck}.hint"` : ''}>${o.text}</div>` : ''}${o.actions ? `<div class="empty-a">${o.actions}</div>` : ''}</div>`;
 
   K.kv = (pairs) => `<dl class="kv">${pairs.filter(Boolean).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>`;
 

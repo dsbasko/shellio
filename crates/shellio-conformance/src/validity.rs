@@ -18,7 +18,7 @@ use crate::registry::Registry;
 use crate::scene::Scene;
 
 /// Номер схемы паспорта и съёмщика. Растёт при любом изменении сбора.
-pub const SNAP_SCHEMA: u32 = 2;
+pub const SNAP_SCHEMA: u32 = 3;
 
 /// Файлы, которые штамп `prototype/` не учитывает: служебные файлы Finder.
 const IGNORED_NAMES: &[&str] = &[".DS_Store"];

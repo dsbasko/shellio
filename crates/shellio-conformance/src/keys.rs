@@ -35,14 +35,14 @@ pub const TEMPLATES: &[&str] = &[
     // Строка статуса.
     "status",
     "status.mode",
-    "status.mode.label",
     "status.message",
     "status.hint.{n}",
     "status.hint.{n}.key",
+    "status.hint.{n}.key.{n}",
     "status.hint.{n}.label",
     "status.load",
-    "status.load.dot",
     "status.load.label",
+    "status.load.value",
     // Рабочая область и зоны.
     "workbench",
     "workbench.empty",
@@ -54,8 +54,6 @@ pub const TEMPLATES: &[&str] = &[
     "zone.{zone}",
     "zone.{zone}.divider.{n}",
     "zone.{zone}.part.{n}",
-    "zone.{zone}.part.{n}.plate",
-    "zone.{zone}.part.{n}.veil",
     "zone.{zone}.part.{n}.tabs",
     "zone.{zone}.part.{n}.tabs.tab.{n}",
     "zone.{zone}.part.{n}.tabs.tab.{n}.icon",
@@ -68,9 +66,13 @@ pub const TEMPLATES: &[&str] = &[
     "zone.{zone}.part.{n}.body.stub",
     "zone.{zone}.part.{n}.body.stub.label",
     "zone.{zone}.part.{n}.body.stub.expand",
+    "zone.{zone}.part.{n}.body.stub.expand.label",
     "zone.{zone}.part.{n}.body.empty",
+    "zone.{zone}.part.{n}.body.empty.icon",
     "zone.{zone}.part.{n}.body.empty.title",
     "zone.{zone}.part.{n}.body.empty.hint",
+    "zone.{zone}.part.{n}.body.empty.action.{n}",
+    "zone.{zone}.part.{n}.body.empty.action.{n}.label",
     // Меню «…» части.
     "zone.{zone}.part.{n}.menu",
     "zone.{zone}.part.{n}.menu.item.{n}",
@@ -80,7 +82,6 @@ pub const TEMPLATES: &[&str] = &[
     "picker",
     "picker.title",
     "picker.item.{n}",
-    "picker.item.{n}.icon",
     "picker.item.{n}.label",
 ];
 

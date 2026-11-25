@@ -70,13 +70,22 @@
     const rects = [...document.querySelectorAll('[data-ck]')].map((el) => { const r = el.getBoundingClientRect(); return `${el.dataset.ck}:${r.x},${r.y},${r.width},${r.height}`; });
     return `${app ? app.innerHTML : ''}|${rects.join(';')}`;
   };
+  // Конечная анимация (появление поповера) доводится до конца, бесконечная стоит в фазе 0.
+  const freeze = () => {
+    document.getAnimations().forEach((a) => {
+      const timing = a.effect && a.effect.getComputedTiming();
+      if (timing && Number.isFinite(timing.endTime)) a.finish(); else { a.pause(); a.currentTime = 0; }
+    });
+  };
   const settle = async () => {
     await document.fonts.ready;
     let last = null;
     for (let i = 0; i < 50; i += 1) {
       flush();
+      freeze();
       await frame();
       flush();
+      freeze();
       const now = signature();
       if (now === last) return;
       last = now;
@@ -95,9 +104,12 @@
     scene.catalog.forEach((c) => {
       const base = known[c.id] || { view: () => '' };
       S.plugins[c.id] = { ...base, id: c.id, title: c.title, icon: c.icon, placements: c.placements, defaultZone: c.default_zone, minSize: { w: c.min_size.width, h: c.min_size.height }, cardinality: { multi: 'multi', per_workbench: 'workbench', per_project: 'project', per_workspace: 'workspace', per_app: 'app' }[c.cardinality] };
-      if (!known[c.id]) { delete S.plugins[c.id].tabTitle; S.plugins[c.id].view = () => ''; }
+      // Подпись вкладки, точка, счётчик, нагрузка и действия демо-мира в сцену не попадают.
+      ['tabTitle', 'tabStatus', 'tabCount', 'meter', 'actions', 'inputHints', 'inputTarget'].forEach((k) => { delete S.plugins[c.id][k]; });
+      if (!known[c.id]) S.plugins[c.id].view = () => '';
     });
     S.scenarios.length = 0;
+    St.scene = scene; St.statusMessage = null;
     // Воркспейс сцены единственный: подпись из сцены, сводок других воркспейсов нет.
     const ws = S.ws(); ws.title = scene.workspace;
     W.workspaces.length = 0; W.workspaces.push(ws);
@@ -124,27 +136,39 @@
     });
     ZONES.forEach((zone) => { if (!L.parts[zone].length) { const g = group(zone); L.groups[g.id] = g; L.parts[zone].push(g.id); } });
     L.hidden = { left: !shown.left, right: !shown.right, bottom: !shown.bottom, plate: !L.parts.left.some((id) => L.groups[id].tabs.length) };
-    if (scene.appearance !== 'system') S.setTheme(scene.appearance);
+    S.setAppearance(scene.appearance);
     S.renderNow();
     await settle();
   };
 
+  // Часть шага: номер на экране, колонка навигатора — левая часть 1.
+  const partOf = (s) => { const L = S.layout(); const el = document.querySelector(`.group[data-ck="zone.${s.zone}.part.${s.part}"]`); if (!el) throw new Error(`части zone.${s.zone}.part.${s.part} нет`); return L.groups[el.dataset.g]; };
   const STEPS = {
     hide_zone: (s) => { S.layout().hidden[s.zone] = true; },
     show_zone: (s) => { S.layout().hidden[s.zone] = false; },
     zoom: (s) => { const L = S.layout(); const g = S.groupOf(L, L.focus); L.zoom = (g && g.zone === s.zone ? L.focus : S.partsOf(L, s.zone)[s.part - 1].active); },
+    split: (s) => { const g = partOf(s); S.focus(g.active); S.renderNow(); const room = S.splitRoom(g, [S.st.panels[g.active].plugin, s.plugin]); if (!room.ok) throw new Error(`деление не помещается: ${S.roomText(room)}`); S.open(s.plugin, { zone: s.zone, at: { split: g.id, side: 'after' } }); },
+    split_refused: (s) => { const g = partOf(s); S.focus(g.active); S.renderNow(); const room = S.splitRoom(g, [S.st.panels[g.active].plugin, s.plugin]); if (room.ok) throw new Error('деление помещается, отказа нет'); S.refuse(S.roomText(room)); },
+    open_menu: (s) => { S.focus(partOf(s).active); S.renderNow(); S.run('panel.menu'); },
+    open_picker: (s) => { const g = partOf(s); S.focus(g.active); S.renderNow(); S.partPicker(g); },
+    close_tab: (s) => { const id = partOf(s).tabs.find((t) => S.st.panels[t].plugin === s.plugin); if (!id) throw new Error(`вкладки ${s.plugin} в части нет`); S.close(id, { force: true }); },
   };
 
   // Рецепт применяется над загруженной сценой в ячейке { theme, contrast }.
+  // Тему ячейки продукт задаёт явным выбором оформления (ui.appearance.*), поэтому и здесь
+  // выбор равен теме ячейки: кнопка оформления показывает его.
   const apply = async (recipe, cell) => {
-    S.setTheme(cell.theme);
+    S.setAppearance(cell.theme);
     S.setPref('contrast', cell.contrast === 'high');
     S.setPref('motion', recipe.motion === 'reduce');
-    (recipe.steps || []).forEach((s) => {
+    S.renderNow();
+    for (const s of recipe.steps || []) {
       const run = STEPS[s.op];
       if (!run) throw new Error(`шаг ${s.op} прототип пока не выполняет`);
       run(s);
-    });
+      S.renderNow();
+      await settle();
+    }
     S.renderNow();
     await settle();
   };
@@ -179,12 +203,14 @@
     });
     const focusEl = document.querySelector('.group.is-focus[data-zone]') || (L.focus && document.querySelector(`.group[data-active="${L.focus}"]`));
     const focus = focusEl ? { zone: focusEl.dataset.zone, part: (zones[focusEl.dataset.zone] || []).length && [...document.querySelectorAll(`.group[data-zone="${focusEl.dataset.zone}"]`)].indexOf(focusEl) + 1 } : null;
+    const pop = document.querySelector('.pop[data-ck]');
+    const menu = pop ? [...pop.querySelectorAll('.row')].map((row) => ({ title: row.querySelector('.row-t').textContent, enabled: !row.classList.contains('dim') })) : undefined;
     const controls = (root) => [...document.querySelectorAll(`${root} button[data-ck]`)].map(ck);
     const elements = [...document.querySelectorAll('[data-ck]')].map((el) => {
       const r = el.getBoundingClientRect();
       const parent = el.parentElement && el.parentElement.closest('[data-ck]');
       const cs = getComputedStyle(el);
-      const leaf = el.children.length === 0 || el.tagName === 'KBD';
+      const leaf = el.children.length === 0 || el.tagName === 'KBD' || el.classList.contains('row-t');
       return {
         ck: ck(el), tag: el.tagName.toLowerCase(), parent: parent ? ck(parent) : null,
         frame: { x: r.x, y: r.y, w: r.width, h: r.height },
@@ -194,12 +220,13 @@
         icon: el.dataset.icon ? { name: el.dataset.icon, size: +el.getAttribute('width') } : null,
         style: {
           fontFamily: cs.fontFamily, fontWeight: cs.fontWeight, fontSize: cs.fontSize, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
-          color: cs.color, background: parent ? cs.backgroundColor : seenFill(el), borderColor: cs.borderTopColor, borderWidth: cs.borderTopWidth, borderStyle: cs.borderTopStyle,
+          color: cs.color, background: parent ? cs.backgroundColor : seenFill(el),
+          border: ['Top', 'Right', 'Bottom', 'Left'].map((side) => ({ side: side.toLowerCase(), color: cs[`border${side}Color`], width: cs[`border${side}Width`], style: cs[`border${side}Style`] })),
           radius: cs.borderTopLeftRadius, padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft], shadow: cs.boxShadow,
         },
       };
     });
-    return { composition: { zones, focus, titlebar: controls('.titlebar'), statusline: controls('.status') }, elements };
+    return { composition: { zones, focus, menu, titlebar: controls('.titlebar'), statusline: controls('.status') }, elements };
   };
 
   window.conformance = { load, apply, step, settle, flush, facts, ready: false };

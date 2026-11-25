@@ -41,10 +41,10 @@ RUN="$ROOT/target/passports/$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$RUN"
 echo "passports: выход $RUN" >&2
 
-while read -r state recipe cell; do
+while read -r state recipe cell surface; do
   mkdir -p "$RUN/$state"
   for shot in 1 2; do
-    if ! "$SNAP" --chrome "$CHROME" --root "$ROOT" --recipe "$recipe" --cell "$cell" \
+    if ! "$SNAP" --chrome "$CHROME" --root "$ROOT" --recipe "$recipe" --cell "$cell" --surface "$surface" \
         --out "$RUN/$state/$cell.$shot.json" 2> "$RUN/$state/$cell.$shot.log"; then
       cat "$RUN/$state/$cell.$shot.log" >&2
       echo "passports: $state [$cell] съём $shot не удался" >&2
@@ -64,7 +64,7 @@ while read -r state recipe cell; do
   echo "passports: $state [$cell] два съёма совпали" >&2
 done <<< "$LIST"
 
-while read -r state recipe cell; do
+while read -r state recipe cell surface; do
   dest="$ROOT/conformance/passports/$state"
   mkdir -p "$dest"
   cp "$RUN/$state/$cell.1.json" "$dest/.$cell.json.part"

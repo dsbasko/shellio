@@ -12,8 +12,8 @@ kbd + kbd { margin-left: 3px; }
 /* Каркас окна */
 .app { position: absolute; top: 0; left: 0; width: max(100%, 1180px); height: max(100%, 720px); display: flex; flex-direction: column; background: var(--chrome); overflow: hidden; }
 
-.titlebar { height: var(--titlebar); flex: none; display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,460px) minmax(0,1fr); align-items: center; gap: 16px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); }
-.tb-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.titlebar { height: var(--titlebar); flex: none; display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,460px) minmax(0,1fr); align-items: center; gap: 16px; padding: 0 10px; border-bottom: 1px solid var(--line); }
+.tb-left { display: flex; align-items: center; gap: 6px; min-width: 0; padding-left: 4px; }
 .lights { display: flex; flex: none; gap: 8px; margin-right: 12px; }
 .tl { width: 12px; height: 12px; border-radius: 50%; display: grid; place-items: center; }
 .tl svg { visibility: hidden; fill: none; stroke: #4D1210; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -133,6 +133,7 @@ kbd + kbd { margin-left: 3px; }
 .hints .h kbd + kbd { margin-left: 0; }
 .hints .h em { font-style: normal; margin-left: 4px; }
 .hints .to { color: var(--text-2); }
+.sb-msg { padding: 0 12px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .toast { color: var(--text); padding: 0 10px; border-left: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toast .toast-s { color: var(--text-3); }
 .toast .dot { display: inline-block; margin-right: 6px; vertical-align: 1px; }

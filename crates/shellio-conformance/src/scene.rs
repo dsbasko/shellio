@@ -96,6 +96,49 @@ pub enum Appearance {
     System,
 }
 
+/// Режим клавиатуры на плашке строки статуса.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum StatusMode {
+    Nav,
+    Input,
+}
+
+/// Подсказка строки статуса: клавиши и подпись.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StatusHint {
+    pub key: String,
+    pub label: String,
+}
+
+/// Сводки строки статуса: их задаёт сцена, а не демо-мир прототипа. Чего сцена не назвала, того
+/// в строке нет.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SceneStatus {
+    /// Плашка режима клавиатуры.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<StatusMode>,
+    /// Сообщение слота строки статуса.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hints: Vec<StatusHint>,
+    /// Нагрузка приложения целиком: готовый текст.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub load: Option<String>,
+}
+
+impl SceneStatus {
+    /// Контролы строки статуса по порядку на экране: ключи сверки.
+    pub fn controls(&self) -> Vec<String> {
+        let mode = self.mode.map(|_| "status.mode");
+        let load = self.load.as_ref().map(|_| "status.load");
+        mode.into_iter().chain(load).map(str::to_owned).collect()
+    }
+}
+
 /// Сцена.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -108,6 +151,9 @@ pub struct Scene {
     #[serde(default)]
     pub availability: Vec<Availability>,
     pub appearance: Appearance,
+    /// Сводки строки статуса.
+    #[serde(default)]
+    pub status: SceneStatus,
 }
 
 impl Scene {
@@ -213,7 +259,7 @@ impl Scene {
             focus: Some(self.focus),
             menu: None,
             titlebar: TITLEBAR_CONTROLS.iter().map(|c| (*c).to_owned()).collect(),
-            statusline: Vec::new(),
+            statusline: self.status.controls(),
         }
     }
 }
