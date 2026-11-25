@@ -9,8 +9,8 @@ use shellio_conformance::fields::{Field, is_ring};
 use shellio_conformance::passport::{Element, Passport};
 use shellio_conformance::registry::Registry;
 use shellio_e2e::conform::{
-    BUNDLED_FONTS, Mismatch, Product, Report, Snapshot, SnapshotKind, Staged, Tolerances, judge,
-    snapshot_stage,
+    BUNDLED_FONTS, Mismatch, Product, Report, Snapshot, SnapshotKind, Staged, Tolerances,
+    free_strip, judge, snapshot_stage,
 };
 
 const TOLERANCES: Tolerances = Tolerances {
@@ -762,7 +762,10 @@ fn calibration_gives_tolerances_and_rejects_bad_numbers() {
 }
 
 fn staged(passport: &Passport, tree: &Value, color: [u8; 3]) -> (Report, Staged) {
-    let state = "layout-all-zones";
+    staged_in("layout-all-zones", passport, tree, color)
+}
+
+fn staged_in(state: &str, passport: &Passport, tree: &Value, color: [u8; 3]) -> (Report, Staged) {
     let report = run(state, passport, tree);
     let product =
         Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
@@ -928,6 +931,117 @@ fn veil_and_tone_are_judged_on_the_free_tab_strip_in_every_cell() {
             .iter()
             .any(|u| u.ck == "zone.center.part.1::after" && u.kind == SnapshotKind::Region)
     );
+}
+
+#[test]
+fn veil_falls_back_to_a_tab_only_when_the_strip_has_no_gap() {
+    let state = "layout-stub";
+    let mut fallbacks = 0;
+    for cell in CELLS {
+        let passport = passport(state, cell);
+        let tree = mirror(&passport);
+        let product =
+            Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
+        let opaque = |ck: &str| {
+            let fill = product.keyed(ck)?.style.as_ref()?.fill?;
+            (fill.a >= 1.0).then_some(fill)
+        };
+        let report = run(state, &passport, &tree);
+        for check in report
+            .snapshot
+            .iter()
+            .filter(|c| c.kind == SnapshotKind::Region && c.ck.contains(".part."))
+        {
+            let veil = check.ck.as_str();
+            let part = veil.trim_end_matches("::after");
+            let strip = format!("{part}.tabs");
+            let node = product
+                .keyed(&strip)
+                .unwrap_or_else(|| panic!("{cell}: нет полосы {strip}"));
+            let tint = passport
+                .elements
+                .iter()
+                .find(|e| e.ck == veil)
+                .and_then(|e| e.fill)
+                .unwrap_or_else(|| panic!("{cell}: заливка {veil}"));
+            // Основа: полоса со свободным промежутком, иначе первая вкладка с ним и с заливкой.
+            let base = if free_strip(&product, node).is_ok() {
+                opaque(&strip)
+            } else {
+                fallbacks += 1;
+                (1..9).find_map(|n| {
+                    let tab = format!("{strip}.tab.{n}");
+                    let fill = opaque(&tab)?;
+                    free_strip(&product, product.keyed(&tab)?).ok()?;
+                    Some(fill)
+                })
+            }
+            .unwrap_or_else(|| panic!("{cell} {veil}: нет основы"));
+            let mix = |base: u8, over: u8| {
+                (f64::from(base) + (f64::from(over) - f64::from(base)) * tint.a).round() as u8
+            };
+            let judged = |colour: [u8; 3]| {
+                let (_, staged) = staged_in(state, &passport, &tree, colour);
+                assert!(
+                    staged.unjudged.iter().all(|u| u.ck != veil),
+                    "{cell} {veil}: {:?}",
+                    staged.unjudged
+                );
+                staged.mismatches.into_iter().find(|m| m.ck == veil)
+            };
+            let over = [
+                mix(base.r, tint.r),
+                mix(base.g, tint.g),
+                mix(base.b, tint.b),
+            ];
+            assert_eq!(judged(over), None, "{cell} {veil}");
+            // Плитка без слоя: виден цвет основы — расхождение и у запасной основы-вкладки.
+            let bare = judged([base.r, base.g, base.b])
+                .unwrap_or_else(|| panic!("{cell} {veil}: отсутствие слоя не поймано"));
+            assert_eq!(bare.field, Field::Fill, "{cell} {veil}");
+        }
+    }
+    assert!(fallbacks >= 4, "запасная основа есть в каждой ячейке");
+}
+
+#[test]
+fn pseudo_element_of_an_absent_owner_is_left_to_the_owner_mismatch() {
+    let state = "layout-empty-workbench";
+    let veil = "zone.center.part.1::after";
+    let part = "zone.center.part.1";
+    for cell in CELLS {
+        let passport = passport(state, cell);
+        // Продукт без плитки пустой части (на её месте сообщение): запись даёт владелец.
+        let mut tree = mirror(&passport);
+        remove(&mut tree, part);
+        let (report, staged) = staged_in(state, &passport, &tree, [255, 255, 255]);
+        assert!(
+            fields(&report, part).contains(&Field::Composition),
+            "{cell}"
+        );
+        assert!(report.snapshot.iter().all(|c| c.ck != veil), "{cell}");
+        assert!(staged.unjudged.iter().all(|u| u.ck != veil), "{cell}");
+        assert!(staged.mismatches.iter().all(|m| m.ck != veil), "{cell}");
+        // Плитка на месте: слой отдан стадии снимка, правило его не прячет.
+        let (report, _) = staged_in(state, &passport, &mirror(&passport), [255, 255, 255]);
+        assert!(
+            report
+                .snapshot
+                .iter()
+                .any(|c| c.ck == veil && c.kind == SnapshotKind::Region),
+            "{cell}"
+        );
+    }
+    // Вкладка пропала: линия под ней стадии не отдаётся, вкладку называет состав.
+    let passport = passport("layout-all-zones", "dark-normal");
+    let mut tree = mirror(&passport);
+    let tab = "zone.center.part.1.tabs.tab.1";
+    remove(&mut tree, tab);
+    let (report, staged) = staged(&passport, &tree, [255, 255, 255]);
+    let line = format!("{tab}::after");
+    assert!(fields(&report, tab).contains(&Field::Composition));
+    assert!(report.snapshot.iter().all(|c| c.ck != line));
+    assert!(staged.unjudged.iter().all(|u| u.ck != line));
 }
 
 fn oracle(args: &[&str]) -> (Option<i32>, Value) {

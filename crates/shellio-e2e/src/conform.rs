@@ -863,8 +863,11 @@ pub fn judge(
     for element in &passport.elements {
         let ck = element.ck.as_str();
         if element.kind == ElementKind::Pseudo {
-            // Псевдоэлемент без заливки ничего не рисует и не сверяется.
-            if element.visible && element.fill.is_some() {
+            // Псевдоэлемент без заливки ничего не рисует и не сверяется. Псевдоэлемент, у
+            // владельца которого нет видимого узла продукта, тоже: запись даёт сам владелец.
+            let owner = ck.split_once("::").map_or(ck, |(owner, _)| owner);
+            let owned = product.keyed(owner).is_some_and(|n| n.visible);
+            if element.visible && element.fill.is_some() && owned {
                 let kind = if ck.contains(".tabs.tab.") && ck.ends_with("::after") {
                     SnapshotKind::Underline
                 } else {
@@ -1461,23 +1464,25 @@ pub fn snapshot_stage(
                         .map(|owner| format!("{owner}.tabs"));
                     let found = strip.as_deref().and_then(|strip| {
                         let tab = format!("{strip}.tab.");
-                        product
-                            .components
-                            .iter()
-                            .filter(|n| {
+                        let tab = tab.as_str();
+                        let keyed = |own: bool| {
+                            product.components.iter().filter(move |n| {
                                 n.visible
                                     && n.ck.as_deref().is_some_and(|key| {
-                                        key == strip
-                                            || key
-                                                .strip_prefix(tab.as_str())
+                                        if own {
+                                            key == strip
+                                        } else {
+                                            key.strip_prefix(tab)
                                                 .is_some_and(|rest| !rest.contains('.'))
+                                        }
                                     })
                             })
-                            .filter_map(|n| {
-                                let base = n.style.as_ref()?.fill.filter(|fill| fill.a >= 1.0)?;
-                                Some((free_strip(product, n).ok()?, base))
-                            })
-                            .next()
+                        };
+                        // Порядок основ: полоса, затем вкладки по порядку узлов.
+                        keyed(true).chain(keyed(false)).find_map(|n| {
+                            let base = n.style.as_ref()?.fill.filter(|fill| fill.a >= 1.0)?;
+                            Some((free_strip(product, n).ok()?, base))
+                        })
                     });
                     match found {
                         Some((gap, base)) => region_median(&gap, snapshot.scale, snapshot.pixel)
