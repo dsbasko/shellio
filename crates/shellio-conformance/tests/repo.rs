@@ -4,7 +4,9 @@
 use std::path::{Path, PathBuf};
 
 use shellio_conformance::plans;
+use shellio_conformance::recipe::Recipe;
 use shellio_conformance::registry::Registry;
+use shellio_conformance::scene::Scene;
 use shellio_conformance::validity::{Inputs, check_registry};
 
 fn root() -> PathBuf {
@@ -39,4 +41,23 @@ fn registry_passports_are_valid() {
         "паспорта требуют пересъёма (make passports):\n{}",
         report.join("\n")
     );
+}
+
+/// Каждая сцена и каждый рецепт каталога сверки разбираются, а рецепт ссылается на сцену, с
+/// которой сходится его постусловие.
+#[test]
+fn scenes_and_recipes_parse() {
+    let root = root();
+    let read = |path: &Path| std::fs::read_to_string(path).unwrap();
+    let mut recipes = 0;
+    for entry in std::fs::read_dir(root.join("conformance/recipes")).unwrap() {
+        let path = entry.unwrap().path();
+        let place = path.display().to_string();
+        let recipe = Recipe::parse(&place, &read(&path)).unwrap();
+        let scene_path = root.join(format!("conformance/scenes/{}.json", recipe.scene));
+        let scene = Scene::parse(&scene_path.display().to_string(), &read(&scene_path)).unwrap();
+        recipe.expected(&scene).unwrap();
+        recipes += 1;
+    }
+    assert!(recipes > 0, "в conformance/recipes нет рецептов");
 }
