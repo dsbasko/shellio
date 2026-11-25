@@ -45,6 +45,8 @@ const USAGE: &str = "\
                              --registry <registry.toml> --calibration <calibration.json>
                              [--previous-window <ui.window.json> --previous-png <снимок sRGB>
                               --elapsed-ms <мс>]
+  shellio-e2e-oracle coverage --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
+                              --registry <registry.toml>
   shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
                                --materials <conformance/calibration> --raw <замер.json>
                                --out <calibration.json>
@@ -59,6 +61,9 @@ conform сверяет паспорт прототипа с продуктом: 
 Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1. С --previous-*
 снимок принимается, когда поколение ui.window между двумя снимками то же и ни один пиксель окна не
 изменился больше допуска; иначе код 4 с тем же \"retry\".
+coverage судит только ключи сверки: состав сцены, узел продукта у каждого видимого элемента
+паспорта, элемент паспорта у каждого узла с ключом, ключи продукта — из таблицы ключей и без
+повторов. Калибровка и снимок не нужны; отчёт той же формы, что у conform.
 calibrate выводит допуск ширины текста и порог маски из замеров двух сторон: chrome.json с
 масками <ячейка>.icons/ и чтения страницы «Калибровка» <ячейка>.{inspect.json,window.json,png}
 каждой ячейки controls.json. Сырые числа пишутся в --raw при любом исходе вывода, --out — только
@@ -99,6 +104,7 @@ enum Command {
     Underline(Args),
     Marker(Args),
     Conform(Args),
+    Coverage(Args),
     Calibrate(Args),
     Help,
 }
@@ -171,12 +177,14 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "{command}: режим без маркера не принимает marker и --generation"
         ));
     }
-    let conform_only =
-        parsed.passport.is_some() || parsed.registry.is_some() || parsed.calibration.is_some();
-    if conform_only && command != "conform" {
+    let passport_flags = parsed.passport.is_some() || parsed.registry.is_some();
+    if passport_flags && command != "conform" && command != "coverage" {
         return Err(format!(
-            "{command}: --passport, --registry и --calibration принимает только conform"
+            "{command}: --passport и --registry принимают только conform и coverage"
         ));
+    }
+    if parsed.calibration.is_some() && command != "conform" {
+        return Err(format!("{command}: --calibration принимает только conform"));
     }
     let calibrate_flags = [
         parsed.chrome.is_some(),
@@ -222,6 +230,23 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             required("--registry", parsed.registry.is_some())?;
             required("--calibration", parsed.calibration.is_some())?;
             Ok(Command::Conform(parsed))
+        }
+        "coverage" => {
+            let foreign = parsed.expect.is_some()
+                || parsed.window.is_some()
+                || parsed.png.is_some()
+                || parsed.generation.is_some()
+                || underline_only
+                || stable[0];
+            if foreign {
+                return Err(
+                    "coverage: принимает только --passport, --inspect и --registry".to_owned(),
+                );
+            }
+            required("--passport", parsed.passport.is_some())?;
+            required("--inspect", parsed.inspect.is_some())?;
+            required("--registry", parsed.registry.is_some())?;
+            Ok(Command::Coverage(parsed))
         }
         "compare" | "marker" if underline_only => Err(format!(
             "{command}: --tab и --layer принимает только underline"
@@ -443,12 +468,12 @@ struct ConformReport {
     unjudged: Vec<Unjudged>,
 }
 
-fn run_conform(args: &Args) -> Result<ConformReport, Error> {
+/// Паспорт, реестр и состояние — имя каталога паспорта: `passports/<состояние>/<ячейка>.json`.
+fn read_passport(args: &Args) -> Result<(&PathBuf, String, Passport, Registry), Error> {
     let path = args
         .passport
         .as_ref()
         .ok_or_else(|| Error::new("нет пути паспорта"))?;
-    // Состояние — имя каталога паспорта: `passports/<состояние>/<ячейка>.json`.
     let state = path
         .parent()
         .and_then(|dir| dir.file_name())
@@ -466,6 +491,37 @@ fn run_conform(args: &Args) -> Result<ConformReport, Error> {
         &read_text(args.registry.as_ref(), "реестр")?,
     )
     .map_err(text)?;
+    Ok((path, state, passport, registry))
+}
+
+fn run_coverage(args: &Args) -> Result<ConformReport, Error> {
+    let (_, state, passport, registry) = read_passport(args)?;
+    let product = Product::parse(&read_text(args.inspect.as_ref(), "ui.inspect")?)?;
+    let mismatches = conform::coverage(&passport, &product, &registry, &state)?;
+    let (verdict, reason) = match mismatches.first() {
+        Some(first) => (
+            Verdict::Mismatch,
+            Some(format!(
+                "расхождений: {}; первое — {:?} {}",
+                mismatches.len(),
+                first.ck,
+                first.actual
+            )),
+        ),
+        None => (Verdict::Pass, None),
+    };
+    Ok(ConformReport {
+        verdict,
+        state: Some(state),
+        reason,
+        retry: None,
+        mismatches,
+        unjudged: Vec::new(),
+    })
+}
+
+fn run_conform(args: &Args) -> Result<ConformReport, Error> {
+    let (path, state, passport, registry) = read_passport(args)?;
     let tolerances =
         Tolerances::from_calibration(&read_text(args.calibration.as_ref(), "калибровка")?)?;
     let inspect_text = read_text(args.inspect.as_ref(), "ui.inspect")?;
@@ -552,8 +608,8 @@ fn run_conform(args: &Args) -> Result<ConformReport, Error> {
     })
 }
 
-fn conform_command(args: &Args) -> u8 {
-    let report = run_conform(args).unwrap_or_else(|error| ConformReport {
+fn conform_command(args: &Args, run: fn(&Args) -> Result<ConformReport, Error>) -> u8 {
+    let report = run(args).unwrap_or_else(|error| ConformReport {
         verdict: Verdict::Error,
         state: None,
         reason: Some(error.to_string()),
@@ -694,7 +750,8 @@ fn main() -> ExitCode {
         Ok(Command::Compare(args)) => compare_command(&args),
         Ok(Command::Underline(args)) => underline_command(&args),
         Ok(Command::Marker(args)) => marker_command(&args),
-        Ok(Command::Conform(args)) => conform_command(&args),
+        Ok(Command::Conform(args)) => conform_command(&args, run_conform),
+        Ok(Command::Coverage(args)) => conform_command(&args, run_coverage),
         Ok(Command::Calibrate(args)) => calibrate_command(&args),
         Ok(Command::Help) => {
             print!("{USAGE}");

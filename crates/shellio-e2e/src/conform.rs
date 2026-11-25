@@ -6,12 +6,12 @@
 //! которые судит снимок, ядро не решает: оно перечисляет их в [`Report::snapshot`], и проходит их
 //! стадия снимка. Кадры продукта переводятся в координаты паспорта: начало сверху слева.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use shellio_conformance::Zone;
 use shellio_conformance::fields::{self, Applicability, ElementKind, Field, Judgement};
-use shellio_conformance::keys::glob_matches;
+use shellio_conformance::keys::{check_key, glob_matches};
 use shellio_conformance::mask::{ICON_FG, Mask, PixelClip, backdrop, foreground};
 use shellio_conformance::passport::{Element, Passport, Rect, Rgba, Shadow, Side};
 use shellio_conformance::registry::{Exception, Registry, Surface};
@@ -819,24 +819,7 @@ pub fn judge(
     let want = &passport.composition;
     let got = composition(product, &want.titlebar, &want.statusline);
     let exceptions = Exceptions::new(registry, state, want);
-    // Состав сверяется в пределах поверхности состояния.
-    let within = |full: &Composition| match surface {
-        Surface::Titlebar => Composition {
-            zones: BTreeMap::new(),
-            focus: None,
-            menu: None,
-            titlebar: full.titlebar.clone(),
-            statusline: Vec::new(),
-        },
-        Surface::Statusline => Composition {
-            zones: BTreeMap::new(),
-            focus: None,
-            menu: None,
-            titlebar: Vec::new(),
-            statusline: full.statusline.clone(),
-        },
-        Surface::Layout | Surface::Menu | Surface::Picker => full.clone(),
-    };
+    let within = |full: &Composition| within(full, surface);
     let mut judge = Judge {
         product,
         passport,
@@ -853,16 +836,7 @@ pub fn judge(
             difference: None,
         });
     }
-    let hidden = |element: &Element| {
-        let mut current = Some(element);
-        while let Some(e) = current {
-            if !e.visible {
-                return true;
-            }
-            current = e.parent.as_deref().and_then(|p| judge_parent(passport, p));
-        }
-        false
-    };
+    let hidden = |element: &Element| hidden(passport, element);
     for element in &passport.elements {
         let ck = element.ck.as_str();
         if element.kind == ElementKind::Pseudo {
@@ -929,6 +903,99 @@ pub fn judge(
 
 fn judge_parent<'a>(passport: &'a Passport, ck: &str) -> Option<&'a Element> {
     passport.elements.iter().find(|e| e.ck == ck)
+}
+
+/// Состав в пределах поверхности состояния: вне её он не сверяется.
+fn within(full: &Composition, surface: Surface) -> Composition {
+    match surface {
+        Surface::Titlebar => Composition {
+            zones: BTreeMap::new(),
+            focus: None,
+            menu: None,
+            titlebar: full.titlebar.clone(),
+            statusline: Vec::new(),
+        },
+        Surface::Statusline => Composition {
+            zones: BTreeMap::new(),
+            focus: None,
+            menu: None,
+            titlebar: Vec::new(),
+            statusline: full.statusline.clone(),
+        },
+        Surface::Layout | Surface::Menu | Surface::Picker => full.clone(),
+    }
+}
+
+/// Скрыт ли элемент паспорта сам или предком.
+fn hidden(passport: &Passport, element: &Element) -> bool {
+    let mut current = Some(element);
+    while let Some(e) = current {
+        if !e.visible {
+            return true;
+        }
+        current = e.parent.as_deref().and_then(|p| judge_parent(passport, p));
+    }
+    false
+}
+
+/// Покрытие ключами сверки (пункт `ck-coverage`): состав сцены в пределах поверхности, узел
+/// продукта у каждого видимого элемента паспорта и элемент паспорта у каждого узла с ключом,
+/// ключи продукта — из таблицы ключей и без повторов. Поля контракта и снимок не судятся,
+/// поэтому калибровка не нужна. Исключение реестра с полем состава снимает только пару.
+pub fn coverage(
+    passport: &Passport,
+    product: &Product,
+    registry: &Registry,
+    state: &str,
+) -> Result<Vec<Mismatch>, Error> {
+    let surface: Surface = registry
+        .state(state)
+        .ok_or_else(|| Error::new(format!("состояния «{state}» нет в реестре")))?
+        .surface;
+    let want = &passport.composition;
+    let got = composition(product, &want.titlebar, &want.statusline);
+    let exceptions = Exceptions::new(registry, state, want);
+    let row = |ck: &str, expected: &str, actual: String| Mismatch {
+        ck: ck.to_owned(),
+        field: Field::Composition,
+        expected: expected.to_owned(),
+        actual,
+        difference: None,
+    };
+    let mut found: Vec<Mismatch> = within(want, surface)
+        .diff(&within(&got, surface))
+        .into_iter()
+        .map(|line| row("", "состав паспорта", line))
+        .collect();
+    for element in &passport.elements {
+        let ck = element.ck.as_str();
+        if element.kind == ElementKind::Pseudo || hidden(passport, element) {
+            continue;
+        }
+        let paired = product.keyed(ck).is_some_and(|n| n.visible);
+        if !paired && !exceptions.covers(ck, Field::Composition) {
+            found.push(row(ck, "элемент паспорта", "нет узла продукта".to_owned()));
+        }
+    }
+    let mut seen = BTreeSet::new();
+    for node in &product.components {
+        let Some(ck) = node.ck.as_deref().filter(|_| node.visible) else {
+            continue;
+        };
+        if let Err(reason) = check_key(ck) {
+            found.push(row(ck, "ключ из таблицы ключей", reason));
+        }
+        if !seen.insert(ck) {
+            found.push(row(ck, "один узел на ключ", "ключ повторяется".to_owned()));
+        }
+        if surface.owns(ck)
+            && judge_parent(passport, ck).is_none()
+            && !exceptions.covers(ck, Field::Composition)
+        {
+            found.push(row(ck, "нет элемента паспорта", "узел продукта".to_owned()));
+        }
+    }
+    Ok(found)
 }
 
 /// Разница вне допуска. Одно правило у судьи и у вывода допусков калибровки: разница, равная

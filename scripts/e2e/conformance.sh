@@ -1400,6 +1400,42 @@ item_fonts_bundled() {
   conclude fonts-bundled "$KBD_CK: семейство $family, файл $file"
 }
 
+# Ключи сверки состояния layout-all-zones: состав сцены найден, у каждого сверяемого узла ключ из таблицы
+# ключей. Судит подкоманда coverage оракула по одному чтению ui.inspect: калибровка и снимок ей не нужны,
+# ключи от ячейки не зависят.
+item_ck_coverage() {
+  local state=layout-all-zones dir="$run/ck-coverage" code=0
+  failures=()
+  log "== ck-coverage"
+  if ! prepare_state "$state" "$dir/recipe"; then
+    if [[ "$STEP_KIND" == fail ]]; then
+      record ck-coverage fail "$WHY"
+    else
+      add_error "ck-coverage: $WHY"
+      record ck-coverage fail "ошибка исполнения пункта: $WHY"
+    fi
+    return 0
+  fi
+  cp "$passports/$state/light-normal.json" "$dir/passport.json"
+  if ! ui_read "$profile" "$dir/inspect" inspect; then
+    add_error "ck-coverage: ui.inspect не прочитан: $(oneline "$dir/inspect.stderr")"
+    record ck-coverage fail "ошибка исполнения пункта: ui.inspect не прочитан"
+    return 0
+  fi
+  "$oracle_bin" coverage --passport "$passports/$state/light-normal.json" --inspect "$dir/inspect.stdout" \
+    --registry "$registry" >"$dir/report.json" 2>"$dir/oracle.stderr" || code=$?
+  case $code in
+    0) ;;
+    3) failures+=("$(mismatches_of "$dir/report.json")") ;;
+    *)
+      add_error "ck-coverage: оракул — ошибка исполнения (код $code): $(oneline "$dir/oracle.stderr")"
+      record ck-coverage fail "ошибка исполнения пункта: оракул вышел кодом $code"
+      return 0
+      ;;
+  esac
+  conclude ck-coverage "coverage — код 0: состав сцены $state найден, у каждого сверяемого узла ключ из таблицы ключей; паспорт, чтение и отчёт — в каталоге пункта"
+}
+
 # --- ход сценария ---
 
 prepare
@@ -1407,6 +1443,7 @@ preconditions
 build_scene "$run/preconditions/setup" 1
 item_cell_override
 item_fonts_bundled
+item_ck_coverage
 # Состояния без шагов рецепта идут первыми на одной сцене, остальные получают новый профиль.
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide; do
@@ -1423,6 +1460,5 @@ for i in "${!ITEMS[@]}"; do
     record "${ITEMS[i]}" not_run "пункт задачи ${TASK[i]}"
   fi
 done
-record ck-coverage not_run "не выполнен: пункт сценария ещё не написан"
 record voiceover-speech not_run "речь VoiceOver автоматика не наблюдает"
 completed=1

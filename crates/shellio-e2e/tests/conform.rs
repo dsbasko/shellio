@@ -1414,6 +1414,78 @@ fn conform_subcommand_judges_the_recorded_p15_window() {
     }
 }
 
+/// `coverage` на записи окна `inspect`: код и отчёт.
+fn coverage_recorded(inspect: &str) -> (Option<i32>, Value) {
+    let passport = root()
+        .join("conformance/passports/layout-all-zones/light-normal.json")
+        .display()
+        .to_string();
+    let registry = root()
+        .join("conformance/registry.toml")
+        .display()
+        .to_string();
+    oracle(&[
+        "coverage",
+        "--passport",
+        &passport,
+        "--inspect",
+        inspect,
+        "--registry",
+        &registry,
+    ])
+}
+
+/// Пункт `ck-coverage`: на записи настоящего окна состав сцены найден и у каждого сверяемого узла
+/// есть ключ из таблицы; калибровка и снимок подкоманде не нужны.
+#[test]
+fn coverage_subcommand_passes_the_recorded_p15_window() {
+    let (code, report) = coverage_recorded(&recorded("p15-light-normal.inspect.json"));
+    assert_eq!(code, Some(0), "{report:#}");
+    assert_eq!(report["state"], "layout-all-zones");
+    assert_eq!(report["mismatches"], json!([]));
+}
+
+/// Отрицательные записи `coverage`: видимая кнопка без ключа, ключ вне таблицы и повтор ключа —
+/// код 3 с названным ключом.
+#[test]
+fn coverage_subcommand_names_a_lost_a_foreign_and_a_repeated_key() {
+    const BUTTON: &str = "zone.center.part.1.tabs.zoom";
+    const OTHER: &str = "zone.bottom.part.1.tabs.zoom";
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let path = recorded("p15-light-normal.inspect.json");
+    let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let cases: [(&str, Value, &str, &str); 3] = [
+        ("lost", Value::Null, BUTTON, "нет узла продукта"),
+        (
+            "foreign",
+            json!("zone.center.part.1.tabs.bogus"),
+            "zone.center.part.1.tabs.bogus",
+            "не соответствует таблице шаблонов",
+        ),
+        ("repeated", json!(OTHER), OTHER, "ключ повторяется"),
+    ];
+    for (name, ck, named, actual) in cases {
+        let mut tree: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+        let node = tree["ok"]["ui"]["inspect"]["components"]
+            .as_array_mut()
+            .and_then(|nodes| nodes.iter_mut().find(|node| node["ck"] == BUTTON))
+            .unwrap_or_else(|| panic!("в записи нет узла {BUTTON}"));
+        node["ck"] = ck;
+        let file = dir.path().join(format!("{name}.inspect.json"));
+        fs::write(&file, tree.to_string()).unwrap_or_else(|e| panic!("{e}"));
+        let (code, report) = coverage_recorded(&file.display().to_string());
+        assert_eq!(code, Some(3), "{name}: {report:#}");
+        let hit = report["mismatches"].as_array().is_some_and(|rows| {
+            rows.iter().any(|row| {
+                row["ck"] == named
+                    && row["field"] == "composition"
+                    && row["actual"].as_str().is_some_and(|a| a.contains(actual))
+            })
+        });
+        assert!(hit, "{name}: {report:#}");
+    }
+}
+
 /// Режим без маркера у `conform`: пара одинаковых снимков одного поколения принимается, другое
 /// поколение прежнего снимка — код 4 с повтором до срока и без повтора после него.
 #[test]
