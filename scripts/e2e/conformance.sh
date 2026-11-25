@@ -11,6 +11,14 @@
 # каждой части и panel focus части с фокусом. Собранная раскладка сверяется со сценой по query.layout: порядок
 # вкладок по плагинам, активная вкладка и фокус; расхождение — ошибка исполнения.
 #
+# Состояние реестра собирается из чистой сцены по своему рецепту conformance/recipes/<состояние>.json: размер окна
+# рецепта задаётся через AX (AXSize окна, System Events) и проверяется по ui.window, шаги выполняет штатный CLI
+# (hide_zone и show_zone — layout hide|show, split — layout split --open, zoom — layout zoom, focus — panel focus,
+# move — panel move, с new_part — panel move-part к последней части зоны с краем after, close_tab — panel close),
+# постусловия рецепта сверяются с query.layout. Левая зона сцены — колонка навигатора (часть 1) и части левой
+# плитки (части 2 и дальше). Состояние с шагами или своим размером окна оставляет сцену изменённой: следующее
+# состояние получает новый профиль и нового владельца.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -20,12 +28,14 @@
 # сеанс GUI, разблокированный экран, запущенный Finder, бинарь бандла не запущен, запуск из процесса-потомка
 # приложения терминала; у терминала-предка Screen Recording и Accessibility с Automation для System Events;
 # латинский источник ввода; AeroSpace и другие оконные менеджеры выключены. Пункты conform-* судятся в окне
-# 1180×720 на экране с масштабом 2, иначе пункт — ошибка исполнения «условие пункта».
+# размера рецепта (1180×720, если рецепт не задаёт своего) на экране с масштабом 2, иначе пункт — ошибка
+# исполнения «условие пункта».
 #
 # Пункт conform-<состояние> судит четыре ячейки (светлая и тёмная тема, обычный и повышенный контраст): ячейку
 # задают ui appearance и ui cell, сценарий ждёт оси в ui.window на новом поколении и снимает окно в режиме без
 # маркера, пока оракул conform не примет пару снимков подряд. Код 0 во всех ячейках — pass, код 3 — fail с
-# перечнем расхождений из отчёта, код 4 и код 1 оракула — ошибка исполнения пункта. Без
+# перечнем расхождений из отчёта, код 4 и код 1 оракула — ошибка исполнения пункта. Отказ продукта в шаге
+# рецепта и невыполненное постусловие — fail с причиной: оракул такую ячейку не судит. Без
 # conformance/calibration/calibration.json (make calibrate) оракул не вызывается: пункты conform-* получают
 # not_run «нет калибровки».
 #
@@ -87,7 +97,7 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-picker-new-part conform-status-split-no-room voiceover-speech)
 TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=10
+DONE_TASK=11
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
 KBD_CK="chrome.search.kbd"
 MONO_FAMILY="JetBrains Mono"
@@ -158,6 +168,13 @@ profile=""
 owner_pid=""
 ws=""
 wb=""
+# Сцена владельца не менялась шагами рецепта и размером окна.
+scene_clean=0
+# Размер окна состояния и род отказа подготовки состояния: fail — отказ продукта или постусловие, broken — ошибка
+# исполнения.
+STATE_W=""
+STATE_H=""
+STEP_KIND=""
 
 log() {
   printf '%s\n' "$*"
@@ -776,9 +793,9 @@ set_cell() {
   wait_cell "$dir/axes" "$lightness" "$contrast" "$GEN"
 }
 
-# Окно владельца — обычное окно 1180×720 на экране с масштабом 2; иначе WHY.
+# Окно владельца — обычное окно W×H на экране с масштабом 2; иначе WHY.
 window_ok() {
-  local file="$1" w h scale
+  local file="$1" WINDOW_W="$2" WINDOW_H="$3" w h scale
   w="$(jv "$file" ok.ui.window.frame.width || echo ?)"
   h="$(jv "$file" ok.ui.window.frame.height || echo ?)"
   scale="$(jv "$file" ok.ui.window.backing_scale_factor || echo ?)"
@@ -983,15 +1000,18 @@ preconditions() {
     fatal "предусловие: нет Screen Recording у терминала-предка ${terminal_id:-pid $terminal_pid}: CGPreflightScreenCaptureAccess — ${preflight:-ошибка $(oneline "$dir/preflight.stderr")}"
 }
 
-# Профиль прогона штатным CLI по файлу сцены, затем пробы Automation, Accessibility и снимка на окне владельца.
-setup_scene() {
-  local dir="$run/preconditions/setup" project dir1 title line zone plugin verb panel n=0 name number
+# Новый профиль и владелец со сценой, собранной штатным CLI по файлу сцены. С probe=1 — ещё пробы Automation,
+# Accessibility и снимка на окне владельца.
+build_scene() {
+  local dir="$1" probe="${2:-0}" project dir1 title zone plugin verb panel n=0 name number
   mkdir -p "$dir"
-  log "== подготовка профиля по сцене $scene"
+  log "== профиль по сцене $scene"
   new_profile
   profile="$NEW_PROFILE"
   launch_normal "$profile" "$dir"
   owner_pid="$OWNER_PID"
+  scene_clean=0
+  if ((probe)); then
   name="$(osascript -e "tell application \"System Events\" to get name of (first process whose unix id is $owner_pid)" \
     2>"$dir/system-events.stderr" || true)"
   [[ -n "$name" ]] ||
@@ -999,6 +1019,7 @@ setup_scene() {
   osascript -e "tell application \"System Events\" to count windows of (first process whose unix id is $owner_pid)" \
     >"$dir/accessibility.stdout" 2>"$dir/accessibility.stderr" ||
     fatal "предусловие: System Events не прочитал окна pid $owner_pid (нет Accessibility у терминала-предка): $(oneline "$dir/accessibility.stderr")"
+  fi
   dir1="$(mktemp -d /tmp/shellio-e2e-project.XXXXXX)"
   profiles+=("$dir1")
   title="$(jv "$scene" workspace)" || fatal "подготовка: в сцене нет названия воркспейса"
@@ -1031,21 +1052,265 @@ setup_scene() {
   scene_plan verify "$dir/scene.layout.stdout" >"$dir/verify" || fatal "подготовка: сцена не сверена"
   [[ ! -s "$dir/verify" ]] || fatal "подготовка: раскладка расходится со сценой: $(oneline "$dir/verify")"
   front_ok "$owner_pid" "$dir" || fatal "подготовка: $WHY"
-  number="$(jv "$dir/scene.window.stdout" ok.ui.window.window_number)" || fatal "подготовка: в ui.window нет window_number"
-  /usr/sbin/screencapture -x -o -l "$number" "$dir/probe.png" >"$dir/probe.log" 2>&1 ||
-    fatal "предусловие: screencapture -l $number отказал (нет Screen Recording): $(oneline "$dir/probe.log")"
+  if ((probe)); then
+    number="$(jv "$dir/scene.window.stdout" ok.ui.window.window_number)" || fatal "подготовка: в ui.window нет window_number"
+    /usr/sbin/screencapture -x -o -l "$number" "$dir/probe.png" >"$dir/probe.log" 2>&1 ||
+      fatal "предусловие: screencapture -l $number отказал (нет Screen Recording): $(oneline "$dir/probe.log")"
+  fi
+  scene_clean=1
   log "воркспейс $ws, рабочая область $wb: сцена собрана и сверена с query.layout"
+}
+
+# Чистая сцена: владелец с изменённой сценой завершается, сцена собирается в новом профиле.
+fresh_scene() {
+  local dir="$1"
+  ((!scene_clean)) || return 0
+  mkdir -p "$dir"
+  if [[ -n "$owner_pid" ]]; then
+    quit_owner "$profile" "$dir" "$owner_pid"
+    owner_pid=""
+  fi
+  build_scene "$dir"
+}
+
+# --- рецепт ---
+
+# План рецепта. count <рецепт> — число шагов; window <рецепт> <W> <H> — размер окна рецепта или W H по умолчанию;
+# step <рецепт> <query.layout> <N> <рабочая область> — вызовы shellioctl шага N по одному на строку (без --all)
+# либо строка «error: …»; verify <рецепт> <query.layout> — невыполненные постусловия по одному на строку. Левая
+# зона сцены — колонка навигатора (часть 1) и части левой плитки (части 2 и дальше).
+recipe_plan() {
+  /usr/bin/perl -Mutf8 -MJSON::PP -e '
+    my ($mode, $recipe_file, @rest) = @ARGV;
+    sub load { open my $fh, "<", $_[0] or die "$_[0]: $!\n"; local $/; JSON::PP->new->utf8->decode(<$fh>) }
+    my $recipe = load($recipe_file);
+    my @steps = @{ $recipe->{steps} // [] };
+    binmode STDOUT, ":utf8";
+    if ($mode eq "count") { print scalar(@steps), "\n"; exit 0 }
+    if ($mode eq "window") {
+      my $w = $recipe->{window} // {};
+      print(($w->{width} // $rest[0]) . " " . ($w->{height} // $rest[1]) . "\n");
+      exit 0;
+    }
+    my $value = load($rest[0])->{ok}{value};
+    my $layout = $value->{layout};
+    my $hidden = $layout->{hidden} // {};
+    my %plugin = map { $_->{id} => $_->{plugin} } @{ $value->{panels} };
+    # Части зоны по счёту сцены; visible — только показанные.
+    sub parts {
+      my ($zone, $visible) = @_;
+      my @parts;
+      if ($zone eq "left") {
+        push @parts, { tabs => [ $layout->{navigator} ], active => 0 }
+          if defined $layout->{navigator} && !($visible && $hidden->{navigator});
+        push @parts, @{ $layout->{zones}{left}{parts} } unless $visible && $hidden->{plate};
+      } elsif ($zone eq "center" || !($visible && $hidden->{$zone})) {
+        @parts = @{ $layout->{zones}{$zone}{parts} };
+      }
+      return @parts;
+    }
+    sub fail { print "error: $_[0]\n"; exit 0 }
+    if ($mode eq "step") {
+      my ($n, $wb) = @rest[1, 2];
+      my $s = $steps[$n - 1] or fail("в рецепте нет шага $n");
+      my ($op, $zone) = ($s->{op}, $s->{zone});
+      if ($op eq "hide_zone" || $op eq "show_zone") {
+        my $verb = $op eq "hide_zone" ? "hide" : "show";
+        fail("центр не скрывается") if $zone eq "center";
+        if ($zone eq "left") {
+          print "layout $verb navigator --workbench $wb\n";
+          print "layout $verb plate --workbench $wb\n" if @{ $layout->{zones}{left}{parts} };
+        } else {
+          print "layout $verb $zone --workbench $wb\n";
+        }
+        exit 0;
+      }
+      my @parts = parts($zone, 0);
+      my $part = $parts[ $s->{part} - 1 ] or fail("в зоне $zone нет части $s->{part}");
+      my $active = $part->{tabs}[ $part->{active} ];
+      my ($tab) = grep { ($plugin{$_} // "") eq ($s->{plugin} // "") } @{ $part->{tabs} };
+      if ($op eq "split") { print "layout split $active --open $s->{plugin}\n" }
+      elsif ($op eq "zoom") { print "layout zoom $active\n" }
+      elsif ($op eq "focus") { print "panel focus $active\n" }
+      elsif ($op eq "move" || $op eq "close_tab") {
+        fail("в части $s->{part} зоны $zone нет вкладки $s->{plugin}") unless defined $tab;
+        if ($op eq "close_tab") { print "panel close $tab\n" }
+        elsif ($s->{new_part}) {
+          my @to = parts($s->{to}, 0);
+          fail("в зоне $s->{to} нет части для края новой части") unless @to;
+          print "panel move-part $tab --to $to[-1]{tabs}[ $to[-1]{active} ] --edge after\n";
+        } else { print "panel move $tab --zone $s->{to}\n" }
+      }
+      else { fail("шаг $op сценарий не выполняет") }
+      exit 0;
+    }
+    my $post = $recipe->{post} // {};
+    my $comp = $post->{composition};
+    my @out;
+    if (defined $layout->{zoomed}) {
+      my @zones = keys %{ $post->{parts} // {} };
+      my $zone = $zones[0];
+      if (@zones != 1 || $post->{parts}{$zone} != 1) {
+        push @out, "панель развёрнута, а постусловие ждёт части зон " . join(", ", sort @zones);
+      } else {
+        push @out, "развёрнутая панель не в зоне $zone"
+          unless grep { grep { $_ eq $layout->{zoomed} } @{ $_->{tabs} } } parts($zone, 0);
+        my $tabs = $comp ? $comp->{zones}{$zone}[0]{tabs} : undef;
+        push @out, "развёрнута панель " . ($plugin{ $layout->{zoomed} } // "?") . ", постусловие — " . join(", ", @$tabs)
+          if $tabs && !(@$tabs == 1 && $tabs->[0] eq ($plugin{ $layout->{zoomed} } // ""));
+      }
+    } else {
+      for my $zone (qw(left center right bottom)) {
+        my @have = parts($zone, 1);
+        my @want = $comp ? @{ $comp->{zones}{$zone} // [] } : ();
+        my $count = $post->{parts}{$zone} // 0;
+        # Пустая рабочая область: сцена называет пустую часть, раскладка продукта части не держит.
+        next if !@have && $count == 1 && @want == 1 && !@{ $want[0]{tabs} };
+        push @out, "частей зоны $zone — " . scalar(@have) . ", постусловие — $count" if @have != $count;
+        for my $p (0 .. $#want) {
+          last if $p > $#have;
+          my $is = join(", ", map { $plugin{$_} // "?" } @{ $have[$p]{tabs} });
+          my $exp = join(", ", @{ $want[$p]{tabs} });
+          push @out, "вкладки части " . ($p + 1) . " зоны $zone — $is, постусловие — $exp" if $is ne $exp;
+          push @out, "активная вкладка части " . ($p + 1) . " зоны $zone — " . ($have[$p]{active} + 1) .
+            ", постусловие — $want[$p]{active}"
+            if defined $want[$p]{active} && $have[$p]{active} + 1 != $want[$p]{active};
+        }
+      }
+    }
+    if ($comp && $comp->{focus}) {
+      my $f = $comp->{focus};
+      my @have = parts($f->{zone}, 0);
+      my $part = $have[ $f->{part} - 1 ];
+      push @out, "фокус не в части $f->{part} зоны $f->{zone}"
+        unless $part && ($layout->{focus}[-1] // "") eq $part->{tabs}[ $part->{active} ];
+    }
+    print "$_\n" for @out;
+  ' "$@"
+}
+
+# Размер окна в ответе ui.window равен W×H в пределах 1 точки.
+size_is() {
+  awk -v w="$(jv "$1" ok.ui.window.frame.width || echo 0)" -v h="$(jv "$1" ok.ui.window.frame.height || echo 0)" \
+    -v W="$2" -v H="$3" 'BEGIN { exit !(w - W <= 1 && W - w <= 1 && h - H <= 1 && H - h <= 1) }'
+}
+
+# Окно владельца размера W×H: AXSize окна через System Events, затем опрос ui.window; иначе WHY.
+resize_window() {
+  local dir="$1" w="$2" h="$3" deadline
+  WHY=""
+  ui_read "$profile" "$dir/size-before" window || {
+    WHY="ui.window не прочитан: $(oneline "$dir/size-before.stdout")"
+    return 1
+  }
+  ! size_is "$dir/size-before.stdout" "$w" "$h" || return 0
+  osascript -l JavaScript -e "
+    const se = Application('System Events');
+    const win = se.processes.whose({unixId: $owner_pid})[0].windows[0];
+    win.position = [0, 30];
+    win.size = [$w, $h];
+    'ok'" >"$dir/resize.stdout" 2>"$dir/resize.stderr" || {
+    WHY="AX не задал размер окна ${w}×${h}: $(oneline "$dir/resize.stderr")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$dir/size-after" window && size_is "$dir/size-after.stdout" "$w" "$h"; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс после AXSize окно не стало ${w}×${h}: $(jv "$dir/size-after.stdout" ok.ui.window.frame || echo "ui.window не прочитан")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Состояние рецепта на чистой сцене: размер окна рецепта, шаги штатным CLI, постусловия по query.layout. Размер
+# окна — в STATE_W и STATE_H. Отказ — причина в WHY и род в STEP_KIND: fail — продукт отказал в шаге или
+# постусловие не выполнено, broken — ошибка исполнения.
+prepare_state() {
+  local state="$1" dir="$2" recipe="$root/conformance/recipes/$1.json" count size n m line rev=0
+  STEP_KIND=broken
+  WHY=""
+  mkdir -p "$dir"
+  [[ -f "$recipe" ]] || {
+    WHY="нет рецепта $recipe"
+    return 1
+  }
+  count="$(recipe_plan count "$recipe")" && size="$(recipe_plan window "$recipe" "$WINDOW_W" "$WINDOW_H")" || {
+    WHY="рецепт $recipe не прочитан"
+    return 1
+  }
+  STATE_W="${size% *}"
+  STATE_H="${size#* }"
+  fresh_scene "$dir/scene"
+  if [[ "$size" != "$WINDOW_W $WINDOW_H" ]]; then
+    scene_clean=0
+  fi
+  if ! resize_window "$dir" "$STATE_W" "$STATE_H"; then
+    WHY="условие пункта: $WHY"
+    return 1
+  fi
+  for ((n = 1; n <= count; n++)); do
+    scene_clean=0
+    layout_get "$profile" "$dir/step-$n.layout" "$wb" || {
+      WHY="шаг $n: query.layout не прочитан: $(oneline "$dir/step-$n.layout.stderr")"
+      return 1
+    }
+    recipe_plan step "$recipe" "$dir/step-$n.layout.stdout" "$n" "$wb" >"$dir/step-$n.plan" || {
+      WHY="шаг $n: план шага не построен"
+      return 1
+    }
+    m=0
+    while IFS= read -r line <&3; do
+      if [[ "$line" == error:* ]]; then
+        WHY="шаг $n рецепта: ${line#error: }"
+        return 1
+      fi
+      m=$((m + 1))
+      # shellcheck disable=SC2086
+      if ! core_cmd "$profile" "$dir/step-$n-$m" $line --all; then
+        if [[ "$(jv "$dir/step-$n-$m.stdout" err.code 2>/dev/null || true)" != "" ]]; then
+          STEP_KIND=fail
+        fi
+        WHY="шаг $n рецепта: $WHY"
+        return 1
+      fi
+      rev="$REV"
+    done 3<"$dir/step-$n.plan"
+  done
+  settle_layout "$profile" "$dir/settled" "$wb" "$rev" || return 1
+  recipe_plan verify "$recipe" "$dir/settled.layout.stdout" >"$dir/verify" || {
+    WHY="постусловия рецепта не сверены"
+    return 1
+  }
+  if [[ -s "$dir/verify" ]]; then
+    STEP_KIND=fail
+    WHY="постусловие рецепта не выполнено: $(oneline "$dir/verify")"
+    return 1
+  fi
+  log "$state: окно ${STATE_W}×${STATE_H}, шагов рецепта $count, постусловия выполнены"
 }
 
 # --- пункты матрицы ---
 
-# Состояние реестра в четырёх ячейках. Сцена состояний рубежа 1 — сама сцена p15 без шагов рецепта.
+# Состояние реестра в четырёх ячейках: сцена по рецепту состояния, затем сверка каждой ячейки.
 item_conform() {
   local state="$1" item="conform-$1" dir entry cell lightness contrast_arg contrast broken=""
   failures=()
   log "== $item"
   if [[ ! -f "$calibration" ]]; then
     record "$item" not_run "нет калибровки: нет файла conformance/calibration/calibration.json (make calibrate)"
+    return 0
+  fi
+  if ! prepare_state "$state" "$run/$item/recipe"; then
+    if [[ "$STEP_KIND" == fail ]]; then
+      record "$item" fail "$WHY"
+    else
+      add_error "$item: $WHY"
+      record "$item" fail "ошибка исполнения пункта: $WHY"
+    fi
     return 0
   fi
   for entry in "${CELLS[@]}"; do
@@ -1061,7 +1326,7 @@ item_conform() {
       broken="${broken:+$broken; }$cell: $WHY"
       continue
     fi
-    if ! window_ok "$dir/axes.stdout"; then
+    if ! window_ok "$dir/axes.stdout" "$STATE_W" "$STATE_H"; then
       broken="${broken:+$broken; }$cell: условие пункта: $WHY"
       continue
     fi
@@ -1139,11 +1404,14 @@ item_fonts_bundled() {
 
 prepare
 preconditions
-setup_scene
+build_scene "$run/preconditions/setup" 1
 item_cell_override
 item_fonts_bundled
-item_conform chrome-titlebar
-item_conform chrome-statusline
+# Состояния без шагов рецепта идут первыми на одной сцене, остальные получают новый профиль.
+for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
+  layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide; do
+  item_conform "$state"
+done
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   cell_cmd "$profile" "$run/cleanup/cell" --contrast system --motion system || log "уборка: $WHY"
