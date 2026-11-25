@@ -20,11 +20,13 @@ use std::rc::Rc;
 
 use serde_json::Value;
 use shellio_core::{
-    Command, CoreError, PanelData, PanelId, PanelStatus, PluginId, State, WorkbenchId,
+    Command, CoreError, ListAction, PanelData, PanelId, PanelStatus, PluginId, State, WorkbenchId,
 };
 use shellio_layout::{Geometry, Layout};
 use shellio_plugin_api::{Presentation, Refusal, Registry};
-use shellio_plugin_view::{Body, Done, PanelRequest, PanelSink, PluginView};
+use shellio_plugin_view::{
+    Body, Done, Handled, ListMove, PanelRequest, PanelSink, PluginView, ViewIntent,
+};
 
 use crate::scene::Bench;
 
@@ -230,6 +232,21 @@ pub fn request_command(state: Option<&State>, panel: PanelId, request: PanelRequ
         .and_then(|state| state.panels.get(&panel))
         .map(|record| record.workbench);
     command_of(panel, workbench, request)
+}
+
+/// Движение списка вида по действию `list.*`.
+pub const fn list_move(action: ListAction) -> ListMove {
+    match action {
+        ListAction::Down => ListMove::Down,
+        ListAction::Up => ListMove::Up,
+        ListAction::Top => ListMove::Top,
+        ListAction::Bottom => ListMove::Bottom,
+        ListAction::PageDown => ListMove::PageDown,
+        ListAction::PageUp => ListMove::PageUp,
+        ListAction::Collapse => ListMove::Collapse,
+        ListAction::Expand => ListMove::Expand,
+        ListAction::Activate => ListMove::Activate,
+    }
 }
 
 /// Заказ тела: фабрика плагина `plugin` строит его по данным `data` в контейнере панели `panel`.
@@ -508,6 +525,12 @@ impl Bodies {
         self.live(panel).map(|live| live.body.view())
     }
 
+    /// Намерение хоста виду активного тела панели. `None` — тела нет или оно не показано.
+    pub fn intent(&mut self, panel: PanelId, intent: &ViewIntent) -> Option<Handled> {
+        let live = self.panels.get_mut(&panel)?.live.as_mut()?;
+        live.active.then(|| live.body.view_mut().intent(intent))
+    }
+
     /// Виды всех построенных тел, включая припаркованные.
     pub fn views_mut(&mut self) -> impl Iterator<Item = &mut dyn PluginView> {
         self.panels
@@ -605,6 +628,10 @@ mod tests {
         }
         fn inspect(&self, _prefix: &str) -> Vec<InspectNode> {
             Vec::new()
+        }
+        fn intent(&mut self, intent: &ViewIntent) -> Handled {
+            self.say(format!("intent {intent:?}"));
+            Handled::Yes
         }
         fn close_view(&mut self) {
             self.say("close".to_owned());
@@ -916,6 +943,34 @@ mod tests {
         assert_eq!(host.of(panel), Vec::<String>::new());
         host.visible = true;
         assert_eq!(host.of(panel), ["active true"], "окно показано");
+    }
+
+    #[test]
+    fn list_actions_map_to_list_moves_in_order() {
+        assert_eq!(ListAction::ALL.map(list_move), ListMove::ALL);
+    }
+
+    #[test]
+    fn intent_reaches_only_an_active_body() {
+        let mut host = Host::new();
+        let panel = host.open_list(list("a", false));
+        host.sync();
+        let down = ViewIntent::List(list_move(ListAction::Down));
+        assert_eq!(host.bodies.intent(panel, &down), Some(Handled::Yes));
+        assert_eq!(host.of(panel), ["intent List(Down)"]);
+
+        // Под заглушкой «Развернуть» тело неактивно: намерение до него не доходит.
+        let wide = host.viewport;
+        host.viewport = Viewport {
+            height: 190,
+            ..wide
+        };
+        assert_eq!(host.of(panel), ["active false"]);
+        assert_eq!(host.bodies.intent(panel, &down), None);
+        assert_eq!(host.of(panel), Vec::<String>::new());
+
+        let missing = id(250);
+        assert_eq!(host.bodies.intent(missing, &down), None);
     }
 
     #[test]

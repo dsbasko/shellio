@@ -22,14 +22,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_core::{
-    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, SplitOpen, State, ToggleTarget,
-    WorkbenchId, min_size, open_workbench, split_open,
+    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, PluginId, SplitOpen, State,
+    ToggleTarget, WorkbenchId, min_size, open_workbench, split_open,
 };
 use shellio_layout::{
     Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
     Point, Rect, Viewport, Zone, ZoneMap, drop_target, geometry,
 };
 use shellio_plugin_api::Registry;
+use shellio_plugin_view::ViewIntent;
 
 /// Сообщение области зон без открытой рабочей области.
 pub const NO_WORKBENCH: &str = "Рабочая область не открыта";
@@ -129,6 +130,24 @@ pub struct Bench {
     pub plates: BTreeMap<PartKey, PlateSlot>,
     /// Панель с фокусом.
     pub focus: Option<PanelId>,
+}
+
+/// Панель, вид которой получит намерение: панель с фокусом, если её вид показан и её плагин
+/// объявил признак намерения в манифесте (`list_keys` или `filter`).
+pub fn intent_target(scene: &Scene, registry: &Registry, intent: &ViewIntent) -> Option<PanelId> {
+    let bench = scene.bench.as_ref()?;
+    let panel = bench.focus?;
+    let slot = bench.views.get(&panel)?;
+    if !slot.shown() {
+        return None;
+    }
+    let plugin = PluginId::new(&slot.plugin).ok()?;
+    let manifest = registry.get(&plugin)?.manifest();
+    let declared = match intent {
+        ViewIntent::List(_) => manifest.list_keys,
+        ViewIntent::Filter { .. } => manifest.filter,
+    };
+    declared.then_some(panel)
 }
 
 /// Что показывает обычное окно.

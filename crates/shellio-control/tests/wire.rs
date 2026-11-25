@@ -39,10 +39,10 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
-    EventsSince, FsRootResolver, IdGen, LayoutView, OpenOutcome, PanelId, PanelStatus, PanelView,
-    PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView, Title,
-    ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace,
-    WorkspaceId,
+    EventsSince, FsRootResolver, IdGen, LayoutView, ListAction, OpenOutcome, PanelId, PanelStatus,
+    PanelView, PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView,
+    Title, ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId,
+    Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -213,6 +213,17 @@ fn request_golden_static(request: &Request) -> &'static str {
             ToggleTarget::Plate => "request.ui.layout_toggle_plate",
             ToggleTarget::Right => "request.ui.layout_toggle_right",
         },
+        RequestBody::Ui(UiRequest::Command(UiCommand::List(action))) => match action {
+            ListAction::Down => "request.ui.list_down",
+            ListAction::Up => "request.ui.list_up",
+            ListAction::Top => "request.ui.list_top",
+            ListAction::Bottom => "request.ui.list_bottom",
+            ListAction::PageDown => "request.ui.list_page_down",
+            ListAction::PageUp => "request.ui.list_page_up",
+            ListAction::Collapse => "request.ui.list_collapse",
+            ListAction::Expand => "request.ui.list_expand",
+            ListAction::Activate => "request.ui.list_activate",
+        },
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -315,6 +326,11 @@ fn requests() -> Vec<Request> {
             RequestBody::Ui(UiRequest::Command(UiCommand::LayoutToggle(
                 ToggleTarget::Side,
             ))),
+        ),
+        // P1.6, задача 6: движение списка панели с фокусом.
+        request(
+            49,
+            RequestBody::Ui(UiRequest::Command(UiCommand::List(ListAction::PageDown))),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(

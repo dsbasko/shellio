@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 use shellio_core::{
-    AppearanceChoice, OpenOutcome, PanelId, PanelStatus, Revision, ToggleTarget, UiCommand,
-    WorkbenchId,
+    AppearanceChoice, ListAction, OpenOutcome, PanelId, PanelStatus, Revision, ToggleTarget,
+    UiCommand, WorkbenchId,
 };
 use shellio_layout::{SizeClass, Zone};
 
@@ -411,6 +411,24 @@ enum WireUiRequest {
     TogglePlate(NoArgs),
     #[serde(rename = "layout.toggle.right")]
     ToggleRight(NoArgs),
+    #[serde(rename = "list.down")]
+    ListDown(NoArgs),
+    #[serde(rename = "list.up")]
+    ListUp(NoArgs),
+    #[serde(rename = "list.top")]
+    ListTop(NoArgs),
+    #[serde(rename = "list.bottom")]
+    ListBottom(NoArgs),
+    #[serde(rename = "list.page_down")]
+    ListPageDown(NoArgs),
+    #[serde(rename = "list.page_up")]
+    ListPageUp(NoArgs),
+    #[serde(rename = "list.collapse")]
+    ListCollapse(NoArgs),
+    #[serde(rename = "list.expand")]
+    ListExpand(NoArgs),
+    #[serde(rename = "list.activate")]
+    ListActivate(NoArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
@@ -472,6 +490,27 @@ impl From<WireUiRequest> for UiRequest {
             }
             WireUiRequest::ToggleRight(NoArgs {}) => {
                 Self::Command(UiCommand::LayoutToggle(ToggleTarget::Right))
+            }
+            WireUiRequest::ListDown(NoArgs {}) => Self::Command(UiCommand::List(ListAction::Down)),
+            WireUiRequest::ListUp(NoArgs {}) => Self::Command(UiCommand::List(ListAction::Up)),
+            WireUiRequest::ListTop(NoArgs {}) => Self::Command(UiCommand::List(ListAction::Top)),
+            WireUiRequest::ListBottom(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::Bottom))
+            }
+            WireUiRequest::ListPageDown(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::PageDown))
+            }
+            WireUiRequest::ListPageUp(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::PageUp))
+            }
+            WireUiRequest::ListCollapse(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::Collapse))
+            }
+            WireUiRequest::ListExpand(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::Expand))
+            }
+            WireUiRequest::ListActivate(NoArgs {}) => {
+                Self::Command(UiCommand::List(ListAction::Activate))
             }
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
@@ -540,6 +579,17 @@ impl From<UiRequest> for WireUiRequest {
                 ToggleTarget::Side => Self::ToggleSide(NoArgs {}),
                 ToggleTarget::Plate => Self::TogglePlate(NoArgs {}),
                 ToggleTarget::Right => Self::ToggleRight(NoArgs {}),
+            },
+            UiRequest::Command(UiCommand::List(action)) => match action {
+                ListAction::Down => Self::ListDown(NoArgs {}),
+                ListAction::Up => Self::ListUp(NoArgs {}),
+                ListAction::Top => Self::ListTop(NoArgs {}),
+                ListAction::Bottom => Self::ListBottom(NoArgs {}),
+                ListAction::PageDown => Self::ListPageDown(NoArgs {}),
+                ListAction::PageUp => Self::ListPageUp(NoArgs {}),
+                ListAction::Collapse => Self::ListCollapse(NoArgs {}),
+                ListAction::Expand => Self::ListExpand(NoArgs {}),
+                ListAction::Activate => Self::ListActivate(NoArgs {}),
             },
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::WindowSize { width, height } => {
@@ -1579,6 +1629,11 @@ mod tests {
             (
                 UiRequest::Command(UiCommand::LayoutToggle(ToggleTarget::Side)),
                 "layout.toggle.side",
+                true,
+            ),
+            (
+                UiRequest::Command(UiCommand::List(ListAction::PageDown)),
+                "list.page_down",
                 true,
             ),
             (

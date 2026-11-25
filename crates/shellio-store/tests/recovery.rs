@@ -611,7 +611,7 @@ async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> Tes
     let persist = store.persist()?;
     let fault = persist.commit_fault();
     let registry = registry_of(vec![
-        TestPlugin::new("list")
+        TestPlugin::new("rows")
             .cardinality(Cardinality::PerWorkbench)
             .actions(),
     ]);
@@ -623,7 +623,7 @@ async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> Tes
     let lists = |state: &State| -> Vec<PanelId> {
         state
             .workbench_panels(workbench)
-            .filter(|panel| panel.plugin.as_str() == "list")
+            .filter(|panel| panel.plugin.as_str() == "rows")
             .map(|panel| panel.id)
             .collect()
     };
@@ -631,7 +631,7 @@ async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> Tes
     // Запись создания: панель, данные, раскладка и ревизия. Сбой после панели и данных.
     fault.fail_next_commit_after(2);
     let error = core
-        .request(open_panel("list", workbench, 3))
+        .request(open_panel("rows", workbench, 3))
         .await
         .unwrap_err();
     assert_eq!(error.code(), ErrorCode::StorageUnavailable);
@@ -639,12 +639,12 @@ async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> Tes
     assert_eq!(store.count("panel_states")?, store.count("panels")?);
     assert_eq!(lists(&store.load()?.state), Vec::new());
 
-    let reply = request(&core, open_panel("list", workbench, 3)).await?;
+    let reply = request(&core, open_panel("rows", workbench, 3)).await?;
     let (panel, outcome) = opened(&reply)?;
     assert_eq!(outcome, OpenOutcome::Created);
     assert_eq!(reply.revision, before.revision.next());
     // Повтор находит созданную панель и ревизию не прибавляет.
-    let again = request(&core, open_panel("list", workbench, 3)).await?;
+    let again = request(&core, open_panel("rows", workbench, 3)).await?;
     assert_eq!(opened(&again)?, (panel, OpenOutcome::Focused));
     assert_eq!(again.revision, before.revision.next());
     let after = snapshot(&core).await?;
@@ -667,7 +667,7 @@ async fn commit_fault_mid_singleton_creation_then_retry_gives_one_panel() -> Tes
     let core = start_with(store.persist()?, &clock, resolver(), registry)?;
     let restarted = snapshot(&core).await?;
     assert_eq!(restarted.revision, before.revision.next());
-    let again = request(&core, open_panel("list", workbench, 3)).await?;
+    let again = request(&core, open_panel("rows", workbench, 3)).await?;
     assert_eq!(opened(&again)?, (panel, OpenOutcome::Focused));
     assert_eq!(again.revision, before.revision.next());
     core.shutdown().await;

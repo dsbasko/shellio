@@ -84,6 +84,71 @@ impl ToggleTarget {
     }
 }
 
+/// Движение списка панели с фокусом: действие `list.*` (ADR-0010, «Клавиши по умолчанию»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ListAction {
+    Down,
+    Up,
+    Top,
+    Bottom,
+    PageDown,
+    PageUp,
+    Collapse,
+    Expand,
+    Activate,
+}
+
+impl ListAction {
+    pub const ALL: [Self; 9] = [
+        Self::Down,
+        Self::Up,
+        Self::Top,
+        Self::Bottom,
+        Self::PageDown,
+        Self::PageUp,
+        Self::Collapse,
+        Self::Expand,
+        Self::Activate,
+    ];
+
+    /// Операнд `shellioctl ui list`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Down => "down",
+            Self::Up => "up",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::PageDown => "page-down",
+            Self::PageUp => "page-up",
+            Self::Collapse => "collapse",
+            Self::Expand => "expand",
+            Self::Activate => "activate",
+        }
+    }
+
+    /// Движение по операнду.
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|action| action.as_str() == value)
+    }
+
+    /// Имя действия в keymap и на проводе.
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Down => "list.down",
+            Self::Up => "list.up",
+            Self::Top => "list.top",
+            Self::Bottom => "list.bottom",
+            Self::PageDown => "list.page_down",
+            Self::PageUp => "list.page_up",
+            Self::Collapse => "list.collapse",
+            Self::Expand => "list.expand",
+            Self::Activate => "list.activate",
+        }
+    }
+}
+
 /// Действие интерфейса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UiCommand {
@@ -98,11 +163,14 @@ pub enum UiCommand {
     /// Показать или скрыть цель в открытой рабочей области: видимость читается в момент вызова,
     /// затем идёт команда ядра `layout.visibility`.
     LayoutToggle(ToggleTarget),
+    /// Движение списка панели с фокусом: намерение её виду.
+    List(ListAction),
 }
 
 impl UiCommand {
-    /// Все действия: по одному на каждое значение выбора оформления и каждую цель скрытия.
-    pub const ALL: [Self; 11] = [
+    /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия и
+    /// каждое движение списка.
+    pub const ALL: [Self; 20] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
@@ -114,6 +182,15 @@ impl UiCommand {
         Self::LayoutToggle(ToggleTarget::Side),
         Self::LayoutToggle(ToggleTarget::Plate),
         Self::LayoutToggle(ToggleTarget::Right),
+        Self::List(ListAction::Down),
+        Self::List(ListAction::Up),
+        Self::List(ListAction::Top),
+        Self::List(ListAction::Bottom),
+        Self::List(ListAction::PageDown),
+        Self::List(ListAction::PageUp),
+        Self::List(ListAction::Collapse),
+        Self::List(ListAction::Expand),
+        Self::List(ListAction::Activate),
     ];
 
     /// Имя команды в управляющем API.
@@ -122,7 +199,7 @@ impl UiCommand {
             Self::WindowClose => "window.close",
             Self::AppQuit => "app.quit",
             Self::AppearanceSet(_) => "ui.appearance.set",
-            Self::AppearanceCycle | Self::LayoutToggle(_) => self.keymap_name(),
+            Self::AppearanceCycle | Self::LayoutToggle(_) | Self::List(_) => self.keymap_name(),
         }
     }
 
@@ -140,6 +217,7 @@ impl UiCommand {
             Self::LayoutToggle(ToggleTarget::Side) => "layout.toggle.side",
             Self::LayoutToggle(ToggleTarget::Plate) => "layout.toggle.plate",
             Self::LayoutToggle(ToggleTarget::Right) => "layout.toggle.right",
+            Self::List(action) => action.keymap_name(),
         }
     }
 
@@ -171,6 +249,15 @@ mod tests {
             ("layout.toggle.side", "layout.toggle.side"),
             ("layout.toggle.plate", "layout.toggle.plate"),
             ("layout.toggle.right", "layout.toggle.right"),
+            ("list.down", "list.down"),
+            ("list.up", "list.up"),
+            ("list.top", "list.top"),
+            ("list.bottom", "list.bottom"),
+            ("list.page_down", "list.page_down"),
+            ("list.page_up", "list.page_up"),
+            ("list.collapse", "list.collapse"),
+            ("list.expand", "list.expand"),
+            ("list.activate", "list.activate"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {
@@ -181,6 +268,30 @@ mod tests {
         let unique: BTreeSet<_> = UiCommand::ALL.map(UiCommand::keymap_name).into();
         assert_eq!(unique.len(), UiCommand::ALL.len(), "имена keymap различны");
         assert_eq!(UiCommand::from_keymap_name("ui.appearance.set"), None);
+    }
+
+    #[test]
+    fn list_actions_parse_their_operands() {
+        let operands = [
+            "down",
+            "up",
+            "top",
+            "bottom",
+            "page-down",
+            "page-up",
+            "collapse",
+            "expand",
+            "activate",
+        ];
+        for (action, operand) in ListAction::ALL.into_iter().zip(operands) {
+            assert_eq!(action.as_str(), operand);
+            assert_eq!(ListAction::parse(operand), Some(action));
+            assert_eq!(
+                UiCommand::List(action).name(),
+                format!("list.{}", operand.replace('-', "_"))
+            );
+        }
+        assert_eq!(ListAction::parse("page_down"), None);
     }
 
     #[test]

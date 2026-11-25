@@ -398,7 +398,7 @@ mod tests {
     };
 
     fn list() -> TestPlugin {
-        TestPlugin::new("list")
+        TestPlugin::new("rows")
             .title("Список")
             .cardinality(Cardinality::PerWorkbench)
             .zones(ZoneSet::ALL, Zone::Right)
@@ -664,7 +664,7 @@ mod tests {
     fn open_creates_panel_in_default_zone_with_focus_and_init_data() {
         let mut w = W::new(vec![list()]);
         let terminal = w.focused(w.a);
-        let (panel, workbench, outcome, changes) = w.open_with("list", None, None, None);
+        let (panel, workbench, outcome, changes) = w.open_with("rows", None, None, None);
         assert_eq!((workbench, outcome), (w.a, OpenOutcome::Created));
         let [
             Change::PanelAdd { panel: added },
@@ -691,7 +691,7 @@ mod tests {
 
         // Контекст создания доходит до `init`, явная зона — подсказка места.
         let (other, workbench, outcome, _) = w.open_with(
-            "list",
+            "rows",
             Some(w.b),
             Some(Zone::Bottom),
             Some(json!({"count": 3})),
@@ -704,9 +704,9 @@ mod tests {
     #[test]
     fn repeat_focuses_the_same_panel_and_reopens_with_args() {
         let mut w = W::new(vec![list()]);
-        let (panel, _) = w.open("list", w.a);
+        let (panel, _) = w.open("rows", w.a);
         // Полный повтор: тот же `PanelId`, исход `focused`, дельт нет.
-        let (again, workbench, outcome, changes) = w.open_with("list", None, None, None);
+        let (again, workbench, outcome, changes) = w.open_with("rows", None, None, None);
         assert_eq!(
             (again, workbench, outcome),
             (panel, w.a, OpenOutcome::Focused)
@@ -714,18 +714,18 @@ mod tests {
         assert_eq!(changes, Vec::new());
         // Новый контекст — только данные.
         let (again, _, outcome, changes) =
-            w.open_with("list", None, None, Some(json!({"count": 5})));
+            w.open_with("rows", None, None, Some(json!({"count": 5})));
         assert_eq!((again, outcome), (panel, OpenOutcome::Focused));
         assert!(
             matches!(changes.as_slice(), [Change::PanelData { panel: p, .. }] if *p == panel),
             "{changes:?}"
         );
         assert_eq!(w.count(panel), json!(5));
-        let (_, _, _, changes) = w.open_with("list", None, None, Some(json!({"count": 5})));
+        let (_, _, _, changes) = w.open_with("rows", None, None, Some(json!({"count": 5})));
         assert_eq!(changes, Vec::new());
         // Явная другая допустимая зона у существующего singleton позицию не меняет.
         let before = w.layout(w.a).clone();
-        let (again, _, outcome, changes) = w.open_with("list", None, Some(Zone::Bottom), None);
+        let (again, _, outcome, changes) = w.open_with("rows", None, Some(Zone::Bottom), None);
         assert_eq!((again, outcome), (panel, OpenOutcome::Focused));
         assert_eq!(changes, Vec::new());
         assert_eq!(*w.layout(w.a), before);
@@ -736,7 +736,7 @@ mod tests {
     fn repeat_shows_panel_behind_hidden_zone_foreign_zoom_and_only() {
         let mut w = W::new(vec![list()]);
         let terminal = w.focused(w.a);
-        let (panel, _) = w.open("list", w.a);
+        let (panel, _) = w.open("rows", w.a);
         let visible = |w: &W| w.layout(w.a).is_visible(panel) && w.focused(w.a) == panel;
 
         w.focus(terminal);
@@ -746,7 +746,7 @@ mod tests {
             visible: false,
         });
         assert!(!w.layout(w.a).is_visible(panel));
-        assert_eq!(w.open("list", w.a), (panel, OpenOutcome::Focused));
+        assert_eq!(w.open("rows", w.a), (panel, OpenOutcome::Focused));
         assert!(visible(&w));
 
         w.ok(Command::LayoutZoom {
@@ -755,14 +755,14 @@ mod tests {
             off: None,
         });
         assert!(!w.layout(w.a).is_visible(panel));
-        assert_eq!(w.open("list", w.a), (panel, OpenOutcome::Focused));
+        assert_eq!(w.open("rows", w.a), (panel, OpenOutcome::Focused));
         assert!(visible(&w));
         assert_eq!(w.layout(w.a).zoomed_panel(), None);
 
         w.focus(terminal);
         w.ok(Command::LayoutOnly { workbench: None });
         assert!(!w.layout(w.a).is_visible(panel));
-        assert_eq!(w.open("list", w.a), (panel, OpenOutcome::Focused));
+        assert_eq!(w.open("rows", w.a), (panel, OpenOutcome::Focused));
         assert!(visible(&w));
     }
 
@@ -902,7 +902,7 @@ mod tests {
 
         // Аргументы и plugin id — раньше области и рабочей области.
         w.scope = TreeScope::Workspace(w.w2);
-        let error = w.err(W::open_command("list", Some(missing), None, Some(json!(5))));
+        let error = w.err(W::open_command("rows", Some(missing), None, Some(json!(5))));
         assert_refused(&error, &[("reason", "args_invalid"), ("field", "args")]);
         let error = w.err(W::open_command("Bad Id", Some(missing), None, None));
         assert_refused(&error, &[("reason", "plugin_invalid"), ("field", "plugin")]);
@@ -916,12 +916,12 @@ mod tests {
         );
         // Рабочая область вне области — как несуществующая.
         for workbench in [missing, w.a] {
-            let error = w.err(W::open_command("list", Some(workbench), None, None));
+            let error = w.err(W::open_command("rows", Some(workbench), None, None));
             assert_eq!(error.code(), ErrorCode::NotFound, "{error}");
             assert_eq!(error.detail_str("entity"), Some("workbench"));
         }
         // Открытая в окне рабочая область чужого воркспейса не раскрывается.
-        let error = w.err(W::open_command("list", None, None, None));
+        let error = w.err(W::open_command("rows", None, None, None));
         assert_eq!(error.code(), ErrorCode::NotFound, "{error}");
         assert_eq!(error.detail("id"), Some(&Value::Null));
         w.scope = TreeScope::All;
@@ -953,7 +953,7 @@ mod tests {
         // Без явной и открытой рабочей области.
         w.ok(Command::WindowFocusWorkspace { workspace: w.w2 });
         assert_eq!(w.state.window.route, Route::WorkspaceHome);
-        let error = w.err(W::open_command("list", None, None, None));
+        let error = w.err(W::open_command("rows", None, None, None));
         assert_refused(&error, &[("reason", "no_open_workbench")]);
     }
 
@@ -964,10 +964,10 @@ mod tests {
             TestPlugin::new("stuck").init(TestInit::Refuse),
             TestPlugin::new("huge").init(TestInit::Oversize),
         ]);
-        let error = w.err(W::open_command("list", None, None, Some(json!({"x": 1}))));
+        let error = w.err(W::open_command("rows", None, None, Some(json!({"x": 1}))));
         assert_refused(&error, &[("reason", "args_invalid"), ("field", "args")]);
         let error = w.err(W::open_command(
-            "list",
+            "rows",
             None,
             None,
             Some(json!({"count": 99})),
@@ -1000,9 +1000,9 @@ mod tests {
         assert_eq!(error.detail("limit"), Some(&json!(STATE_LIMIT)));
 
         // Отказ `reopen` существующего экземпляра ничего не меняет.
-        w.open("list", w.a);
+        w.open("rows", w.a);
         let error = w.err(W::open_command(
-            "list",
+            "rows",
             None,
             None,
             Some(json!({"count": 99})),
@@ -1193,7 +1193,7 @@ mod tests {
     fn field_from_list() -> (W, PanelId, PanelId, PanelId) {
         let mut w = W::new(vec![list(), field()]);
         let terminal = w.focused(w.a);
-        let (list, _) = w.open("list", w.a);
+        let (list, _) = w.open("rows", w.a);
         assert_eq!(w.focused(w.a), list);
         let outcome = w.ok(Command::LayoutSplit {
             panel: terminal,
@@ -1307,10 +1307,10 @@ mod tests {
     fn split_open_refuses_existing_singleton_and_creates_through_the_same_rule() {
         let mut w = W::new(vec![list()]);
         let terminal = w.focused(w.a);
-        let (panel, _) = w.open("list", w.a);
+        let (panel, _) = w.open("rows", w.a);
         let error = w.err(Command::LayoutSplit {
             panel: terminal,
-            open: Some("list".into()),
+            open: Some("rows".into()),
             axis: None,
         });
         assert_refused(&error, &[("reason", "singleton_exists"), ("field", "open")]);
@@ -1321,7 +1321,7 @@ mod tests {
         let CommandValue::Panel { panel: made } = w
             .ok(Command::LayoutSplit {
                 panel: other,
-                open: Some("list".into()),
+                open: Some("rows".into()),
                 axis: None,
             })
             .value
@@ -1330,19 +1330,19 @@ mod tests {
         };
         assert_eq!(w.state.panels[&made].title.as_str(), "Список");
         assert_eq!(w.count(made), json!(0));
-        assert_eq!(w.open("list", w.b), (made, OpenOutcome::Focused));
+        assert_eq!(w.open("rows", w.b), (made, OpenOutcome::Focused));
     }
 
     #[test]
     fn panel_command_applies_action_and_refuses_bad_requests() {
         let mut w = W::new(vec![list(), TestPlugin::new("plain")]);
-        let (panel, _) = w.open("list", w.a);
+        let (panel, _) = w.open("rows", w.a);
         let command = |name: &str, args: Option<Value>| Command::PanelCommand {
             panel,
             name: name.into(),
             args,
         };
-        let outcome = w.ok(command("list.add", Some(json!({"by": 2}))));
+        let outcome = w.ok(command("rows.add", Some(json!({"by": 2}))));
         assert_eq!(outcome.value, CommandValue::Panel { panel });
         assert_eq!(
             outcome.changes,
@@ -1353,21 +1353,21 @@ mod tests {
             }]
         );
         // Прежние данные — ответ без записи.
-        let outcome = w.ok(command("list.add", Some(json!({"by": 0}))));
+        let outcome = w.ok(command("rows.add", Some(json!({"by": 0}))));
         assert_eq!(outcome.value, CommandValue::Panel { panel });
         assert_eq!(outcome.changes, Vec::new());
 
-        let error = w.err(command("list.none", None));
+        let error = w.err(command("rows.none", None));
         assert_refused(&error, &[("reason", "command_unknown"), ("field", "name")]);
-        let error = w.err(command("list.add", None));
+        let error = w.err(command("rows.add", None));
         assert_refused(&error, &[("reason", "args_invalid"), ("field", "args")]);
-        let error = w.err(command("list.add", Some(json!({"by": 1, "x": 2}))));
+        let error = w.err(command("rows.add", Some(json!({"by": 1, "x": 2}))));
         assert_refused(&error, &[("reason", "args_invalid"), ("field", "args")]);
-        let error = w.err(command("list.add", Some(json!([1]))));
+        let error = w.err(command("rows.add", Some(json!([1]))));
         assert_refused(&error, &[("reason", "args_invalid"), ("field", "args")]);
-        let error = w.err(command("list.add", Some(json!({"by": 9}))));
+        let error = w.err(command("rows.add", Some(json!({"by": 9}))));
         assert_refused(&error, &[("reason", "count_out_of_range"), ("field", "by")]);
-        let error = w.err(command("list.pad", Some(json!({"size": STATE_LIMIT}))));
+        let error = w.err(command("rows.pad", Some(json!({"size": STATE_LIMIT}))));
         assert_refused(
             &error,
             &[("reason", "panel_state_too_large"), ("field", "args")],
@@ -1384,7 +1384,7 @@ mod tests {
         assert_refused(&error, &[("reason", "command_unknown"), ("field", "name")]);
         let error = w.err(Command::PanelCommand {
             panel: PanelId::from_bytes([9; 16]),
-            name: "list.add".into(),
+            name: "rows.add".into(),
             args: None,
         });
         assert_eq!(error.code(), ErrorCode::NotFound, "{error}");
@@ -1575,8 +1575,8 @@ mod tests {
             .iter()
             .map(|plugin| plugin.id.as_str())
             .collect();
-        assert_eq!(ids, ["terminal", "navigator", "list", "field"]);
-        assert_eq!(view.plugins[2].commands, ["list.add", "list.pad"]);
+        assert_eq!(ids, ["terminal", "navigator", "rows", "field"]);
+        assert_eq!(view.plugins[2].commands, ["rows.add", "rows.pad"]);
         assert_eq!(view.plugins[2].default_zone, Zone::Right);
         assert_eq!(view.plugins[3].cardinality, Cardinality::PerApp);
     }

@@ -56,7 +56,7 @@ pub use query::{
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
-pub use ui_command::{AppearanceChoice, ToggleTarget, UiCommand};
+pub use ui_command::{AppearanceChoice, ListAction, ToggleTarget, UiCommand};
 pub use wire::{Event, Reply, ReplyValue};
 
 /// Тестовая поддержка ядра, доступная только с функцией `test-support`.

@@ -33,7 +33,7 @@ use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView
 use shellio_core::{Command, PanelId, PluginId, State, layout_metrics};
 use shellio_layout::{Point, Rect, Viewport, Zone, ZoneMap};
 use shellio_plugin_api::Registry;
-use shellio_plugin_view::{Body, Done, PanelRequest, PluginView};
+use shellio_plugin_view::{Body, Done, Handled, PanelRequest, PluginView, ViewIntent};
 use shellio_theme::{AppTheme, KeyMode, Motion};
 
 use crate::window_ui;
@@ -247,6 +247,14 @@ impl LayoutUi {
         self.picker_panel
             .get()
             .and_then(|panel| self.plate_of(panel))
+    }
+
+    /// Намерение виду панели с фокусом. `None` — действовать не на что: рабочая область не
+    /// открыта, вид панели не показан или её плагин признак намерения не объявил.
+    pub fn intent(&mut self, intent: &ViewIntent) -> Option<Handled> {
+        let scene = self.scene.as_ref()?;
+        let panel = scene::intent_target(scene, &self.registry, intent)?;
+        self.bodies.intent(panel, intent)
     }
 
     /// Последняя применённая сцена.

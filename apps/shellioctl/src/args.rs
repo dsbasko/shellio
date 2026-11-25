@@ -16,8 +16,8 @@ use shellio_control::{
     KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, PanelId, ProjectId, Revision, SplitAxis, ToggleTarget, TreeScope,
-    UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, Command, ListAction, PanelId, ProjectId, Revision, SplitAxis, ToggleTarget,
+    TreeScope, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Dimension, Direction, Edge, Hideable, Zone};
 
@@ -68,6 +68,7 @@ pub const USAGE: &str = "\
   ui receipts [--after <номер>]
   ui cell [--contrast <normal|high|system>] [--motion <full|reduce|system>]
   ui appearance <light|dark|system|cycle>
+  ui list <down|up|top|bottom|page-down|page-up|collapse|expand|activate>
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -1182,6 +1183,17 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 return Err(usage(format!("{call}: нужен --contrast или --motion")));
             }
             Ok(Action::Ui(UiRequest::Cell { contrast, motion }))
+        }
+        "ui list" => {
+            given.only(call, &[])?;
+            let [step] = operands(call, rest)?;
+            let action = ListAction::parse(&step).ok_or_else(|| {
+                usage(format!(
+                    "{call}: ожидается down, up, top, bottom, page-down, page-up, collapse, expand \
+                     или activate, получено «{step}»"
+                ))
+            })?;
+            Ok(Action::Ui(UiRequest::Command(UiCommand::List(action))))
         }
         "ui appearance" => {
             given.only(call, &[])?;
@@ -2696,6 +2708,12 @@ mod tests {
             action_of(&["ui", "appearance", "cycle"]),
             Action::Ui(UiRequest::Command(UiCommand::AppearanceCycle))
         );
+        for action in ListAction::ALL {
+            assert_eq!(
+                action_of(&["ui", "list", action.as_str()]),
+                Action::Ui(UiRequest::Command(UiCommand::List(action)))
+            );
+        }
 
         let cases: &[(&[&str], &str)] = &[
             (

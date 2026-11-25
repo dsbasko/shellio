@@ -931,7 +931,7 @@ impl Race {
             Box::new(SequentialIds::new()),
             Arc::new(FakeRootResolver::new()),
             registry_of(vec![
-                TestPlugin::new("list")
+                TestPlugin::new("rows")
                     .cardinality(Cardinality::PerWorkbench)
                     .actions(),
             ]),
@@ -988,7 +988,7 @@ impl Race {
     fn split(&self) -> Command {
         Command::LayoutSplit {
             panel: self.terminal,
-            open: Some("list".into()),
+            open: Some("rows".into()),
             axis: None,
         }
     }
@@ -1077,8 +1077,8 @@ async fn racing_opens_of_singleton_with_same_context_give_one_panel_and_one_revi
         let race = Race::new().await.unwrap();
         let (one, two) = race
             .overlap(
-                (first, race.open("list", None)),
-                (second, race.open("list", None)),
+                (first, race.open("rows", None)),
+                (second, race.open("rows", None)),
             )
             .await
             .unwrap();
@@ -1100,8 +1100,8 @@ async fn racing_opens_with_different_context_keep_one_panel_and_data_of_the_late
         let race = Race::new().await.unwrap();
         let (one, two) = race
             .overlap(
-                (first, race.open("list", Some(1))),
-                (second, race.open("list", Some(2))),
+                (first, race.open("rows", Some(1))),
+                (second, race.open("rows", Some(2))),
             )
             .await
             .unwrap();
@@ -1157,8 +1157,8 @@ async fn failed_commit_of_first_open_lets_the_waiting_second_create_the_panel() 
         race.faults.fail_commit(commits + 1);
         let (one, two) = race
             .overlap(
-                (first, race.open("list", None)),
-                (second, race.open("list", None)),
+                (first, race.open("rows", None)),
+                (second, race.open("rows", None)),
             )
             .await
             .unwrap();
@@ -1184,7 +1184,7 @@ async fn racing_split_open_and_panel_open_give_one_panel_in_both_orders() {
         // Деление первым: `panel.open` находит его панель.
         let race = Race::new().await.unwrap();
         let (one, two) = race
-            .overlap((first, race.split()), (second, race.open("list", None)))
+            .overlap((first, race.split()), (second, race.open("rows", None)))
             .await
             .unwrap();
         let next = race.base.next();
@@ -1199,7 +1199,7 @@ async fn racing_split_open_and_panel_open_give_one_panel_in_both_orders() {
         // `panel.open` первым: деление отказывает `singleton_exists` с его панелью.
         let race = Race::new().await.unwrap();
         let (one, two) = race
-            .overlap((first, race.open("list", None)), (second, race.split()))
+            .overlap((first, race.open("rows", None)), (second, race.split()))
             .await
             .unwrap();
         let (panel, outcome, revision) = opened(&one).unwrap();

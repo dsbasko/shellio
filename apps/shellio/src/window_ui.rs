@@ -44,10 +44,10 @@ use shellio_control::{
     UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
-    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, Reply,
-    ToggleTarget, UiCommand, open_workbench,
+    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
+    Reply, ToggleTarget, UiCommand, open_workbench,
 };
-use shellio_plugin_view::PanelRequest;
+use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
 
@@ -1497,6 +1497,25 @@ fn on_toggle(app: &App, target: ToggleTarget, source: Option<ReceiptSource>) {
     }
 }
 
+/// Действие `list.*`: намерение виду панели с фокусом. Скрытое окно его не получает; панель без
+/// признака `list_keys` и вид, который намерение не принял, — действовать не на что.
+fn on_list(action: ListAction, source: Option<ReceiptSource>) {
+    let tag = source.map(|source| Sent::action(action.keymap_name(), source));
+    let handled = with_window(|owner| {
+        if !owner.window.is_visible() {
+            return None;
+        }
+        let intent = ViewIntent::List(bodies::list_move(action));
+        owner.layout.as_mut()?.intent(&intent)
+    })
+    .flatten();
+    let ending = match handled {
+        Some(Handled::Yes) => Ending::Done,
+        Some(Handled::No) | None => Ending::NotApplicable,
+    };
+    note_receipt(tag, ending);
+}
+
 /// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую
 /// в момент нажатия. Экземпляр ищет актор, завершение команды пишется в кольцо квитанций. Без
 /// открытой рабочей области пункт недоступен, и нажатие ничего не делает. Скрытое окно пункт не
@@ -1621,6 +1640,7 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
             done();
         }
         UiCommand::LayoutToggle(target) => on_toggle(app, target, source),
+        UiCommand::List(action) => on_list(action, source),
     }
 }
 
