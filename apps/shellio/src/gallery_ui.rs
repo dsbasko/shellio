@@ -8,7 +8,7 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 
 use shellio::gallery::{
-    self, Gallery, GalleryState, Intent, ListAction, MenuFixtureItem, StripHost, StripStatus,
+    self, Gallery, GalleryState, Intent, ListAction, MenuFixtureItem, Page, StripHost, StripStatus,
     StripZone, TabAction, TreeAction, TreeFixture, ids,
 };
 use shellio_appkit::{
@@ -43,6 +43,14 @@ struct Tree {
     watch: ViewWatch,
 }
 
+/// Дерево страницы «Калибровка»: лист материалов калибровки и маркер поколения.
+struct Calibration {
+    number: u64,
+    sheet: Surface,
+    marker: GenerationMarker,
+    watch: ViewWatch,
+}
+
 /// Освобождённое дерево: слабые ссылки на его объекты.
 struct Retired {
     number: u64,
@@ -56,6 +64,8 @@ type TreeKey = (u32, bool);
 pub struct GalleryUi {
     model: Gallery,
     tree: Option<Tree>,
+    /// Дерево страницы «Калибровка»: построено либо оно, либо `tree`.
+    calibration: Option<Calibration>,
     retired: VecDeque<Retired>,
     on_intent: Rc<dyn Fn(Intent)>,
     /// Строки списка последнего зерна: смена выбора не пересобирает набор.
@@ -76,6 +86,7 @@ impl GalleryUi {
         let mut gallery = GalleryUi {
             model: Gallery::new(),
             tree: None,
+            calibration: None,
             retired: VecDeque::new(),
             on_intent: Rc::new(on_intent),
             list_rows: RefCell::new(None),
@@ -93,11 +104,59 @@ impl GalleryUi {
         &mut self.model
     }
 
-    /// Строит дерево с номером модели по текущему состоянию галереи.
+    /// Страница, дерево которой построено.
+    pub fn built_page(&self) -> Option<Page> {
+        if self.calibration.is_some() {
+            Some(Page::Calibration)
+        } else {
+            self.tree.as_ref().map(|_| Page::Components)
+        }
+    }
+
+    /// Строит дерево с номером модели по текущему состоянию галереи: страница — из состояния.
     pub fn build(&mut self, app: &App, window: &MainWindow, generation: u64) {
         let selection = window.selection();
         let theme = selection.theme();
         let (width, height) = window.content_size();
+        match self.model.state().page {
+            Page::Components => {}
+            Page::Calibration => {
+                // Лист несёт фон материалов калибровки — заливку `--surface` ячейки.
+                let sheet = Surface::new(
+                    app,
+                    &theme,
+                    SurfaceSpec {
+                        fill: SurfaceFill::Surface,
+                        line: false,
+                        radius: SurfaceRadius::None,
+                        layer: FocusLayer::Plain,
+                    },
+                );
+                let marker = GenerationMarker::new(app, generation);
+                let marker_frame =
+                    gallery::layout(width, height, theme.metrics.titlebar, 0.0, 0.0, 0.0);
+                window.place(&marker, frame(marker_frame.marker));
+                window.place(
+                    &sheet,
+                    frame(gallery::calibration_sheet(
+                        width,
+                        height,
+                        theme.metrics.titlebar,
+                    )),
+                );
+                let mut watch = ViewWatch::new();
+                watch.watch(Piece::from(&marker));
+                watch.watch(Piece::from(&sheet));
+                self.calibration = Some(Calibration {
+                    number: self.model.tree(),
+                    sheet,
+                    marker,
+                    watch,
+                });
+                window.clear_focus();
+                return;
+            }
+        }
         let layout = gallery::layout(
             width,
             height,
@@ -262,15 +321,18 @@ impl GalleryUi {
     }
 
     fn retire(&mut self, window: &MainWindow, with_window: bool) {
-        let Some(tree) = self.tree.take() else {
-            return;
-        };
         // Ввод в поле заканчивается до того, как поле уходит из окна: вид поля, снятый посреди ввода,
         // оставляет клип-вид field editor живым после окна (`window-cycle` (в), P1.3).
         window.clear_focus();
-        let Tree {
-            number, mut watch, ..
-        } = tree;
+        let (number, mut watch) = if let Some(tree) = self.tree.take() {
+            let Tree { number, watch, .. } = tree;
+            (number, watch)
+        } else if let Some(page) = self.calibration.take() {
+            let Calibration { number, watch, .. } = page;
+            (number, watch)
+        } else {
+            return;
+        };
         if with_window {
             watch.watch_window(window);
         }
@@ -282,6 +344,9 @@ impl GalleryUi {
 
     /// Компоненты получают ячейку и движение. Возвращает смены полос для журнала анимаций.
     pub fn set_theme(&self, theme: &AppTheme, motion: Motion) -> Vec<(&'static str, Transition)> {
+        if let Some(page) = &self.calibration {
+            page.sheet.set_theme(theme);
+        }
         let Some(tree) = &self.tree else {
             return Vec::new();
         };
@@ -431,6 +496,9 @@ impl GalleryUi {
             tree.marker.set_generation(generation);
             tree.list.set_generation(generation);
         }
+        if let Some(page) = &self.calibration {
+            page.marker.set_generation(generation);
+        }
     }
 
     /// Ряд задержек клавиш списка: нажатия серии с первой отрисовкой списка в поколении их выбора
@@ -560,6 +628,11 @@ impl GalleryUi {
 
     /// Узлы галереи для `ui.inspect`.
     pub fn inspect(&self) -> Vec<InspectNode> {
+        if let Some(page) = &self.calibration {
+            let mut nodes = page.marker.inspect(ids::MARKER, None);
+            nodes.extend(page.sheet.inspect(ids::CALIBRATION, None));
+            return nodes;
+        }
         let Some(tree) = &self.tree else {
             return Vec::new();
         };
@@ -582,7 +655,10 @@ impl GalleryUi {
 
     /// Номер текущего дерева.
     pub fn tree_number(&self) -> Option<u64> {
-        self.tree.as_ref().map(|tree| tree.number)
+        self.tree
+            .as_ref()
+            .map(|tree| tree.number)
+            .or_else(|| self.calibration.as_ref().map(|page| page.number))
     }
 
     /// Прежние деревья для `ui.stats`.

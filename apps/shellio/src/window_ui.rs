@@ -543,6 +543,10 @@ impl OwnerWindow {
                 }
             }
             Effect::Reset => {
+                // Сброс со страницы «Калибровка» возвращает сцену компонентов новым деревом.
+                if gallery.built_page() != Some(gallery.model().state().page) {
+                    gallery.rebuild(app, &self.window, generation);
+                }
                 self.window.set_overrides(self.overrides());
                 let motion = self.window.selection().motion;
                 if let Some(gallery) = &self.gallery {
@@ -558,6 +562,7 @@ impl OwnerWindow {
             Effect::ListScroll(row) => gallery.scroll_list(row),
             Effect::ListTicks => gallery.apply_list_ticks(),
             Effect::Tree => gallery.show_tree(),
+            Effect::Page => {}
         }
         self.sync_theme();
         self.publish();

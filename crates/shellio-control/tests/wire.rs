@@ -211,6 +211,7 @@ fn request_golden_static(request: &Request) -> &'static str {
             GalleryCommand::ListScroll { .. } => "request.ui.gallery_list_scroll",
             GalleryCommand::ListTicks { .. } => "request.ui.gallery_list_ticks",
             GalleryCommand::TreeMutate { .. } => "request.ui.gallery_tree_mutate",
+            GalleryCommand::Calibration => "request.ui.gallery_calibration",
         },
     }
 }
@@ -455,6 +456,11 @@ fn requests() -> Vec<Request> {
         request(41, RequestBody::Query(Query::Plugins {})),
         // P1.5, задача 10: чтение квитанций `panel.open` главного потока.
         request(42, RequestBody::Ui(UiRequest::Receipts { after: Some(1) })),
+        // Сверка с прототипом, задача 9: страница «Калибровка» галереи.
+        request(
+            44,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Calibration)),
+        ),
     ])
     .collect()
 }

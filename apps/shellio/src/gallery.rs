@@ -56,6 +56,7 @@ pub mod ids {
     pub const TABS_WIDE: &str = "gallery.tabs.wide";
     pub const LIST: &str = "gallery.list";
     pub const TREE: &str = "gallery.tree";
+    pub const CALIBRATION: &str = "gallery.calibration";
 
     /// Идентификатор полосы вкладок.
     pub const fn strip(strip: shellio_control::GalleryStrip) -> &'static str {
@@ -518,9 +519,20 @@ impl Intent {
     }
 }
 
+/// Страница окна галереи.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Page {
+    /// Сцена компонентов P1.3.
+    Components,
+    /// Материалы калибровки допусков сверки (`gallery.calibration`, ADR-0037).
+    Calibration,
+}
+
 /// Состояние галереи, которое `gallery.reset` возвращает к фикстуре.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GalleryState {
+    /// Страница окна: дерево видов строится по ней.
+    pub page: Page,
     /// Переопределения галереи по осям; `None` — ось следует выбору оформления или системе.
     pub appearance: Option<Appearance>,
     pub contrast: Option<Contrast>,
@@ -557,6 +569,7 @@ impl GalleryState {
 
     pub fn fixture() -> GalleryState {
         GalleryState {
+            page: Page::Components,
             appearance: None,
             contrast: None,
             motion: None,
@@ -633,6 +646,7 @@ pub enum Effect {
     /// Перенести окно на экран.
     Place(u32),
     /// Состояние вернулось к фикстуре: тема, поле, фокус, меню и полосы приводятся к нему.
+    /// Дерево другой страницы вид перед этим заменяет деревом сцены компонентов.
     Reset,
     /// Выбор вкладки полосы изменился.
     Tabs(GalleryStrip),
@@ -644,6 +658,8 @@ pub enum Effect {
     ListTicks,
     /// Узлы, раскрытие или выбор дерева изменились.
     Tree,
+    /// Запрошенная страница уже показана: вид не меняется.
+    Page,
 }
 
 /// Часть вида, которую намерение изменило.
@@ -735,8 +751,21 @@ impl Gallery {
                 Effect::Place(screen)
             }
             GalleryCommand::Reset => {
+                // Смена страницы строит новое дерево: его номер в `ui.stats` не повторяется.
+                if self.state.page != Page::Components {
+                    self.tree += 1;
+                }
                 self.state = GalleryState::fixture();
                 Effect::Reset
+            }
+            GalleryCommand::Calibration => {
+                if self.state.page == Page::Calibration {
+                    Effect::Page
+                } else {
+                    self.state.page = Page::Calibration;
+                    self.tree += 1;
+                    Effect::Rebuild
+                }
             }
             GalleryCommand::TabsSelect { strip, tab } => {
                 // Номер за пределами фикстуры выбора не меняет: полоса остаётся прежней.
@@ -932,6 +961,19 @@ impl Layout {
     }
 }
 
+/// Лист страницы «Калибровка» в содержимом `width`×`height` под заголовком высотой `titlebar`:
+/// справа от маркера поколения до отступа у краёв. Края — на целых точках.
+pub fn calibration_sheet(width: f64, height: f64, titlebar: f64) -> Rect {
+    let top = titlebar + PAD;
+    let left = PAD + MARKER_SIZE + PAD;
+    Rect::new(
+        left,
+        top,
+        (width - left - PAD).floor().max(0.0),
+        (height - top - PAD).floor().max(0.0),
+    )
+}
+
 /// Раскладка для содержимого `width`×`height` под заголовком высотой `titlebar`, поля высотой
 /// `field_height`, полосы вкладок высотой `tabbar` и строки списка высотой `row`. Маркер стоит в левом верхнем углу под
 /// заголовком: вдали от скруглённых углов окна и от кнопок заголовка. Полосы `side` и `center`
@@ -1019,7 +1061,51 @@ mod tests {
             GalleryCommand::TreeMutate {
                 op: TreeMutation::Insert,
             },
+            GalleryCommand::Calibration,
         ]
+    }
+
+    #[test]
+    fn calibration_sheet_stays_inside_the_content_right_of_the_marker() {
+        let sheet = calibration_sheet(1180.0, 720.0, 40.0);
+        let marker = layout(1180.0, 720.0, 40.0, 28.0, 34.0, 24.0).marker;
+        assert!(Rect::new(0.0, 40.0, 1180.0, 680.0).contains(&sheet));
+        assert!(!sheet.intersects(&marker));
+        assert_eq!(sheet.y, marker.y);
+        assert_eq!(calibration_sheet(10.0, 10.0, 40.0).width, 0.0);
+    }
+
+    #[test]
+    fn calibration_page_replaces_the_scene_until_reset() {
+        let mut gallery = Gallery::new();
+        let mut generation = Generation::default();
+        assert_eq!(gallery.state().page, Page::Components);
+        assert_eq!(
+            gallery.apply(GalleryCommand::Calibration, &mut generation),
+            Effect::Rebuild
+        );
+        assert_eq!(gallery.state().page, Page::Calibration);
+        assert_eq!((gallery.tree(), generation.get()), (2, 1));
+        // Повтор страницу не строит заново, но поколение растёт, как у любой команды.
+        assert_eq!(
+            gallery.apply(GalleryCommand::Calibration, &mut generation),
+            Effect::Page
+        );
+        assert_eq!((gallery.tree(), generation.get()), (2, 2));
+        // Пересборка и новое окно страницу не меняют.
+        gallery.apply(GalleryCommand::Rebuild, &mut generation);
+        gallery.apply(GalleryCommand::WindowRecreate, &mut generation);
+        assert_eq!(gallery.state().page, Page::Calibration);
+        assert_eq!(gallery.tree(), 4);
+        assert_eq!(
+            gallery.apply(GalleryCommand::Reset, &mut generation),
+            Effect::Reset
+        );
+        assert_eq!(gallery.state().page, Page::Components);
+        assert_eq!(gallery.tree(), 5);
+        // Сброс сцены компонентов дерево не трогает.
+        gallery.apply(GalleryCommand::Reset, &mut generation);
+        assert_eq!(gallery.tree(), 5);
     }
 
     #[test]
@@ -1040,13 +1126,19 @@ mod tests {
             seen.windows(2).all(|pair| pair[0] < pair[1]),
             "поколения: {seen:?}"
         );
-        // Сброс возвращает состояние к фикстуре, но не номера дерева и окна.
-        let before = (gallery.tree(), gallery.window());
+        // Сброс возвращает состояние к фикстуре, но не номера дерева и окна: со страницы
+        // «Калибровка» он строит сцену компонентов новым деревом, со сцены дерево не трогает.
+        assert_eq!(gallery.state().page, Page::Calibration);
+        assert_eq!(
+            gallery.tree(),
+            12,
+            "три пересборки, три пересоздания окна, три страницы «Калибровка» и два возврата"
+        );
         gallery.apply(GalleryCommand::Reset, &mut generation);
         assert_eq!(gallery.state(), &GalleryState::fixture());
-        assert_eq!((gallery.tree(), gallery.window()), before);
-        assert_eq!(gallery.tree(), 7, "три пересборки и три пересоздания окна");
-        assert_eq!(gallery.window(), 4);
+        assert_eq!((gallery.tree(), gallery.window()), (13, 4));
+        gallery.apply(GalleryCommand::Reset, &mut generation);
+        assert_eq!((gallery.tree(), gallery.window()), (13, 4));
     }
 
     #[test]
@@ -1076,6 +1168,7 @@ mod tests {
                 Effect::ListTicks,
                 Effect::Focus(GalleryFocus::Tree),
                 Effect::Tree,
+                Effect::Rebuild,
             ]
         );
 

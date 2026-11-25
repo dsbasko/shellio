@@ -130,6 +130,9 @@ pub enum GalleryCommand {
     ListTicks { enabled: bool },
     /// `gallery.tree.mutate`: изменить дерево галереи; раскрытие и выбор следуют за узлами.
     TreeMutate { op: TreeMutation },
+    /// `gallery.calibration`: показать страницу «Калибровка» вместо сцены компонентов;
+    /// `gallery.reset` возвращает сцену.
+    Calibration,
 }
 
 impl GalleryCommand {
@@ -149,6 +152,7 @@ impl GalleryCommand {
             Self::ListScroll { .. } => "gallery.list.scroll",
             Self::ListTicks { .. } => "gallery.list.ticks",
             Self::TreeMutate { .. } => "gallery.tree.mutate",
+            Self::Calibration => "gallery.calibration",
         }
     }
 }
@@ -405,6 +409,8 @@ enum WireUiRequest {
     GalleryListTicks(ListTicksArgs),
     #[serde(rename = "gallery.tree.mutate")]
     GalleryTreeMutate(TreeMutateArgs),
+    #[serde(rename = "gallery.calibration")]
+    GalleryCalibration(NoArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -457,6 +463,9 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::GalleryTreeMutate(TreeMutateArgs { op }) => {
                 Self::Gallery(GalleryCommand::TreeMutate { op })
             }
+            WireUiRequest::GalleryCalibration(NoArgs {}) => {
+                Self::Gallery(GalleryCommand::Calibration)
+            }
         }
     }
 }
@@ -502,6 +511,7 @@ impl From<UiRequest> for WireUiRequest {
                     Self::GalleryListTicks(ListTicksArgs { enabled })
                 }
                 GalleryCommand::TreeMutate { op } => Self::GalleryTreeMutate(TreeMutateArgs { op }),
+                GalleryCommand::Calibration => Self::GalleryCalibration(NoArgs {}),
             },
         }
     }
@@ -1550,6 +1560,11 @@ mod tests {
                 "gallery.tree.mutate",
                 true,
             ),
+            (
+                UiRequest::Gallery(GalleryCommand::Calibration),
+                "gallery.calibration",
+                true,
+            ),
         ];
         // Номер варианта без `_`: новый вариант не соберётся, пока его нет здесь, а проверка ниже
         // требует его строки в таблице.
@@ -1567,6 +1582,7 @@ mod tests {
             GalleryCommand::ListScroll { .. } => 10,
             GalleryCommand::TreeMutate { .. } => 11,
             GalleryCommand::ListTicks { .. } => 12,
+            GalleryCommand::Calibration => 13,
         };
         let covered: std::collections::BTreeSet<usize> = cases
             .iter()
@@ -1575,7 +1591,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(covered, (0..13).collect());
+        assert_eq!(covered, (0..14).collect());
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
             assert_eq!(request.is_mutation(), mutation, "{name}");
@@ -1620,6 +1636,8 @@ mod tests {
             json!({"gallery.place": {"screen": -1}}),
             json!({"gallery.place": {}}),
             json!({"gallery.reset": {"seed": 1}}),
+            json!({"gallery.calibration": {"page": 1}}),
+            json!({"gallery.calibration": null}),
             json!({"gallery.tabs.select": {"strip": "top", "tab": 0}}),
             json!({"gallery.tabs.select": {"strip": "side", "tab": -1}}),
             json!({"gallery.tabs.select": {"strip": "side"}}),

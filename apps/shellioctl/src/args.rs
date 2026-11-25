@@ -77,6 +77,7 @@ pub const USAGE: &str = "\
   gallery list scroll <номер строки>
   gallery list ticks <on|off>
   gallery tree mutate <insert|reorder|collapse_parent_of_selected>
+  gallery calibration
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 Зона — left, right, center или bottom. Размер у layout resize — точки зоны, с --part-of — доля
@@ -1073,13 +1074,13 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
             }
         }
-        "gallery rebuild" | "gallery reset" => {
+        "gallery rebuild" | "gallery reset" | "gallery calibration" => {
             given.only(call, &[])?;
             operands::<0>(call, rest)?;
-            Ok(gallery(if call == "gallery rebuild" {
-                GalleryCommand::Rebuild
-            } else {
-                GalleryCommand::Reset
+            Ok(gallery(match call {
+                "gallery rebuild" => GalleryCommand::Rebuild,
+                "gallery reset" => GalleryCommand::Reset,
+                _ => GalleryCommand::Calibration,
             }))
         }
         "gallery tabs" => {
@@ -1562,6 +1563,10 @@ mod tests {
             action_of(&["gallery", "reset"]),
             gallery(GalleryCommand::Reset)
         );
+        assert_eq!(
+            action_of(&["gallery", "calibration"]),
+            gallery(GalleryCommand::Calibration)
+        );
         for strip in GalleryStrip::ALL {
             assert_eq!(
                 action_of(&["gallery", "tabs", "select", strip.as_str(), "7"]),
@@ -1594,7 +1599,7 @@ mod tests {
 
     #[test]
     fn gallery_calls_check_operands() {
-        let cases: [(&[&str], &str); 19] = [
+        let cases: [(&[&str], &str); 20] = [
             (&["gallery"], "не указано действие"),
             (&["gallery", "cell", "light"], "операндов"),
             (
@@ -1635,12 +1640,15 @@ mod tests {
             (&["gallery", "window", "close"], "неизвестный вызов"),
             (&["gallery", "place", "первый"], "номер экрана"),
             (&["gallery", "reset", "now"], "операндов"),
+            (&["gallery", "calibration", "text"], "операндов"),
         ];
         for (args, expected) in cases {
             let message = refused(args);
             assert!(message.contains(expected), "{args:?}: {message}");
         }
         let message = refused(&["gallery", "reset", "--all"]);
+        assert!(message.contains("не применим"), "{message}");
+        let message = refused(&["gallery", "calibration", "--all"]);
         assert!(message.contains("не применим"), "{message}");
     }
 
