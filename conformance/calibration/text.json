@@ -1,0 +1,392 @@
+{
+  "schema": 1,
+  "purpose": "Корпус калибровки допуска ширины текста (план prototype-conformance, раздел «Калибровка допусков»). Закреплён до любого замера и после него не меняется.",
+  "measure": {
+    "prototype": "Chrome при DPR 2: ширина Range по тексту строки в span без отступов, рамки и переноса (white-space: pre), шрифт, начертание, кегль и разрядка — из стиля строки",
+    "product": "AppKit: NSAttributedString.size тем же способом набора, что у читаемых подписей shellio-appkit, с теми же шрифтом, начертанием, кеглем и разрядкой (NSKern = tracking_em × size)",
+    "unit": "pt"
+  },
+  "cases": "каждая строка strings в каждом стиле styles",
+  "tolerance": {
+    "rule": "наибольшая по случаям половины fit абсолютная разница ширины прототипа и продукта плюс 0.5",
+    "margin_pt": 0.5,
+    "fit_half": "fit",
+    "holdout_half": "holdout",
+    "holdout_must_pass": true,
+    "applies_to": "только ширина кадра, которую задаёт набранный текст; отступы, фиксированная ширина и остальные стороны кадра судятся своими правилами"
+  },
+  "families": {
+    "ui": {
+      "prototype": "var(--ui) из prototype/css/tokens.css (-apple-system первым)",
+      "product": "системный шрифт NSFont.systemFontOfSize:weight:"
+    },
+    "mono": {
+      "prototype": "var(--mono) из prototype/css/tokens.css, @font-face JetBrains Mono из prototype/fonts/",
+      "product": "JetBrains Mono из Contents/Resources/Fonts/ бандла",
+      "single_font": "все знаки корпуса, включая кириллицу и ⌘ ⌥ ⇧ → · × —, есть в cmap всех четырёх начертаний JetBrains Mono 2.304: строки mono набираются одним шрифтом"
+    }
+  },
+  "fallback": "у строк ui со знаками клавиш (тег key) движок может взять знак из запасного шрифта; съём записывает все шрифты строки с числом глифов, случай измеряется как есть и входит в свою половину",
+  "styles": [
+    {
+      "id": "ui-400-11.5",
+      "family": "ui",
+      "weight": 400,
+      "size": 11.5,
+      "tracking_em": 0,
+      "token": "--t-meta"
+    },
+    {
+      "id": "ui-400-12",
+      "family": "ui",
+      "weight": 400,
+      "size": 12,
+      "tracking_em": 0,
+      "token": "--t-sm"
+    },
+    {
+      "id": "ui-500-12.5",
+      "family": "ui",
+      "weight": 500,
+      "size": 12.5,
+      "tracking_em": 0,
+      "token": "--t-tab"
+    },
+    {
+      "id": "ui-400-13",
+      "family": "ui",
+      "weight": 400,
+      "size": 13,
+      "tracking_em": 0,
+      "token": "--t-body"
+    },
+    {
+      "id": "ui-600-13",
+      "family": "ui",
+      "weight": 600,
+      "size": 13,
+      "tracking_em": 0,
+      "token": "--t-body"
+    },
+    {
+      "id": "ui-600-15",
+      "family": "ui",
+      "weight": 600,
+      "size": 15,
+      "tracking_em": 0,
+      "token": "--t-title"
+    },
+    {
+      "id": "ui-600-20",
+      "family": "ui",
+      "weight": 600,
+      "size": 20,
+      "tracking_em": 0,
+      "token": "--t-large"
+    },
+    {
+      "id": "ui-600-11-track-0.06",
+      "family": "ui",
+      "weight": 600,
+      "size": 11,
+      "tracking_em": 0.06,
+      "token": "--t-cap",
+      "source": "prototype/css/app.css: подписи разделов .sect, .sec, .ws — font-weight: 600; letter-spacing: .06em"
+    },
+    {
+      "id": "ui-700-11-track-0.08",
+      "family": "ui",
+      "weight": 700,
+      "size": 11,
+      "tracking_em": 0.08,
+      "token": "--t-cap",
+      "source": "prototype/css/app.css: плашка режима .mode — font-weight: 700; letter-spacing: .08em"
+    },
+    {
+      "id": "mono-400-10.5",
+      "family": "mono",
+      "weight": 400,
+      "size": 10.5,
+      "tracking_em": 0,
+      "token": null,
+      "source": "prototype/css/app.css: kbd { font-size: 10.5px; font-weight: 400 } — плашка клавиши, кегль вне токенов --t-*"
+    },
+    {
+      "id": "mono-700-11",
+      "family": "mono",
+      "weight": 700,
+      "size": 11,
+      "tracking_em": 0,
+      "token": null,
+      "source": "prototype/css/app.css: .hint { font: 700 11px/16px var(--mono) } — метки P1.6, кегль задан числом, равен --t-cap"
+    },
+    {
+      "id": "mono-400-12",
+      "family": "mono",
+      "weight": 400,
+      "size": 12,
+      "tracking_em": 0,
+      "token": "--t-sm"
+    },
+    {
+      "id": "mono-500-12",
+      "family": "mono",
+      "weight": 500,
+      "size": 12,
+      "tracking_em": 0,
+      "token": "--t-sm"
+    },
+    {
+      "id": "mono-600-12",
+      "family": "mono",
+      "weight": 600,
+      "size": 12,
+      "tracking_em": 0,
+      "token": "--t-sm"
+    },
+    {
+      "id": "mono-400-13",
+      "family": "mono",
+      "weight": 400,
+      "size": 13,
+      "tracking_em": 0,
+      "token": "--t-body"
+    }
+  ],
+  "strings": [
+    {
+      "id": "l1-latin",
+      "length": 1,
+      "half": "fit",
+      "text": "W",
+      "tags": [
+        "latin"
+      ]
+    },
+    {
+      "id": "l1-cyrillic",
+      "length": 1,
+      "half": "fit",
+      "text": "ж",
+      "tags": [
+        "cyrillic"
+      ]
+    },
+    {
+      "id": "l1-key",
+      "length": 1,
+      "half": "fit",
+      "text": "⌘",
+      "tags": [
+        "key"
+      ]
+    },
+    {
+      "id": "l1-cyrillic-caps",
+      "length": 1,
+      "half": "holdout",
+      "text": "Ш",
+      "tags": [
+        "cyrillic"
+      ]
+    },
+    {
+      "id": "l1-latin-narrow",
+      "length": 1,
+      "half": "holdout",
+      "text": "i",
+      "tags": [
+        "latin"
+      ]
+    },
+    {
+      "id": "l1-digit",
+      "length": 1,
+      "half": "holdout",
+      "text": "7",
+      "tags": [
+        "digit"
+      ]
+    },
+    {
+      "id": "l4-kern-latin",
+      "length": 4,
+      "half": "fit",
+      "text": "AVTo",
+      "tags": [
+        "latin",
+        "kerning"
+      ]
+    },
+    {
+      "id": "l4-cyrillic",
+      "length": 4,
+      "half": "fit",
+      "text": "Файл",
+      "tags": [
+        "cyrillic"
+      ]
+    },
+    {
+      "id": "l4-digits",
+      "length": 4,
+      "half": "fit",
+      "text": "2026",
+      "tags": [
+        "digit"
+      ]
+    },
+    {
+      "id": "l4-kern-cyrillic",
+      "length": 4,
+      "half": "holdout",
+      "text": "Туча",
+      "tags": [
+        "cyrillic",
+        "kerning"
+      ]
+    },
+    {
+      "id": "l4-latin",
+      "length": 4,
+      "half": "holdout",
+      "text": "main",
+      "tags": [
+        "latin"
+      ]
+    },
+    {
+      "id": "l4-keys",
+      "length": 4,
+      "half": "holdout",
+      "text": "⌥⇧⌘K",
+      "tags": [
+        "key",
+        "latin"
+      ]
+    },
+    {
+      "id": "l12-cyrillic",
+      "length": 12,
+      "half": "fit",
+      "text": "Открыть файл",
+      "tags": [
+        "cyrillic"
+      ]
+    },
+    {
+      "id": "l12-kern-latin",
+      "length": 12,
+      "half": "fit",
+      "text": "LTAVYoWaTyPj",
+      "tags": [
+        "latin",
+        "kerning"
+      ]
+    },
+    {
+      "id": "l12-digits",
+      "length": 12,
+      "half": "fit",
+      "text": "12:45 — 3,71",
+      "tags": [
+        "digit"
+      ]
+    },
+    {
+      "id": "l12-keys",
+      "length": 12,
+      "half": "holdout",
+      "text": "Поиск ⌘K ⇧⌥0",
+      "tags": [
+        "cyrillic",
+        "key",
+        "digit"
+      ]
+    },
+    {
+      "id": "l12-latin",
+      "length": 12,
+      "half": "holdout",
+      "text": "Terminal 1.2",
+      "tags": [
+        "latin",
+        "digit"
+      ]
+    },
+    {
+      "id": "l12-caps",
+      "length": 12,
+      "half": "holdout",
+      "text": "ГОТОВО 100 %",
+      "tags": [
+        "cyrillic",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-cyrillic",
+      "length": 40,
+      "half": "fit",
+      "text": "Не хватает места: нужно 260×160, будет 9",
+      "tags": [
+        "cyrillic",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-latin",
+      "length": 40,
+      "half": "fit",
+      "text": "The quick brown fox jumps over 123456789",
+      "tags": [
+        "latin",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-mixed-keys",
+      "length": 40,
+      "half": "fit",
+      "text": "Вид → Открыть панель ⌥⌘0 · Terminal 1234",
+      "tags": [
+        "cyrillic",
+        "latin",
+        "key",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-cyrillic-2",
+      "length": 40,
+      "half": "holdout",
+      "text": "Нет открытых панелей: откройте панель 42",
+      "tags": [
+        "cyrillic",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-kern-latin",
+      "length": 40,
+      "half": "holdout",
+      "text": "WAVY Typography: AV To Ta Yo LT 01234567",
+      "tags": [
+        "latin",
+        "kerning",
+        "digit"
+      ]
+    },
+    {
+      "id": "l40-caps-keys",
+      "length": 40,
+      "half": "holdout",
+      "text": "РАСХОЖДЕНИЕ 3,65:1 ⇧⌘K ПАНЕЛЬ БЕЗ ФОКУСА",
+      "tags": [
+        "cyrillic",
+        "key",
+        "digit"
+      ]
+    }
+  ]
+}
