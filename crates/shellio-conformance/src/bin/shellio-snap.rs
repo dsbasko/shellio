@@ -21,8 +21,9 @@ use serde_json::{Value, json};
 use shellio_conformance::cdp;
 use shellio_conformance::fields::ElementKind;
 use shellio_conformance::mask::PixelClip;
-use shellio_conformance::passport::{Cell, Passport, Window};
+use shellio_conformance::passport::{Cell, Passport, Window, canonical_json};
 use shellio_conformance::recipe::Recipe;
+use shellio_conformance::registry::Inventory;
 use shellio_conformance::registry::Registry;
 use shellio_conformance::registry::Surface;
 use shellio_conformance::scene::Scene;
@@ -439,6 +440,35 @@ fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String
     })
 }
 
+/// `inventory --chrome <c> --root <р> --out <файл>`: инвентарь обычного мира прототипа
+/// (`?conformance=1` без `load`) — id зарегистрированных сценариев и плагины с размещениями — со
+/// штампом `prototype/`, канонической записью.
+fn inventory(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
+    let index = fs::canonicalize(root.join("prototype/index.html")).map_err(|e| e.to_string())?;
+    let (_browser, mut cdp) = open_page(chrome)?;
+    cdp.call("Network.enable", json!({}))?;
+    cdp.call(
+        "Network.setBlockedURLs",
+        json!({"urls": ["http://*", "https://*"]}),
+    )?;
+    cdp.call("Page.enable", json!({}))?;
+    cdp.call(
+        "Page.navigate",
+        json!({"url": format!("file://{}?conformance=1", index.display())}),
+    )?;
+    cdp.wait_event("Page.loadEventFired")?;
+    cdp.eval("window.conformance.settle()")?;
+    let mut value = cdp.eval("window.conformance.inventory()")?;
+    let stamp = Inputs::from_root(root)
+        .map_err(|e| e.to_string())?
+        .prototype;
+    value["prototype"] = json!(stamp);
+    let text = serde_json::to_string(&value).map_err(|e| e.to_string())?;
+    Inventory::parse("инвентарь", &text).map_err(|e| e.to_string())?;
+    let canonical = canonical_json(&value).map_err(|e| e.to_string())?;
+    fs::write(out, canonical).map_err(|e| format!("{}: {e}", out.display()))
+}
+
 fn read_registry(root: &Path) -> Result<Registry, String> {
     let path = root.join("conformance/registry.toml");
     let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -512,6 +542,23 @@ fn main() -> ExitCode {
             }
             _ => {
                 eprintln!("shellio-snap: world --chrome <c> --index <index.html> --out <каталог>");
+                ExitCode::from(2)
+            }
+        };
+    }
+    if all.first().map(String::as_str) == Some("inventory") {
+        return match all.get(1..).unwrap_or_default() {
+            [c, chrome, r, root, o, out] if c == "--chrome" && r == "--root" && o == "--out" => {
+                match inventory(Path::new(chrome), Path::new(root), Path::new(out)) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("shellio-snap: {e}");
+                        ExitCode::from(1)
+                    }
+                }
+            }
+            _ => {
+                eprintln!("shellio-snap: inventory --chrome <c> --root <репозиторий> --out <файл>");
                 ExitCode::from(2)
             }
         };

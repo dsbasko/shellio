@@ -1,8 +1,683 @@
 # Реестр состояний сверки с прототипом (ADR-0037, «Реестр»): назначения, состояния и исключения.
 
+# Состояния: построенное в P1.3–P1.5 на сцене p15, каждое в четырёх ячейках.
+
 [[state]]
 id = "chrome-titlebar"
 step = "P1.3"
 surface = "titlebar"
 scene = "p15"
 recipe = "chrome-titlebar"
+
+[[state]]
+id = "chrome-statusline"
+step = "P1.3"
+surface = "statusline"
+scene = "p15"
+recipe = "chrome-statusline"
+
+[[state]]
+id = "layout-default"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-default"
+
+[[state]]
+id = "layout-all-zones"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-all-zones"
+
+[[state]]
+id = "layout-left-plate"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-left-plate"
+
+[[state]]
+id = "layout-split-right"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-split-right"
+scenarios = ["split-right"]
+
+[[state]]
+id = "layout-split-center"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-split-center"
+
+[[state]]
+id = "layout-split-bottom"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-split-bottom"
+scenarios = ["split-bottom"]
+
+[[state]]
+id = "layout-zoom"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-zoom"
+
+[[state]]
+id = "tabs-side"
+step = "P1.3"
+surface = "layout"
+scene = "p15"
+recipe = "tabs-side"
+
+[[state]]
+id = "tabs-center"
+step = "P1.3"
+surface = "layout"
+scene = "p15"
+recipe = "tabs-center"
+
+[[state]]
+id = "tabs-half"
+step = "P1.3"
+surface = "layout"
+scene = "p15"
+recipe = "tabs-half"
+
+[[state]]
+id = "tabs-wide"
+step = "P1.3"
+surface = "layout"
+scene = "p15"
+recipe = "tabs-wide"
+
+[[state]]
+id = "layout-stub"
+step = "P1.4"
+surface = "layout"
+scene = "p15"
+recipe = "layout-stub"
+scenarios = ["narrow"]
+
+[[state]]
+id = "layout-empty-workbench"
+step = "P1.5"
+surface = "layout"
+scene = "p15"
+recipe = "layout-empty-workbench"
+
+[[state]]
+id = "menu-panel"
+step = "P1.4"
+surface = "menu"
+scene = "p15"
+recipe = "menu-panel"
+
+[[state]]
+id = "picker-new-part"
+step = "P1.5"
+surface = "picker"
+scene = "p15"
+recipe = "picker-new-part"
+
+[[state]]
+id = "status-split-no-room"
+step = "P1.4"
+surface = "statusline"
+scene = "p15"
+recipe = "status-split-no-room"
+
+# Исключения: таблица «Исключения этого плана» плана prototype-conformance.
+
+[[exception]]
+states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["frame", "radius"]
+adr = "ADR-0023"
+reason = "Кнопки окна системные: кадр и диаметр задаёт macOS"
+[exception.scope]
+keys = ["chrome.window.*"]
+
+[[exception]]
+states = ["chrome-titlebar", "layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["frame_x"]
+adr = "ADR-0023"
+reason = "Начало кнопки воркспейса следует за системными кнопками окна: 81 против 84"
+[exception.scope]
+keys = ["chrome.workspace"]
+
+[[exception]]
+states = ["menu-panel"]
+fields = ["frame", "font", "color", "fill", "line_color", "radius", "shadow"]
+adr = "ADR-0023"
+reason = "Раскрытое меню — системный NSMenu: название, порядок и доступность пунктов сверяются по ui.inspect"
+[exception.scope]
+keys = ["*.menu.item.*"]
+
+[[exception]]
+fields = ["all"]
+adr = "ADR-0037"
+reason = "Галерея компонентов P1.3: состояний галереи в реестре нет"
+[exception.scope]
+mode = "gallery"
+
+[[exception]]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["all"]
+adr = "ADR-0037"
+reason = "Тела демо-плагинов P1.5 в прототипе пустые: сверяются плитка, строка вкладок, вуаль и заглушка"
+[exception.scope]
+plugin = "demo-*"
+body = "ready"
+
+[[exception]]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["icon_name", "icon_mask"]
+adr = "ADR-0037"
+reason = "Значки демо-плагинов — символы SF вне набора P: размер и место значка сверяются"
+[exception.scope]
+plugin = "demo-*"
+keys = ["*.tabs.tab.*.icon"]
+
+[[exception]]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["all"]
+adr = "ADR-0037"
+reason = "Нейтральная карточка навигатора P1.4: тело строит P1.7"
+owner = "P1.7"
+[exception.scope]
+plugin = "navigator"
+body = "ready"
+
+[[exception]]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["all"]
+adr = "ADR-0037"
+reason = "Нейтральная карточка терминала P1.4: тело строит P2.2"
+owner = "P2.2"
+[exception.scope]
+plugin = "terminal"
+body = "ready"
+
+[[exception]]
+states = ["layout-default", "layout-all-zones", "layout-left-plate", "layout-split-right", "layout-split-center", "layout-split-bottom", "layout-zoom", "tabs-side", "tabs-center", "tabs-half", "tabs-wide", "layout-stub", "layout-empty-workbench", "menu-panel", "picker-new-part"]
+fields = ["all"]
+adr = "ADR-0008"
+reason = "Шесть заглушек статуса панели P1.5: содержимое тела"
+[exception.scope]
+body = "status_stub"
+
+# Назначения сценариев инвентаря: шаг дорожной карты, который их сверяет.
+
+[[assignment]]
+scenario = "agents-many"
+step = "P2.5"
+
+[[assignment]]
+scenario = "agents-split"
+step = "P2.5"
+
+[[assignment]]
+scenario = "agents-stale"
+step = "P2.5"
+
+[[assignment]]
+scenario = "agents-hooked"
+step = "P2.5"
+
+[[assignment]]
+scenario = "wait"
+step = "P2.5"
+
+[[assignment]]
+scenario = "editor-cold"
+step = "P3.6"
+
+[[assignment]]
+scenario = "editor-rpc"
+step = "P3.6"
+
+[[assignment]]
+scenario = "editor-revision"
+step = "P3.6"
+
+[[assignment]]
+scenario = "editor-missing"
+step = "P3.6"
+
+[[assignment]]
+scenario = "editor-lost"
+step = "P3.6"
+
+[[assignment]]
+scenario = "editor-reconnecting"
+step = "P3.6"
+
+[[assignment]]
+scenario = "history-file"
+step = "P3.5"
+
+[[assignment]]
+scenario = "history-lines"
+step = "P3.5"
+
+[[assignment]]
+scenario = "history-compare"
+step = "P3.5"
+
+[[assignment]]
+scenario = "history-blocked"
+step = "P3.5"
+
+[[assignment]]
+scenario = "review.head"
+step = "P4.3"
+
+[[assignment]]
+scenario = "review.browser"
+step = "P4.4"
+
+[[assignment]]
+scenario = "review.github_browser"
+step = "P4.4"
+
+[[assignment]]
+scenario = "review.partial"
+step = "P4.5"
+
+[[assignment]]
+scenario = "review.timeout"
+step = "P4.5"
+
+[[assignment]]
+scenario = "review.timeout_absent"
+step = "P4.5"
+
+[[assignment]]
+scenario = "review.no_request_changes"
+step = "P4.5"
+
+[[assignment]]
+scenario = "review.no_rights"
+step = "P4.5"
+
+[[assignment]]
+scenario = "review.merge_ready"
+step = "P4.6"
+
+[[assignment]]
+scenario = "pipelines.failed"
+step = "P4.2"
+
+[[assignment]]
+scenario = "pipelines.manual"
+step = "P4.2"
+
+[[assignment]]
+scenario = "pipelines.offline"
+step = "P4.2"
+
+[[assignment]]
+scenario = "pipefail"
+step = "P4.2"
+
+[[assignment]]
+scenario = "resources.partial"
+step = "P2.4"
+
+[[assignment]]
+scenario = "lost"
+step = "P2.2"
+
+[[assignment]]
+scenario = "finished"
+step = "P2.2"
+
+[[assignment]]
+scenario = "reconnect"
+step = "P2.2"
+
+[[assignment]]
+scenario = "missing"
+step = "P2.2"
+
+[[assignment]]
+scenario = "restore"
+step = "P2.2"
+
+[[assignment]]
+scenario = "quit"
+step = "P2.2"
+
+[[assignment]]
+scenario = "firstrun"
+step = "P2.2"
+
+[[assignment]]
+scenario = "stale"
+step = "P3.4"
+
+[[assignment]]
+scenario = "hook"
+step = "P3.3"
+
+[[assignment]]
+scenario = "divergence"
+step = "P3.3"
+
+[[assignment]]
+scenario = "rename"
+step = "P3.3"
+
+[[assignment]]
+scenario = "binary"
+step = "P3.3"
+
+[[assignment]]
+scenario = "detached"
+step = "P3.3"
+
+[[assignment]]
+scenario = "conflict"
+step = "P3.3"
+
+[[assignment]]
+scenario = "clean"
+step = "P3.3"
+
+[[assignment]]
+scenario = "upd"
+step = "P5.2"
+
+[[assignment]]
+scenario = "updb"
+step = "P5.2"
+
+[[assignment]]
+scenario = "ws-empty"
+step = "P1.7"
+
+[[assignment]]
+scenario = "ws-300"
+step = "P1.7"
+
+[[assignment]]
+scenario = "ws-other-wait"
+step = "P1.7"
+
+[[assignment]]
+scenario = "ws-cli-move"
+step = "P1.7"
+
+[[assignment]]
+scenario = "ws-move-block"
+step = "P1.7"
+
+# Сценарии, которые переключают ось ячейки, а не задают отдельное состояние.
+
+[[assignment]]
+scenario = "light"
+step = "P1.3"
+axis = "theme"
+
+[[assignment]]
+scenario = "contrast"
+step = "P1.3"
+axis = "contrast"
+
+[[assignment]]
+scenario = "motion"
+step = "P1.3"
+axis = "motion"
+
+# Сброс размеров зон возвращает раскладку по умолчанию: её показывает рецепт layout-default.
+
+[[assignment]]
+scenario = "layout"
+step = "P1.4"
+recipes = ["layout-default"]
+
+# Назначения пар «плагин × зона» инвентаря.
+
+[[assignment]]
+plugin = "navigator"
+zone = "left"
+step = "P1.7"
+
+[[assignment]]
+plugin = "navigator"
+zone = "right"
+step = "P1.7"
+
+[[assignment]]
+plugin = "navigator"
+zone = "center"
+step = "P1.7"
+
+[[assignment]]
+plugin = "navigator"
+zone = "bottom"
+step = "P1.7"
+
+[[assignment]]
+plugin = "projects"
+zone = "left"
+step = "P1.7"
+
+[[assignment]]
+plugin = "projects"
+zone = "right"
+step = "P1.7"
+
+[[assignment]]
+plugin = "projects"
+zone = "center"
+step = "P1.7"
+
+[[assignment]]
+plugin = "projects"
+zone = "bottom"
+step = "P1.7"
+
+[[assignment]]
+plugin = "terminal"
+zone = "left"
+step = "P2.2"
+
+[[assignment]]
+plugin = "terminal"
+zone = "right"
+step = "P2.2"
+
+[[assignment]]
+plugin = "terminal"
+zone = "center"
+step = "P2.2"
+
+[[assignment]]
+plugin = "terminal"
+zone = "bottom"
+step = "P2.2"
+
+[[assignment]]
+plugin = "agent"
+zone = "left"
+step = "P2.5"
+
+[[assignment]]
+plugin = "agent"
+zone = "right"
+step = "P2.5"
+
+[[assignment]]
+plugin = "agent"
+zone = "center"
+step = "P2.5"
+
+[[assignment]]
+plugin = "agent"
+zone = "bottom"
+step = "P2.5"
+
+[[assignment]]
+plugin = "changes"
+zone = "left"
+step = "P3.3"
+
+[[assignment]]
+plugin = "changes"
+zone = "right"
+step = "P3.3"
+
+[[assignment]]
+plugin = "changes"
+zone = "center"
+step = "P3.3"
+
+[[assignment]]
+plugin = "changes"
+zone = "bottom"
+step = "P3.3"
+
+[[assignment]]
+plugin = "editor"
+zone = "left"
+step = "P3.6"
+
+[[assignment]]
+plugin = "editor"
+zone = "right"
+step = "P3.6"
+
+[[assignment]]
+plugin = "editor"
+zone = "center"
+step = "P3.6"
+
+[[assignment]]
+plugin = "editor"
+zone = "bottom"
+step = "P3.6"
+
+[[assignment]]
+plugin = "history"
+zone = "left"
+step = "P3.5"
+
+[[assignment]]
+plugin = "history"
+zone = "right"
+step = "P3.5"
+
+[[assignment]]
+plugin = "history"
+zone = "center"
+step = "P3.5"
+
+[[assignment]]
+plugin = "history"
+zone = "bottom"
+step = "P3.5"
+
+[[assignment]]
+plugin = "review"
+zone = "left"
+step = "P4.3"
+
+[[assignment]]
+plugin = "review"
+zone = "right"
+step = "P4.3"
+
+[[assignment]]
+plugin = "review"
+zone = "center"
+step = "P4.3"
+
+[[assignment]]
+plugin = "review"
+zone = "bottom"
+step = "P4.3"
+
+[[assignment]]
+plugin = "pipelines"
+zone = "left"
+step = "P4.2"
+
+[[assignment]]
+plugin = "pipelines"
+zone = "right"
+step = "P4.2"
+
+[[assignment]]
+plugin = "pipelines"
+zone = "center"
+step = "P4.2"
+
+[[assignment]]
+plugin = "pipelines"
+zone = "bottom"
+step = "P4.2"
+
+[[assignment]]
+plugin = "resources"
+zone = "left"
+step = "P2.4"
+
+[[assignment]]
+plugin = "resources"
+zone = "right"
+step = "P2.4"
+
+[[assignment]]
+plugin = "resources"
+zone = "center"
+step = "P2.4"
+
+[[assignment]]
+plugin = "resources"
+zone = "bottom"
+step = "P2.4"
+
+[[assignment]]
+plugin = "threads"
+zone = "left"
+step = "P2.7"
+
+[[assignment]]
+plugin = "threads"
+zone = "right"
+step = "P2.7"
+
+[[assignment]]
+plugin = "threads"
+zone = "center"
+step = "P2.7"
+
+[[assignment]]
+plugin = "threads"
+zone = "bottom"
+step = "P2.7"
+
+[[assignment]]
+plugin = "settings"
+zone = "left"
+step = "P1.8"
+
+[[assignment]]
+plugin = "settings"
+zone = "right"
+step = "P1.8"
+
+[[assignment]]
+plugin = "settings"
+zone = "center"
+step = "P1.8"
+
+[[assignment]]
+plugin = "settings"
+zone = "bottom"
+step = "P1.8"

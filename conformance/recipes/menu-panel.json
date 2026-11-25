@@ -1,0 +1,108 @@
+{
+  "scene": "p15",
+  "steps": [
+    {
+      "op": "open_menu",
+      "zone": "center",
+      "part": 1
+    }
+  ],
+  "post": {
+    "parts": {
+      "left": 1,
+      "center": 1,
+      "right": 1,
+      "bottom": 1
+    },
+    "composition": {
+      "zones": {
+        "left": [
+          {
+            "tabs": [
+              "navigator"
+            ],
+            "active": 1,
+            "body": "ready"
+          }
+        ],
+        "center": [
+          {
+            "tabs": [
+              "terminal",
+              "demo-native"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "tabs": [
+              "demo-list",
+              "terminal"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ],
+        "bottom": [
+          {
+            "tabs": [
+              "terminal"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ]
+      },
+      "focus": {
+        "zone": "center",
+        "part": 1
+      },
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ],
+      "menu": [
+        {
+          "title": "В левую зону",
+          "enabled": true
+        },
+        {
+          "title": "В правую зону",
+          "enabled": true
+        },
+        {
+          "title": "В нижнюю зону",
+          "enabled": true
+        },
+        {
+          "title": "Закрыть",
+          "enabled": true
+        }
+      ]
+    }
+  }
+}

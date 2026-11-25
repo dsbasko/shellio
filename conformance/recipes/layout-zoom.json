@@ -1,0 +1,47 @@
+{
+  "scene": "p15",
+  "steps": [
+    {
+      "op": "zoom",
+      "zone": "center",
+      "part": 1
+    }
+  ],
+  "post": {
+    "parts": {
+      "center": 1
+    },
+    "composition": {
+      "zones": {
+        "center": [
+          {
+            "tabs": [
+              "terminal"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "restore",
+              "menu"
+            ]
+          }
+        ]
+      },
+      "focus": {
+        "zone": "center",
+        "part": 1
+      },
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ]
+    }
+  }
+}

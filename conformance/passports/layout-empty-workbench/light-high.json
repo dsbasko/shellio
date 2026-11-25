@@ -1,0 +1,1179 @@
+{
+  "composition": {
+    "focus": {
+      "part": 1,
+      "zone": "left"
+    },
+    "titlebar": [
+      "chrome.window.close",
+      "chrome.window.minimize",
+      "chrome.window.zoom",
+      "chrome.workspace",
+      "chrome.search",
+      "chrome.zones.left",
+      "chrome.zones.bottom",
+      "chrome.zones.right",
+      "chrome.appearance"
+    ],
+    "zones": {
+      "center": [
+        {
+          "body": "empty",
+          "tabs": []
+        }
+      ],
+      "left": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "navigator"
+          ]
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "ck": "chrome",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 40.000000,
+        "w": 1180.000000,
+        "x": 0.000000,
+        "y": 0.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "bottom"
+      ],
+      "line_width": 1.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.close",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 87,
+        "g": 95,
+        "r": 255
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 14.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 63,
+            "g": 70,
+            "r": 226
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.minimize",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 46,
+        "g": 188,
+        "r": 254
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 34.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 22,
+            "g": 161,
+            "r": 225
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.zoom",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 64,
+        "g": 200,
+        "r": 40
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 54.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 44,
+            "g": 167,
+            "r": 22
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 68.031250,
+        "x": 84.000000,
+        "y": 8.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 6.000000,
+        "right": 3.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 6
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 500.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 45.031250,
+        "x": 90.000000,
+        "y": 10.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "chrome.workspace",
+      "text": "Работа",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace.chevron",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 11.000000,
+        "w": 11.000000,
+        "x": 138.031250,
+        "y": 14.000000
+      },
+      "icon": {
+        "name": "chevD",
+        "size": 11.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.workspace",
+      "visible": true
+    },
+    {
+      "ck": "chrome.search",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 460.000000,
+        "x": 360.000000,
+        "y": 6.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 9.000000,
+        "right": 6.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 6.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 370.000000,
+        "y": 12.500000
+      },
+      "icon": {
+        "name": "search",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.search",
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 22
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 390.390625,
+        "x": 392.000000,
+        "y": 10.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "chrome.search",
+      "text": "Сессии, файлы, команды",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.kbd",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 22.609375,
+        "x": 790.390625,
+        "y": 11.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.search",
+      "radius": 4.000000,
+      "text": "⌘K",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 92.000000,
+        "x": 1042.000000,
+        "y": 6.500000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "parent": "chrome",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.left",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 220,
+        "g": 226,
+        "r": 229
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1043.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.left.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1050.500000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideL",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.left",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.bottom",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 220,
+        "g": 226,
+        "r": 229
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1073.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.bottom.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1081.000000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideB",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.bottom",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.right",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1103.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.right.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1111.000000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideR",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.right",
+      "visible": true
+    },
+    {
+      "ck": "chrome.appearance",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 28.000000,
+        "x": 1142.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.appearance.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1148.500000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sun",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.appearance",
+      "visible": true
+    },
+    {
+      "ck": "zone.left.part.1",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 640.000000,
+        "w": 222.000000,
+        "x": 8.000000,
+        "y": 46.000000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.left.part.1.body",
+      "frame": {
+        "h": 640.000000,
+        "w": 222.000000,
+        "x": 8.000000,
+        "y": 46.000000
+      },
+      "kind": "container",
+      "parent": "zone.left.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 642.000000,
+        "w": 938.000000,
+        "x": 236.000000,
+        "y": 46.000000
+      },
+      "kind": "container",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1",
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 642.000000,
+        "w": 938.000000,
+        "x": 236.000000,
+        "y": 46.000000
+      },
+      "kind": "plate",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "parent": "zone.center",
+      "radius": 7.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1::after",
+      "fill": {
+        "a": 0.100000,
+        "b": 58,
+        "g": 64,
+        "r": 67
+      },
+      "frame": {
+        "h": 640.000000,
+        "w": 936.000000,
+        "x": 237.000000,
+        "y": 47.000000
+      },
+      "kind": "pseudo",
+      "parent": "zone.center.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body",
+      "frame": {
+        "h": 640.000000,
+        "w": 936.000000,
+        "x": 237.000000,
+        "y": 47.000000
+      },
+      "kind": "container",
+      "parent": "zone.center.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty",
+      "frame": {
+        "h": 158.000000,
+        "w": 441.796875,
+        "x": 484.093750,
+        "y": 288.000000
+      },
+      "kind": "container",
+      "parent": "zone.center.part.1.body",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 693.984375,
+        "y": 304.000000
+      },
+      "icon": {
+        "name": "grid",
+        "size": 22.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.body.empty",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.title",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Bold",
+            "glyphs": 21
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 600.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 147.953125,
+        "x": 631.015625,
+        "y": 336.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.body.empty",
+      "text": "Здесь пока ничего нет",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.hint",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 64
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 32.000000,
+        "w": 320.000000,
+        "x": 544.984375,
+        "y": 358.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "zone.center.part.1.body.empty",
+      "text": "Откройте терминал или запустите агента. Они появятся в этой зоне.",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.1",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 152.109375,
+        "x": 500.093750,
+        "y": 404.000000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 11.000000,
+        "right": 11.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.body.empty",
+      "radius": 6.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 8
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 60.609375,
+        "x": 512.093750,
+        "y": 408.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.body.empty.action.1",
+      "text": "Терминал",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.2",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 126.531250,
+        "x": 658.203125,
+        "y": 404.000000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 11.000000,
+        "right": 11.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.body.empty",
+      "radius": 6.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.2.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 5
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 35.031250,
+        "x": 670.203125,
+        "y": 408.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.body.empty.action.2",
+      "text": "Агент",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.3",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 119.156250,
+        "x": 790.734375,
+        "y": 404.000000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 11.000000,
+        "right": 11.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.body.empty",
+      "radius": 6.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body.empty.action.3.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 4
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 27.656250,
+        "x": 802.734375,
+        "y": 408.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.body.empty.action.3",
+      "text": "nvim",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 1180.000000,
+        "x": 0.000000,
+        "y": 694.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top"
+      ],
+      "line_width": 1.000000,
+      "visible": true
+    }
+  ],
+  "validity": {
+    "cell": "light-high",
+    "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
+    "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
+    "recipe": "acad504496deee18212d1b89c1092cd80dff8026cd3f99d71f3fc19c879529fe",
+    "scene": "02aa2f61c94949baf520b3d46db21d441de957a9c194be5cc4ecb047abf004ce",
+    "schema": 3
+  },
+  "window": {
+    "dpr": 2.000000,
+    "height": 720.000000,
+    "width": 1180.000000
+  }
+}

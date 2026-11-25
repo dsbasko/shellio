@@ -105,7 +105,9 @@
       const base = known[c.id] || { view: () => '' };
       S.plugins[c.id] = { ...base, id: c.id, title: c.title, icon: c.icon, placements: c.placements, defaultZone: c.default_zone, minSize: { w: c.min_size.width, h: c.min_size.height }, cardinality: { multi: 'multi', per_workbench: 'workbench', per_project: 'project', per_workspace: 'workspace', per_app: 'app' }[c.cardinality] };
       // Подпись вкладки, точка, счётчик, нагрузка и действия демо-мира в сцену не попадают.
-      ['tabTitle', 'tabStatus', 'tabCount', 'meter', 'actions', 'inputHints', 'inputTarget'].forEach((k) => { delete S.plugins[c.id][k]; });
+      ['tabTitle', 'tabStatus', 'tabCount', 'meter', 'actions', 'inputHints', 'inputTarget', 'surfaceless'].forEach((k) => { delete S.plugins[c.id][k]; });
+      // Режим клавиатуры называет сцена, а не плагин: тон фокуса и вуаль берут его цвет.
+      S.plugins[c.id].inputDefault = scene.mode === 'input';
       if (!known[c.id]) S.plugins[c.id].view = () => '';
     });
     S.scenarios.length = 0;
@@ -151,6 +153,17 @@
     split_refused: (s) => { const g = partOf(s); S.focus(g.active); S.renderNow(); const room = S.splitRoom(g, [S.st.panels[g.active].plugin, s.plugin]); if (room.ok) throw new Error('деление помещается, отказа нет'); S.refuse(S.roomText(room)); },
     open_menu: (s) => { S.focus(partOf(s).active); S.renderNow(); S.run('panel.menu'); },
     open_picker: (s) => { const g = partOf(s); S.focus(g.active); S.renderNow(); S.partPicker(g); },
+    focus: (s) => { S.focus(partOf(s).active); },
+    // Перенос вкладки в зону или в новую часть зоны. Место перенос не проверяет (ADR-0009).
+    move: (s) => {
+      const L = S.layout(); const from = partOf(s);
+      const id = from.tabs.find((t) => S.st.panels[t].plugin === s.plugin); if (!id) throw new Error(`вкладки ${s.plugin} в части нет`);
+      const full = S.partsOf(L, s.to).filter((g) => g.tabs.length);
+      if (!s.new_part || !full.length) { if (from.zone === s.to) throw new Error('перенос в свою зону без новой части'); S.moveTo(id, { zone: s.to }); return; }
+      const ref = from.zone === s.to ? from : full[full.length - 1];
+      const room = S.splitRoom; S.splitRoom = () => ({ ok: true });
+      try { S.moveTo(id, { split: ref.id, side: 'after' }); } finally { S.splitRoom = room; }
+    },
     close_tab: (s) => { const id = partOf(s).tabs.find((t) => S.st.panels[t].plugin === s.plugin); if (!id) throw new Error(`вкладки ${s.plugin} в части нет`); S.close(id, { force: true }); },
   };
 
@@ -229,6 +242,9 @@
     return { composition: { zones, focus, menu, titlebar: controls('.titlebar'), statusline: controls('.status') }, elements };
   };
 
-  window.conformance = { load, apply, step, settle, flush, facts, ready: false };
+  // Инвентарь обычного мира: id зарегистрированных сценариев и плагины с размещениями.
+  const inventory = () => ({ scenarios: S.scenarios.map((s) => s.id), plugins: Object.values(S.plugins).map((p) => ({ id: p.id, placements: p.placements || ZONES })) });
+
+  window.conformance = { load, apply, step, settle, flush, facts, inventory, ready: false };
   window.addEventListener('load', () => { settle().then(() => { window.conformance.ready = true; }); });
 })();

@@ -74,6 +74,21 @@ pub enum Step {
         zone: Zone,
         part: usize,
     },
+    /// Фокус на активную вкладку части.
+    Focus {
+        zone: Zone,
+        part: usize,
+    },
+    /// Перенос вкладки плагина в зону `to`: в её последнюю активную часть или, с `new_part`, в
+    /// новую часть. Место перенос не проверяет (ADR-0009), поэтому им возникает заглушка.
+    Move {
+        zone: Zone,
+        part: usize,
+        plugin: String,
+        to: Zone,
+        #[serde(default)]
+        new_part: bool,
+    },
     /// Закрыть вкладку плагина.
     CloseTab {
         zone: Zone,

@@ -1,0 +1,97 @@
+{
+  "scene": "p15",
+  "steps": [
+    {
+      "op": "move",
+      "zone": "right",
+      "part": 1,
+      "plugin": "terminal",
+      "to": "left"
+    },
+    {
+      "op": "hide_zone",
+      "zone": "right"
+    },
+    {
+      "op": "focus",
+      "zone": "center",
+      "part": 1
+    }
+  ],
+  "post": {
+    "parts": {
+      "left": 2,
+      "center": 1,
+      "bottom": 1
+    },
+    "composition": {
+      "zones": {
+        "left": [
+          {
+            "tabs": [
+              "navigator"
+            ],
+            "active": 1,
+            "body": "ready"
+          },
+          {
+            "tabs": [
+              "terminal"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ],
+        "center": [
+          {
+            "tabs": [
+              "terminal",
+              "demo-native"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ],
+        "bottom": [
+          {
+            "tabs": [
+              "terminal"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ]
+      },
+      "focus": {
+        "zone": "center",
+        "part": 1
+      },
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ]
+    }
+  }
+}

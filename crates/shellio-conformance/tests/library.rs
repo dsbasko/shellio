@@ -8,8 +8,10 @@ use shellio_conformance::keys::{check_glob, check_key, check_unique, glob_matche
 use shellio_conformance::passport::{
     Cell, Contrast, Element, Passport, Rect, Theme, Window, canonical_json,
 };
-use shellio_conformance::recipe::Recipe;
-use shellio_conformance::registry::{Inventory, InventoryPlugin, Registry, completeness};
+use shellio_conformance::recipe::{Recipe, Step};
+use shellio_conformance::registry::{
+    Inventory, InventoryPlugin, Registry, completeness, done_steps,
+};
 use shellio_conformance::scene::Scene;
 use shellio_conformance::validity::{Inputs, Problem, SNAP_SCHEMA, check_registry, tree_stamp};
 use shellio_conformance::{Zone, plans};
@@ -383,6 +385,87 @@ fn completeness_names_unassigned_scenarios_and_pairs() {
     let done = BTreeSet::from(["P1.6".to_owned()]);
     let problems = completeness(&registry, &inventory, &done);
     assert!(problems.iter().any(|p| p.contains("P1.6 готов")));
+}
+
+/// Правило готового шага судится по назначению: состояние того же шага не пропускает новое
+/// назначение без оси и без рецептов состояний.
+#[test]
+fn finished_step_rule_is_judged_per_assignment() {
+    let state = "[[state]]\nid = \"layout-default\"\nstep = \"P1.4\"\nsurface = \"layout\"\nscene = \"p15\"\nrecipe = \"layout-default\"\n";
+    let rows =
+        |extra: &str| Registry::parse("registry.toml", &format!("{state}\n{extra}")).unwrap();
+    let inventory = Inventory {
+        prototype: "x".to_owned(),
+        scenarios: Vec::new(),
+        plugins: Vec::new(),
+    };
+    let done = BTreeSet::from(["P1.3".to_owned(), "P1.4".to_owned()]);
+    let passing = rows(
+        "[[assignment]]\nscenario = \"layout\"\nstep = \"P1.4\"\nrecipes = [\"layout-default\"]\n\n\
+         [[assignment]]\nscenario = \"light\"\nstep = \"P1.3\"\naxis = \"theme\"\n\n\
+         [[assignment]]\nscenario = \"palette\"\nstep = \"P1.6\"\n",
+    );
+    assert_eq!(
+        completeness(&passing, &inventory, &done),
+        Vec::<String>::new()
+    );
+
+    let bare = rows("[[assignment]]\nscenario = \"fresh\"\nstep = \"P1.4\"\n");
+    let problems = completeness(&bare, &inventory, &done);
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(problems[0].contains("P1.4 готов") && problems[0].contains("fresh"));
+
+    let unknown =
+        rows("[[assignment]]\nscenario = \"fresh\"\nstep = \"P1.4\"\nrecipes = [\"nowhere\"]\n");
+    let problems = completeness(&unknown, &inventory, &done);
+    assert_eq!(problems.len(), 1, "{problems:?}");
+    assert!(problems[0].contains("nowhere"));
+}
+
+#[test]
+fn done_steps_are_read_from_roadmap_tables() {
+    let roadmap = "| Готов | ID | slug |\n| :---: | --- | --- |\n| ✅ | P1.3 | `a` |\n| ⬜ | P1.6 | `b` |\n\
+                   |✅|P0.1|`c`|\n- ✅ P9.9 в тексте\n| ✅ | не шаг | `d` |\n";
+    assert_eq!(
+        done_steps(roadmap),
+        BTreeSet::from(["P0.1".to_owned(), "P1.3".to_owned()])
+    );
+}
+
+#[test]
+fn recipe_steps_move_and_focus_parse() {
+    let recipe = Recipe::parse(
+        "r.json",
+        r#"{"scene": "p15", "steps": [
+            {"op": "move", "zone": "right", "part": 1, "plugin": "terminal", "to": "center", "new_part": true},
+            {"op": "move", "zone": "right", "part": 1, "plugin": "terminal", "to": "left"},
+            {"op": "focus", "zone": "center", "part": 1}],
+           "post": {"parts": {"center": 1}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        recipe.steps,
+        vec![
+            Step::Move {
+                zone: Zone::Right,
+                part: 1,
+                plugin: "terminal".to_owned(),
+                to: Zone::Center,
+                new_part: true,
+            },
+            Step::Move {
+                zone: Zone::Right,
+                part: 1,
+                plugin: "terminal".to_owned(),
+                to: Zone::Left,
+                new_part: false,
+            },
+            Step::Focus {
+                zone: Zone::Center,
+                part: 1,
+            },
+        ]
+    );
 }
 
 #[test]

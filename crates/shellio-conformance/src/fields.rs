@@ -37,7 +37,8 @@ impl ElementKind {
     ];
 }
 
-/// Поле контракта. `All` — только в списке полей исключения: все поля области.
+/// Поле контракта. `All`, `FrameX` и `IconName` — только в списке полей исключения: все поля
+/// области, одна координата кадра и имя значка без его размера.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Field {
@@ -64,6 +65,10 @@ pub enum Field {
     /// Линия под активной вкладкой.
     Underline,
     All,
+    /// Только координата `x` кадра.
+    FrameX,
+    /// Только имя значка; размер сверяется.
+    IconName,
 }
 
 impl Field {
@@ -141,7 +146,8 @@ pub struct Rule {
     pub tolerance: Tolerance,
 }
 
-/// Строка контракта. `Field::All` в контракте не встречается и получает «не применяется».
+/// Строка контракта. Поля исключений (`All`, `FrameX`, `IconName`) в контракте не встречаются и
+/// получают «не применяется».
 pub fn rule(field: Field, kind: ElementKind) -> Rule {
     use Applicability::{IfSet, NotApplicable, Required};
     use ElementKind as K;
@@ -190,7 +196,7 @@ pub fn rule(field: Field, kind: ElementKind) -> Rule {
                 NotApplicable
             }
         },
-        Field::All => NotApplicable,
+        Field::All | Field::FrameX | Field::IconName => NotApplicable,
     };
 
     let source = match field {
@@ -214,7 +220,9 @@ pub fn rule(field: Field, kind: ElementKind) -> Rule {
         | Field::Padding
         | Field::Shadow
         | Field::Icon
-        | Field::All => Source::Inspect,
+        | Field::All
+        | Field::FrameX
+        | Field::IconName => Source::Inspect,
     };
 
     let tolerance = match field {
@@ -233,7 +241,9 @@ pub fn rule(field: Field, kind: ElementKind) -> Rule {
         | Field::LineWidth
         | Field::Radius
         | Field::Icon
-        | Field::All => Tolerance::Exact,
+        | Field::All
+        | Field::FrameX
+        | Field::IconName => Tolerance::Exact,
     };
 
     Rule {
@@ -261,7 +271,9 @@ fn present(element: &Element, field: Field) -> Option<bool> {
         Field::Padding => element.padding.is_some(),
         Field::Shadow => !element.shadow.is_empty(),
         Field::Icon => element.icon.is_some(),
-        Field::IconMask | Field::Underline | Field::All => return None,
+        Field::IconMask | Field::Underline | Field::All | Field::FrameX | Field::IconName => {
+            return None;
+        }
     })
 }
 

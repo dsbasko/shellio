@@ -97,9 +97,10 @@ pub enum Appearance {
 }
 
 /// Режим клавиатуры на плашке строки статуса.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum StatusMode {
+    #[default]
     Nav,
     Input,
 }
@@ -151,6 +152,10 @@ pub struct Scene {
     #[serde(default)]
     pub availability: Vec<Availability>,
     pub appearance: Appearance,
+    /// Режим клавиатуры сцены: его цвет берут тон фокуса и линия под активной вкладкой
+    /// (ADR-0027). Продукт до P1.6 знает только навигацию.
+    #[serde(default)]
+    pub mode: StatusMode,
     /// Сводки строки статуса.
     #[serde(default)]
     pub status: SceneStatus,

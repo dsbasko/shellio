@@ -4,7 +4,8 @@
 # выбранные ячейки сняты и оба съёма каждой совпали побайтно вместе с масками значков
 # (<ячейка>.icons/<ключ>.png рядом с паспортом; прежние маски ячейки заменяются целиком). Несовпадение оставляет оба файла в
 # target/passports/<время>-<pid>/ и паспорта репозитория не трогает. Непереснятые паспорта
-# проверяются на годность. Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
+# проверяются на годность. После набора пишется инвентарь обычного мира прототипа
+# conformance/inventory.json (два запуска, побайтное сравнение). Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -84,3 +85,18 @@ done <<< "$LIST"
 
 "$SNAP" check --root "$ROOT"
 echo "passports: набор опубликован" >&2
+
+for shot in 1 2; do
+  if ! "$SNAP" inventory --chrome "$CHROME" --root "$ROOT" --out "$RUN/inventory.$shot.json" 2> "$RUN/inventory.$shot.log"; then
+    cat "$RUN/inventory.$shot.log" >&2
+    echo "passports: инвентарь, запуск $shot не удался" >&2
+    exit 1
+  fi
+done
+if ! cmp -s "$RUN/inventory.1.json" "$RUN/inventory.2.json"; then
+  echo "passports: два запуска инвентаря разошлись: $RUN/inventory.{1,2}.json" >&2
+  exit 1
+fi
+cp "$RUN/inventory.1.json" "$ROOT/conformance/.inventory.json.part"
+mv "$ROOT/conformance/.inventory.json.part" "$ROOT/conformance/inventory.json"
+echo "passports: инвентарь записан" >&2

@@ -16,12 +16,27 @@
       "chrome.appearance"
     ],
     "zones": {
-      "center": [
+      "bottom": [
         {
           "active": 1,
           "body": "ready",
           "tabs": [
             "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "center": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal",
+            "demo-native"
           ],
           "tools": [
             "split",
@@ -36,6 +51,21 @@
           "body": "ready",
           "tabs": [
             "navigator"
+          ]
+        }
+      ],
+      "right": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "demo-list",
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
           ]
         }
       ]
@@ -538,9 +568,15 @@
       "ck": "chrome.zones.bottom",
       "color": {
         "a": 1.000000,
-        "b": 68,
-        "g": 75,
-        "r": 79
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 220,
+        "g": 226,
+        "r": 229
       },
       "frame": {
         "h": 24.000000,
@@ -573,9 +609,9 @@
       "ck": "chrome.zones.bottom.icon",
       "color": {
         "a": 1.000000,
-        "b": 68,
-        "g": 75,
-        "r": 79
+        "b": 37,
+        "g": 41,
+        "r": 43
       },
       "frame": {
         "h": 15.000000,
@@ -595,9 +631,15 @@
       "ck": "chrome.zones.right",
       "color": {
         "a": 1.000000,
-        "b": 68,
-        "g": 75,
-        "r": 79
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 220,
+        "g": 226,
+        "r": 229
       },
       "frame": {
         "h": 24.000000,
@@ -630,9 +672,9 @@
       "ck": "chrome.zones.right.icon",
       "color": {
         "a": 1.000000,
-        "b": 68,
-        "g": 75,
-        "r": 79
+        "b": 37,
+        "g": 41,
+        "r": 43
       },
       "frame": {
         "h": 15.000000,
@@ -700,9 +742,9 @@
   "validity": {
     "cell": "light-high",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "03c8430745dde7af055097681c7ade570e07ab349ddf214dc99731fd813ce688",
-    "recipe": "ea814ff2c892b8c58b6800d51ffc7fb6db048bf5178eaad5dddc4ae1c11f3cd5",
-    "scene": "9560c928ed949c66bc2f03531cb8cae6dbebb1a7dc637a97a8f49d2a017427bc",
+    "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
+    "recipe": "df78b9ed2cb0a21c740d17eca3be33fafb7bc6143ccb8fe4a60792dc02960640",
+    "scene": "02aa2f61c94949baf520b3d46db21d441de957a9c194be5cc4ecb047abf004ce",
     "schema": 3
   },
   "window": {

@@ -1,0 +1,173 @@
+{
+  "plugins": [
+    {
+      "id": "navigator",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "projects",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "terminal",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "agent",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "changes",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "editor",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "history",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "review",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "pipelines",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "resources",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "threads",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    },
+    {
+      "id": "settings",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ]
+    }
+  ],
+  "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
+  "scenarios": [
+    "agents-many",
+    "agents-split",
+    "agents-stale",
+    "agents-hooked",
+    "editor-cold",
+    "editor-rpc",
+    "editor-revision",
+    "editor-missing",
+    "editor-lost",
+    "editor-reconnecting",
+    "history-file",
+    "history-lines",
+    "history-compare",
+    "history-blocked",
+    "review.head",
+    "review.browser",
+    "review.github_browser",
+    "review.partial",
+    "review.timeout",
+    "review.timeout_absent",
+    "review.no_request_changes",
+    "review.no_rights",
+    "review.merge_ready",
+    "pipelines.failed",
+    "pipelines.manual",
+    "pipelines.offline",
+    "resources.partial",
+    "wait",
+    "lost",
+    "finished",
+    "reconnect",
+    "missing",
+    "restore",
+    "stale",
+    "hook",
+    "divergence",
+    "rename",
+    "binary",
+    "detached",
+    "conflict",
+    "clean",
+    "upd",
+    "updb",
+    "quit",
+    "pipefail",
+    "narrow",
+    "layout",
+    "split-right",
+    "split-bottom",
+    "light",
+    "contrast",
+    "motion",
+    "firstrun",
+    "ws-empty",
+    "ws-300",
+    "ws-other-wait",
+    "ws-cli-move",
+    "ws-move-block"
+  ]
+}

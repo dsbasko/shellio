@@ -304,9 +304,29 @@ pub struct Inventory {
     pub plugins: Vec<InventoryPlugin>,
 }
 
+impl Inventory {
+    pub fn parse(place: &str, text: &str) -> Result<Self, Error> {
+        serde_json::from_str(text).map_err(|e| Error::new(place, e.to_string()))
+    }
+}
+
+/// Шаги дорожной карты, отмеченные готовыми: строки таблиц `| ✅ | P<фаза>.<номер> | …`.
+pub fn done_steps(roadmap: &str) -> BTreeSet<String> {
+    roadmap
+        .lines()
+        .filter_map(|line| {
+            let mut cells = line.trim().strip_prefix('|')?.split('|').map(str::trim);
+            let (mark, id) = (cells.next()?, cells.next()?);
+            (mark == "✅" && check_step(id).is_ok()).then(|| id.to_owned())
+        })
+        .collect()
+}
+
 /// Полнота реестра против инвентаря: каждый сценарий и каждая пара «плагин × зона» имеют
-/// назначение или состояние; у шага, отмеченного в дорожной карте готовым, нет назначения без
-/// состояния. Пустой список — реестр полон.
+/// назначение или состояние; назначение готового шага дорожной карты опирается на состояние.
+/// Правило готового шага судится по назначению, а не по шагу: назначение проходит, если оно
+/// называет ось (сценарий переключает ячейку, а не задаёт состояние) или список рецептов, каждый
+/// из которых — рецепт состояния реестра. Пустой список — реестр полон.
 pub fn completeness(
     registry: &Registry,
     inventory: &Inventory,
@@ -339,9 +359,15 @@ pub fn completeness(
             }
         }
     }
-    let stated: BTreeSet<&str> = registry.states.iter().map(|s| s.step.as_str()).collect();
+    let recipes: BTreeSet<&str> = registry.states.iter().map(|s| s.recipe.as_str()).collect();
     for a in &registry.assignments {
-        if done_steps.contains(&a.step) && !stated.contains(a.step.as_str()) {
+        if let Some(unknown) = a.recipes.iter().find(|r| !recipes.contains(r.as_str())) {
+            out.push(format!(
+                "назначение {:?}: рецепта «{unknown}» нет у состояний реестра",
+                a.target()
+            ));
+        }
+        if done_steps.contains(&a.step) && a.axis.is_none() && a.recipes.is_empty() {
             out.push(format!(
                 "шаг {} готов, а назначение {:?} без состояния",
                 a.step,

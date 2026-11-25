@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use shellio_conformance::plans;
 use shellio_conformance::recipe::Recipe;
-use shellio_conformance::registry::Registry;
+use shellio_conformance::registry::{Inventory, Registry, completeness, done_steps};
 use shellio_conformance::scene::Scene;
 use shellio_conformance::validity::{Inputs, check_registry, sha256_hex};
 
@@ -27,9 +27,7 @@ fn unfinished_plans_have_conformance_section() {
 #[test]
 fn registry_passports_are_valid() {
     let root = root();
-    let path = root.join("conformance/registry.toml");
-    let text = std::fs::read_to_string(&path).unwrap();
-    let registry = Registry::parse(&path.display().to_string(), &text).unwrap();
+    let registry = registry().unwrap();
     assert!(!registry.states.is_empty(), "в реестре нет состояний");
     let inputs = Inputs::from_root(&root).unwrap();
     let findings = check_registry(&inputs, &registry).unwrap();
@@ -39,6 +37,75 @@ fn registry_passports_are_valid() {
         "паспорта требуют пересъёма (make passports):\n{}",
         report.join("\n")
     );
+}
+
+fn registry() -> Result<Registry, String> {
+    let path = root().join("conformance/registry.toml");
+    let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Registry::parse(&path.display().to_string(), &text).map_err(|e| e.to_string())
+}
+
+fn inventory_text() -> std::io::Result<String> {
+    std::fs::read_to_string(root().join("conformance/inventory.json"))
+}
+
+fn done() -> std::io::Result<std::collections::BTreeSet<String>> {
+    Ok(done_steps(&std::fs::read_to_string(
+        root().join("docs/roadmap.md"),
+    )?))
+}
+
+/// Инвентарь снят с текущего прототипа: новый сценарий или плагин меняет штамп `prototype/`, и
+/// без пересъёма (`make passports`) тест падает.
+#[test]
+fn inventory_matches_prototype() {
+    let inventory = Inventory::parse("inventory.json", &inventory_text().unwrap()).unwrap();
+    let inputs = Inputs::from_root(&root()).unwrap();
+    assert_eq!(
+        inventory.prototype, inputs.prototype,
+        "инвентарь устарел: make passports"
+    );
+    assert!(!inventory.scenarios.is_empty() && !inventory.plugins.is_empty());
+}
+
+/// Полнота реестра: каждый сценарий и каждая пара «плагин × зона» инвентаря назначены, а
+/// назначение готового шага дорожной карты опирается на состояние.
+#[test]
+fn registry_is_complete() {
+    let done = done().unwrap();
+    for step in ["P1.3", "P1.4", "P1.5"] {
+        assert!(done.contains(step), "шаг {step} в дорожной карте не готов");
+    }
+    let inventory = Inventory::parse("inventory.json", &inventory_text().unwrap()).unwrap();
+    let problems = completeness(&registry().unwrap(), &inventory, &done);
+    assert!(
+        problems.is_empty(),
+        "реестр неполон:\n{}",
+        problems.join("\n")
+    );
+}
+
+/// Сценарий без назначения во временной копии инвентаря ломает полноту.
+#[test]
+fn unassigned_scenario_breaks_completeness() {
+    let mut value: serde_json::Value = serde_json::from_str(&inventory_text().unwrap()).unwrap();
+    value["scenarios"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!("fresh-scenario"));
+    value["plugins"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"id": "fresh-plugin", "placements": ["bottom"]}));
+    let dir = tempfile::tempdir().unwrap();
+    let copy = dir.path().join("inventory.json");
+    std::fs::write(&copy, value.to_string()).unwrap();
+    let inventory =
+        Inventory::parse("inventory.json", &std::fs::read_to_string(&copy).unwrap()).unwrap();
+    let problems = completeness(&registry().unwrap(), &inventory, &done().unwrap());
+    assert_eq!(problems.len(), 2, "{problems:?}");
+    assert!(problems[0].contains("fresh-scenario"));
+    assert!(problems[1].contains("fresh-plugin × bottom"));
 }
 
 /// Каждая сцена и каждый рецепт каталога сверки разбираются, а рецепт ссылается на сцену, с

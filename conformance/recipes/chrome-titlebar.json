@@ -1,4 +1,11 @@
 {
   "scene": "p15",
-  "post": {"parts": {"left": 1, "center": 1}}
+  "post": {
+    "parts": {
+      "left": 1,
+      "center": 1,
+      "right": 1,
+      "bottom": 1
+    }
+  }
 }

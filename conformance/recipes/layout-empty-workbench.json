@@ -1,0 +1,75 @@
+{
+  "scene": "p15",
+  "steps": [
+    {
+      "op": "close_tab",
+      "zone": "right",
+      "part": 1,
+      "plugin": "terminal"
+    },
+    {
+      "op": "close_tab",
+      "zone": "right",
+      "part": 1,
+      "plugin": "demo-list"
+    },
+    {
+      "op": "close_tab",
+      "zone": "bottom",
+      "part": 1,
+      "plugin": "terminal"
+    },
+    {
+      "op": "close_tab",
+      "zone": "center",
+      "part": 1,
+      "plugin": "demo-native"
+    },
+    {
+      "op": "close_tab",
+      "zone": "center",
+      "part": 1,
+      "plugin": "terminal"
+    }
+  ],
+  "post": {
+    "parts": {
+      "left": 1,
+      "center": 1
+    },
+    "composition": {
+      "zones": {
+        "left": [
+          {
+            "tabs": [
+              "navigator"
+            ],
+            "active": 1,
+            "body": "ready"
+          }
+        ],
+        "center": [
+          {
+            "tabs": [],
+            "body": "empty"
+          }
+        ]
+      },
+      "focus": {
+        "zone": "left",
+        "part": 1
+      },
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ]
+    }
+  }
+}

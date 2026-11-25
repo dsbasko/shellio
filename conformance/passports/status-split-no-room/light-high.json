@@ -1,0 +1,161 @@
+{
+  "composition": {
+    "focus": {
+      "part": 1,
+      "zone": "center"
+    },
+    "titlebar": [
+      "chrome.window.close",
+      "chrome.window.minimize",
+      "chrome.window.zoom",
+      "chrome.workspace",
+      "chrome.search",
+      "chrome.zones.left",
+      "chrome.zones.bottom",
+      "chrome.zones.right",
+      "chrome.appearance"
+    ],
+    "zones": {
+      "bottom": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "center": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal",
+            "demo-native"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        },
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "left": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "navigator"
+          ]
+        }
+      ],
+      "right": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "demo-list",
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "ck": "status",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 1180.000000,
+        "x": 0.000000,
+        "y": 694.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top"
+      ],
+      "line_width": 1.000000,
+      "visible": true
+    },
+    {
+      "ck": "status.message",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular",
+            "glyphs": 75
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 509.593750,
+        "x": 0.000000,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status",
+      "text": "Не хватает места для новой части: «Терминал» — нужно 200×120, будет 133×364",
+      "truncated": false,
+      "visible": true
+    }
+  ],
+  "validity": {
+    "cell": "light-high",
+    "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
+    "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
+    "recipe": "cecc9a7737da1e4774c9f2978c160c1cbaed669cd0c89eb5b2a3c05827deb02f",
+    "scene": "02aa2f61c94949baf520b3d46db21d441de957a9c194be5cc4ecb047abf004ce",
+    "schema": 3
+  },
+  "window": {
+    "dpr": 2.000000,
+    "height": 720.000000,
+    "width": 1180.000000
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "scene": "p15",
+  "steps": [
+    {
+      "op": "hide_zone",
+      "zone": "left"
+    },
+    {
+      "op": "hide_zone",
+      "zone": "right"
+    },
+    {
+      "op": "hide_zone",
+      "zone": "bottom"
+    }
+  ],
+  "post": {
+    "parts": {
+      "center": 1
+    },
+    "composition": {
+      "zones": {
+        "center": [
+          {
+            "tabs": [
+              "terminal",
+              "demo-native"
+            ],
+            "body": "ready",
+            "active": 1,
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ]
+      },
+      "focus": {
+        "zone": "center",
+        "part": 1
+      },
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ]
+    }
+  }
+}

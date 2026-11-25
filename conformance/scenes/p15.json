@@ -1,24 +1,140 @@
 {
   "workspace": "Работа",
   "catalog": [
-    {"id": "terminal", "title": "Терминал", "icon": "term", "cardinality": "multi",
-     "placements": ["left", "right", "center", "bottom"], "default_zone": "center",
-     "min_size": {"width": 200, "height": 120}},
-    {"id": "navigator", "title": "Навигатор", "icon": "grid", "cardinality": "per_workbench",
-     "placements": ["left", "right", "center", "bottom"], "default_zone": "left",
-     "min_size": {"width": 200, "height": 120}},
-    {"id": "demo-list", "title": "Демо: список", "icon": "file", "cardinality": "per_workbench",
-     "placements": ["left", "right", "center", "bottom"], "default_zone": "right",
-     "min_size": {"width": 260, "height": 160}},
-    {"id": "demo-native", "title": "Демо: поле", "icon": "file", "cardinality": "per_app",
-     "placements": ["left", "right", "center", "bottom"], "default_zone": "center",
-     "min_size": {"width": 220, "height": 140}}
+    {
+      "id": "terminal",
+      "title": "Терминал",
+      "icon": "term",
+      "cardinality": "multi",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ],
+      "default_zone": "center",
+      "min_size": {
+        "width": 200,
+        "height": 120
+      }
+    },
+    {
+      "id": "navigator",
+      "title": "Навигатор",
+      "icon": "grid",
+      "cardinality": "per_workbench",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ],
+      "default_zone": "left",
+      "min_size": {
+        "width": 200,
+        "height": 120
+      }
+    },
+    {
+      "id": "demo-list",
+      "title": "Демо: список",
+      "icon": "file",
+      "cardinality": "per_workbench",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ],
+      "default_zone": "right",
+      "min_size": {
+        "width": 260,
+        "height": 160
+      }
+    },
+    {
+      "id": "demo-native",
+      "title": "Демо: поле",
+      "icon": "file",
+      "cardinality": "per_app",
+      "placements": [
+        "left",
+        "right",
+        "center",
+        "bottom"
+      ],
+      "default_zone": "center",
+      "min_size": {
+        "width": 220,
+        "height": 140
+      }
+    }
   ],
   "zones": [
-    {"zone": "left", "parts": [{"tabs": [{"plugin": "navigator", "active": true}]}]},
-    {"zone": "center", "parts": [{"tabs": [{"plugin": "terminal", "active": true}]}]}
+    {
+      "zone": "left",
+      "parts": [
+        {
+          "tabs": [
+            {
+              "plugin": "navigator",
+              "active": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "zone": "center",
+      "parts": [
+        {
+          "tabs": [
+            {
+              "plugin": "terminal",
+              "active": true
+            },
+            {
+              "plugin": "demo-native"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "zone": "right",
+      "parts": [
+        {
+          "tabs": [
+            {
+              "plugin": "demo-list",
+              "active": true
+            },
+            {
+              "plugin": "terminal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "zone": "bottom",
+      "parts": [
+        {
+          "tabs": [
+            {
+              "plugin": "terminal",
+              "active": true
+            }
+          ]
+        }
+      ]
+    }
   ],
-  "focus": {"zone": "center", "part": 1},
+  "focus": {
+    "zone": "center",
+    "part": 1
+  },
   "appearance": "system",
+  "mode": "nav",
   "status": {}
 }
