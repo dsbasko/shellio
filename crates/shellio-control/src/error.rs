@@ -286,7 +286,7 @@ impl ControlError {
         )
     }
 
-    /// Запрос `ui.cell` владельцу без явного `SHELLIO_STATE_DIR`.
+    /// Запрос `ui.cell` или `ui.window.size` владельцу без явного `SHELLIO_STATE_DIR`.
     pub fn isolated_profile_only() -> Self {
         Self::plain(
             ControlErrorCode::IsolatedProfileOnly,
