@@ -90,6 +90,8 @@ fn fonts_come_from_recorded_platform_fonts() {
     assert_eq!(faces.len(), 1);
     assert_eq!(faces[0].family, "JetBrainsMono-Regular");
     assert_eq!(faces[0].glyphs, 2);
+    // Оба знака «⌘K» нарисованы файлом `prototype/fonts/`, а не одноимённым шрифтом системы.
+    assert!(faces[0].custom);
     let out = assemble(&scene(), &recipe(), &capture).unwrap();
     let kbd = out
         .elements

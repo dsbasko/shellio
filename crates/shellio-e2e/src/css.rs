@@ -190,10 +190,11 @@ fn strip_comments(css: &str) -> Result<String, Error> {
 }
 
 /// Атрибуты селектора `:root[a="b"][c="d"]`. Селектор с потомком (`:root[…] *`) свойств корня
-/// не задаёт и даёт `None`, любой другой вид — ошибка.
+/// не задаёт и даёт `None`, как и объявление вложенного шрифта `@font-face`. Любой другой вид —
+/// ошибка.
 fn root_selector(selector: &str) -> Result<Option<Vec<(String, String)>>, Error> {
     let selector = selector.trim();
-    if selector.contains(char::is_whitespace) {
+    if selector == "@font-face" || selector.contains(char::is_whitespace) {
         return Ok(None);
     }
     let unknown = || Error::new(format!("tokens.css: неизвестный селектор {selector:?}"));
@@ -689,6 +690,7 @@ mod tests {
             :root[data-theme="light"] { --base: #EEEEEE; }
             :root[data-contrast="more"] { --h: 3px; --base: #222222; }
             :root[data-motion="reduced"] * { --base: #FF0000; }
+            @font-face { font-family: "A"; src: url("../fonts/a.ttf"); --base: #00FF00; }
         "#;
         let blocks = parse_blocks(css)?;
         assert_eq!(blocks.len(), 4);
@@ -706,6 +708,7 @@ mod tests {
         let looped = parse_blocks(":root { --a: var(--b); --b: var(--a); }")?;
         assert!(Variables::cascade(&looped, &[]).resolve("--a").is_err());
         assert!(parse_blocks("body { --a: #000000; }").is_err());
+        assert!(parse_blocks("@page { --a: #000000; }").is_err());
         Ok(())
     }
 

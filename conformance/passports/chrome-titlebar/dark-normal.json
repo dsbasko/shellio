@@ -346,7 +346,7 @@
       "font": {
         "faces": [
           {
-            "custom": false,
+            "custom": true,
             "family": "JetBrainsMono-Regular",
             "glyphs": 2
           }
@@ -608,7 +608,7 @@
   "validity": {
     "cell": "dark-normal",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "42a80fb5e6514a7983e4feb3b3ca7a5f39024b2427e2752097654d4059b14759",
+    "prototype": "f5148ac22dea9ebc948b2a7b24c638b8f349e8162adb22147a8f61c94c1503e7",
     "recipe": "ea814ff2c892b8c58b6800d51ffc7fb6db048bf5178eaad5dddc4ae1c11f3cd5",
     "scene": "20aa453541f6e398436ffc64e5b6d617a1f267179e79678376652a1250d7393f",
     "schema": 2

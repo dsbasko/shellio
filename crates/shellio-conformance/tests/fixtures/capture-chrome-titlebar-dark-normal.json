@@ -772,7 +772,7 @@
         {
           "familyName": "JetBrains Mono",
           "glyphCount": 2,
-          "isCustomFont": false,
+          "isCustomFont": true,
           "postScriptName": "JetBrainsMono-Regular"
         }
       ]

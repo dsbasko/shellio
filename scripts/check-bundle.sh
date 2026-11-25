@@ -5,7 +5,8 @@
 #   check-bundle.sh --open [<бандл>]  самопроверка через open -W -n с временным SHELLIO_STATE_DIR и проверка вывода
 #
 # Бандл по умолчанию — target/bundle/shellio.app. Ресурсы сверяются с манифестом опубликованного набора,
-# версия ghostty — с его штампом; набор только читается, блокировку держит цель make.
+# версия ghostty — с его штампом; набор только читается, блокировку держит цель make. Шрифты и их
+# лицензия сверяются с prototype/fonts/ (ADR-0022).
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -13,6 +14,7 @@ root="$(cd "$here/.." && pwd)"
 
 BUNDLE_ID="io.github.dsbasko.shellio"
 vendor="${SHELLIO_GHOSTTY_VENDOR:-$root/vendor/ghostty}"
+fonts="$root/prototype/fonts"
 requirement="$root/scripts/signing/requirement.txt"
 
 # Каталоги, которые самопроверка получает временными; после выхода они должны остаться пустыми.
@@ -103,6 +105,7 @@ check_plist() {
   expect_equal "CFBundlePackageType" "$(extract CFBundlePackageType "$plist")" "APPL"
   expect_equal "LSMinimumSystemVersion" "$(extract LSMinimumSystemVersion "$plist")" "$min_macos"
   expect_equal "LSUIElement" "$(extract LSUIElement "$plist")" "true"
+  expect_equal "ATSApplicationFontsPath" "$(extract ATSApplicationFontsPath "$plist")" "Fonts"
   expect_equal "CFBundleShortVersionString" "$(extract CFBundleShortVersionString "$plist")" "$app_version"
   expect_equal "CFBundleVersion" "$(extract CFBundleVersion "$plist")" "$app_version"
 }
@@ -113,6 +116,38 @@ list_files() {
   odd="$(cd "$dir" && find . ! -type f ! -type d)"
   [[ -z "$odd" ]] || die "в $dir не обычные файлы: $(printf '%s' "$odd" | tr '\n' ' ')"
   (cd "$dir" && find . -type f -print0 | xargs -0 shasum -a 256) | sed 's|  \./|  |' | LC_ALL=C sort -k2
+}
+
+sha256() {
+  local sum
+  sum="$(shasum -a 256 <"$1")" || die "не удалось прочитать $1"
+  printf '%s\n' "${sum%% *}"
+}
+
+# Шрифты бандла — файлы prototype/fonts/ с теми же SHA-256. Без файла продукт взял бы запасной шрифт
+# молча, с подменённым рисовал бы не то, что прототип. Строки «SHA-256  путь» идут в stdout для сверки
+# всех ресурсов.
+check_fonts() {
+  local font name got want count=0
+
+  [[ -d "$fonts" ]] || die "нет каталога шрифтов прототипа $fonts"
+  for font in "$fonts"/*.ttf; do
+    [[ -f "$font" ]] || die "в $fonts нет файлов шрифта"
+    name="$(basename "$font")"
+    [[ -f "$resources/Fonts/$name" ]] || die "нет шрифта $resources/Fonts/$name"
+    want="$(sha256 "$font")"
+    got="$(sha256 "$resources/Fonts/$name")"
+    [[ "$got" == "$want" ]] ||
+      die "шрифт $resources/Fonts/$name подменён: SHA-256 ${got}, в prototype/fonts — ${want}"
+    printf '%s  Fonts/%s\n' "$want" "$name"
+    count=$((count + 1))
+  done
+  [[ $count -gt 0 ]] || die "в $fonts нет файлов шрифта"
+
+  [[ -f "$fonts/OFL.txt" ]] || die "нет лицензии шрифта $fonts/OFL.txt"
+  [[ -f "$resources/licenses/JetBrainsMono-OFL.txt" ]] ||
+    die "нет лицензии шрифта $resources/licenses/JetBrainsMono-OFL.txt"
+  printf '%s  licenses/JetBrainsMono-OFL.txt\n' "$(sha256 "$fonts/OFL.txt")"
 }
 
 check_layout() {
@@ -129,19 +164,22 @@ check_layout() {
   [[ -f "$resources/terminfo/78/xterm-ghostty" ]] || die "нет файла $resources/terminfo/78/xterm-ghostty"
   [[ -f "$resources/licenses/ghostty.txt" ]] || die "нет лицензии ghostty $resources/licenses/ghostty.txt"
 
-  # Ресурсы бандла — ровно ресурсы набора и его лицензия, с теми же хэшами.
+  # Вывод check_fonts пишется в файл, а не в подстановку: отказ внутри неё не остановил бы проверку.
+  check_fonts >"$tmp/fonts"
+
+  # Ресурсы бандла — ровно ресурсы набора, его лицензия, шрифты прототипа и их лицензия, с теми же хэшами.
   [[ -f "$vendor/manifest" ]] || die "нет манифеста набора $vendor/manifest"
   awk '
     { sum = $1; path = substr($0, length($1) + 3) }
     path ~ /^share\/ghostty\// { print sum "  ghostty/" substr(path, 15); next }
     path ~ /^share\/terminfo\// { print sum "  terminfo/" substr(path, 16); next }
     path == "LICENSE" { print sum "  licenses/ghostty.txt" }
-  ' "$vendor/manifest" | LC_ALL=C sort -k2 >"$tmp/expected"
+  ' "$vendor/manifest" | cat - "$tmp/fonts" | LC_ALL=C sort -k2 >"$tmp/expected"
   list_files "$resources" >"$tmp/actual"
   if ! diff -u "$tmp/expected" "$tmp/actual" >"$tmp/resources.diff"; then
-    echo "ресурсы бандла расходятся с набором (- набор, + бандл):" >&2
+    echo "ресурсы бандла расходятся с набором и шрифтами прототипа (- ожидалось, + бандл):" >&2
     tail -n +3 "$tmp/resources.diff" | grep '^[-+]' | head -20 >&2 || true
-    die "ресурсы бандла не совпадают с манифестом набора $vendor/manifest"
+    die "ресурсы бандла не совпадают с манифестом набора $vendor/manifest и шрифтами $fonts"
   fi
 }
 
@@ -224,7 +262,7 @@ case "$mode" in
     check_layout
     check_binary
     check_self_check
-    echo "бандл $app прошёл проверку: подпись Shellio Dev, requirement, раскладка, бинарь и самопроверка"
+    echo "бандл $app прошёл проверку: подпись Shellio Dev, requirement, раскладка, шрифты, бинарь и самопроверка"
     ;;
   open)
     check_open

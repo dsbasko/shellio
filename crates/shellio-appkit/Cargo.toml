@@ -69,6 +69,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSArray",
     "NSAttributedString",
+    "NSBundle",
     "NSDate",
     "NSDictionary",
     "NSEnumerator",
@@ -88,8 +89,15 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
     "block2",
+    "CFArray",
     "CFRunLoop",
     "CFString",
+    "CFURL",
+] }
+objc2-core-text = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "CTFontDescriptor",
+    "CTFontManager",
 ] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "std",

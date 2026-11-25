@@ -182,6 +182,32 @@ printf '\n' >>"$copy/Contents/Resources/ghostty/themes/$theme"
 expect_ok "бандл с изменённой темой подписывается настоящей идентичностью" "$sign" "$copy"
 expect_fail "ресурс, расходящийся с набором, отвергается" "ресурсы бандла не совпадают с манифестом" "$check" "$copy"
 
+copy="$(copy_app no-font)"
+rm "$copy/Contents/Resources/Fonts/JetBrainsMono-Regular.ttf"
+expect_ok "бандл без шрифта подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "бандл без шрифта отвергается: продукт молча взял бы запасной" "нет шрифта" "$check" "$copy"
+
+# Подмена — годный шрифт под чужим именем: по раскладке и подписи её не видно, только по SHA-256.
+copy="$(copy_app replaced-font)"
+cp "$copy/Contents/Resources/Fonts/JetBrainsMono-Bold.ttf" "$copy/Contents/Resources/Fonts/JetBrainsMono-Regular.ttf"
+expect_ok "бандл с подменённым шрифтом подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "подменённый шрифт отвергается" "подменён: SHA-256" "$check" "$copy"
+
+copy="$(copy_app extra-font)"
+cp "$copy/Contents/Resources/Fonts/JetBrainsMono-Bold.ttf" "$copy/Contents/Resources/Fonts/Extra.ttf"
+expect_ok "бандл с лишним шрифтом подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "лишний шрифт отвергается" "ресурсы бандла не совпадают с манифестом" "$check" "$copy"
+
+copy="$(copy_app no-font-licence)"
+rm "$copy/Contents/Resources/licenses/JetBrainsMono-OFL.txt"
+expect_ok "бандл без лицензии шрифта подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "бандл без лицензии шрифта отвергается" "нет лицензии шрифта" "$check" "$copy"
+
+copy="$(copy_app no-fonts-path)"
+plutil -remove ATSApplicationFontsPath "$copy/Contents/Info.plist"
+expect_ok "бандл без ATSApplicationFontsPath подписывается настоящей идентичностью" "$sign" "$copy"
+expect_fail "бандл без ATSApplicationFontsPath отвергается" "ATSApplicationFontsPath" "$check" "$copy"
+
 copy="$(copy_app bundle-id)"
 plutil -replace CFBundleIdentifier -string io.github.dsbasko.other "$copy/Contents/Info.plist"
 expect_ok "бандл с чужим bundle ID подписывается настоящей идентичностью" "$sign" "$copy"

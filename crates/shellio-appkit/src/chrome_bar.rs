@@ -23,6 +23,7 @@ use shellio_theme::{AppTheme, AppearanceChoice};
 
 use crate::app::App;
 use crate::counters::{Live, counter};
+use crate::font;
 use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer::{self, without_actions};
@@ -595,7 +596,7 @@ impl ChromeBar {
         search
             .label
             .setFont(Some(&font(theme.metrics.font.body, Weight::Regular)));
-        search.key.setFont(Some(&mono_font(KEY_FONT)));
+        search.key.setFont(Some(&font::mono(KEY_FONT)));
         if let Some(key_box) = search.key_box.layer() {
             without_actions(|| {
                 layer::set_fill(&key_box, colors.kbd);
@@ -990,16 +991,6 @@ const SEARCH_ICON_GAP: f64 = 8.0;
 const KEY_SIZE: f64 = 17.0;
 const KEY_PAD: f64 = 4.0;
 const KEY_RADIUS: f64 = 4.0;
-/// Моноширинный шрифт по стеку прототипа: первый установленный, иначе системный.
-fn mono_font(size: f64) -> Retained<NSFont> {
-    shellio_theme::MONO_FAMILIES
-        .iter()
-        .find_map(|name| NSFont::fontWithName_size(&NSString::from_str(name), size))
-        .unwrap_or_else(|| {
-            // SAFETY: вес шрифта — неизменяемая константа AppKit.
-            NSFont::monospacedSystemFontOfSize_weight(size, unsafe { NSFontWeightRegular })
-        })
-}
 const KEY_FONT: f64 = 10.5;
 const KEY_INSET: f64 = 7.0;
 /// Поля ячейки подписи AppKit по горизонтали. Собственный размер подписи их не содержит: кадру

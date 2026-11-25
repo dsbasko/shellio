@@ -276,11 +276,20 @@ const LIGHT_INCREASED: Colors = Colors {
     ..LIGHT
 };
 
-/// Метрики, одинаковые во всех ячейках.
-/// Моноширинный стек прототипа (`--mono`) без родового `monospace`: берётся первый
-/// установленный шрифт, иначе системный моноширинный.
+/// Моноширинный стек прототипа (`--mono`) без родового `monospace`. Первое семейство вложено
+/// файлами [`MONO_FONT_FILES`]; остальные — запас процесса вне бандла.
 pub const MONO_FAMILIES: [&str; 3] = ["JetBrains Mono", "SF Mono", "Menlo"];
 
+/// Файлы JetBrains Mono по начертаниям: `@font-face` прототипа, `prototype/fonts/` и
+/// `Contents/Resources/Fonts/` бандла (ADR-0022).
+pub const MONO_FONT_FILES: [(u16, &str); 4] = [
+    (400, "JetBrainsMono-Regular.ttf"),
+    (500, "JetBrainsMono-Medium.ttf"),
+    (600, "JetBrainsMono-SemiBold.ttf"),
+    (700, "JetBrainsMono-Bold.ttf"),
+];
+
+/// Метрики, одинаковые во всех ячейках.
 pub const METRICS: Metrics = Metrics {
     titlebar: 40.0,
     tabbar: 34.0,

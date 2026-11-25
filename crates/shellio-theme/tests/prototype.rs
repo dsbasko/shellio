@@ -7,10 +7,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_theme::{
     Adr0027Column, AppTheme, Appearance, Cell, Contrast, CubicBezier, KeyMode, MONO_FAMILIES,
-    Motion, MotionTokens, Origin, Srgb8, Tint, Value,
+    MONO_FONT_FILES, Motion, MotionTokens, Origin, Srgb8, Tint, Value,
 };
 
 const TOKENS_CSS: &str = include_str!("../../../prototype/css/tokens.css");
+const INDEX_HTML: &str = include_str!("../../../prototype/index.html");
 const ADR_0027: &str = include_str!("../../../docs/adr/0027-focused-panel-contrast.md");
 
 const EPSILON: f64 = 1e-9;
@@ -39,10 +40,11 @@ fn strip_comments(css: &str) -> Result<String> {
 }
 
 /// Атрибуты селектора `:root[a="b"][c="d"]`. Селектор с потомком (`:root[…] *`) корень не
-/// описывает и даёт `None`, любой другой вид — ошибка.
+/// описывает и даёт `None`, как и объявление вложенного шрифта `@font-face`. Любой другой вид —
+/// ошибка.
 fn parse_root_selector(selector: &str) -> Result<Option<Vec<(String, String)>>> {
     let selector = selector.trim();
-    if selector.contains(char::is_whitespace) {
+    if selector == "@font-face" || selector.contains(char::is_whitespace) {
         return Ok(None);
     }
     let mut rest = selector
@@ -474,6 +476,10 @@ fn css_parser_handles_comments_cascade_and_late_var() -> Result<()> {
     let looped = parse_css(":root { --a: var(--b); --b: var(--a); }")?;
     assert!(resolve(&cascade(&looped, &[]), "--a").is_err());
     assert!(parse_css("body { --a: #000000; }").is_err());
+    assert!(parse_css("@page { --a: #000000; }").is_err());
+    let faced =
+        parse_css("@font-face { font-family: \"A\"; --a: #000000; } :root { --a: #111111; }")?;
+    assert_eq!(resolve(&cascade(&faced, &[]), "--a")?, "#111111");
     Ok(())
 }
 
@@ -493,6 +499,123 @@ fn mono_families_match_the_prototype_stack() -> Result<()> {
     expected.push("monospace");
     assert_eq!(stack, expected);
     Ok(())
+}
+
+/// Объявления блока `@font-face` по именам свойств.
+fn font_faces(css: &str) -> Result<Vec<BTreeMap<String, String>>> {
+    let css = strip_comments(css)?;
+    let mut faces = Vec::new();
+    let mut rest = css.as_str();
+    while let Some(open) = rest.find('{') {
+        let selector = rest[..open].trim();
+        let close = rest[open..]
+            .find('}')
+            .ok_or_else(|| format!("незакрытый блок {selector:?}"))?;
+        let body = &rest[open + 1..open + close];
+        rest = &rest[open + close + 1..];
+        if selector != "@font-face" {
+            continue;
+        }
+        let mut face = BTreeMap::new();
+        for declaration in body.split(';').map(str::trim) {
+            if declaration.is_empty() {
+                continue;
+            }
+            let (name, value) = declaration
+                .split_once(':')
+                .ok_or_else(|| format!("объявление без значения {declaration:?}"))?;
+            if face
+                .insert(name.trim().to_owned(), value.trim().to_owned())
+                .is_some()
+            {
+                return Err(format!("повтор свойства {name:?} в @font-face"));
+            }
+        }
+        faces.push(face);
+    }
+    Ok(faces)
+}
+
+/// Начертание и имя файла объявления: семейство — первое в стеке, источник — один файл
+/// `prototype/fonts/` без `local()`, иначе браузер взял бы одноимённый системный шрифт.
+fn bundled_face(face: &BTreeMap<String, String>) -> Result<(u16, String)> {
+    let property = |name: &str| {
+        face.get(name)
+            .map(String::as_str)
+            .ok_or_else(|| format!("в @font-face нет {name}"))
+    };
+    let family = property("font-family")?.trim_matches('"');
+    if family != MONO_FAMILIES[0] {
+        return Err(format!("@font-face объявляет семейство {family:?}"));
+    }
+    let style = property("font-style")?;
+    if style != "normal" {
+        return Err(format!("@font-face объявляет наклон {style:?}"));
+    }
+    let weight = property("font-weight")?;
+    let weight: u16 = weight
+        .parse()
+        .map_err(|_| format!("начертание {weight:?} не число"))?;
+    let src = property("src")?;
+    let file = src
+        .strip_prefix("url(\"../fonts/")
+        .and_then(|rest| rest.strip_suffix("\") format(\"truetype\")"))
+        .filter(|file| !file.contains(['/', '"', ',']))
+        .ok_or_else(|| format!("источник {src:?} — не один файл prototype/fonts/"))?;
+    Ok((weight, file.to_owned()))
+}
+
+#[test]
+fn mono_font_files_match_the_prototype_font_faces() -> Result<()> {
+    let faces: Vec<(u16, String)> = font_faces(TOKENS_CSS)?
+        .iter()
+        .map(bundled_face)
+        .collect::<Result<_>>()?;
+    let expected: Vec<(u16, String)> = MONO_FONT_FILES
+        .iter()
+        .map(|(weight, file)| (*weight, (*file).to_owned()))
+        .collect();
+    assert_eq!(faces, expected);
+    let fonts = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../prototype/fonts");
+    for (_, file) in &faces {
+        assert!(fonts.join(file).is_file(), "нет файла шрифта {file}");
+    }
+    Ok(())
+}
+
+#[test]
+fn font_face_with_system_or_network_source_is_rejected() -> Result<()> {
+    let face = |src: &str| -> Result<(u16, String)> {
+        let css = format!(
+            "@font-face {{ font-family: \"JetBrains Mono\"; font-style: normal; \
+             font-weight: 400; src: {src}; }}"
+        );
+        bundled_face(&font_faces(&css)?[0])
+    };
+    assert_eq!(
+        face("url(\"../fonts/a.ttf\") format(\"truetype\")")?,
+        (400, "a.ttf".to_owned())
+    );
+    assert!(
+        face("local(\"JetBrains Mono\"), url(\"../fonts/a.ttf\") format(\"truetype\")").is_err()
+    );
+    assert!(face("url(\"https://fonts.gstatic.com/a.ttf\") format(\"truetype\")").is_err());
+    assert!(face("url(\"../fonts/../a.ttf\") format(\"truetype\")").is_err());
+    Ok(())
+}
+
+#[test]
+fn prototype_page_loads_no_network_resources() {
+    for scheme in ["http://", "https://", "url(//", "src=\"//", "href=\"//"] {
+        assert!(
+            !INDEX_HTML.contains(scheme),
+            "prototype/index.html ссылается на сеть: {scheme}"
+        );
+        assert!(
+            !TOKENS_CSS.contains(scheme),
+            "prototype/css/tokens.css ссылается на сеть: {scheme}"
+        );
+    }
 }
 
 #[test]

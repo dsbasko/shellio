@@ -2,7 +2,8 @@
 # Собирает и подписывает target/bundle/shellio.app из release-сборки и опубликованного набора ghostty.
 #
 # Раскладка: Contents/MacOS/shellio, Contents/Info.plist, Contents/Resources/ghostty/ и terminfo/ рядом
-# с ним (ADR-0003), Contents/Resources/licenses/ghostty.txt. Подпись — scripts/signing/sign.sh.
+# с ним (ADR-0003), Contents/Resources/licenses/ghostty.txt, шрифты прототипа в Contents/Resources/Fonts/
+# и их лицензия licenses/JetBrainsMono-OFL.txt (ADR-0022). Подпись — scripts/signing/sign.sh.
 # Набор только читается; блокировку держит цель make bundle.
 set -euo pipefail
 
@@ -12,6 +13,7 @@ root="$(cd "$here/.." && pwd)"
 cd "$root"
 
 vendor="${SHELLIO_GHOSTTY_VENDOR:-$root/vendor/ghostty}"
+fonts="$root/prototype/fonts"
 cargo="${CARGO:-$HOME/.cargo/bin/cargo}"
 
 die() {
@@ -63,6 +65,18 @@ copy "$exe" "$contents/MacOS/shellio"
 copy "$vendor/share/ghostty" "$resources/ghostty"
 copy "$vendor/share/terminfo" "$resources/terminfo"
 copy "$vendor/LICENSE" "$resources/licenses/ghostty.txt"
+
+# Шрифты те же, что рисует прототип: каталог называет ATSApplicationFontsPath в Info.plist.
+mkdir -p "$resources/Fonts"
+font_count=0
+for font in "$fonts"/*.ttf; do
+  [[ -f "$font" ]] || die "в $fonts нет файлов шрифта"
+  copy "$font" "$resources/Fonts/$(basename "$font")"
+  font_count=$((font_count + 1))
+done
+[[ $font_count -gt 0 ]] || die "в $fonts нет файлов шрифта"
+[[ -f "$fonts/OFL.txt" ]] || die "нет лицензии шрифта $fonts/OFL.txt"
+copy "$fonts/OFL.txt" "$resources/licenses/JetBrainsMono-OFL.txt"
 
 plist="$contents/Info.plist"
 copy "$root/apps/shellio/Info.plist" "$plist"
