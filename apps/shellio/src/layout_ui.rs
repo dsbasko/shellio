@@ -546,15 +546,44 @@ impl LayoutUi {
                 if let Some(stub) = self.stubs.get(host) {
                     let parent = host_id(*host);
                     let id = format!("{parent}.stub");
-                    let base = host_ck(*host, zoomed).map(|host| format!("{host}.body.stub"));
+                    let key = host_ck(*host, zoomed);
+                    let base = key.as_ref().map(|host| format!("{host}.body.stub"));
                     let list = stub.inspect(&id, Some(&parent));
+                    let place = match (&key, list.first()) {
+                        (Some(key), Some(root)) if root.facts.visible => {
+                            stub_place(root, *host, key)
+                        }
+                        _ => Vec::new(),
+                    };
+                    let body = place.last().map(|body| body.id.clone());
+                    // Фокус колонки навигатора несёт состояние её панели: под заглушкой панель
+                    // скрыта, состояние переходит к производному месту части.
+                    let panel = nodes
+                        .iter()
+                        .find(|node| {
+                            node.parent.as_deref() == Some(parent.as_str())
+                                && matches!(node.state, Some(ComponentState::Panel(_)))
+                        })
+                        .and_then(|node| node.state.clone());
+                    nodes.extend(place.into_iter().map(|node| {
+                        let part = node.class == COLUMN_PART;
+                        let mut component = window_ui::component(node);
+                        if part {
+                            component.state = panel.clone();
+                        }
+                        component
+                    }));
                     nodes.extend(list.into_iter().map(|node| {
                         let ck = base
                             .as_deref()
                             .filter(|_| node.facts.visible)
                             .and_then(|base| stub_ck(base, &node.id[id.len()..]));
+                        let root = node.id == id;
                         let mut component = window_ui::component(node);
                         component.ck = ck;
+                        if let (true, Some(body)) = (root, &body) {
+                            component.parent = Some(body.clone());
+                        }
                         component
                     }));
                 }
@@ -1063,6 +1092,46 @@ fn column_body(panel: &shellio_appkit::InspectNode, host: &str) -> shellio_appki
     );
     node.parent = Some(panel.id.clone());
     node
+}
+
+/// Класс производного места части колонки навигатора под заглушкой.
+const COLUMN_PART: &str = "ColumnPart";
+
+/// Производные узлы места под показанной заглушкой для сверки: контейнер панели под ней скрыт и
+/// ключей не несёт. Тело части — узел с кадром заглушки, её родитель. У колонки навигатора плитки
+/// нет, поэтому перед телом идёт место части того же кадра. Последний узел — тело.
+fn stub_place(
+    stub: &shellio_appkit::InspectNode,
+    host: Host,
+    key: &str,
+) -> Vec<shellio_appkit::InspectNode> {
+    let holder = host_id(host);
+    let column = matches!(host, Host::Navigator);
+    let mut nodes = Vec::new();
+    let mut parent = holder.clone();
+    if column {
+        let mut part = derived(
+            stub,
+            format!("{holder}.part"),
+            COLUMN_PART,
+            key.to_owned(),
+            None,
+        );
+        part.parent = Some(parent);
+        parent = part.id.clone();
+        nodes.push(part);
+    }
+    let class = if column { "ColumnBody" } else { "PartBody" };
+    let mut body = derived(
+        stub,
+        format!("{holder}.body"),
+        class,
+        format!("{key}.body"),
+        None,
+    );
+    body.parent = Some(parent);
+    nodes.push(body);
+    nodes
 }
 
 /// Наименьший кадр, который вмещает оба.
@@ -1638,6 +1707,84 @@ mod tests {
         ];
         assert_eq!(keys, expected.map(|key| key.map(str::to_owned)).to_vec());
         assert!(keyed(list, "p", None).iter().all(|node| node.ck.is_none()));
+    }
+
+    /// Под показанной заглушкой тело части — производный узел с её кадром, родитель заглушки;
+    /// у колонки навигатора перед ним стоит место части с тем же кадром.
+    #[test]
+    fn stub_place_gives_the_body_and_the_column_part_their_keys() {
+        use shellio_conformance::keys::check_key;
+
+        let frame = Frame::new(517.0, 275.0, 135.0, 364.0);
+        let key = PartKey {
+            zone: Zone::Center,
+            index: 1,
+        };
+        let mut stub = node("layout.part.center.1.stub", "layout.part.center.1", frame);
+        stub.facts.label = Some("Развернуть".to_owned());
+        let place = stub_place(&stub, Host::Part(key), "zone.center.part.2");
+        let seen: Vec<_> = place
+            .iter()
+            .map(|node| {
+                (
+                    node.id.as_str(),
+                    node.class,
+                    node.parent.as_deref(),
+                    node.ck.as_deref(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [(
+                "layout.part.center.1.body",
+                "PartBody",
+                Some("layout.part.center.1"),
+                Some("zone.center.part.2.body")
+            )]
+        );
+        let body = &place[0];
+        assert_eq!(body.facts.frame, frame);
+        assert!(body.facts.visible);
+        assert_eq!((body.facts.label.as_deref(), &body.style), (None, &None));
+
+        let column = stub_place(
+            &node("layout.navigator.stub", NAVIGATOR_ID, frame),
+            Host::Navigator,
+            "zone.left.part.1",
+        );
+        let seen: Vec<_> = column
+            .iter()
+            .map(|node| {
+                (
+                    node.id.as_str(),
+                    node.class,
+                    node.parent.as_deref(),
+                    node.ck.as_deref(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                (
+                    "layout.navigator.part",
+                    COLUMN_PART,
+                    Some(NAVIGATOR_ID),
+                    Some("zone.left.part.1")
+                ),
+                (
+                    "layout.navigator.body",
+                    "ColumnBody",
+                    Some("layout.navigator.part"),
+                    Some("zone.left.part.1.body")
+                ),
+            ]
+        );
+        for node in place.iter().chain(&column) {
+            assert_eq!(node.facts.frame, frame);
+            check_key(node.ck.as_deref().unwrap()).unwrap();
+        }
     }
 
     /// Тело без AppKit: узел тела с кадром `frame` в точках окна и вложенный узел со смещением

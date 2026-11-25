@@ -3,7 +3,7 @@
   "steps": [
     {
       "op": "open_picker",
-      "zone": "center",
+      "zone": "bottom",
       "part": 1
     }
   ],
@@ -71,7 +71,7 @@
         ]
       },
       "focus": {
-        "zone": "center",
+        "zone": "bottom",
         "part": 1
       },
       "titlebar": [

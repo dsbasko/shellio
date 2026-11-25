@@ -19,6 +19,12 @@
 # плитки (части 2 и дальше). Состояние с шагами или своим размером окна оставляет сцену изменённой: следующее
 # состояние получает новый профиль и нового владельца.
 #
+# Шаги split_refused, open_menu и open_picker — нажатия в окне, а не команды: штатным CLI шаг только переводит
+# фокус в свою часть, а само нажатие идёт через AX в каждой ячейке после её осей и до снимка. split_refused —
+# AXPress «Разделить» строки вкладок части и сообщение строки статуса; open_menu — фоновый AXPress «Действия
+# панели» и открытое меню «…» по ui.inspect; open_picker — AXPress «Разделить» и открытый выбор «Открыть в новой
+# части». Меню и выбор после снимка ячейки закрывает Escape. Такой шаг в рецепте — последний.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -35,7 +41,8 @@
 # задают ui appearance и ui cell, сценарий ждёт оси в ui.window на новом поколении и снимает окно в режиме без
 # маркера, пока оракул conform не примет пару снимков подряд. Код 0 во всех ячейках — pass, код 3 — fail с
 # перечнем расхождений из отчёта, код 4 и код 1 оракула — ошибка исполнения пункта. Отказ продукта в шаге
-# рецепта и невыполненное постусловие — fail с причиной: оракул такую ячейку не судит. Без
+# рецепта и невыполненное постусловие — fail с причиной: оракул такую ячейку не судит. Нажатие, после которого
+# окно не показало ожидаемого (сообщения, меню, выбора), — тоже fail, остальные ячейки пункта не судятся. Без
 # conformance/calibration/calibration.json (make calibrate) оракул не вызывается: пункты conform-* получают
 # not_run «нет калибровки».
 #
@@ -73,6 +80,9 @@ SECOND_LAUNCH_S=20
 MIRROR_MS=3000
 # Срок новой ячейки в ui.window (план, «Гонка ячейки»).
 SETTLE_MS=3000
+# Фоновый AXPress меню «…» ждёт закрытия меню: срок его выхода, секунды.
+MENU_OSA_S=20
+KEY_ESC=53
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
@@ -97,7 +107,7 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-picker-new-part conform-status-split-no-room voiceover-speech)
 TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=11
+DONE_TASK=12
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
 KBD_CK="chrome.search.kbd"
 MONO_FAMILY="JetBrains Mono"
@@ -175,6 +185,13 @@ scene_clean=0
 STATE_W=""
 STATE_H=""
 STEP_KIND=""
+# Нажатие состояния (последний шаг рецепта split_refused, open_menu или open_picker), описание строки вкладок его
+# части и ключ кнопки меню «…» этой части; пусто — нажатия нет.
+PRESS_OP=""
+PRESS_STRIP=""
+PRESS_MENU_CK=""
+bg_job=""
+STATUS_TEXT=""
 
 log() {
   printf '%s\n' "$*"
@@ -1077,8 +1094,10 @@ fresh_scene() {
 
 # План рецепта. count <рецепт> — число шагов; window <рецепт> <W> <H> — размер окна рецепта или W H по умолчанию;
 # step <рецепт> <query.layout> <N> <рабочая область> — вызовы shellioctl шага N по одному на строку (без --all)
-# либо строка «error: …»; verify <рецепт> <query.layout> — невыполненные постусловия по одному на строку. Левая
-# зона сцены — колонка навигатора (часть 1) и части левой плитки (части 2 и дальше).
+# либо строка «error: …»; press <рецепт> <query.layout> — нажатие последнего шага строкой «шаг зона часть
+# номер-плитки число-плиток» (номер плитки с нуля, как в описании строки вкладок), пусто — нажатия нет;
+# verify <рецепт> <query.layout> — невыполненные постусловия по одному на строку. Левая зона сцены — колонка
+# навигатора (часть 1) и части левой плитки (части 2 и дальше).
 recipe_plan() {
   /usr/bin/perl -Mutf8 -MJSON::PP -e '
     my ($mode, $recipe_file, @rest) = @ARGV;
@@ -1110,10 +1129,22 @@ recipe_plan() {
       return @parts;
     }
     sub fail { print "error: $_[0]\n"; exit 0 }
+    my %press = map { $_ => 1 } qw(split_refused open_menu open_picker);
+    if ($mode eq "press") {
+      my $s = $steps[-1];
+      exit 0 unless $s && $press{ $s->{op} };
+      my $zone = $s->{zone};
+      my @plates = @{ $layout->{zones}{$zone}{parts} };
+      my $index = $s->{part} - 1 - ($zone eq "left" ? 1 : 0);
+      fail("у части $s->{part} зоны $zone нет строки вкладок") if $index < 0 || $index > $#plates;
+      print "$s->{op} $zone $s->{part} $index " . scalar(@plates) . "\n";
+      exit 0;
+    }
     if ($mode eq "step") {
       my ($n, $wb) = @rest[1, 2];
       my $s = $steps[$n - 1] or fail("в рецепте нет шага $n");
       my ($op, $zone) = ($s->{op}, $s->{zone});
+      fail("шаг $op — нажатие в окне, в рецепте он должен быть последним") if $press{$op} && $n != @steps;
       if ($op eq "hide_zone" || $op eq "show_zone") {
         my $verb = $op eq "hide_zone" ? "hide" : "show";
         fail("центр не скрывается") if $zone eq "center";
@@ -1131,7 +1162,8 @@ recipe_plan() {
       my ($tab) = grep { ($plugin{$_} // "") eq ($s->{plugin} // "") } @{ $part->{tabs} };
       if ($op eq "split") { print "layout split $active --open $s->{plugin}\n" }
       elsif ($op eq "zoom") { print "layout zoom $active\n" }
-      elsif ($op eq "focus") { print "panel focus $active\n" }
+      # Нажатие идёт в части с фокусом: штатным CLI шаг только переводит туда фокус.
+      elsif ($op eq "focus" || $press{$op}) { print "panel focus $active\n" }
       elsif ($op eq "move" || $op eq "close_tab") {
         fail("в части $s->{part} зоны $zone нет вкладки $s->{plugin}") unless defined $tab;
         if ($op eq "close_tab") { print "panel close $tab\n" }
@@ -1219,13 +1251,200 @@ resize_window() {
   done
 }
 
+# Строка вкладок окна по описанию: обход дерева AX до глубины 12, внутрь групп вкладок не заходит; AXPress кнопки
+# строки, описание которой начинается с prefix.
+AX_STRIP_JS='function run(argv) {
+  const [pid, strip, prefix] = argv;
+  const se = Application("System Events");
+  const w = se.processes.whose({unixId: Number(pid)})[0].windows[0];
+  const prop = (f) => { try { const v = f(); return v === undefined ? null : v; } catch (x) { return null; } };
+  let found = null;
+  function walk(e, depth) {
+    if (found) return;
+    const role = prop(() => e.role());
+    if (role === "AXTabGroup") {
+      if (prop(() => e.description()) === strip) found = e;
+      return;
+    }
+    if (depth >= 12) return;
+    let kids = [];
+    try { kids = e.uiElements(); } catch (x) {}
+    for (const k of kids) walk(k, depth + 1);
+  }
+  walk(w, 0);
+  if (!found) throw new Error("нет строки вкладок «" + strip + "»");
+  const hit = found.buttons().map((b) => ({ element: b, description: prop(() => b.description()) || "" }))
+    .find((b) => b.description.startsWith(prefix));
+  if (!hit) throw new Error("нет кнопки «" + prefix + "» в строке «" + strip + "»");
+  hit.element.actions.byName("AXPress").perform();
+  return "pressed " + hit.description;
+}'
+
+# Описание строки вкладок плитки index (с нуля) зоны zone из count плиток, как его задаёт адаптер.
+strip_label() {
+  local zone="$1" index="$2" count="$3" name
+  case "$zone" in
+    left) name="левой зоны" ;;
+    right) name="правой зоны" ;;
+    center) name="центра" ;;
+    bottom) name="нижней зоны" ;;
+  esac
+  if ((count > 1)); then
+    printf 'Вкладки %s, часть %s\n' "$name" $((index + 1))
+  else
+    printf 'Вкладки %s\n' "$name"
+  fi
+}
+
+# AXPress кнопки prefix строки вкладок strip окна владельца; иначе WHY.
+strip_press() {
+  local strip="$1" prefix="$2" out="$3"
+  WHY=""
+  osascript -l JavaScript -e "$AX_STRIP_JS" "$owner_pid" "$strip" "$prefix" >"$out.stdout" 2>"$out.stderr" || {
+    WHY="AXPress кнопки «${prefix}» строки «${strip}» не выполнен: $(oneline "$out.stderr")"
+    return 1
+  }
+}
+
+# Клавиша key code через System Events; журнал — <out>.
+se_key() {
+  printf '%s key code %s\n' "$(now_ms)" "$1" >>"$2"
+  osascript -e "tell application \"System Events\" to key code $1" >>"$2" 2>&1
+}
+
+# Выход фонового osascript до срока MENU_OSA_S от его старта t0; иначе WHY.
+await_bg() {
+  local job="$1" t0="$2"
+  while alive "$job"; do
+    if (($(now_ms) - t0 >= MENU_OSA_S * 1000)); then
+      kill -TERM "$job" 2>/dev/null || true
+      WHY="фоновый AXPress не вышел за $MENU_OSA_S с"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  wait "$job" 2>/dev/null || true
+}
+
+# Опрос ui.inspect: меню узла по пути path (jv) открыто или закрыто, как в want; последнее чтение —
+# <prefix>.stdout, иначе WHY. С job срок — MENU_OSA_S: фоновый osascript до нажатия обходит дерево AX окна, и
+# опрос кончается раньше срока, если он уже вышел.
+wait_menu() {
+  local prefix="$1" path="$2" want="$3" job="${4:-}" limit="$MIRROR_MS" deadline seen=""
+  WHY=""
+  [[ -z "$job" ]] || limit=$((MENU_OSA_S * 1000))
+  deadline=$(($(now_ms) + limit))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect; then
+      seen="$(jv "$prefix.stdout" "$path.state.menu.open" || echo ?)"
+      [[ "$seen" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)) || { [[ -n "$job" ]] && ! alive "$job"; }; then
+      WHY="за $limit мс меню $path open — ${seen:-?}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос ui.inspect до видимого сообщения строки статуса; текст — в STATUS_TEXT, последнее чтение — <prefix>.stdout,
+# иначе WHY.
+wait_status() {
+  local prefix="$1" deadline node="ok.ui.inspect.components[id=status.message]"
+  WHY=""
+  STATUS_TEXT=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect && [[ "$(jv "$prefix.stdout" "$node.visible" || echo ?)" == true ]]; then
+      STATUS_TEXT="$(jv "$prefix.stdout" "$node.label" || echo null)"
+      [[ -n "$STATUS_TEXT" && "$STATUS_TEXT" != null ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс строка статуса не показала сообщение"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+PICKER_NODE="ok.ui.inspect.components[id=layout.picker]"
+
+# Нажатие состояния в окне владельца: PRESS_OP на строке вкладок PRESS_STRIP. Отказ — причина в WHY и род в
+# STEP_KIND: fail — нажатие прошло, а окно не показало ожидаемого, broken — ошибка AX.
+press_state() {
+  local dir="$1" t0
+  STEP_KIND=broken
+  front_ok "$owner_pid" "$dir" || return 1
+  case "$PRESS_OP" in
+    split_refused)
+      strip_press "$PRESS_STRIP" "Разделить" "$dir/press" || return 1
+      wait_status "$dir/status" || {
+        STEP_KIND=fail
+        WHY="«Разделить» строки «${PRESS_STRIP}»: $WHY"
+        return 1
+      }
+      printf '%s\n' "$STATUS_TEXT" >"$dir/status.txt"
+      ;;
+    open_menu)
+      t0="$(now_ms)"
+      osascript -l JavaScript -e "$AX_STRIP_JS" "$owner_pid" "$PRESS_STRIP" "Действия панели" \
+        >"$dir/press.stdout" 2>"$dir/press.stderr" &
+      bg_job=$!
+      bg_jobs+=("$bg_job")
+      wait_menu "$dir/menu" "ok.ui.inspect.components[ck=$PRESS_MENU_CK]" true "$bg_job" || {
+        # Вышедший AXPress без открытого меню — отказ AX, живой — меню не открылось.
+        alive "$bg_job" && STEP_KIND=fail
+        WHY="«Действия панели» строки «${PRESS_STRIP}»: $WHY $(oneline "$dir/press.stderr")"
+        se_key "$KEY_ESC" "$dir/keys.log" || true
+        await_bg "$bg_job" "$t0" || true
+        return 1
+      }
+      ;;
+    open_picker)
+      strip_press "$PRESS_STRIP" "Разделить" "$dir/press" || return 1
+      wait_menu "$dir/menu" "$PICKER_NODE" true || {
+        STEP_KIND=fail
+        WHY="«Разделить» строки «${PRESS_STRIP}»: выбор «Открыть в новой части» не открылся: $WHY"
+        return 1
+      }
+      ;;
+  esac
+}
+
+# Меню или выбор, открытые нажатием состояния, закрывает Escape; иначе WHY.
+release_state() {
+  local dir="$1" t0
+  case "$PRESS_OP" in
+    open_menu)
+      t0="$(now_ms)"
+      se_key "$KEY_ESC" "$dir/keys.log" || {
+        WHY="Escape не отправлен: $(oneline "$dir/keys.log")"
+        return 1
+      }
+      await_bg "$bg_job" "$t0" || return 1
+      wait_menu "$dir/menu-closed" "ok.ui.inspect.components[ck=$PRESS_MENU_CK]" false
+      ;;
+    open_picker)
+      se_key "$KEY_ESC" "$dir/keys.log" || {
+        WHY="Escape не отправлен: $(oneline "$dir/keys.log")"
+        return 1
+      }
+      wait_menu "$dir/menu-closed" "$PICKER_NODE" false
+      ;;
+  esac
+}
+
 # Состояние рецепта на чистой сцене: размер окна рецепта, шаги штатным CLI, постусловия по query.layout. Размер
-# окна — в STATE_W и STATE_H. Отказ — причина в WHY и род в STEP_KIND: fail — продукт отказал в шаге или
-# постусловие не выполнено, broken — ошибка исполнения.
+# окна — в STATE_W и STATE_H, нажатие последнего шага — в PRESS_OP, PRESS_STRIP и PRESS_MENU_CK. Отказ — причина
+# в WHY и род в STEP_KIND: fail — продукт отказал в шаге или постусловие не выполнено, broken — ошибка исполнения.
 prepare_state() {
-  local state="$1" dir="$2" recipe="$root/conformance/recipes/$1.json" count size n m line rev=0
+  local state="$1" dir="$2" recipe="$root/conformance/recipes/$1.json" count size n m line rev=0 op zone part index
+  local plates
   STEP_KIND=broken
   WHY=""
+  PRESS_OP=""
+  PRESS_STRIP=""
+  PRESS_MENU_CK=""
   mkdir -p "$dir"
   [[ -f "$recipe" ]] || {
     WHY="нет рецепта $recipe"
@@ -1283,7 +1502,22 @@ prepare_state() {
     WHY="постусловие рецепта не выполнено: $(oneline "$dir/verify")"
     return 1
   fi
-  log "$state: окно ${STATE_W}×${STATE_H}, шагов рецепта $count, постусловия выполнены"
+  recipe_plan press "$recipe" "$dir/settled.layout.stdout" >"$dir/press.plan" || {
+    WHY="нажатие рецепта не разобрано"
+    return 1
+  }
+  if [[ -s "$dir/press.plan" ]]; then
+    line="$(head -n 1 "$dir/press.plan")"
+    if [[ "$line" == error:* ]]; then
+      WHY="нажатие рецепта: ${line#error: }"
+      return 1
+    fi
+    read -r op zone part index plates <<<"$line"
+    PRESS_OP="$op"
+    PRESS_STRIP="$(strip_label "$zone" "$index" "$plates")"
+    PRESS_MENU_CK="zone.$zone.part.$part.tabs.menu"
+  fi
+  log "$state: окно ${STATE_W}×${STATE_H}, шагов рецепта $count, постусловия выполнены${PRESS_OP:+, нажатие $PRESS_OP на строке «${PRESS_STRIP}»}"
 }
 
 # --- пункты матрицы ---
@@ -1323,12 +1557,25 @@ item_conform() {
       broken="${broken:+$broken; }$cell: условие пункта: $WHY"
       continue
     fi
+    if [[ -n "$PRESS_OP" ]] && ! press_state "$dir"; then
+      # Окно после несостоявшегося нажатия — не состояние рецепта: остальные ячейки не судятся.
+      if [[ "$STEP_KIND" == fail ]]; then
+        failures+=("$cell: $WHY")
+      else
+        broken="${broken:+$broken; }$cell: $WHY"
+      fi
+      break
+    fi
     conform_snapshot "$state" "$cell" "$dir"
     case "$snap_code" in
       0) ;;
       3) failures+=("$cell: $(mismatches_of "$dir/report.json")") ;;
       *) broken="${broken:+$broken; }$cell: $snap_reason" ;;
     esac
+    if [[ -n "$PRESS_OP" ]] && ! release_state "$dir"; then
+      broken="${broken:+$broken; }$cell: $WHY"
+      break
+    fi
   done
   if [[ -n "$broken" ]]; then
     add_error "$item: $broken"
@@ -1439,7 +1686,8 @@ item_fonts_bundled
 item_ck_coverage
 # Состояния без шагов рецепта идут первыми на одной сцене, остальные получают новый профиль.
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
-  layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide; do
+  layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
+  layout-empty-workbench menu-panel picker-new-part status-split-no-room; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then

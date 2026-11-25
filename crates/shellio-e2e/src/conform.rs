@@ -1473,7 +1473,8 @@ pub struct Staged {
 /// паспорта, цвет цветного значка — медианой ядра чернил ([`ink_color`]), линия под активной
 /// вкладкой — поперечной серией ([`underline_mismatch`]), вуаль и тон плитки — медианой
 /// свободного промежутка строки вкладок ([`free_strip`]) против заливки полосы продукта под
-/// заливкой псевдоэлемента паспорта. Поле, которому не хватило входа, попадает в
+/// заливкой псевдоэлемента паспорта; в полосе без промежутка основа — вкладка, затем заглушка на
+/// месте тела. Поле, которому не хватило входа, попадает в
 /// [`Staged::unjudged`].
 pub fn snapshot_stage(
     passport: &Passport,
@@ -1528,28 +1529,33 @@ pub fn snapshot_stage(
                     // Вуаль и тон плитки лежат над всей плиткой: судятся там, где основа под
                     // ними известна, — на свободном промежутке строки вкладок.
                     // Основа — полоса вкладок, а в полосе без свободного места — её вкладка с
-                    // собственной непрозрачной заливкой (активная).
-                    let strip = ck
-                        .strip_suffix("::after")
-                        .map(|owner| format!("{owner}.tabs"));
-                    let found = strip.as_deref().and_then(|strip| {
+                    // собственной непрозрачной заливкой (активная). В узкой части места нет и у
+                    // сжатой вкладки: тогда основа — заглушка на месте тела, её поля свободны.
+                    let found = ck.strip_suffix("::after").and_then(|owner| {
+                        let strip = format!("{owner}.tabs");
                         let tab = format!("{strip}.tab.");
-                        let tab = tab.as_str();
-                        let keyed = |own: bool| {
-                            product.components.iter().filter(move |n| {
-                                n.visible
-                                    && n.ck.as_deref().is_some_and(|key| {
-                                        if own {
-                                            key == strip
-                                        } else {
-                                            key.strip_prefix(tab)
-                                                .is_some_and(|rest| !rest.contains('.'))
-                                        }
-                                    })
-                            })
+                        let stub = format!("{owner}.body.stub");
+                        // Порядок основ: полоса, затем вкладки по порядку узлов, затем заглушка.
+                        let rank = |key: &str| {
+                            if key == strip {
+                                Some(0)
+                            } else if key
+                                .strip_prefix(tab.as_str())
+                                .is_some_and(|rest| !rest.contains('.'))
+                            {
+                                Some(1)
+                            } else {
+                                (key == stub).then_some(2)
+                            }
                         };
-                        // Порядок основ: полоса, затем вкладки по порядку узлов.
-                        keyed(true).chain(keyed(false)).find_map(|n| {
+                        let mut bases: Vec<(u8, &Node)> = product
+                            .components
+                            .iter()
+                            .filter(|n| n.visible)
+                            .filter_map(|n| Some((rank(n.ck.as_deref()?)?, n)))
+                            .collect();
+                        bases.sort_by_key(|(rank, _)| *rank);
+                        bases.into_iter().find_map(|(_, n)| {
                             let base = n.style.as_ref()?.fill.filter(|fill| fill.a >= 1.0)?;
                             Some((free_strip(product, n).ok()?, base))
                         })
@@ -1573,8 +1579,9 @@ pub fn snapshot_stage(
                                 fill_mismatch(ck, Field::Fill, expected, median)
                             }),
                         None => Err(
-                            "полупрозрачный участок судится по строке вкладок плитки: у полосы и \
-                             её вкладок нет непрозрачной заливки со свободным промежутком"
+                            "полупрозрачный участок судится по строке вкладок плитки: у полосы, \
+                             её вкладок и заглушки тела нет непрозрачной заливки со свободным \
+                             промежутком"
                                 .to_owned(),
                         ),
                     }

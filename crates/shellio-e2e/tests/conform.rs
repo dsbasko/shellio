@@ -1004,6 +1004,64 @@ fn veil_falls_back_to_a_tab_only_when_the_strip_has_no_gap() {
     assert!(fallbacks >= 4, "запасная основа есть в каждой ячейке");
 }
 
+/// В узкой части живого окна свободного места нет ни у полосы, ни у сжатой вкладки: основа
+/// вуали — заглушка на месте тела, её поля по сторонам от подписи свободны.
+#[test]
+fn veil_falls_back_to_the_stub_when_strip_and_tabs_have_no_gap() {
+    let state = "layout-stub";
+    let part = "zone.center.part.2";
+    let veil = format!("{part}::after");
+    let stub = format!("{part}.body.stub");
+    for cell in CELLS {
+        let passport = passport(state, cell);
+        let mut tree = mirror(&passport);
+        let tint = passport
+            .elements
+            .iter()
+            .find(|e| e.ck == veil)
+            .and_then(|e| e.fill)
+            .unwrap_or_else(|| panic!("{cell}: заливка {veil}"));
+        // Полоса и вкладка сжаты до подписи вкладки: промежутка у них не остаётся.
+        let label = node(&mut tree, &format!("{part}.tabs.tab.1.label"))["frame"].clone();
+        for key in [format!("{part}.tabs"), format!("{part}.tabs.tab.1")] {
+            let frame = &mut node(&mut tree, &key)["frame"];
+            frame["x"] = label["x"].clone();
+            frame["width"] = label["width"].clone();
+        }
+        let judged = |tree: &Value, colour: [u8; 3]| {
+            let (_, staged) = staged_in(state, &passport, tree, colour);
+            let left = staged.unjudged.iter().any(|u| u.ck == veil);
+            (staged.mismatches.into_iter().find(|m| m.ck == veil), left)
+        };
+        // Заглушка без читаемой заливки основой не служит: поле названо, а не пропущено.
+        assert_eq!(judged(&tree, [0, 0, 0]), (None, true), "{cell}");
+        // Основа, на которой слой ячейки различим: тёмная под светлым слоем и наоборот.
+        let (r, g, b) = if tint.r > 127 {
+            (20, 24, 28)
+        } else {
+            (250, 240, 230)
+        };
+        let base = shellio_conformance::passport::Rgba { r, g, b, a: 1.0 };
+        node(&mut tree, &stub)["style"]["fill"] = json!(base);
+        let mix = |base: u8, over: u8| {
+            (f64::from(base) + (f64::from(over) - f64::from(base)) * tint.a).round() as u8
+        };
+        let over = [
+            mix(base.r, tint.r),
+            mix(base.g, tint.g),
+            mix(base.b, tint.b),
+        ];
+        assert_eq!(judged(&tree, over), (None, false), "{cell}");
+        let (bare, left) = judged(&tree, [base.r, base.g, base.b]);
+        assert!(!left, "{cell}");
+        assert_eq!(
+            bare.map(|m| m.field),
+            Some(Field::Fill),
+            "{cell}: отсутствие слоя не поймано"
+        );
+    }
+}
+
 /// Порядок основ вуали — полоса, затем вкладки — не зависит от порядка узлов `ui.inspect`: живое
 /// окно отдаёт узлы в порядке построения видов, и вкладка может стоять раньше своей полосы.
 #[test]
