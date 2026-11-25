@@ -81,6 +81,7 @@ locked-ghostty:
 locked-check:
 	$(GHOSTTY_VENDOR) --verify
 	$(CARGO) fmt --check
+	$(CARGO) fetch --locked
 	$(CARGO) clippy --all-targets --locked -- -D warnings
 	$(CARGO) test --locked
 
