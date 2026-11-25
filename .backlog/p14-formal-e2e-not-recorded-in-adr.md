@@ -1,6 +1,6 @@
 ---
 worth: yes
-where: docs/adr/README.md:23
+where: docs/adr/README.md:63
 added: 2026-11-24
 ---
 # Закрытие P1.4 формальным make e2e не записано в ADR

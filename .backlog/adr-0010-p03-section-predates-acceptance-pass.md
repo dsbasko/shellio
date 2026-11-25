@@ -1,6 +1,6 @@
 ---
 worth: yes
-where: docs/adr/0010-input-and-navigation.md:87
+where: docs/adr/0010-input-and-navigation.md:104
 added: 2026-11-24
 ---
 # ADR-0010, «Уточнено в P0.3», не отражает приёмочный проход
