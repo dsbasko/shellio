@@ -97,6 +97,7 @@ crates/
   shellio-update/       обновление
   forge-fake/           локальный GitLab и GitHub для тестов
   shellio-e2e/          оракул снимков make e2e, бинарь shellio-e2e-oracle
+  shellio-conformance/  паспорта, реестр и ключи сверки с прототипом, бинарь shellio-snap
 plugins/
   navigator/ projects/ terminal/ agent/ agents-hub/ editor/
   changes/ history/ review/ pipelines/ resources/
@@ -113,7 +114,7 @@ spikes/                 пробы фазы 0 (ADR-0034), продукт от н
 vendor/                 собранный набор ghostty, не хранится в git
 ```
 
-Сейчас в репозитории есть `apps/shellio`, `apps/shellioctl`, `crates/shellio-core`, `shellio-store`, `shellio-control`, `shellio-layout`, `shellio-theme`, `shellio-plugin-api`, `shellio-plugin-view`, `shellio-appkit`, `shellio-e2e`, `shellio-sys-ghostty` и `shellio-ghostty`, а также плагины `plugins/navigator`, `plugins/terminal`, `plugins/demo-list` и `plugins/demo-native`. Остальные части появляются в своих шагах [дорожной карты](roadmap.md).
+Сейчас в репозитории есть `apps/shellio`, `apps/shellioctl`, `crates/shellio-core`, `shellio-store`, `shellio-control`, `shellio-layout`, `shellio-theme`, `shellio-plugin-api`, `shellio-plugin-view`, `shellio-appkit`, `shellio-e2e`, `shellio-conformance`, `shellio-sys-ghostty` и `shellio-ghostty`, а также плагины `plugins/navigator`, `plugins/terminal`, `plugins/demo-list` и `plugins/demo-native`. Остальные части появляются в своих шагах [дорожной карты](roadmap.md).
 
 - `shellio-appkit` с P1.3 содержит `NSApplication`, активацию и завершение через AppKit, безопасный слой над objc2 и компоненты. Слой — это владелец вида, который отвязывает источник данных, делегат и цели до освобождения, слабые обратные вызовы со счётчиком поздних вызовов, подписки на уведомления и счётчики экземпляров каждого класса. На нём построены главное окно, главное меню, `ChromeBar`, примитив `Surface`, `TabStrip`, `VirtualList`, `TreeList`, `TextField`, `Menu`, наблюдатель ячейки оформления, маркер поколения галереи и монитор цикла главного потока. Типы objc2 из crate не выходят ([ADR-0002](adr/0002-ui-stack-appkit.md), «Уточнено в P1.3»).
 - `shellio-layout` с P1.4 — чистая модель раскладки без зависимостей, кроме `serde`: зоны, части, операции, геометрия, классы размера, цель перетаскивания и обвязка контрактного теста геометрии. Модель обобщена по ключу панели, метрики получает своим типом `LayoutMetrics`, от `shellio-core` и `shellio-theme` не зависит. `shellio-core` хранит раскладку в `State` как `Layout<PanelId>` и с P1.4 зависит от `shellio-theme`: `LayoutMetrics` ядра и адаптера строит одна функция `shellio_core::layout_metrics()` ([ADR-0009](adr/0009-layout-and-zones.md)).
@@ -121,7 +122,8 @@ vendor/                 собранный набор ghostty, не хранит
 - `shellio-plugin-view` с P1.5 — контракт вида: фабрика `ViewFactory`, вид `PluginView`, отправитель запросов `PanelSink`, токены работы вида `ViewWork`, владелец тела `Body` и нейтральная карточка заполнителей. Он зависит от `shellio-plugin-api`, `shellio-appkit` и `shellio-theme`, от ядра и `shellio-control` не зависит. `shellio-appkit` о плагинах не знает.
 - `plugins/<id>` — один crate на плагин (пакет `plugin-<id>`) с модулями `model` и `view`. `plugins/navigator` и `plugins/terminal` — заполнители с нейтральной карточкой до P1.7 и P2.2, `plugins/demo-list` и `plugins/demo-native` — демонстрационные плагины приёмки хоста. Список регистраций — `apps/shellio/src/plugins.rs`: из него строятся реестр ядра и таблица фабрик главного потока, ровно одна фабрика на id.
 - `shellio-theme` — чистая тема `AppTheme` без AppKit: слоты цвета, метрики и ячейки (светлота, Increase Contrast, движение). Значения сверены тестом с `prototype/css/tokens.css` и таблицей [ADR-0027](adr/0027-focused-panel-contrast.md), метрики для `adapt` плагины берут отсюда.
-- `shellio-e2e` — чистый оракул снимков `make e2e`: сам разбирает `tokens.css` и таблицу ADR-0027 и от `shellio-theme` не зависит, поэтому ожидания не берутся из токенов, которыми рисует приложение ([ADR-0021](adr/0021-testing.md), «Уточнено в P1.3»).
+- `shellio-e2e` — чистый оракул снимков `make e2e`: сам разбирает `tokens.css` и таблицу ADR-0027 и от `shellio-theme` не зависит, поэтому ожидания не берутся из токенов, которыми рисует приложение ([ADR-0021](adr/0021-testing.md), «Уточнено в P1.3»). Подкоманда `conform` сверяет паспорт прототипа с чтениями `ui.inspect`, `ui.window` и снимком окна.
+- `shellio-conformance` — сверка с прототипом ([ADR-0037](adr/0037-prototype-conformance.md)): чистая библиотека паспорта и его годности, реестра состояний, сцен, рецептов, инвентаря прототипа, таблицы ключей и контракта полей, без браузера и AppKit, и бинарь `shellio-snap`, который снимает паспорта через закреплённый `chrome-headless-shell` по CDP. От неё зависит оракул `shellio-e2e`, от `shellio-theme` и `shellio-appkit` она не зависит. Данные сверки лежат в каталоге `conformance/`.
 
 ## Правила зависимостей
 
