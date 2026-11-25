@@ -1,14 +1,22 @@
 //! Свойства вида для сверки с прототипом (ADR-0037, «Контракт полей»): шрифт с файлом, цвета,
 //! линия, радиус и тень. Значения читаются у настоящих видов и слоёв, а не из темы.
 
+use objc2::AnyThread;
 use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
 use objc2_app_kit::{
-    NSColor, NSColorSpace, NSFont, NSFontTraitsAttribute, NSFontWeightTrait, NSLayoutManager,
-    NSLineBreakMode, NSParagraphStyle, NSParagraphStyleAttributeName, NSTextField, NSView,
+    NSAttributedStringNSStringDrawing, NSColor, NSColorSpace, NSFont, NSFontAttributeName,
+    NSFontTraitsAttribute, NSFontWeightTrait, NSLayoutManager, NSLineBreakMode, NSParagraphStyle,
+    NSParagraphStyleAttributeName, NSTextField, NSView,
 };
 use objc2_core_text::kCTFontURLAttribute;
-use objc2_foundation::{NSAttributedString, NSDictionary, NSNumber, NSString, NSURL};
+use objc2_foundation::{
+    NSAlignmentOptions, NSAttributedString, NSDictionary, NSNumber, NSPoint, NSRect, NSSize,
+    NSString, NSURL,
+};
 use objc2_quartz_core::CALayer;
+
+use crate::chrome_bar::Frame;
 
 /// Цвет sRGB с непрозрачностью 0–1.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -360,9 +368,66 @@ pub(crate) fn view_style(view: &NSView) -> Style {
     style
 }
 
-/// Обрезан ли текст поля: естественная ширина его содержимого больше ширины поля.
+/// Поле ячейки подписи AppKit по горизонтали с каждой стороны: набор начинается на столько правее
+/// кадра поля. Собственный размер однострочной подписи этих полей не содержит.
+pub(crate) const LABEL_INSET: f64 = 2.0;
+
+/// Кадр поля подписи, набор которой занимает `typeset` в точках вида `host`: поле шире набора на
+/// поля ячейки с обеих сторон и стоит на пикселях экрана — начало на ближайшем, размер не меньше
+/// нужного: дробный кадр размывает набор, а кадр уже набора его обрезает.
+pub(crate) fn label_field_rect(host: &NSView, typeset: Frame) -> NSRect {
+    let field = NSRect::new(
+        NSPoint::new(typeset.x - LABEL_INSET, typeset.y),
+        NSSize::new(typeset.width + 2.0 * LABEL_INSET, typeset.height),
+    );
+    host.backingAlignedRect_options(
+        field,
+        NSAlignmentOptions::AlignMinXNearest
+            | NSAlignmentOptions::AlignMinYNearest
+            | NSAlignmentOptions::AlignWidthOutward
+            | NSAlignmentOptions::AlignHeightOutward,
+    )
+}
+
+/// Высота, которой заведомо хватает набору поля с переносом при замере его высоты.
+const TALL: f64 = 100_000.0;
+
+/// Обрезан ли текст поля: естественная ширина его содержимого больше ширины поля. Поле с
+/// переносом обрезано, когда набору в его ширине нужна высота больше высоты поля.
 pub(crate) fn truncated(field: &NSTextField) -> bool {
-    field.intrinsicContentSize().width > field.bounds().size.width + 0.5
+    let size = field.bounds().size;
+    if wraps(field) {
+        return wrapped_height(field, size.width) > size.height + 0.5;
+    }
+    field.intrinsicContentSize().width > size.width + 0.5
+}
+
+/// Высота набора поля с переносом в кадре шириной `width`.
+pub(crate) fn wrapped_height(field: &NSTextField, width: f64) -> f64 {
+    let bounds = NSRect::new(NSPoint::ZERO, NSSize::new(width.max(0.0), TALL));
+    field
+        .cell()
+        .map_or(0.0, |cell| cell.cellSizeForBounds(bounds).height)
+}
+
+/// Естественная ширина набора `text` шрифтом `font` в одну строку, без полей ячейки.
+pub(crate) fn typeset_width(text: &str, font: &NSFont) -> f64 {
+    if text.is_empty() {
+        return 0.0;
+    }
+    // SAFETY: ключ атрибута — неизменяемая строка AppKit, живущая весь процесс.
+    let keys = unsafe { [NSFontAttributeName] };
+    let values: [&AnyObject; 1] = [font.as_ref()];
+    let attributes = NSDictionary::from_slices(&keys, &values);
+    // SAFETY: значение словаря — `NSFont`, как требует ключ.
+    let text = unsafe {
+        NSAttributedString::initWithString_attributes(
+            NSAttributedString::alloc(),
+            &NSString::from_str(text),
+            Some(&attributes),
+        )
+    };
+    text.size().width
 }
 
 #[cfg(test)]
@@ -443,6 +508,19 @@ mod tests {
             paragraph.setLineSpacing(3.0);
         });
         assert!((text_line_height(&spaced, &font) - (natural + 3.0)).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn typeset_width_grows_with_the_text_and_the_font() {
+        // SAFETY: вес шрифта — неизменяемая константа AppKit.
+        let font = NSFont::systemFontOfSize_weight(12.5, unsafe { NSFontWeightRegular });
+        assert!(typeset_width("", &font).abs() < f64::EPSILON);
+        let short = typeset_width("Развернуть", &font);
+        assert!(short > 50.0 && short < 90.0, "{short}");
+        assert!(typeset_width("Развернуть панель", &font) > short);
+        // SAFETY: вес шрифта — неизменяемая константа AppKit.
+        let larger = NSFont::systemFontOfSize_weight(15.0, unsafe { NSFontWeightRegular });
+        assert!(typeset_width("Развернуть", &larger) > short);
     }
 
     const fn rgb(r: u8, g: u8, b: u8, a: f64) -> Rgba {

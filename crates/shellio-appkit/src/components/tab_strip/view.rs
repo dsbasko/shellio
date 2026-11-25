@@ -61,6 +61,15 @@ const EXIT_BAR: f64 = 2.0;
 /// Значок закрытия внутри своей кнопки.
 const CLOSE_INSET: f64 = 3.0;
 
+/// Кадр вкладки в `ui.inspect`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TabFrame {
+    /// Видимая часть вкладки в области прокрутки.
+    Shown,
+    /// Вся вкладка.
+    Whole,
+}
+
 /// Вкладка в `ui.inspect`: что видно у вида.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TabFacts {
@@ -341,6 +350,17 @@ impl TabStrip {
     /// Полоса и её части для `ui.inspect`: вкладки (`<id>.tab.<id вкладки>`) с кадром видимой
     /// части и выбором из AX вида, нагрузка, кнопки и меню «…».
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
+        self.inspect_tabs(id, parent, TabFrame::Shown)
+    }
+
+    /// То же, но кадр вкладки — весь её кадр, даже когда часть вкладки обрезает область прокрутки:
+    /// так кадр элемента записан в паспорте прототипа (ADR-0037). Видимость вкладки по-прежнему
+    /// несёт её видимая часть.
+    pub fn inspect_whole(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
+        self.inspect_tabs(id, parent, TabFrame::Whole)
+    }
+
+    fn inspect_tabs(&self, id: &str, parent: Option<&str>, frame: TabFrame) -> Vec<InspectNode> {
         let model = self.view.rust();
         let view = self.view.view();
         let parts = view.ivars();
@@ -366,7 +386,12 @@ impl TabStrip {
                 None,
             );
             let shown = tab_view.visibleRect();
-            node.facts.frame = inspect::frame_of(tab_view.convertRect_toView(shown, None));
+            match frame {
+                TabFrame::Shown => {
+                    node.facts.frame = inspect::frame_of(tab_view.convertRect_toView(shown, None));
+                }
+                TabFrame::Whole => {}
+            }
             node.facts.visible &= shown.size.width > 0.0 && shown.size.height > 0.0;
             node.facts.selected = Some(tab_view.isAccessibilitySelected());
             let shown = node.facts.visible;

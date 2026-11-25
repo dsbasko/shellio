@@ -17,7 +17,9 @@ use objc2_app_kit::{
     NSFontWeightMedium, NSFontWeightRegular, NSImageView, NSLineBreakMode, NSResponder,
     NSTextField, NSView, NSViewLayerContentsRedrawPolicy, NSWindow, NSWindowButton,
 };
-use objc2_foundation::{NSNumber, NSObject, NSPoint, NSRect, NSSize, NSString, NSUserDefaults};
+use objc2_foundation::{
+    NSAlignmentOptions, NSNumber, NSObject, NSPoint, NSRect, NSSize, NSString, NSUserDefaults,
+};
 use objc2_quartz_core::CALayer;
 use shellio_theme::{AppTheme, AppearanceChoice};
 
@@ -29,6 +31,7 @@ use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
 use crate::runloop;
+use crate::style;
 
 counter!(CHROME_OWNER, Owner, "ChromeBar");
 counter!(CHROME_VIEW, Class, "ShellioChromeBar");
@@ -49,6 +52,11 @@ pub const SEARCH_MAX: f64 = 460.0;
 pub const SEARCH_HEIGHT: f64 = 26.0;
 /// Высота кнопки воркспейса.
 pub const WORKSPACE_HEIGHT: f64 = 22.0;
+/// Поля кнопки воркспейса и промежуток между названием и шевроном
+/// (`.ws-btn { gap: 3px; padding: 0 3px 0 6px }`).
+pub const WORKSPACE_PAD_LEFT: f64 = 6.0;
+pub const WORKSPACE_PAD_RIGHT: f64 = 3.0;
+pub const WORKSPACE_GAP: f64 = 3.0;
 /// Кнопка группы зон и её рамка (`.seg .ib { width: 30px }`, рамка 1).
 pub const ZONE_WIDTH: f64 = 30.0;
 pub const ZONE_HEIGHT: f64 = 24.0;
@@ -64,7 +72,7 @@ const FIELD_RADIUS: f64 = 6.0;
 /// Сторона значка кнопок зон и оформления (`icon(name, 15)` прототипа).
 const BUTTON_ICON: f64 = 15.0;
 /// Сторона шеврона кнопки воркспейса.
-const CHEVRON_ICON: f64 = 11.0;
+pub const CHEVRON_ICON: f64 = 11.0;
 /// Знак сокращения имени.
 pub const ELLIPSIS: char = '…';
 /// Имя без активного воркспейса.
@@ -191,9 +199,45 @@ impl ChromeLayout {
     }
 }
 
+/// Ширина кнопки воркспейса с названием шириной набора `text_width`: поля, название, промежуток
+/// и шеврон. Ширина не округляется: её несёт набор.
+pub fn workspace_width(text_width: f64) -> f64 {
+    WORKSPACE_PAD_LEFT + text_width.max(0.0) + WORKSPACE_GAP + CHEVRON_ICON + WORKSPACE_PAD_RIGHT
+}
+
+/// Части кнопки воркспейса в её точках, начало сверху слева.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WorkspaceParts {
+    /// Место набора названия.
+    pub label: Frame,
+    pub chevron: Frame,
+}
+
+/// Части кнопки воркспейса шириной `width` с названием высотой `text_height`: название от левого
+/// поля, шеврон сразу за ним через промежуток, оба по середине высоты. В кнопке уже своей ширины
+/// сжимается название, шеврон остаётся целым.
+pub fn workspace_parts(width: f64, text_height: f64) -> WorkspaceParts {
+    let fixed = workspace_width(0.0);
+    let label_width = (width - fixed).max(0.0);
+    let label = Frame::new(
+        WORKSPACE_PAD_LEFT,
+        (WORKSPACE_HEIGHT - text_height) / 2.0,
+        label_width,
+        text_height,
+    );
+    let chevron = Frame::new(
+        label.right() + WORKSPACE_GAP,
+        (WORKSPACE_HEIGHT - CHEVRON_ICON) / 2.0,
+        CHEVRON_ICON,
+        CHEVRON_ICON,
+    );
+    WorkspaceParts { label, chevron }
+}
+
 /// Имя, которое помещается в `max_width` по мерке `measure`. Длинное имя сокращается с конца до
 /// [`ELLIPSIS`]; если не помещается и он, остаётся один знак сокращения. Мерка возвращает ширину
-/// всей кнопки с этим текстом, поэтому шеврон остаётся виден при любом имени.
+/// всей кнопки с этим текстом ([`workspace_width`]), поэтому шеврон остаётся виден при любом
+/// имени.
 pub fn shorten(name: &str, max_width: f64, measure: impl Fn(&str) -> f64) -> String {
     if measure(name) <= max_width {
         return name.to_owned();
@@ -461,23 +505,31 @@ impl ChromeBar {
             )
             .with_ck(inspect::ck::WORKSPACE),
         ];
-        // Подпись и шеврон рисует ячейка кнопки: их кадры — её прямоугольники.
-        nodes.extend(
-            inspect::button_title(
-                "chrome.workspace.label",
-                "chrome.workspace",
-                &parts.workspace,
-            )
-            .map(|node| node.with_ck(inspect::ck::WORKSPACE_LABEL)),
-        );
-        nodes.extend(
-            inspect::button_image(
+        // Название и шеврон — виды внутри кнопки: кадр названия — место его набора.
+        if parts.workspace_label.stringValue().length() > 0 {
+            nodes.push(
+                inspect::typeset_node(
+                    "chrome.workspace.label",
+                    "Label",
+                    "chrome.workspace",
+                    &parts.workspace_label,
+                )
+                .with_ck(inspect::ck::WORKSPACE_LABEL),
+            );
+        }
+        let chevron: &NSView = &parts.workspace_chevron;
+        nodes.push(
+            inspect::node(
                 "chrome.workspace.chevron",
-                "chrome.workspace",
-                &parts.workspace,
-                "chevD",
+                "Icon",
+                Some("chrome.workspace"),
+                chevron,
+                None,
+                None,
             )
-            .map(|node| node.with_ck(inspect::ck::WORKSPACE_CHEVRON)),
+            .with_ck(inspect::ck::WORKSPACE_CHEVRON)
+            // Значок цветной: цвет он несёт в себе, свойством вида цвет не читается.
+            .with_icon("chevD", chevron.bounds().size.width, None),
         );
         nodes.extend([
             inspect::node(
@@ -686,8 +738,7 @@ impl ChromeBar {
         let colors = &theme.colors;
         let text = layer::ns_color(colors.text);
         let muted = layer::ns_color(colors.text_3);
-        parts.workspace.setContentTintColor(Some(&text));
-        parts.measure.setContentTintColor(Some(&text));
+        parts.workspace_label.setTextColor(Some(&text));
         // Шеврон приглушён (`.ws-btn svg`), название — цвета текста: значок несёт свой цвет.
         let chevron = icon::colored(
             "chevD",
@@ -696,11 +747,10 @@ impl ChromeBar {
             colors.line_2,
             &NSString::from_str("Выбрать воркспейс"),
         );
-        parts.workspace.setImage(Some(&chevron));
-        parts.measure.setImage(Some(&chevron));
-        let body = font(theme.metrics.font.body, Weight::Medium);
-        parts.workspace.setFont(Some(&body));
-        parts.measure.setFont(Some(&body));
+        parts.workspace_chevron.setImage(Some(&chevron));
+        parts
+            .workspace_label
+            .setFont(Some(&font(theme.metrics.font.body, Weight::Medium)));
         parts.appearance.setContentTintColor(Some(&muted));
         self.style_zone_buttons();
         let search = parts.search.ivars();
@@ -757,9 +807,10 @@ struct ChromeIvars {
     _live: Live,
     owner: Callback<ChromeModel>,
     workspace: Retained<ChromeButton>,
-    /// Кнопка-мерка той же формы, что кнопка воркспейса, вне иерархии: мерка не трогает
-    /// раскладку видимой кнопки.
-    measure: Retained<ChromeButton>,
+    /// Название и шеврон внутри кнопки воркспейса: поля и промежуток прототипа ячейка кнопки не
+    /// раскладывает.
+    workspace_label: Retained<NSTextField>,
+    workspace_chevron: Retained<NSImageView>,
     search: Retained<SearchView>,
     zones: Retained<NSView>,
     separators: Vec<Retained<CALayer>>,
@@ -846,12 +897,13 @@ define_class!(
 impl ChromeBarView {
     fn new(mtm: MainThreadMarker, owner: Callback<ChromeModel>) -> Retained<ChromeBarView> {
         let workspace = ChromeButton::new(mtm, false);
-        workspace.setImagePosition(NSCellImagePosition::ImageTrailing);
-        workspace.setImageHugsTitle(true);
-        workspace.setLineBreakMode(NSLineBreakMode::ByClipping);
-        let measure = ChromeButton::new(mtm, false);
-        measure.setImagePosition(NSCellImagePosition::ImageTrailing);
-        measure.setImageHugsTitle(true);
+        let workspace_label = NSTextField::labelWithString(&NSString::from_str(""), mtm);
+        workspace_label.setLineBreakMode(NSLineBreakMode::ByClipping);
+        workspace_label.setAccessibilityElement(false);
+        let workspace_chevron = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
+        workspace_chevron.setAccessibilityElement(false);
+        workspace.addSubview(&workspace_label);
+        workspace.addSubview(&workspace_chevron);
 
         let zones = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
         layered(&zones);
@@ -897,7 +949,8 @@ impl ChromeBarView {
             _live: CHROME_VIEW.live(),
             owner,
             workspace,
-            measure,
+            workspace_label,
+            workspace_chevron,
             search,
             zones,
             separators,
@@ -932,24 +985,37 @@ impl ChromeBarView {
         };
         let bounds = self.bounds();
         let lights = self.center_window_buttons();
+        let font = parts.workspace_label.font();
         let measure = |title: &str| {
-            parts.measure.setTitle(&NSString::from_str(title));
-            parts.measure.intrinsicContentSize().width.ceil()
+            workspace_width(
+                font.as_deref()
+                    .map_or(0.0, |font| style::typeset_width(title, font)),
+            )
         };
         let full = measure(&text);
         let layout = ChromeLayout::compute(bounds.size.width, bounds.size.height, lights, full);
         let shown = shorten(&text, layout.workspace_max, measure);
         let width = measure(&shown).min(layout.workspace_max);
         let shown = NSString::from_str(&shown);
-        if *parts.workspace.title() != *shown {
-            parts.workspace.setTitle(&shown);
+        if *parts.workspace_label.stringValue() != *shown {
+            parts.workspace_label.setStringValue(&shown);
         }
         let workspace = Frame {
             width,
             ..layout.workspace
         };
+        let inside = workspace_parts(width, parts.workspace_label.intrinsicContentSize().height);
+        // Набор названия начинается от левого поля кнопки: поле шире его на поля ячейки.
+        let label = style::label_field_rect(&parts.workspace, inside.label);
+        // Значок встаёт на пиксели экрана: дробное начало размывает его штрихи.
+        let chevron = parts.workspace.backingAlignedRect_options(
+            inside.chevron.rect(),
+            NSAlignmentOptions::AlignAllEdgesNearest,
+        );
         without_actions(|| {
             parts.workspace.setFrame(workspace.rect());
+            parts.workspace_label.setFrame(label);
+            parts.workspace_chevron.setFrame(chevron);
             parts.search.setFrame(layout.search.rect());
             parts.zones.setFrame(layout.zones.rect());
             for (button, frame) in parts.zone_buttons.iter().zip(layout.zone_buttons) {
@@ -1233,6 +1299,23 @@ define_class!(
         fn mouse_down_can_move_window(&self) -> bool {
             false
         }
+
+        // SAFETY: селектор, аргумент и результат — как у `hitTest:` NSView. Название и шеврон
+        // внутри кнопки нажатий не получают: адресат — вся кнопка.
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, point: NSPoint) -> *mut NSView {
+            let frame = self.frame();
+            let inside = point.x >= frame.origin.x
+                && point.x < frame.origin.x + frame.size.width
+                && point.y >= frame.origin.y
+                && point.y < frame.origin.y + frame.size.height;
+            if inside && !self.isHidden() {
+                let view: &NSView = self;
+                std::ptr::from_ref(view).cast_mut()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
     }
 );
 
@@ -1313,6 +1396,35 @@ mod tests {
             fullscreen.workspace.x, PAD_LEFT,
             "без кнопок окна — от отступа"
         );
+    }
+
+    #[test]
+    fn workspace_button_wraps_the_name_and_the_chevron_with_prototype_padding() {
+        // Паспорт прототипа: название 45,03125 → кнопка 68,03125, шеврон с 54,03125.
+        let text = 45.03125;
+        let width = workspace_width(text);
+        assert_eq!(width, 68.03125, "поля 6 и 3, промежуток 3, шеврон 11");
+        let parts = workspace_parts(width, 16.0);
+        assert_eq!(parts.label, Frame::new(6.0, 3.0, text, 16.0));
+        assert_eq!(parts.chevron, Frame::new(54.03125, 5.5, 11.0, 11.0));
+        assert_eq!(parts.chevron.right() + WORKSPACE_PAD_RIGHT, width);
+        assert_eq!(
+            parts.label.y + parts.label.height / 2.0,
+            WORKSPACE_HEIGHT / 2.0,
+            "название по середине высоты"
+        );
+    }
+
+    #[test]
+    fn narrow_workspace_button_shrinks_the_name_and_keeps_the_chevron() {
+        let narrow = workspace_parts(40.0, 16.0);
+        assert_eq!(narrow.label.width, 17.0);
+        assert_eq!(narrow.chevron.x, 26.0, "шеврон сразу за названием");
+        assert_eq!(narrow.chevron.right() + WORKSPACE_PAD_RIGHT, 40.0);
+        let tiny = workspace_parts(10.0, 16.0);
+        assert_eq!(tiny.label.width, 0.0);
+        assert_eq!(tiny.chevron.width, CHEVRON_ICON);
+        assert_eq!(workspace_width(-5.0), workspace_width(0.0));
     }
 
     #[test]

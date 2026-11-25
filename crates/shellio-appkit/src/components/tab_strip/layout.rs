@@ -247,11 +247,15 @@ pub fn clamp_offset(offset: f64, max_offset: f64) -> f64 {
 }
 
 /// Наименьший сдвиг прокрутки, при котором вкладка `tab` (в точках ряда) видна целиком вместе с
-/// запасом под линию; видимая вкладка смещения не меняет.
+/// запасом под линию; видимая вкладка смещения не меняет. Вкладка, которой с запасом не хватает
+/// видимой части ряда, встаёт своим началом к её началу: значок и название видны, конец уходит
+/// под кнопки (прототип: `scrollIntoView` с `inline: 'nearest'`).
 pub fn reveal(offset: f64, tab: Frame, clip_width: f64, max_offset: f64) -> f64 {
     let left = tab.x - TABS_INSET;
     let right = tab.right() + TABS_INSET;
-    let offset = if left < offset {
+    let offset = if right - left > clip_width {
+        tab.x
+    } else if left < offset {
         left
     } else if right > offset + clip_width {
         right - clip_width
@@ -368,6 +372,56 @@ mod tests {
         assert_eq!(visible, 0.0, "видимая вкладка смещения не меняет");
         assert_eq!(clamp_offset(-5.0, 10.0), 0.0);
         assert_eq!(clamp_offset(15.0, 10.0), 10.0);
+    }
+
+    #[test]
+    fn tab_wider_than_the_clip_is_shown_from_its_start() {
+        // Паспорт `layout-stub`: полоса 135, три кнопки, вкладка 120 — видимая часть ряда 55.
+        let strip = layout(135.0, 34.0, &[120.0], None, THREE);
+        assert_eq!(strip.regime, Regime::Scroll);
+        assert_eq!(strip.clip, Frame::new(3.0, 0.0, 55.0, 33.0));
+        assert_eq!(strip.tabs[0], Frame::new(1.0, TAB_TOP, 120.0, TAB_HEIGHT));
+        assert_eq!(strip.max_offset, 67.0);
+        let tab = strip.tabs[0];
+        let offset = reveal(0.0, tab, strip.clip.width, strip.max_offset);
+        assert_eq!(offset, tab.x, "левый конец вкладки, а не правый");
+        assert_eq!(
+            reveal(strip.max_offset, tab, strip.clip.width, strip.max_offset),
+            offset,
+            "и после прокрутки к правому концу"
+        );
+        assert_eq!(
+            reveal(offset, tab, strip.clip.width, strip.max_offset),
+            offset,
+            "смещение устойчиво"
+        );
+        assert_eq!(
+            strip.clip.x + tab.x - offset,
+            3.0,
+            "вкладка у начала видимой части: в паспорте 663 при полосе с 660"
+        );
+
+        // Вторая вкладка шире видимой части: её начало у левого края, первая уходит.
+        let two = layout(135.0, 34.0, &[40.0, 120.0], None, THREE);
+        let second = two.tabs[1];
+        let offset = reveal(0.0, second, two.clip.width, two.max_offset);
+        assert_eq!(offset, second.x);
+        assert!(offset <= two.max_offset);
+
+        // Вкладке хватает места, а запасу под линию — нет: она видна целиком с начала.
+        let tight = layout(141.0, 34.0, &[60.0, 60.0], None, THREE);
+        assert_eq!(tight.clip.width, 61.0);
+        let second = tight.tabs[1];
+        let offset = reveal(0.0, second, tight.clip.width, tight.max_offset);
+        assert_eq!(offset, second.x);
+        assert!(second.right() <= offset + tight.clip.width);
+
+        // Вкладка, которая помещается с запасом, ведёт себя по-прежнему: наименьший сдвиг.
+        let fits = layout(200.0, 34.0, &[60.0, 60.0, 60.0], None, THREE);
+        assert_eq!(fits.regime, Regime::Scroll);
+        let last = fits.tabs[2];
+        let offset = reveal(0.0, last, fits.clip.width, fits.max_offset);
+        assert_eq!(offset, last.right() + TABS_INSET - fits.clip.width);
     }
 
     #[test]

@@ -15,11 +15,14 @@ use objc2_quartz_core::CALayer;
 use shellio_theme::AppTheme;
 
 use crate::app::App;
+use crate::chrome_bar::Frame;
 use crate::counters::{Live, counter};
 use crate::inspect::{self, InspectNode};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
+use crate::piece::ns_rect;
 use crate::runloop;
+use crate::style;
 
 counter!(STATUS_OWNER, Owner, "StatusLine");
 counter!(STATUS_VIEW, Class, "ShellioStatusLine");
@@ -28,6 +31,20 @@ counter!(STATUS_VIEW, Class, "ShellioStatusLine");
 const PAD: f64 = 12.0;
 /// Высота строки текста.
 const LINE: f64 = 16.0;
+/// Межстрочный интервал сообщения: высота его слота (`line-height` прототипа).
+const MESSAGE_LINE: f64 = 18.0;
+
+/// Слот сообщения в строке статуса `width`×`height` с линией `line` сверху, в точках строки с
+/// началом сверху слева (`.sb-msg { padding: 0 12px }` прототипа): от левого края, шириной в набор
+/// текста `text_width` с отступами, но не шире строки, по середине высоты под линией.
+pub fn message_frame(width: f64, height: f64, line: f64, text_width: f64) -> Frame {
+    Frame::new(
+        0.0,
+        line + (height - line - MESSAGE_LINE) / 2.0,
+        (text_width.max(0.0) + 2.0 * PAD).min(width.max(0.0)),
+        MESSAGE_LINE,
+    )
+}
 
 struct StatusModel {
     id: ComponentId,
@@ -87,21 +104,35 @@ impl StatusLine {
         self.view.view()
     }
 
-    /// Строка и слот сообщения для `ui.inspect`: слот — `<id>.message`, его подпись — текст.
-    /// Линию над строкой рисует отдельный слой.
+    /// Строка и слот сообщения для `ui.inspect`: слот — `<id>.message`, его подпись — текст, кадр —
+    /// [`message_frame`], а не кадр поля: слот несёт отступы текста. Линию над строкой рисует
+    /// отдельный слой.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let view = self.view.view();
+        let text = &view.ivars().text;
+        let mut message = inspect::node(
+            &format!("{id}.message"),
+            "StatusMessage",
+            Some(id),
+            text,
+            None,
+            None,
+        );
+        let bounds = view.bounds().size;
+        let text_width = text.font().map_or(0.0, |font| {
+            style::typeset_width(&text.stringValue().to_string(), &font)
+        });
+        let slot = message_frame(
+            bounds.width,
+            bounds.height,
+            self.view.rust().theme.get().metrics.line,
+            text_width,
+        );
+        message.facts.frame = inspect::frame_of(view.convertRect_toView(ns_rect(slot), None));
         vec![
             inspect::node(id, "StatusLine", parent, view, None, None)
-                .with_line_layer(&view.ivars().line, &[crate::style::Side::Top]),
-            inspect::node(
-                &format!("{id}.message"),
-                "StatusMessage",
-                Some(id),
-                &view.ivars().text,
-                None,
-                None,
-            ),
+                .with_line_layer(&view.ivars().line, &[style::Side::Top]),
+            message,
         ]
     }
 
@@ -219,5 +250,31 @@ impl StatusView {
         );
         view.addSubview(text);
         view
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn message_slot_wraps_the_text_with_its_padding() {
+        // Паспорт `status-split-no-room`: строка (0, 694, 1180×26), слот (0, 698,5, 509,59375×18).
+        let slot = message_frame(1180.0, 26.0, 1.0, 485.59375);
+        assert_eq!(slot, Frame::new(0.0, 4.5, 509.59375, 18.0));
+        assert_eq!(
+            slot.y + slot.height / 2.0,
+            1.0 + 25.0 / 2.0,
+            "по середине высоты под линией"
+        );
+    }
+
+    #[test]
+    fn message_slot_is_never_wider_than_the_line() {
+        let slot = message_frame(300.0, 26.0, 1.0, 485.59375);
+        assert_eq!((slot.x, slot.width), (0.0, 300.0));
+        let empty = message_frame(300.0, 26.0, 1.0, 0.0);
+        assert_eq!(empty.width, 2.0 * PAD);
+        assert_eq!(message_frame(0.0, 26.0, 1.0, 40.0).width, 0.0);
     }
 }

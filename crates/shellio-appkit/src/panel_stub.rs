@@ -11,12 +11,16 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSApplication, NSAutoresizingMaskOptions, NSButton,
-    NSControl, NSEvent, NSEventType, NSFont, NSFontWeightMedium, NSFontWeightRegular,
-    NSLineBreakMode, NSResponder, NSTextAlignment, NSTextField, NSView,
-    NSViewLayerContentsRedrawPolicy,
+    NSAccessibility, NSAccessibilityGroupRole, NSApplication, NSAutoresizingMaskOptions,
+    NSBaselineOffsetAttributeName, NSButton, NSColor, NSControl, NSEvent, NSEventType, NSFont,
+    NSFontAttributeName, NSFontWeightMedium, NSFontWeightRegular, NSForegroundColorAttributeName,
+    NSLayoutManager, NSLineBreakMode, NSMutableParagraphStyle, NSParagraphStyleAttributeName,
+    NSResponder, NSTextAlignment, NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
 };
-use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize, NSString};
+use objc2_foundation::{
+    NSAlignmentOptions, NSAttributedString, NSMutableAttributedString, NSNumber, NSObject, NSPoint,
+    NSRange, NSRect, NSSize, NSString,
+};
 use shellio_theme::AppTheme;
 
 use crate::app::App;
@@ -28,6 +32,7 @@ use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
 use crate::piece::{Piece, ns_rect};
 use crate::runloop;
+use crate::style;
 
 counter!(PANEL_OWNER, Owner, "PanelView");
 counter!(PANEL_VIEW, Class, "ShellioPanelView");
@@ -561,9 +566,11 @@ pub const EXPAND_TITLE: &str = "Развернуть";
 const STUB_PAD: f64 = 12.0;
 /// Промежуток между текстом и кнопкой заглушки (`.stub` прототипа).
 const STUB_GAP: f64 = 8.0;
-/// Высота и поля кнопки заглушки (`.btn` прототипа).
+/// Высота, поля и рамка кнопки заглушки (`.btn { height: 26px; padding: 0 11px; border: 1px }`
+/// прототипа).
 const BUTTON_HEIGHT: f64 = 26.0;
 const BUTTON_PAD: f64 = 11.0;
+const BUTTON_BORDER: f64 = 1.0;
 
 /// Что показывает заглушка на месте тела.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -604,31 +611,92 @@ pub struct StubFrames {
     pub button: Option<Frame>,
 }
 
-/// Раскладка заглушки в теле `width`×`height`: текст над кнопкой по центру тела. Кнопка важнее
-/// текста: в низком теле текст уходит, кнопка остаётся и не шире тела без отступов. Без кнопки —
-/// только текст. `title_width` — ширина подписи кнопки.
-pub fn stub_layout(width: f64, height: f64, title_width: f64, expandable: bool) -> StubFrames {
+/// Раскладка заглушки в теле `width`×`height`: текст над кнопкой по центру тела. Текст переносится
+/// по словам: `text_height` — высота его набора в ширине тела без отступов, целое число строк
+/// [`LINE`]. Кнопка важнее текста: в теле ниже одной строки с кнопкой текст уходит, строки, которым
+/// нет места над кнопкой, обрезаются, а кнопка остаётся и не шире тела без отступов. Без кнопки —
+/// только текст. `title_width` — ширина набора подписи кнопки: кнопка шире её на поля и рамку.
+pub fn stub_layout(
+    width: f64,
+    height: f64,
+    text_height: f64,
+    title_width: f64,
+    expandable: bool,
+) -> StubFrames {
     let inner = (width - 2.0 * STUB_PAD).max(0.0);
-    let both = LINE + STUB_GAP + BUTTON_HEIGHT;
-    let text = !expandable || both + 2.0 * STUB_PAD <= height;
-    let column = match (text, expandable) {
-        (true, true) => both,
-        (true, false) => LINE,
-        (false, _) => BUTTON_HEIGHT,
+    let under = if expandable {
+        STUB_GAP + BUTTON_HEIGHT
+    } else {
+        0.0
+    };
+    let text = !expandable || LINE + under + 2.0 * STUB_PAD <= height;
+    let room = ((height - 2.0 * STUB_PAD - under) / LINE).floor().max(1.0);
+    let lines = (text_height / LINE).round().clamp(1.0, room);
+    let text_height = lines * LINE;
+    let column = if text {
+        text_height + under
+    } else {
+        BUTTON_HEIGHT
     };
     let top = ((height - column) / 2.0).max(0.0).floor();
-    let button_width = (title_width + 2.0 * BUTTON_PAD).ceil().min(inner);
+    let button_width = (title_width + 2.0 * (BUTTON_PAD + BUTTON_BORDER)).min(inner);
     StubFrames {
-        text: text.then(|| Frame::new(STUB_PAD, top, inner, LINE)),
+        text: text.then(|| Frame::new(STUB_PAD, top, inner, text_height)),
         button: expandable.then(|| {
             Frame::new(
-                ((width - button_width) / 2.0).floor(),
-                if text { top + LINE + STUB_GAP } else { top },
+                (width - button_width) / 2.0,
+                if text {
+                    top + text_height + STUB_GAP
+                } else {
+                    top
+                },
                 button_width,
                 BUTTON_HEIGHT,
             )
         }),
     }
+}
+
+/// Место набора подписи высотой `title_height` в кнопке заглушки шириной `width`: по центру, не
+/// шире кнопки без полей и рамки.
+pub fn stub_button_label(width: f64, title_width: f64, title_height: f64) -> Frame {
+    let room = (width - 2.0 * (BUTTON_PAD + BUTTON_BORDER)).max(0.0);
+    let label = title_width.clamp(0.0, room);
+    Frame::new(
+        (width - label) / 2.0,
+        (BUTTON_HEIGHT - title_height) / 2.0,
+        label,
+        title_height,
+    )
+}
+
+/// На сколько поднять набор в строке высотой `line` над её низом, чтобы строка шрифта высотой
+/// `natural` стояла по середине: AppKit ставит набор к низу строки, прототип — по середине.
+fn line_lift(line: f64, natural: f64) -> f64 {
+    ((line - natural) / 2.0).max(0.0)
+}
+
+/// Текст заглушки с переносом по словам: строки высотой [`LINE`] по центру, набор по середине
+/// строки (`.stub { text-align: center }` и межстрочный интервал прототипа).
+fn stub_text(text: &str, font: &NSFont, color: &NSColor) -> Retained<NSAttributedString> {
+    let text = NSMutableAttributedString::from_nsstring(&NSString::from_str(text));
+    let range = NSRange::new(0, text.length());
+    let paragraph = NSMutableParagraphStyle::new();
+    paragraph.setMinimumLineHeight(LINE);
+    paragraph.setMaximumLineHeight(LINE);
+    paragraph.setAlignment(NSTextAlignment::Center);
+    paragraph.setLineBreakMode(NSLineBreakMode::ByWordWrapping);
+    let natural = NSLayoutManager::new().defaultLineHeightForFont(font);
+    let lift = NSNumber::new_f64(line_lift(LINE, natural));
+    // SAFETY: имена атрибутов — неизменяемые константы AppKit, значения — те, что они требуют:
+    // стиль абзаца, шрифт, цвет и число; диапазон лежит в тексте.
+    unsafe {
+        text.addAttribute_value_range(NSParagraphStyleAttributeName, &paragraph, range);
+        text.addAttribute_value_range(NSFontAttributeName, font, range);
+        text.addAttribute_value_range(NSForegroundColorAttributeName, color, range);
+        text.addAttribute_value_range(NSBaselineOffsetAttributeName, &lift, range);
+    }
+    Retained::into_super(text)
 }
 
 struct StubModel {
@@ -734,13 +802,11 @@ impl ExpandStub {
         let text = &view.ivars().text;
         let mut nodes = vec![inspect::node(id, "ExpandStub", parent, view, None, None)];
         if !text.isHidden() {
-            nodes.push(inspect::node(
+            nodes.push(inspect::typeset_node(
                 &format!("{id}.label"),
                 "StubLabel",
-                Some(id),
+                id,
                 text,
-                None,
-                None,
             ));
         }
         if !button.isHidden() {
@@ -752,11 +818,12 @@ impl ExpandStub {
                 Some(button.isEnabled()),
                 None,
             ));
-            // Подпись рисует ячейка кнопки: кадр — её прямоугольник заголовка.
-            nodes.extend(inspect::button_title(
+            // Подпись — поле внутри кнопки: кадр — место её набора.
+            nodes.push(inspect::typeset_node(
                 &format!("{id}.expand.label"),
+                "Label",
                 &format!("{id}.expand"),
-                button,
+                &button.ivars().label,
             ));
         }
         nodes
@@ -766,26 +833,36 @@ impl ExpandStub {
         let view = self.view.view();
         let card = self.view.rust().card.borrow();
         let parts = view.ivars();
-        let text = NSString::from_str(&card.text());
-        parts.text.setStringValue(&text);
-        view.setAccessibilityLabel(Some(&text));
+        view.setAccessibilityLabel(Some(&NSString::from_str(&card.text())));
         parts.button.setHidden(!card.expandable);
+        drop(card);
+        self.set_text();
         view.place();
+    }
+
+    /// Текст заглушки шрифтом и цветом темы: набор с переносом собирается заново при смене
+    /// текста и темы.
+    fn set_text(&self) {
+        let model = self.view.rust();
+        let theme = model.theme.get();
+        let text = &self.view.view().ivars().text;
+        let small = font(theme.metrics.font.small, false);
+        let color = layer::ns_color(theme.colors.text_2);
+        // Шрифт и цвет поля читает `ui.inspect`, набор несёт их в атрибутах.
+        text.setFont(Some(&small));
+        text.setTextColor(Some(&color));
+        text.setAttributedStringValue(&stub_text(&model.card.borrow().text(), &small, &color));
     }
 
     fn apply_theme(&self) {
         let view = self.view.view();
         let theme = self.view.rust().theme.get();
         let parts = view.ivars();
-        parts
-            .text
-            .setTextColor(Some(&layer::ns_color(theme.colors.text_2)));
-        parts
-            .text
-            .setFont(Some(&font(theme.metrics.font.small, false)));
+        self.set_text();
         let button = &parts.button;
-        button.setFont(Some(&font(theme.metrics.font.tab, false)));
-        button.setContentTintColor(Some(&layer::ns_color(theme.colors.text)));
+        let title = &button.ivars().label;
+        title.setFont(Some(&font(theme.metrics.font.tab, false)));
+        title.setTextColor(Some(&layer::ns_color(theme.colors.text)));
         // Кнопка берёт фон своей поверхности (`.btn` прототипа): в плитке — фон панели, в плоской
         // колонке — фон поля.
         let button_fill = if self.view.rust().flat.get() {
@@ -883,6 +960,9 @@ impl StubView {
     fn new(mtm: MainThreadMarker, owner: Callback<StubModel>) -> Retained<StubView> {
         let text = label(mtm);
         text.setAlignment(NSTextAlignment::Center);
+        text.setLineBreakMode(NSLineBreakMode::ByWordWrapping);
+        text.setUsesSingleLineMode(false);
+        text.setMaximumNumberOfLines(0);
         let this = StubView::alloc(mtm).set_ivars(StubIvars {
             _live: STUB_VIEW.live(),
             owner,
@@ -908,20 +988,37 @@ impl StubView {
         let parts = self.ivars();
         let size = self.bounds().size;
         let expandable = !parts.button.isHidden();
-        let title = parts.button.intrinsicContentSize().width.max(0.0);
-        let frames = stub_layout(size.width, size.height, title, expandable);
+        // Поле текста шире набора на поля ячейки: набор переносится в ширине тела без отступов.
+        let field = (size.width - 2.0 * STUB_PAD).max(0.0) + 2.0 * style::LABEL_INSET;
+        let text_height = style::wrapped_height(&parts.text, field);
+        let title = parts.button.title_size();
+        let frames = stub_layout(
+            size.width,
+            size.height,
+            text_height,
+            title.width,
+            expandable,
+        );
         parts.text.setHidden(frames.text.is_none());
         if let Some(frame) = frames.text {
-            parts.text.setFrame(ns_rect(frame));
+            parts.text.setFrame(style::label_field_rect(self, frame));
         }
         if let Some(frame) = frames.button {
-            parts.button.setFrame(ns_rect(frame));
+            // Кнопка встаёт на пиксели экрана: дробный край размывает её рамку.
+            let aligned = self.backingAlignedRect_options(
+                ns_rect(frame),
+                NSAlignmentOptions::AlignAllEdgesNearest,
+            );
+            parts.button.setFrame(aligned);
+            parts.button.place_label(title);
         }
     }
 }
 
 struct StubButtonIvars {
     _live: Live,
+    /// Подпись кнопки: поле внутри неё, ячейка кнопки подписи не рисует.
+    label: Retained<NSTextField>,
 }
 
 define_class!(
@@ -952,6 +1049,23 @@ define_class!(
         fn mouse_down_can_move_window(&self) -> bool {
             false
         }
+
+        // SAFETY: селектор, аргумент и результат — как у `hitTest:` NSView. Подпись внутри кнопки
+        // нажатий не получает: адресат — вся кнопка.
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, point: NSPoint) -> *mut NSView {
+            let frame = self.frame();
+            let inside = point.x >= frame.origin.x
+                && point.x < frame.origin.x + frame.size.width
+                && point.y >= frame.origin.y
+                && point.y < frame.origin.y + frame.size.height;
+            if inside && !self.isHidden() {
+                let view: &NSView = self;
+                std::ptr::from_ref(view).cast_mut()
+            } else {
+                std::ptr::null_mut()
+            }
+        }
     }
 );
 
@@ -959,16 +1073,20 @@ impl StubButton {
     /// Кнопка «Развернуть»: подпись и AX-имя — действие, подсказка и `accessibilityHelp` — клавиша
     /// `layout.zoom`, до P1.6 «Клавиша не назначена» (ADR-0032).
     fn new(mtm: MainThreadMarker) -> Retained<StubButton> {
+        let title = NSString::from_str(EXPAND_TITLE);
+        let label = label(mtm);
+        label.setStringValue(&title);
         let this = StubButton::alloc(mtm).set_ivars(StubButtonIvars {
             _live: STUB_BUTTON.live(),
+            label,
         });
         // SAFETY: назначенный инициализатор NSButton (через NSControl), ivars уже заданы.
         let button: Retained<StubButton> =
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
         button.setBordered(false);
         button.setWantsLayer(true);
-        let title = NSString::from_str(EXPAND_TITLE);
-        button.setTitle(&title);
+        button.setTitle(&NSString::from_str(""));
+        button.addSubview(&button.ivars().label);
         button.setAccessibilityLabel(Some(&title));
         button.setToolTip(Some(&NSString::from_str(&strip::hint(
             StripButton::Zoom,
@@ -976,6 +1094,23 @@ impl StubButton {
         ))));
         button.setAccessibilityHelp(Some(&NSString::from_str(&strip::help(None))));
         button
+    }
+
+    /// Размер набора подписи её шрифтом: ширина без полей ячейки, высота строки поля.
+    fn title_size(&self) -> NSSize {
+        let label = &self.ivars().label;
+        let width = label.font().map_or(0.0, |font| {
+            style::typeset_width(&label.stringValue().to_string(), &font)
+        });
+        NSSize::new(width, label.intrinsicContentSize().height)
+    }
+
+    /// Ставит поле подписи по [`stub_button_label`] для текущей ширины кнопки.
+    fn place_label(&self, title: NSSize) {
+        let frame = stub_button_label(self.bounds().size.width, title.width, title.height);
+        self.ivars()
+            .label
+            .setFrame(style::label_field_rect(self, frame));
     }
 }
 
@@ -1184,31 +1319,98 @@ mod tests {
 
     #[test]
     fn stub_centers_text_over_the_button() {
-        let frames = stub_layout(180.0, 400.0, 60.0, true);
+        let frames = stub_layout(180.0, 400.0, LINE, 60.0, true);
         let text = frames.text.unwrap();
         let button = frames.button.unwrap();
         assert_eq!(text, Frame::new(12.0, 174.0, 156.0, LINE));
-        assert_eq!(button, Frame::new(49.0, 200.0, 82.0, BUTTON_HEIGHT));
+        assert_eq!(
+            button,
+            Frame::new(48.0, 200.0, 84.0, BUTTON_HEIGHT),
+            "кнопка шире подписи на поля 11 и рамку 1 с каждой стороны"
+        );
         assert_eq!(button.y, text.y + LINE + STUB_GAP);
+    }
+
+    #[test]
+    fn narrow_part_wraps_the_text_into_two_lines_as_the_prototype() {
+        // Паспорт `layout-stub`: тело 135×364 с началом (517, 81), подпись (529, 228, 111×36),
+        // кнопка (537,53125, 272, 93,9375×26), подпись кнопки (549,53125, …, 69,9375).
+        let title = 69.9375;
+        let frames = stub_layout(135.0, 364.0, 2.0 * LINE, title, true);
+        let text = frames.text.unwrap();
+        let button = frames.button.unwrap();
+        assert_eq!(text, Frame::new(12.0, 147.0, 111.0, 36.0));
+        assert_eq!(button, Frame::new(20.53125, 191.0, 93.9375, BUTTON_HEIGHT));
+        assert_eq!(button.y, text.y + text.height + STUB_GAP);
+        assert_eq!(button.width, title + 24.0);
+        let label = stub_button_label(button.width, title, LINE);
+        assert_eq!(label, Frame::new(12.0, 4.0, title, LINE));
+        assert_eq!(
+            stub_button_label(button.width, title, 15.0).y,
+            5.5,
+            "строка шрифта по середине кнопки"
+        );
     }
 
     #[test]
     fn short_body_keeps_the_button_and_drops_the_text() {
         let room = LINE + STUB_GAP + BUTTON_HEIGHT + 2.0 * STUB_PAD;
-        assert!(stub_layout(180.0, room, 60.0, true).text.is_some());
-        let short = stub_layout(180.0, room - 1.0, 60.0, true);
-        assert_eq!(short.text, None, "в низком теле текст уходит");
-        let button = short.button.unwrap();
-        assert_eq!(button.y, ((room - 1.0 - BUTTON_HEIGHT) / 2.0).floor());
+        assert_eq!(room, 76.0, "порог прототипа");
+        for text_height in [LINE, 2.0 * LINE] {
+            let fits = stub_layout(180.0, room, text_height, 60.0, true);
+            assert_eq!(
+                fits.text.unwrap().height,
+                LINE,
+                "порог — одна строка, лишние обрезаются"
+            );
+            let short = stub_layout(180.0, room - 1.0, text_height, 60.0, true);
+            assert_eq!(short.text, None, "в низком теле текст уходит");
+            let button = short.button.unwrap();
+            assert_eq!(button.y, ((room - 1.0 - BUTTON_HEIGHT) / 2.0).floor());
+        }
+    }
+
+    #[test]
+    fn tall_text_never_pushes_the_button_out_of_the_body() {
+        let frames = stub_layout(60.0, 120.0, 8.0 * LINE, 60.0, true);
+        let text = frames.text.unwrap();
+        let button = frames.button.unwrap();
+        assert_eq!(text.height, 3.0 * LINE, "строк столько, сколько есть места");
+        assert!(text.y >= STUB_PAD);
+        assert!(button.y + button.height <= 120.0 - STUB_PAD);
+        let status = stub_layout(60.0, 50.0, 8.0 * LINE, 60.0, false);
+        assert_eq!(status.text.unwrap().height, LINE);
     }
 
     #[test]
     fn narrow_body_clamps_the_button_and_zoomed_stub_has_none() {
-        let narrow = stub_layout(80.0, 400.0, 60.0, true).button.unwrap();
+        let narrow = stub_layout(80.0, 400.0, LINE, 60.0, true).button.unwrap();
         assert_eq!(narrow.width, 80.0 - 2.0 * STUB_PAD, "кнопка не шире тела");
         assert_eq!(narrow.x, STUB_PAD);
-        let zoomed = stub_layout(180.0, 60.0, 60.0, false);
+        let label = stub_button_label(narrow.width, 60.0, 15.0);
+        assert_eq!(
+            label.width,
+            narrow.width - 2.0 * (BUTTON_PAD + BUTTON_BORDER),
+            "подпись не шире кнопки без полей и рамки"
+        );
+        assert_eq!(label.x, BUTTON_PAD + BUTTON_BORDER);
+        let zoomed = stub_layout(180.0, 60.0, LINE, 60.0, false);
         assert_eq!(zoomed.button, None);
         assert_eq!(zoomed.text.unwrap().y, 21.0, "без кнопки текст по центру");
+    }
+
+    #[test]
+    fn stub_text_is_set_in_lines_of_the_prototype_height() {
+        // SAFETY: вес шрифта — неизменяемая константа AppKit.
+        let font = NSFont::systemFontOfSize_weight(12.0, unsafe { NSFontWeightRegular });
+        let text = stub_text("Терминал: здесь тесно", &font, &NSColor::blackColor());
+        assert_eq!(text.string().to_string(), "Терминал: здесь тесно");
+        assert!((style::text_line_height(&text, &font) - LINE).abs() < f64::EPSILON);
+        assert_eq!(line_lift(18.0, 15.0), 1.5);
+        assert_eq!(
+            line_lift(18.0, 20.0),
+            0.0,
+            "высокая строка шрифта не опускается"
+        );
     }
 }

@@ -43,6 +43,18 @@ counter!(MENU_TARGET, Class, "ShellioMenuTarget");
 counter!(MENU_BUTTON_OWNER, Owner, "MenuButton");
 counter!(MENU_BUTTON, Class, "ShellioMenuButton");
 
+/// Зазор между нижним краем якоря и меню под ним (`top: r.bottom + 6px` прототипа): системное
+/// меню, открытое вплотную, закрывает нижний край значка кнопки.
+const MENU_GAP: f64 = 6.0;
+
+/// Точка открытия меню по вертикали в точках якоря высотой `height`: под его нижним краем. Меню
+/// отступает от якоря на [`MENU_GAP`]; выбор, который ставит к точке первый пункт (`first`),
+/// открывается вплотную.
+fn open_y(flipped: bool, height: f64, first: bool) -> f64 {
+    let gap = if first { 0.0 } else { MENU_GAP };
+    if flipped { height + gap } else { -gap }
+}
+
 /// Клавиша пункта: знак `keyEquivalent` и модификаторы.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuKey {
@@ -874,15 +886,11 @@ impl MenuTarget {
         let Some(root) = self.ivars().root.load() else {
             return;
         };
-        let bottom = if anchor.isFlipped() {
-            anchor.bounds().size.height
-        } else {
-            0.0
-        };
+        let y = open_y(anchor.isFlipped(), anchor.bounds().size.height, first);
         let item = if first { root.itemAtIndex(0) } else { None };
         root.popUpMenuPositioningItem_atLocation_inView(
             item.as_deref(),
-            NSPoint::new(0.0, bottom),
+            NSPoint::new(0.0, y),
             Some(anchor),
         );
     }
@@ -1031,6 +1039,22 @@ impl MenuButtonView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn menu_opens_six_points_below_the_anchor_and_a_choice_at_its_edge() {
+        assert_eq!(open_y(true, 22.0, false), 28.0, "ниже нижнего края кнопки");
+        assert_eq!(
+            open_y(false, 22.0, false),
+            -6.0,
+            "в неперевёрнутом виде низ — ноль"
+        );
+        assert_eq!(
+            open_y(true, 22.0, true),
+            22.0,
+            "выбор — вплотную, как прежде"
+        );
+        assert_eq!(open_y(false, 22.0, true), 0.0);
+    }
 
     fn item(id: &str) -> MenuEntry {
         MenuEntry::Item(MenuItem::new(id, &format!("Пункт {id}")))

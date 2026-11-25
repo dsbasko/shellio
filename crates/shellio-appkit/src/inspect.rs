@@ -439,24 +439,28 @@ fn button_part(
     }
 }
 
-/// Подпись кнопки: прямоугольник заголовка её ячейки (`titleRectForBounds:`), шрифт кнопки, цвет
-/// `contentTintColor`. `None` — подписи у кнопки нет.
-pub(crate) fn button_title(id: &str, parent: &str, button: &NSButton) -> Option<InspectNode> {
-    let title = button.title().to_string();
-    let cell = button.cell().filter(|_| !title.is_empty())?;
-    let bounds = button.bounds();
-    let rect = cell.titleRectForBounds(bounds);
-    let mut node = button_part(id, "ButtonTitle", parent, button, rect, object_id(&*cell));
-    node.facts.label = Some(title);
-    node.style = Some(Style {
-        font: button.font().map(|font| style::font_facts(&font)),
-        color: button
-            .contentTintColor()
-            .and_then(|color| style::rgba(&color)),
-        ..Style::default()
-    });
-    node.truncated = Some(button.intrinsicContentSize().width > bounds.size.width + 0.5);
-    Some(node)
+/// Подпись, поле которой шире набора на поля ячейки с обеих сторон ([`style::LABEL_INSET`]): кадр
+/// узла — место набора, а не кадр поля. Так поле ставит компонент, которому важно начало набора.
+pub(crate) fn typeset_node(
+    id: &str,
+    class: &'static str,
+    parent: &str,
+    field: &NSTextField,
+) -> InspectNode {
+    let mut node = node(id, class, Some(parent), field, None, None);
+    let bounds = field.bounds();
+    let typeset = objc2_foundation::NSRect::new(
+        objc2_foundation::NSPoint::new(bounds.origin.x + style::LABEL_INSET, bounds.origin.y),
+        objc2_foundation::NSSize::new(
+            (bounds.size.width - 2.0 * style::LABEL_INSET).max(0.0),
+            bounds.size.height,
+        ),
+    );
+    node.facts.frame = frame_of(field.convertRect_toView(typeset, None));
+    if !style::wraps(field) {
+        node.truncated = Some(field.intrinsicContentSize().width > typeset.size.width + 0.5);
+    }
+    node
 }
 
 /// Значок кнопки: прямоугольник картинки её ячейки (`imageRectForBounds:`) и сторона картинки.

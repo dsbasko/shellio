@@ -145,7 +145,8 @@ impl Plate {
         self.surface.ns_view()
     }
 
-    /// Плитка и строка вкладок для `ui.inspect`: строка вкладок — `<id>.tabs`.
+    /// Плитка и строка вкладок для `ui.inspect`: строка вкладок — `<id>.tabs`. Узлы плитки несут
+    /// ключи сверки, поэтому кадр вкладки — весь её кадр, как в паспорте прототипа (ADR-0037).
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let mut nodes = vec![inspect::node(
             id,
@@ -155,7 +156,7 @@ impl Plate {
             None,
             None,
         )];
-        nodes.extend(self.strip.inspect(&format!("{id}.tabs"), Some(id)));
+        nodes.extend(self.strip.inspect_whole(&format!("{id}.tabs"), Some(id)));
         nodes
     }
 }
