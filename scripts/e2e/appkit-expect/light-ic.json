@@ -43,13 +43,13 @@
     {
       "id": "tabs.wide.selected",
       "component": "gallery.tabs.wide.tab.build",
-      "rect": { "x": 4, "y": 5, "width": 4, "height": 16 },
+      "rect": { "x": 4, "y": 5, "width": 2, "height": 16 },
       "slot": "panel"
     },
     {
       "id": "tabs.side.selected",
       "component": "gallery.tabs.side.tab.term",
-      "rect": { "x": 4, "y": 5, "width": 4, "height": 16 },
+      "rect": { "x": 4, "y": 5, "width": 2, "height": 16 },
       "slot": "panel",
       "layer": "tone_navigation"
     },
