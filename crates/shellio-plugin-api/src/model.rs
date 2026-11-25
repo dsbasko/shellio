@@ -310,6 +310,13 @@ impl DynModel {
         self.inner.command(state, name, args)
     }
 
+    /// Разбор имени и `args` команды без данных панели, по тем же правилам, что
+    /// [`Self::command`]: так `args` привязки клавиши проверяются до исполнения. Модель при этом не
+    /// вызывается.
+    pub fn parse_command(&self, name: &str, args: Option<Value>) -> Result<(), Refusal> {
+        self.inner.parse_command(name, args)
+    }
+
     /// Данные версии `from` в данные текущей версии.
     pub fn migrate(&self, from: u32, state: &str) -> Result<String, Refusal> {
         self.inner.migrate(from, state)

@@ -730,7 +730,7 @@ async fn start_keymap(profile: &Profile) -> Result<KeymapService, String> {
     KeymapService::start(
         &Handle::current(),
         profile.config_dir().to_owned(),
-        Actions::of(&registry),
+        Actions::of(registry),
         true,
     )
     .await

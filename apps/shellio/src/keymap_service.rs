@@ -5,6 +5,7 @@
 //! не пересекаются. Файл читается и разбирается вне главного потока, служба публикует целый
 //! неизменяемый снимок через `watch`. Доменную ревизию таблица не трогает.
 
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::future::Future;
 use std::io;
@@ -102,7 +103,7 @@ enum HostArgs {
 
 /// Действия хоста с именем keymap (ADR-0007 и ADR-0010, «Уточнено в P1.6 (планирование)»). Имена
 /// `panel.open.<plugin>` строятся по реестру.
-const HOST_ACTIONS: [(&str, HostArgs); 55] = [
+const HOST_ACTIONS: [(&str, HostArgs); 50] = [
     ("app.quit", HostArgs::None),
     ("history.back", HostArgs::None),
     ("history.forward", HostArgs::None),
@@ -153,22 +154,6 @@ const HOST_ACTIONS: [(&str, HostArgs); 55] = [
     ("ui.appearance.light", HostArgs::None),
     ("ui.appearance.system", HostArgs::None),
     ("window.close", HostArgs::None),
-    // Имена ниже заняты хостом, но клавишей не вызываются: привязка к ним — неверная строка
-    // с понятной причиной, а не «неизвестное действие».
-    ("gallery.input.reset", HostArgs::None),
-    ("keymap.subscribe", HostArgs::None),
-    ("query.keymap", HostArgs::None),
-    ("ui.history", HostArgs::None),
-    ("ui.mode", HostArgs::None),
-];
-
-/// Имена [`HOST_ACTIONS`], которые клавишей не вызываются.
-const NOT_BINDABLE: [&str; 5] = [
-    "gallery.input.reset",
-    "keymap.subscribe",
-    "query.keymap",
-    "ui.history",
-    "ui.mode",
 ];
 
 const PANEL_OPEN: &str = "panel.open.";
@@ -220,27 +205,24 @@ fn host_args(rule: HostArgs, args: Option<&Value>) -> Result<(), String> {
     }
 }
 
-/// Что служба знает о действиях: плагины реестра с их действиями и клавишами по умолчанию.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Что служба знает о действиях: реестр плагинов с их действиями и клавишами по умолчанию.
+#[derive(Clone, Debug)]
 pub struct Actions {
+    registry: Arc<Registry>,
     panels: Vec<PanelKeys>,
-    /// Плагин и полные имена его действий.
-    commands: Vec<(String, Vec<String>)>,
 }
 
 impl Actions {
-    pub fn of(registry: &Registry) -> Self {
-        let mut panels = Vec::new();
-        let mut commands = Vec::new();
-        for plugin in registry.iter() {
-            let manifest = plugin.manifest();
-            let id = plugin.id().as_str().to_owned();
-            panels.push(PanelKeys {
-                plugin: id.clone(),
+    pub fn of(registry: Arc<Registry>) -> Self {
+        let panels = registry
+            .iter()
+            .map(|plugin| PanelKeys {
+                plugin: plugin.id().as_str().to_owned(),
                 // Признак манифеста `list_keys` вводит задача намерений панели: до неё движения
                 // списка ни одному контексту не подключаются.
                 list_keys: false,
-                defaults: manifest
+                defaults: plugin
+                    .manifest()
                     .keymap
                     .iter()
                     .map(|key| KeyDefault {
@@ -248,54 +230,43 @@ impl Actions {
                         action: key.action.to_owned(),
                     })
                     .collect(),
-            });
-            let names = manifest
-                .commands
-                .iter()
-                .map(|spec| spec.name.to_owned())
-                .collect();
-            commands.push((id, names));
-        }
-        Self { panels, commands }
+            })
+            .collect();
+        Self { registry, panels }
     }
 
     pub fn panels(&self) -> &[PanelKeys] {
         &self.panels
     }
 
-    /// Проверка строки файла: имя действия и `args` по командам хоста и реестру. Действие плагина
-    /// привязывается только в контексте его панели: клавиша обращается к виду панели с фокусом.
-    /// `args` действия плагина проверяет его модель при исполнении, здесь — только имя.
-    pub fn check(
-        &self,
-        context: &Context,
-        action: &str,
-        args: Option<&Value>,
-    ) -> Result<(), ActionError> {
-        if NOT_BINDABLE.contains(&action) {
-            return Err(ActionError::Args(
-                "действие клавишей не вызывается".to_owned(),
-            ));
-        }
+    /// Проверка строки файла: имя действия и `args` по командам хоста и реестру. `args` действия
+    /// плагина разбирает его модель по правилам команды, без данных панели. Строка без `args`
+    /// проверяется только по имени: аргументы клавише даёт вид панели.
+    pub fn check(&self, action: &str, args: Option<&Value>) -> Result<(), ActionError> {
         if let Some((_, rule)) = HOST_ACTIONS.iter().find(|(name, _)| *name == action) {
             return host_args(*rule, args).map_err(ActionError::Args);
         }
         if let Some(plugin) = action.strip_prefix(PANEL_OPEN) {
-            if !self.commands.iter().any(|(id, _)| id == plugin) {
+            if !self
+                .registry
+                .iter()
+                .any(|known| known.id().as_str() == plugin)
+            {
                 return Err(ActionError::Unknown);
             }
             return host_args(HostArgs::None, args).map_err(ActionError::Args);
         }
         let owner = self
-            .commands
+            .registry
             .iter()
-            .find(|(_, names)| names.iter().any(|name| name == action));
-        match (owner, context) {
-            (Some((plugin, _)), Context::Panel(panel)) if plugin == panel => Ok(()),
-            (Some((plugin, _)), _) => Err(ActionError::Args(format!(
-                "действие плагина привязывается в контексте panel.{plugin}"
-            ))),
-            (None, _) => Err(ActionError::Unknown),
+            .find(|plugin| plugin.manifest().has_command(action))
+            .ok_or(ActionError::Unknown)?;
+        match args {
+            None => Ok(()),
+            Some(args) => owner
+                .model()
+                .parse_command(action, Some(args.clone()))
+                .map_err(|refusal| ActionError::Args(refusal.message)),
         }
     }
 }
@@ -317,9 +288,7 @@ pub fn load(current: &Keymap, path: &Path, actions: &Actions) -> Result<Keymap, 
         Ok(file) => file,
         Err(reason) => return Ok(current.rejected(reason)),
     };
-    let check = |context: &Context, action: &str, args: Option<&Value>| {
-        actions.check(context, action, args)
-    };
+    let check = |_: &Context, action: &str, args: Option<&Value>| actions.check(action, args);
     current
         .apply(file.as_deref(), actions.panels(), &check)
         .map_err(|error| error.to_string())
@@ -484,11 +453,14 @@ fn observe_dir(
     let (signal, signals) = std_mpsc::channel();
     let (installed, wait_installed) = std_mpsc::channel::<()>();
     let from_watcher = signal.clone();
+    let names = relevant_names(&config_dir);
     let spawned = thread::Builder::new()
         .name("shellio-keymap-watch".to_owned())
         .spawn(move || {
-            let made = notify::recommended_watcher(move |_event: notify::Result<notify::Event>| {
-                let _ = from_watcher.send(Signal::Changed);
+            let made = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+                if concerns(&names, &event) {
+                    let _ = from_watcher.send(Signal::Changed);
+                }
             });
             // Без наблюдения таблица применяется командой `keymap.reload`.
             let Ok(mut watcher) = made else { return };
@@ -511,6 +483,29 @@ fn observe_dir(
         });
     drop(spawned);
     (signal, wait_installed)
+}
+
+/// Имена, изменение которых касается таблицы: сам файл и каталоги пути к нему. Пока каталога
+/// конфигурации нет, наблюдается его предок, и соседние записи предка (например `state.db`
+/// изолированного профиля) службу не будят.
+fn relevant_names(config_dir: &Path) -> Vec<OsString> {
+    config_dir
+        .iter()
+        .map(OsStr::to_owned)
+        .chain([OsString::from(KEYMAP_FILE)])
+        .collect()
+}
+
+/// Событие наблюдения касается таблицы. Отказ наблюдения и событие без путей — тоже: после них
+/// состояние каталога неизвестно, файл перечитывается.
+fn concerns(names: &[OsString], event: &notify::Result<notify::Event>) -> bool {
+    match event {
+        Ok(event) if !event.paths.is_empty() => event.paths.iter().any(|path| {
+            path.file_name()
+                .is_some_and(|name| names.iter().any(|known| known == name))
+        }),
+        Ok(_) | Err(_) => true,
+    }
 }
 
 /// Поставить наблюдение на ближайший существующий каталог, если он сменился.
@@ -546,7 +541,7 @@ mod tests {
     const WATCH_GUARD: Duration = Duration::from_secs(30);
 
     fn actions() -> Actions {
-        Actions::of(&plugins::registry().unwrap())
+        Actions::of(Arc::new(plugins::registry().unwrap()))
     }
 
     struct Fixture {
@@ -558,6 +553,16 @@ mod tests {
         fn new() -> Self {
             let dir = tempfile::tempdir().unwrap();
             let profile = Profile::isolated(dir.path().canonicalize().unwrap().join("state"));
+            Self { _dir: dir, profile }
+        }
+
+        /// Профиль в `/tmp` без разрешения ссылки: путь остаётся `/tmp/…`.
+        fn in_tmp() -> Self {
+            let dir = tempfile::Builder::new()
+                .prefix("shellio-keymap-")
+                .tempdir_in("/tmp")
+                .unwrap();
+            let profile = Profile::isolated(dir.path().join("state"));
             Self { _dir: dir, profile }
         }
 
@@ -590,17 +595,15 @@ mod tests {
 
     #[test]
     fn host_action_table_is_sorted_and_checks_args() {
-        let bindable = &HOST_ACTIONS[..HOST_ACTIONS.len() - NOT_BINDABLE.len()];
-        assert!(bindable.is_sorted_by(|a, b| a.0 < b.0));
+        assert!(HOST_ACTIONS.is_sorted_by(|a, b| a.0 < b.0));
         let actions = actions();
-        let nav = Context::Navigation;
-        let check = |action: &str, args: Option<Value>| actions.check(&nav, action, args.as_ref());
+        let check = |action: &str, args: Option<Value>| actions.check(action, args.as_ref());
 
         // Каждая привязка по умолчанию проходит ту же проверку, что строка файла.
         let defaults = Keymap::defaults(actions.panels()).unwrap();
         for binding in defaults.bindings() {
             assert_eq!(
-                actions.check(&binding.context, &binding.action, binding.args.as_ref()),
+                actions.check(&binding.action, binding.args.as_ref()),
                 Ok(()),
                 "{} {}",
                 binding.context,
@@ -627,39 +630,110 @@ mod tests {
             ("panel.filter", Some(json!({"text": 1}))),
             ("panel.select", None),
             ("panel.open.demo-list", Some(json!({}))),
-            ("query.keymap", None),
-            ("ui.mode", None),
         ] {
             assert!(
                 matches!(check(action, args.clone()), Err(ActionError::Args(_))),
                 "{action} {args:?}"
             );
         }
-        for action in ["palette.open", "panel.open.none", "demo-list.none", "x"] {
+        // Чтения и служебные запросы — не имена keymap, как и действие будущей палитры.
+        for action in [
+            "palette.open",
+            "panel.open.none",
+            "demo-list.none",
+            "query.keymap",
+            "keymap.subscribe",
+            "ui.mode",
+            "x",
+        ] {
             assert_eq!(check(action, None), Err(ActionError::Unknown), "{action}");
         }
     }
 
     #[test]
-    fn plugin_action_binds_only_in_its_panel_context() {
+    fn watch_events_concern_only_the_file_and_the_way_to_it() {
+        let names = relevant_names(Path::new("/tmp/shellio-x/state/config"));
+        let event = |path: &str| -> notify::Result<notify::Event> {
+            Ok(notify::Event::new(notify::EventKind::Any).add_path(PathBuf::from(path)))
+        };
+        for path in [
+            "/private/tmp/shellio-x/state/config/keymap.toml",
+            "/private/tmp/shellio-x/state/config",
+            "/private/tmp/shellio-x/state",
+        ] {
+            assert!(concerns(&names, &event(path)), "{path}");
+        }
+        for path in [
+            "/private/tmp/shellio-x/state/state.db",
+            "/private/tmp/shellio-x/state/state.db-wal",
+            "/private/tmp/shellio-x/state/config/settings.toml",
+            "/private/tmp/shellio-x/state/config/keymap.toml.swp",
+        ] {
+            assert!(!concerns(&names, &event(path)), "{path}");
+        }
+        assert!(concerns(
+            &names,
+            &Ok(notify::Event::new(notify::EventKind::Any))
+        ));
+        assert!(concerns(&names, &Err(notify::Error::generic("сбой"))));
+    }
+
+    /// `args` действия плагина разбирает его модель: пример плана проходит, неверный тип, лишнее
+    /// поле и пропущенное поле отвергаются. Без `args` строка проверяется только по имени.
+    #[test]
+    fn plugin_action_args_are_parsed_by_its_model() {
         let actions = actions();
-        let own = Context::Panel("demo-list".to_owned());
-        let args = json!({"open": true});
-        assert_eq!(actions.check(&own, "demo-list.back", None), Ok(()));
+        let check = |action: &str, args: Option<Value>| actions.check(action, args.as_ref());
+
         assert_eq!(
-            actions.check(&own, "demo-list.details", Some(&args)),
+            check("demo-list.details", Some(json!({"open": true}))),
             Ok(())
         );
-        for context in [
-            Context::Navigation,
-            Context::Global,
-            Context::Panel("demo-native".to_owned()),
+        assert_eq!(check("demo-list.back", Some(json!({}))), Ok(()));
+        assert_eq!(
+            check("demo-native.set", Some(json!({"value": "x"}))),
+            Ok(())
+        );
+        // Аргументы клавише без `args` даёт вид панели: имя действия известно, строка принята.
+        assert_eq!(check("demo-native.set", None), Ok(()));
+        assert_eq!(check("demo-list.details", None), Ok(()));
+        for (action, args) in [
+            ("demo-list.details", json!({"open": "yes"})),
+            ("demo-list.details", json!({"open": true, "x": 1})),
+            ("demo-list.details", json!({})),
+            ("demo-list.back", json!({"x": 1})),
+            ("demo-native.set", json!({"value": 1})),
         ] {
-            assert!(matches!(
-                actions.check(&context, "demo-list.back", None),
-                Err(ActionError::Args(_))
-            ));
+            assert!(
+                matches!(check(action, Some(args.clone())), Err(ActionError::Args(_))),
+                "{action} {args}"
+            );
         }
+    }
+
+    /// Строка файла с неверными `args` действия плагина отключается причиной `bad_args`, а верная
+    /// действует в любом контексте.
+    #[tokio::test]
+    async fn file_line_with_bad_plugin_args_is_disabled() {
+        let fixture = Fixture::new();
+        fixture.write(
+            "[panel.demo-list]\n\"x\" = { action = \"demo-list.details\", args = { open = true } }\n\
+             \"y\" = { action = \"demo-list.details\", args = { open = \"yes\" } }\n\
+             [navigation]\n\"Ctrl-w b\" = \"demo-list.back\"\n",
+        );
+        let service = fixture.service(false).await;
+        let view = service.port().current().view.clone();
+
+        let good = row(&view, "panel.demo-list", "x").unwrap();
+        assert_eq!(good.args, Some(json!({"open": true})));
+        assert_eq!(row(&view, "panel.demo-list", "y"), None);
+        assert!(row(&view, "navigation", "Ctrl-w b").is_some());
+        let found: Vec<_> = view
+            .diagnostics
+            .iter()
+            .map(|d| (d.line, d.kind.as_str()))
+            .collect();
+        assert_eq!(found, [(Some(3), "bad_args")]);
     }
 
     #[tokio::test]
@@ -817,7 +891,27 @@ mod tests {
     /// при старте не было, подхватывается тем же наблюдением.
     #[tokio::test(flavor = "multi_thread")]
     async fn watcher_applies_an_edit_in_a_directory_created_after_start() {
-        let fixture = Fixture::new();
+        watcher_follows(Fixture::new()).await;
+    }
+
+    /// То же на пути через символическую ссылку: `/tmp` ведёт в `/private/tmp`, а там живут
+    /// профили `make run` и `make e2e`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn watcher_applies_an_edit_under_a_symlinked_path() {
+        let fixture = Fixture::in_tmp();
+        assert_ne!(
+            fixture.profile.state_dir(),
+            fixture
+                .profile
+                .state_dir()
+                .canonicalize()
+                .unwrap_or_default(),
+            "путь профиля идёт через ссылку"
+        );
+        watcher_follows(fixture).await;
+    }
+
+    async fn watcher_follows(fixture: Fixture) {
         fs::create_dir_all(fixture.profile.state_dir()).unwrap();
         let service = fixture.service(true).await;
         let mut seen = service.port().subscribe();
