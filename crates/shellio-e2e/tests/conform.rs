@@ -667,3 +667,61 @@ fn button_title_is_left_to_the_snapshot_stage() {
         Field::Frame,
     );
 }
+
+#[test]
+fn plugin_scope_narrows_a_key_exception() {
+    // Значок вкладки терминала под ключи исключения значков `demo-*` подходит, под плагин — нет.
+    let passport = passport("layout-all-zones", "dark-normal");
+    let terminal = "zone.center.part.1.tabs.tab.1.icon";
+    let mut tree = mirror(&passport);
+    node(&mut tree, terminal)["style"]["icon"]["name"] = json!("list.bullet");
+    let report = run("layout-all-zones", &passport, &tree);
+    only(&report, terminal, Field::Icon);
+    assert!(
+        report
+            .snapshot
+            .iter()
+            .any(|c| c.ck == terminal && c.kind == SnapshotKind::Mask)
+    );
+}
+
+#[test]
+fn badge_height_is_a_drawn_box_not_a_text_line() {
+    let passport = passport("chrome-titlebar", "dark-normal");
+    let badge = "chrome.search.kbd";
+    let mut tree = mirror(&passport);
+    let frame = &mut node(&mut tree, badge)["frame"];
+    let (y, h) = (
+        frame["y"].as_f64().expect("y"),
+        frame["height"].as_f64().expect("h"),
+    );
+    // Выше на 4 точки с той же серединой.
+    frame["y"] = json!(y - 2.0);
+    frame["height"] = json!(h + 4.0);
+    only(
+        &run("chrome-titlebar", &passport, &tree),
+        badge,
+        Field::Frame,
+    );
+}
+
+#[test]
+fn body_exception_covers_content_without_pair_but_not_keys_outside_the_body() {
+    let passport = passport("layout-all-zones", "dark-normal");
+    let body = "zone.center.part.1.body";
+    let extra = |ck: &str| {
+        let mut tree = mirror(&passport);
+        let mut card = node(&mut tree, body).clone();
+        card["id"] = json!(ck);
+        card["ck"] = json!(ck);
+        card["parent"] = json!(body);
+        tree["components"].as_array_mut().expect("узлы").push(card);
+        run("layout-all-zones", &passport, &tree).mismatches
+    };
+    // Нейтральная карточка терминала: содержимое тела исключено вместе с составом.
+    assert_eq!(extra("zone.center.part.1.body.card"), []);
+    // Узел без пары вне тела — расхождение состава.
+    let outside = extra("zone.center.part.1.tabs.extra");
+    assert_eq!(outside.len(), 1);
+    assert_eq!(outside[0].field, Field::Composition);
+}

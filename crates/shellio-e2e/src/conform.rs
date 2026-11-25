@@ -349,52 +349,83 @@ pub struct Report {
 /// Исключения реестра, действующие в состоянии.
 pub struct Exceptions<'a> {
     rows: Vec<&'a Exception>,
-    /// Ключи тел частей по области «плагин и режим тела»: ключ тела и исключение.
-    bodies: Vec<(String, &'a Exception)>,
+    composition: &'a Composition,
+}
+
+/// Часть и вкладка, которым принадлежит ключ: `zone.<зона>.part.<N>` и, если ключ лежит под
+/// `.tabs.tab.<T>`, номер вкладки.
+fn place_of(key: &str) -> Option<(Zone, usize, Option<usize>)> {
+    let rest = key.strip_prefix("zone.")?;
+    let (zone, rest) = rest.split_once('.')?;
+    let zone = Zone::ALL.into_iter().find(|z| z.as_str() == zone)?;
+    let rest = rest.strip_prefix("part.")?;
+    let (part, rest) = rest.split_once('.').unwrap_or((rest, ""));
+    let tab = rest
+        .strip_prefix("tabs.tab.")
+        .and_then(|rest| rest.split(['.', ':']).next()?.parse().ok());
+    Some((zone, part.parse().ok()?, tab))
 }
 
 impl<'a> Exceptions<'a> {
-    pub fn new(registry: &'a Registry, state: &str, composition: &Composition) -> Self {
-        let rows: Vec<&Exception> = registry
+    pub fn new(registry: &'a Registry, state: &str, composition: &'a Composition) -> Self {
+        let rows = registry
             .exceptions
             .iter()
             .filter(|e| e.states.iter().any(|s| s == state))
             .collect();
-        let mut bodies = Vec::new();
-        for (zone, parts) in &composition.zones {
-            for (index, part) in parts.iter().enumerate() {
-                let active = part.active.and_then(|a| part.tabs.get(a.checked_sub(1)?));
-                for row in &rows {
-                    let plugin = match (&row.scope.plugin, active) {
-                        (None, _) => row.scope.body.is_some(),
-                        (Some(pattern), Some(plugin)) => match pattern.strip_suffix('*') {
-                            Some(prefix) => plugin.starts_with(prefix),
-                            None => pattern == plugin,
-                        },
-                        (Some(_), None) => false,
-                    };
-                    if plugin && row.scope.body.is_none_or(|body| body == part.body) {
-                        bodies.push((format!("zone.{zone}.part.{}.body", index + 1), *row));
-                    }
-                }
-            }
-        }
-        Self { rows, bodies }
+        Self { rows, composition }
     }
 
-    /// Покрыто ли поле элемента исключением: само поле или `all`.
+    /// Подходит ли ключ под условия области «плагин» и «режим тела»: плагин — вкладки, под
+    /// которой лежит ключ, иначе активной вкладки его части.
+    fn in_part(&self, row: &Exception, key: &str) -> bool {
+        let Some((zone, part, tab)) = place_of(key) else {
+            return false;
+        };
+        let Some(part) = self
+            .composition
+            .zones
+            .get(&zone)
+            .and_then(|parts| parts.get(part.checked_sub(1)?))
+        else {
+            return false;
+        };
+        let plugin = tab
+            .or(part.active)
+            .and_then(|t| part.tabs.get(t.checked_sub(1)?));
+        let plugin_fits = match (&row.scope.plugin, plugin) {
+            (None, _) => true,
+            (Some(pattern), Some(plugin)) => match pattern.strip_suffix('*') {
+                Some(prefix) => plugin.starts_with(prefix),
+                None => pattern == plugin,
+            },
+            (Some(_), None) => false,
+        };
+        plugin_fits && row.scope.body.is_none_or(|body| body == part.body)
+    }
+
+    /// Покрыто ли поле элемента исключением. Область сужается всеми названными условиями: ключи
+    /// вместе с плагином и режимом тела. Область без ключей — содержимое тела части (всё под
+    /// ключом `…body`, само тело сверяется); только у него `all` снимает и состав: узлы тела
+    /// пары не имеют по построению.
     pub fn covers(&self, ck: &str, field: Field) -> bool {
-        let lists = |e: &Exception| e.fields.contains(&field) || e.fields.contains(&Field::All);
-        self.rows
-            .iter()
-            .any(|e| lists(e) && e.scope.keys.iter().any(|p| glob_matches(p, ck)))
-            || self.bodies.iter().any(|(body, e)| {
-                // Содержимое тела — всё под ключом тела; само тело сверяется.
-                lists(e)
-                    && ck
-                        .strip_prefix(body.as_str())
-                        .is_some_and(|r| r.starts_with('.'))
-            })
+        self.rows.iter().any(|row| {
+            let all = row.fields.contains(&Field::All);
+            let scope = &row.scope;
+            if scope.keys.is_empty() {
+                let content = ck
+                    .split_once(".body.")
+                    .is_some_and(|(part, _)| place_of(part).is_some());
+                (all || row.fields.contains(&field))
+                    && (scope.plugin.is_some() || scope.body.is_some())
+                    && content
+                    && self.in_part(row, ck)
+            } else {
+                (row.fields.contains(&field) || (all && field != Field::Composition))
+                    && scope.keys.iter().any(|pattern| glob_matches(pattern, ck))
+                    && ((scope.plugin.is_none() && scope.body.is_none()) || self.in_part(row, ck))
+            }
+        })
     }
 }
 
@@ -428,7 +459,9 @@ fn color_gap(a: Rgba, b: Rgba) -> f64 {
 
 /// Однострочный текст: кадр ниже двух межстрочных интервалов.
 fn single_line_text(element: &Element) -> bool {
-    element.font.is_some()
+    // Только текст: высота плашки и контрола — нарисованная рамка, а не строка.
+    element.kind == ElementKind::Text
+        && element.font.is_some()
         && element
             .line_height
             .is_some_and(|line| element.frame.h < 2.0 * line)
