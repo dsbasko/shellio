@@ -542,6 +542,41 @@ pub fn relative(frame: Rect, origin: Rect) -> Rect {
     }
 }
 
+/// Отступы строки фильтра хоста от правого и верхнего края тела панели в плитке
+/// (`.pfilter { right: 10px; top: 6px }` прототипа).
+pub const FILTER_RIGHT: f64 = 10.0;
+pub const FILTER_TOP: f64 = 6.0;
+/// Отступ строки фильтра от боковых краёв тела колонки навигатора
+/// (`.side .pfilter { left: 2px; right: 2px; top: 0 }` прототипа).
+pub const FILTER_COLUMN_SIDE: f64 = 2.0;
+
+/// Кадр строки фильтра хоста поверх тела `body` панели на месте `host`; `size` — собственный
+/// размер строки. Строка лежит над телом и места у него не забирает. В плитке она стоит у правого
+/// верхнего угла тела, в колонке навигатора тянется во всю ширину тела. Тело уже строки сжимает
+/// её до своей ширины: за край тела строка не выходит.
+pub fn filter_rect(host: Host, body: Rect, size: (f64, f64)) -> Rect {
+    let (width, height) = size;
+    let height = height.min(body.height);
+    match host {
+        Host::Navigator => Rect {
+            x: body.x + FILTER_COLUMN_SIDE.min(body.width / 2.0),
+            y: body.y,
+            width: (body.width - 2.0 * FILTER_COLUMN_SIDE).max(0.0),
+            height,
+        },
+        Host::Part(_) | Host::Zoom => {
+            let width = width.min(body.width);
+            let right = FILTER_RIGHT.min(body.width - width);
+            Rect {
+                x: body.right() - right - width,
+                y: body.y + FILTER_TOP.min(body.height - height),
+                width,
+                height,
+            }
+        }
+    }
+}
+
 /// Операция адаптера над плитками и видимостью контейнеров панелей. Контейнеры создаёт и ставит
 /// на место адаптер по местам сцены, паркует и освобождает хост тел.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3154,5 +3189,63 @@ pub(crate) mod tests {
             after.bench.as_ref().unwrap().views[&second].host,
             Host::Part(left)
         );
+    }
+
+    #[test]
+    fn filter_row_sits_at_the_top_right_of_a_plate_body() {
+        let body = Rect {
+            x: 300.0,
+            y: 80.0,
+            width: 400.0,
+            height: 300.0,
+        };
+        let size = (205.0, 26.0);
+        let part = Host::Part(PartKey {
+            zone: Zone::Center,
+            index: 0,
+        });
+        for host in [part, Host::Zoom] {
+            let row = filter_rect(host, body, size);
+            assert_eq!((row.width, row.height), size);
+            assert_eq!(body.right() - row.right(), FILTER_RIGHT);
+            assert_eq!(row.y - body.y, FILTER_TOP);
+        }
+    }
+
+    #[test]
+    fn filter_row_never_leaves_a_small_body() {
+        let size = (205.0, 26.0);
+        let narrow = Rect {
+            x: 10.0,
+            y: 40.0,
+            width: 180.0,
+            height: 20.0,
+        };
+        let row = filter_rect(Host::Zoom, narrow, size);
+        assert_eq!((row.x, row.width), (narrow.x, narrow.width));
+        assert_eq!((row.y, row.height), (narrow.y, narrow.height));
+        let tight = Rect {
+            width: 209.0,
+            height: 100.0,
+            ..narrow
+        };
+        let row = filter_rect(Host::Zoom, tight, size);
+        assert_eq!(row.width, 205.0);
+        assert_eq!(row.x, tight.x, "отступ справа сжат до остатка");
+        assert_eq!(tight.right() - row.right(), 4.0);
+    }
+
+    #[test]
+    fn filter_row_spans_the_navigator_column() {
+        let body = Rect {
+            x: 0.0,
+            y: 44.0,
+            width: 240.0,
+            height: 500.0,
+        };
+        let row = filter_rect(Host::Navigator, body, (205.0, 26.0));
+        assert_eq!(row.x, FILTER_COLUMN_SIDE);
+        assert_eq!(row.width, 240.0 - 2.0 * FILTER_COLUMN_SIDE);
+        assert_eq!((row.y, row.height), (body.y, 26.0));
     }
 }

@@ -15,8 +15,8 @@ use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject, Sel}
 use objc2::{AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAccessibility, NSControl, NSControlTextEditingDelegate, NSEvent, NSFocusRingType, NSFont,
-    NSFontAttributeName, NSForegroundColorAttributeName, NSLineBreakMode, NSResponder, NSText,
-    NSTextField, NSTextFieldDelegate, NSView, NSViewLayerContentsRedrawPolicy,
+    NSFontAttributeName, NSForegroundColorAttributeName, NSImageView, NSLineBreakMode, NSResponder,
+    NSText, NSTextField, NSTextFieldDelegate, NSView, NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{
     NSAttributedString, NSDictionary, NSNotification, NSPoint, NSRect, NSSize, NSString,
@@ -25,6 +25,7 @@ use shellio_theme::AppTheme;
 
 use crate::app::App;
 use crate::counters::{Live, counter};
+use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
@@ -42,6 +43,80 @@ pub const FIELD_PAD_X: f64 = 8.0;
 pub const FIELD_PAD_Y: f64 = 6.0;
 /// Линия поля в фокусе: граница и кольцо `box-shadow: 0 0 0 1px` прототипа внутри рамки.
 pub const FOCUS_LINE_WIDTH: f64 = 2.0;
+
+/// Отступ текста строки фильтра от её края по вертикали (`.pfilter { padding: 3px 8px }`).
+pub const FILTER_PAD_Y: f64 = 3.0;
+/// Сторона значка строки фильтра и промежуток между ним и текстом (`.pfilter { gap: 6px }`).
+pub const FILTER_ICON: f64 = 13.0;
+pub const FILTER_GAP: f64 = 6.0;
+/// Ширина текста строки фильтра (`.pfilter input { width: 170px }`).
+pub const FILTER_INPUT_WIDTH: f64 = 170.0;
+/// Плейсхолдер и имя строки фильтра для доступности.
+pub const FILTER_PLACEHOLDER: &str = "Фильтр";
+/// Имя значка строки фильтра в наборе прототипа.
+const FILTER_ICON_NAME: &str = "filter";
+
+/// Вид поля: одна подложка и один `NSTextField`, разные отступы и состав.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TextFieldKind {
+    /// Поле формы (`.field` прототипа).
+    #[default]
+    Field,
+    /// Строка фильтра панели (`.pfilter` прототипа): значок перед текстом, линия подложки в
+    /// фокусе прежняя.
+    Filter,
+}
+
+/// Размеры вида поля.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FieldMetrics {
+    pub pad_x: f64,
+    pub pad_y: f64,
+    /// Сторона значка перед текстом; ноль — значка нет.
+    pub icon: f64,
+    /// Промежуток между значком и текстом.
+    pub gap: f64,
+    /// Линия подложки в фокусе меняется на линию навигации.
+    pub focus_line: bool,
+}
+
+impl TextFieldKind {
+    pub const fn metrics(self) -> FieldMetrics {
+        match self {
+            TextFieldKind::Field => FieldMetrics {
+                pad_x: FIELD_PAD_X,
+                pad_y: FIELD_PAD_Y,
+                icon: 0.0,
+                gap: 0.0,
+                focus_line: true,
+            },
+            TextFieldKind::Filter => FieldMetrics {
+                pad_x: FIELD_PAD_X,
+                pad_y: FILTER_PAD_Y,
+                icon: FILTER_ICON,
+                gap: FILTER_GAP,
+                focus_line: false,
+            },
+        }
+    }
+
+    /// Начало и ширина текста в подложке шириной `width`.
+    pub fn text_span(self, width: f64) -> (f64, f64) {
+        let metrics = self.metrics();
+        let start = metrics.pad_x + metrics.icon + metrics.gap;
+        (start, (width - start - metrics.pad_x).max(0.0))
+    }
+}
+
+/// Размер строки фильтра: отступы, значок, промежуток и текст шириной [`FILTER_INPUT_WIDTH`];
+/// высота — одна строка текста с отступами. Линия подложки лежит внутри этого размера.
+pub fn filter_size(theme: &AppTheme) -> (f64, f64) {
+    let metrics = TextFieldKind::Filter.metrics();
+    (
+        2.0 * metrics.pad_x + metrics.icon + metrics.gap + FILTER_INPUT_WIDTH,
+        theme.metrics.line_height.body + 2.0 * metrics.pad_y,
+    )
+}
 
 /// Состояние поля.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -119,6 +194,7 @@ pub fn preferred_height(theme: &AppTheme) -> f64 {
 /// Rust-часть поля: состояние, которое показывает вид, тема и получатель намерений.
 struct FieldModel {
     id: ComponentId,
+    kind: TextFieldKind,
     theme: Cell<AppTheme>,
     shown: RefCell<TextFieldState>,
     on_intent: Box<dyn Fn(TextFieldIntent)>,
@@ -165,15 +241,50 @@ impl TextField {
         label: &str,
         on_intent: impl Fn(TextFieldIntent) + 'static,
     ) -> TextField {
+        TextField::of_kind(app, theme, TextFieldKind::Field, state, label, on_intent)
+    }
+
+    /// Строка фильтра панели с текстом `value`: редактируемое поле вида
+    /// [`TextFieldKind::Filter`], размер — [`filter_size`]. `on_intent` — как у [`TextField::new`].
+    pub fn filter(
+        app: &App,
+        theme: &AppTheme,
+        value: &str,
+        on_intent: impl Fn(TextFieldIntent) + 'static,
+    ) -> TextField {
+        let state = TextFieldState {
+            value: value.to_owned(),
+            placeholder: FILTER_PLACEHOLDER.to_owned(),
+            editable: true,
+        };
+        TextField::of_kind(
+            app,
+            theme,
+            TextFieldKind::Filter,
+            state,
+            FILTER_PLACEHOLDER,
+            on_intent,
+        )
+    }
+
+    fn of_kind(
+        app: &App,
+        theme: &AppTheme,
+        kind: TextFieldKind,
+        state: TextFieldState,
+        label: &str,
+        on_intent: impl Fn(TextFieldIntent) + 'static,
+    ) -> TextField {
         let mtm = app.mtm();
         let model = FieldModel {
             id: ComponentId::next(),
+            kind,
             theme: Cell::new(*theme),
             shown: RefCell::new(TextFieldState::default()),
             on_intent: Box::new(on_intent),
         };
         let mut view = View::new(&FIELD_OWNER, model, "TextField.updateLayer", |owner| {
-            FieldBox::new(mtm, owner)
+            FieldBox::new(mtm, owner, kind)
         });
         let field = view.view().ivars().field.clone();
         let delegate = FieldDelegate::new(mtm, view.callback("TextField.delegate"));
@@ -195,6 +306,22 @@ impl TextField {
 
     pub fn id(&self) -> ComponentId {
         self.view.rust().id
+    }
+
+    pub fn kind(&self) -> TextFieldKind {
+        self.view.rust().kind
+    }
+
+    /// Прячет или показывает поле без неявных анимаций. Скрытое поле ввод не держит.
+    pub fn set_hidden(&self, hidden: bool) {
+        let view = self.view.view();
+        if view.isHidden() == hidden {
+            return;
+        }
+        if hidden && self.is_editing() {
+            self.field().abortEditing();
+        }
+        without_actions(|| view.setHidden(hidden));
     }
 
     /// Состояние, которое показывает вид, включая ввод пользователя.
@@ -237,20 +364,44 @@ impl TextField {
 
     /// Поле для `ui.inspect`: кадр подложки, AX-роль и имя ячейки, first responder — field editor
     /// поля во время ввода, состояние.
+    ///
+    /// Строка фильтра — три узла: подложка `<id>` класса `FilterBar`, значок `<id>.icon` и текст
+    /// `<id>.input` класса `FilterInput` с состоянием поля; AX и first responder несёт текст.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let field = self.field();
         let state = NodeState::TextField {
             state: self.state(),
             editing: self.is_editing(),
         };
-        let mut node = inspect::node(
-            id,
-            "TextField",
-            parent,
-            self.view.view(),
-            Some(field.isEnabled()),
-            Some(state),
-        );
+        let enabled = Some(field.isEnabled());
+        let whole = self.view.view();
+        let (mut nodes, mut node) = match self.kind() {
+            TextFieldKind::Field => (
+                Vec::new(),
+                inspect::node(id, "TextField", parent, whole, enabled, Some(state)),
+            ),
+            TextFieldKind::Filter => {
+                let mut nodes = vec![inspect::node(id, "FilterBar", parent, whole, None, None)];
+                if let Some(icon) = &whole.ivars().icon {
+                    let color = icon
+                        .contentTintColor()
+                        .and_then(|color| crate::style::rgba(&color));
+                    nodes.push(
+                        inspect::node(&format!("{id}.icon"), "Icon", Some(id), icon, None, None)
+                            .with_icon(FILTER_ICON_NAME, FILTER_ICON, color),
+                    );
+                }
+                let input = inspect::node(
+                    &format!("{id}.input"),
+                    "FilterInput",
+                    Some(id),
+                    field,
+                    enabled,
+                    Some(state),
+                );
+                (nodes, input)
+            }
+        };
         if let Some(cell) = field.cell() {
             node.facts.role = inspect::text(cell.accessibilityRole());
             node.facts.label = inspect::text(cell.accessibilityLabel())
@@ -258,7 +409,8 @@ impl TextField {
             node.facts.help = inspect::text(cell.accessibilityHelp());
         }
         node.facts.first_responder = editor_is_first_responder(field);
-        vec![node]
+        nodes.push(node);
+        nodes
     }
 
     /// Подложка поля для размещения в иерархии.
@@ -305,6 +457,9 @@ impl TextField {
         field.setFont(Some(&NSFont::systemFontOfSize(theme.metrics.font.tab)));
         self.apply_placeholder();
         let view = self.view.view();
+        if let Some(icon) = &view.ivars().icon {
+            icon.setContentTintColor(Some(&layer::ns_color(theme.colors.text_3)));
+        }
         view.setNeedsDisplay(true);
         view.setNeedsLayout(true);
     }
@@ -348,6 +503,9 @@ fn editor_is_first_responder(field: &NSTextField) -> bool {
 struct BoxIvars {
     _live: Live,
     owner: Callback<FieldModel>,
+    kind: TextFieldKind,
+    /// Значок перед текстом у вида со значком.
+    icon: Option<Retained<NSImageView>>,
     field: Retained<FieldControl>,
 }
 
@@ -383,7 +541,8 @@ define_class!(
                 return;
             };
             let colors = &theme.colors;
-            let line = if self.ivars().field.currentEditor().is_some() {
+            let focus_line = self.ivars().kind.metrics().focus_line;
+            let line = if focus_line && self.ivars().field.currentEditor().is_some() {
                 (colors.accent_nav_line, FOCUS_LINE_WIDTH)
             } else {
                 (colors.line_2, LINE_WIDTH)
@@ -429,11 +588,24 @@ define_class!(
 );
 
 impl FieldBox {
-    fn new(mtm: MainThreadMarker, owner: Callback<FieldModel>) -> Retained<FieldBox> {
+    fn new(
+        mtm: MainThreadMarker,
+        owner: Callback<FieldModel>,
+        kind: TextFieldKind,
+    ) -> Retained<FieldBox> {
         let field = FieldControl::new(mtm);
+        let size = kind.metrics().icon;
+        let icon = (size > 0.0).then(|| {
+            let view = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
+            let description = NSString::from_str(FILTER_PLACEHOLDER);
+            view.setImage(icon::image(FILTER_ICON_NAME, size, &description).as_deref());
+            view
+        });
         let this = FieldBox::alloc(mtm).set_ivars(BoxIvars {
             _live: FIELD_BOX.live(),
             owner,
+            kind,
+            icon,
             field,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
@@ -442,19 +614,36 @@ impl FieldBox {
         view.setWantsLayer(true);
         view.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
         view.addSubview(&view.ivars().field);
+        if let Some(icon) = &view.ivars().icon {
+            view.addSubview(icon);
+        }
         view
     }
 
-    /// Поле по середине высоты подложки с горизонтальными отступами.
+    /// Поле по середине высоты подложки с горизонтальными отступами, значок — перед ним.
     fn place(&self) {
-        let field = &self.ivars().field;
+        let ivars = self.ivars();
+        let field = &ivars.field;
         let bounds = self.bounds();
+        let metrics = ivars.kind.metrics();
+        let (start, width) = ivars.kind.text_span(bounds.size.width);
         let height = field.intrinsicContentSize().height.ceil();
         let frame = NSRect::new(
-            NSPoint::new(FIELD_PAD_X, ((bounds.size.height - height) / 2.0).floor()),
-            NSSize::new((bounds.size.width - 2.0 * FIELD_PAD_X).max(0.0), height),
+            NSPoint::new(start, ((bounds.size.height - height) / 2.0).floor()),
+            NSSize::new(width, height),
         );
-        without_actions(|| field.setFrame(frame));
+        without_actions(|| {
+            field.setFrame(frame);
+            if let Some(icon) = &ivars.icon {
+                icon.setFrame(NSRect::new(
+                    NSPoint::new(
+                        metrics.pad_x,
+                        ((bounds.size.height - metrics.icon) / 2.0).floor(),
+                    ),
+                    NSSize::new(metrics.icon, metrics.icon),
+                ));
+            }
+        });
     }
 }
 
@@ -687,6 +876,42 @@ mod tests {
         let shown = state("x", "", false);
         assert_eq!(shown.command("insertNewline:"), None);
         assert_eq!(shown.command("cancelOperation:"), None);
+    }
+
+    #[test]
+    fn form_field_keeps_its_span_and_focus_line() {
+        let metrics = TextFieldKind::Field.metrics();
+        assert_eq!((metrics.pad_x, metrics.pad_y), (FIELD_PAD_X, FIELD_PAD_Y));
+        assert!(metrics.focus_line);
+        assert_eq!(
+            TextFieldKind::Field.text_span(200.0),
+            (FIELD_PAD_X, 200.0 - 2.0 * FIELD_PAD_X)
+        );
+        assert_eq!(TextFieldKind::default(), TextFieldKind::Field);
+    }
+
+    #[test]
+    fn filter_bar_puts_text_after_the_icon_and_keeps_the_line() {
+        let metrics = TextFieldKind::Filter.metrics();
+        assert!(!metrics.focus_line, "линия строки фильтра в фокусе прежняя");
+        assert_eq!((metrics.icon, metrics.gap), (FILTER_ICON, FILTER_GAP));
+        for cell in shellio_theme::Cell::ALL {
+            let theme = AppTheme::for_cell(cell);
+            let (width, height) = filter_size(&theme);
+            assert_eq!(width, 205.0);
+            assert_eq!(height, theme.metrics.line_height.body + 2.0 * FILTER_PAD_Y);
+            assert_eq!(
+                TextFieldKind::Filter.text_span(width),
+                (FIELD_PAD_X + FILTER_ICON + FILTER_GAP, FILTER_INPUT_WIDTH)
+            );
+        }
+        assert_eq!(
+            TextFieldKind::Filter.text_span(10.0).1,
+            0.0,
+            "узкая строка текста не показывает"
+        );
+        assert!(icon::image(FILTER_ICON_NAME, FILTER_ICON, &NSString::from_str("")).is_some());
+        assert!(shellio_theme::icons::shapes(FILTER_ICON_NAME).is_some());
     }
 
     #[test]

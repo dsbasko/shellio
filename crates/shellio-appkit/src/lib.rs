@@ -82,7 +82,8 @@ pub use components::tab_strip::model::{
 };
 pub use components::tab_strip::{ButtonFacts, TabFacts, TabStrip, TabStripFacts};
 pub use components::text_field::{
-    TextField, TextFieldIntent, TextFieldOp, TextFieldState, preferred_height as text_field_height,
+    FILTER_PLACEHOLDER, FieldMetrics, TextField, TextFieldIntent, TextFieldKind, TextFieldOp,
+    TextFieldState, filter_size, preferred_height as text_field_height,
 };
 pub use components::tree_list::model::{
     TreeListError, TreeListIntent, TreeListKey, TreeListState, TreeNode, TreeOp, TreeRow,
