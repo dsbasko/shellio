@@ -31,11 +31,12 @@ window.K = {};
     return { ctrl: mods.includes('Ctrl'), signs, key: signs.length ? keyText(m[2]) : (KEY[m[2]] || m[2]) };
   };
   // Модификатор читается как в macOS: ⌘K одной клавишей, Ctrl и клавиша двумя.
-  K.kbd = (keys) => String(keys).split(' ').flatMap((tok) => {
+  // ck — ключ сверки: у одной клавиши он сам, у нескольких — с номером клавиши.
+  K.kbd = (keys, ck) => String(keys).split(' ').flatMap((tok) => {
     const k = parseKey(tok);
     if (!k) return [KEY[tok] || tok];
     return [...(k.ctrl ? ['Ctrl'] : []), `${k.signs.join('')}${k.key}`];
-  }).map((k) => `<kbd>${esc(k)}</kbd>`).join('');
+  }).map((k, i, all) => `<kbd${ck ? ` data-ck="${all.length > 1 ? `${ck}.${i + 1}` : ck}"` : ''}>${esc(k)}</kbd>`).join('');
   // В палитре каждый модификатор идёт отдельной клавишей.
   K.keyChips = (keys) => String(keys).split(' ').flatMap((tok) => {
     const k = parseKey(tok);

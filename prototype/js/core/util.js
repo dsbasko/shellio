@@ -3,7 +3,7 @@ window.S = window.S || {};
 
 S.esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 S.cx = (...a) => a.filter(Boolean).join(' ');
-S.uid = (() => { let n = 0; return (p = 'id') => `${p}-${++n}`; })();
+S.uid = (() => { let n = 0; const uid = (p = 'id') => `${p}-${++n}`; uid.reset = () => { n = 0; }; return uid; })();
 S.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 S.fmt = {
   num: (v) => String(v).replace('.', ','),
@@ -146,4 +146,5 @@ const P = {
   scenes: '<rect x="2.5" y="2.5" width="11" height="8.5" rx="1.5"/><path d="M5 13.5h6"/><path d="m6.5 5 3 1.7-3 1.8z"/>',
 };
 
-S.icon = (name, size = 16) => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.file}</svg>`;
+// data-icon называет нарисованный контур набора: неизвестное имя рисуется контуром file.
+S.icon = (name, size = 16, ck) => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="${P[name] ? name : 'file'}"${ck ? ` data-ck="${ck}"` : ''}>${P[name] || P.file}</svg>`;

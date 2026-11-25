@@ -55,8 +55,8 @@
     return `<div class="parts by-${axis}" data-k="parts-${zone}">${list.map((g, i) => `${i ? `<div class="sash ${axis === 'row' ? 'w' : 'h'}" data-sash="part" data-zone="${zone}" data-i="${i}" data-k="ps-${g.id}"></div>` : ''}<div class="part" data-part="${g.id}" data-k="p-${g.id}" style="flex:${Math.round((g.w / total) * 1000) / 10} 1 0">${groupHtml(L, g, zone)}</div>`).join('')}</div>`;
   };
 
-  const light = (cls, cmd, label, path) => `<button type="button" class="tl ${cls}" data-cmd="${cmd}" aria-label="${label}" title="${label}"><svg viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">${path}</svg></button>`;
-  const lights = `<div class="lights">${light('tl-c', 'win.close', 'Закрыть', '<path d="M3.5 3.5l5 5M8.5 3.5l-5 5"/>')}${light('tl-m', 'win.min', 'Свернуть', '<path d="M3 6h6"/>')}${light('tl-z', 'win.zoom', 'Развернуть', '<path d="M3.5 8.5V4.2L7.8 8.5zM8.5 3.5v4.3L4.2 3.5z" style="fill:#0A4A14;stroke:none"/>')}</div>`;
+  const light = (cls, cmd, label, path, ck) => `<button type="button" class="tl ${cls}" data-cmd="${cmd}" aria-label="${label}" title="${label}" data-ck="chrome.window.${ck}"><svg viewBox="0 0 12 12" width="8" height="8" aria-hidden="true">${path}</svg></button>`;
+  const lights = `<div class="lights">${light('tl-c', 'win.close', 'Закрыть', '<path d="M3.5 3.5l5 5M8.5 3.5l-5 5"/>', 'close')}${light('tl-m', 'win.min', 'Свернуть', '<path d="M3 6h6"/>', 'minimize')}${light('tl-z', 'win.zoom', 'Развернуть', '<path d="M3.5 8.5V4.2L7.8 8.5zM8.5 3.5v4.3L4.2 3.5z" style="fill:#0A4A14;stroke:none"/>', 'zoom')}</div>`;
 
   const leftParts = (L) => {
     const g = L.groups[L.nav];
@@ -64,7 +64,7 @@
   };
 
   const keyTip = (id, usual) => K.keyChips(S.keyFor(id, usual)).replace(/ /g, '');
-  const zoneBtn = (on, arg, label, keys, name) => `<button type="button" class="${cx('ib', on && 'on')}" data-cmd="zone.toggle" data-arg="${arg}" aria-pressed="${on}" aria-label="${label}" title="${label}  ${keys}">${icon(name, 15)}</button>`;
+  const zoneBtn = (on, arg, label, keys, name, ck) => `<button type="button" class="${cx('ib', on && 'on')}" data-cmd="zone.toggle" data-arg="${arg}" aria-pressed="${on}" aria-label="${label}" title="${label}  ${keys}" data-ck="${ck}">${icon(name, 15, `${ck}.icon`)}</button>`;
 
   const titlebar = (L) => {
     const wb = S.wb(); const pr = S.project(); const ws = S.ws();
@@ -76,19 +76,19 @@
     const sideOn = sideLeft ? !L.hidden.plate : !L.hidden.right && !rightEmpty;
     const dark = St.prefs.theme === 'dark';
     const themeLabel = dark ? 'Светлая тема' : 'Тёмная тема';
-    return `<header class="titlebar" data-k="titlebar">
+    return `<header class="titlebar" data-k="titlebar" data-ck="chrome">
       <div class="tb-left">
         ${lights}
-        <button type="button" class="ws-btn" data-cmd="ws.switch" aria-label="Воркспейс: ${ws.title}" aria-haspopup="menu" title="Переключить воркспейс"><span class="ws-name">${ws.title}</span>${crossCount ? `<span class="ws-n">${crossCount}</span>` : ''}${icon('chevD', 11)}</button>
+        <button type="button" class="ws-btn" data-cmd="ws.switch" aria-label="Воркспейс: ${ws.title}" aria-haspopup="menu" title="Переключить воркспейс" data-ck="chrome.workspace"><span class="ws-name" data-ck="chrome.workspace.label">${ws.title}</span>${crossCount ? `<span class="ws-n" data-ck="chrome.workspace.count">${crossCount}</span>` : ''}${icon('chevD', 11, 'chrome.workspace.chevron')}</button>
       </div>
-      <button type="button" class="search" data-cmd="palette" aria-label="Поиск и команды">${icon('search', 14)}<span>Сессии, файлы, команды</span>${S.keyFor('palette', 'Cmd-k') ? K.kbd(S.keyFor('palette', 'Cmd-k')) : ''}</button>
+      <button type="button" class="search" data-cmd="palette" aria-label="Поиск и команды" data-ck="chrome.search">${icon('search', 14, 'chrome.search.icon')}<span data-ck="chrome.search.label">Сессии, файлы, команды</span>${S.keyFor('palette', 'Cmd-k') ? K.kbd(S.keyFor('palette', 'Cmd-k'), 'chrome.search.kbd') : ''}</button>
       <div class="tb-right">
-        <div class="seg" role="group" aria-label="Зоны" data-k="zones">
-          ${zoneBtn(!L.hidden.left, 'left', 'Навигация', keyTip('zone.left', 'Cmd-0'), 'sideL')}
-          ${zoneBtn(!L.hidden.bottom, 'bottom', 'Нижняя зона', keyTip('zone.bottom', 'Cmd-j'), 'sideB')}
-          ${zoneBtn(sideOn, sideLeft ? 'plate' : 'right', sideLeft ? 'Левая зона' : 'Правая зона', keyTip('zone.right', 'Cmd-Alt-0'), sideLeft ? 'sideLP' : 'sideR')}
+        <div class="seg" role="group" aria-label="Зоны" data-k="zones" data-ck="chrome.zones">
+          ${zoneBtn(!L.hidden.left, 'left', 'Навигация', keyTip('zone.left', 'Cmd-0'), 'sideL', 'chrome.zones.left')}
+          ${zoneBtn(!L.hidden.bottom, 'bottom', 'Нижняя зона', keyTip('zone.bottom', 'Cmd-j'), 'sideB', 'chrome.zones.bottom')}
+          ${zoneBtn(sideOn, sideLeft ? 'plate' : 'right', sideLeft ? 'Левая зона' : 'Правая зона', keyTip('zone.right', 'Cmd-Alt-0'), sideLeft ? 'sideLP' : 'sideR', 'chrome.zones.right')}
         </div>
-        <button type="button" class="ib" data-cmd="theme.toggle" aria-label="${themeLabel}" title="${themeLabel}">${icon(dark ? 'sun' : 'moon', 15)}</button>
+        <button type="button" class="ib" data-cmd="theme.toggle" aria-label="${themeLabel}" title="${themeLabel}" data-ck="chrome.appearance">${icon(dark ? 'sun' : 'moon', 15, 'chrome.appearance.icon')}</button>
       </div>
     </header>`;
   };

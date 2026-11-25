@@ -343,11 +343,14 @@
 - Modify: `prototype/index.html`, `prototype/js/main.js`, `prototype/js/core/{util,shell,state,overlays}.js`, `prototype/js/plugins/*.js` (таймеры), `Makefile`
 
 - [ ] вход `?conformance=1` в `<head>` до первого модуля: часы, монотонный счётчик, seed, очередь таймеров, очередь RAF до стабильной раскладки, фиксированная фаза анимаций, сброс счётчика id, `window.conformance.load`, `apply`, `facts`, сигнал готовности
+  - состояние: написан `prototype/js/conformance.js` (классический скрипт в `<head>` до первого скрипта прототипа; `load`, `apply`, `step`, `settle`, `facts`, `ready`), `S.uid.reset` в `util.js`; по CDP ещё не проверен — проверяет `shellio-snap`
 - [ ] загрузка сцены `p15` вместо стартового мира; `data-ck` и `data-icon` у элементов заголовка
+  - состояние: `data-ck` у заголовка (`shell.js`, `titlebar`, кнопки окна, зон, оформления; `K.kbd(keys, ck)`), `data-icon` у каждого SVG из `S.icon`; `load(scene)` заменяет каталог, сценарии и раскладку. `conformance/scenes/p15.json` ещё не записан
 - [ ] `shellio-snap`: новый профиль на loopback, CDP через `tungstenite`, запрет `http` и `https`, окно и DPR, сбор элементов с псевдоэлементами, шрифты CDP с `isCustomFont`, маски значков, состав и постусловия, уникальность ключей
 - [ ] `make passports`: два свежих процесса на паспорт, побайтное сравнение, публикация набора, коды и выход по разделу «Цели `Makefile`»
 - [ ] тесты на записанных ответах CDP: сбор, псевдоэлементы, шрифты, маска, ошибка постусловия, дубликат ключа
 - [ ] без параметра поведение прототипа прежнее: сценарии из `js/scenarios.js` работают
+  - состояние: DOM стартового мира `index.html?still` до и после правок совпал без атрибутов `data-ck`, `data-icon`, тега входа и порядковых id групп (`target/conformance-baseline/`); сами сценарии ещё не прогонялись
 - [ ] `make check`; `make passports STATES="chrome-titlebar"` — два съёма каждой ячейки совпали
 - [x] ➕ состав `scene::Composition` дополнен контролами заголовка и строки вкладок (и строки статуса) по DOM прототипа: без них у поверхностей `titlebar` и `statusline` правилу «видимый контрол без `ck` — провал» не на что опереться. Формат меняется до первого паспорта
   - ⚠️ решение исполнителя по правилу плана: `Composition.titlebar` и `Composition.statusline` — ключи сверки видимых контролов по порядку, `PartComposition.tools` — сегменты `{tool}` строки вкладок. Сцена без шагов даёт заголовок `scene::TITLEBAR_CONTROLS` (три кнопки окна, воркспейс, поиск, три кнопки зон, оформление; третья кнопка зон — `chrome.zones.right`, что бы она ни переключала), части с вкладками — `split`, `zoom`, `menu`, строку статуса — пустую: её состав задаёт `post.composition` рецепта. Тест `composition_lists_titlebar_and_tab_strip_controls`
@@ -355,7 +358,8 @@
   - расхождение — ошибка входа (`Err`), а не устаревший паспорт; тесты `state_scene_must_match_recipe_scene`, `state_cells_must_fit_recipe_axes`
 - [x] ➕ `scene::Cardinality` приведена к именам продукта (`crates/shellio-plugin-api/src/manifest.rs`: `multi`, `per_workbench`, `per_project`, `per_workspace`, `per_app`, snake_case) до записи `p15.json`, чтобы `conformance.sh` создавал сцену штатным CLI из того же файла
   - тест `scene_cardinality_uses_product_names`
-- [ ] ➕ `keys::TEMPLATES` — черновик задачи 2, написанный до `data-ck`: сверить с ключами заголовка (здесь) и остального каркаса (задача 5)
+- [x] ➕ `keys::TEMPLATES` — черновик задачи 2, написанный до `data-ck`: сверить с ключами заголовка (здесь) и остального каркаса (задача 5)
+  - заголовок сверен: у кнопки воркспейса значка нет (`chrome.workspace.icon` убран), есть необязательный счётчик `chrome.workspace.count`; кнопки окна рисуют SVG вне набора `P` и ключа значка не получают. Остальной каркас сверяет задача 5: `Passport::check` отвергает ключ вне таблицы
 - [ ] ➕ `tests/repo.rs`: убрать запасной путь «реестра нет», когда появится `conformance/registry.toml`
 
 ### Task 4: JetBrains Mono в прототипе и в бандле
