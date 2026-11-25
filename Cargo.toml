@@ -9,6 +9,7 @@ members = [
     "crates/shellio-conformance",
     "crates/shellio-e2e",
     "crates/shellio-ghostty",
+    "crates/shellio-keymap",
     "crates/shellio-layout",
     "crates/shellio-plugin-api",
     "crates/shellio-plugin-view",

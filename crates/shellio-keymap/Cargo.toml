@@ -1,0 +1,15 @@
+[package]
+name = "shellio-keymap"
+description = "Клавиатура shellio без AppKit: аккорды, последовательности, контексты, keymap.toml, аккорд выхода и история переходов"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.9"
+
+[lints]
+workspace = true

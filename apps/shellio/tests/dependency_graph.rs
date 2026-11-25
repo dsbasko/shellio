@@ -18,13 +18,14 @@ use std::sync::OnceLock;
 use serde_json::Value;
 
 /// Чистые crate: без AppKit, контракта вида и плагинов.
-const PURE: [&str; 6] = [
+const PURE: [&str; 7] = [
     "shellio-plugin-api",
     "shellio-layout",
     "shellio-core",
     "shellio-store",
     "shellio-control",
     "shellio-theme",
+    "shellio-keymap",
 ];
 
 const APPKIT: &str = "shellio-appkit";
@@ -32,6 +33,7 @@ const PLUGIN_VIEW: &str = "shellio-plugin-view";
 const PLUGIN_API: &str = "shellio-plugin-api";
 const CORE: &str = "shellio-core";
 const APP: &str = "shellio";
+const KEYMAP: &str = "shellio-keymap";
 
 struct Package {
     name: String,
@@ -257,6 +259,24 @@ fn plugins_do_not_reach_each_other_the_core_or_apps() {
             graph.name(plugin)
         );
     }
+}
+
+/// Модель клавиатуры не доходит ни до одного crate workspace — ни до ядра, ни до контракта плагина
+/// — и зависит только от `serde`, `serde_json` и `toml` (ADR-0010, «Уточнено в P1.6
+/// (планирование)», «Аккорд и модель»).
+#[test]
+fn keymap_reaches_no_workspace_crate() {
+    let graph = workspace();
+    let keymap = graph.member(KEYMAP);
+    let found = graph.violations(keymap, |id| graph.members.contains(id));
+    assert!(found.is_empty(), "crate «{KEYMAP}»: {found:#?}");
+
+    let direct: BTreeSet<&str> = graph.edges[keymap]
+        .iter()
+        .map(|id| graph.name(id))
+        .collect();
+    assert_eq!(direct, BTreeSet::from(["serde", "serde_json", "toml"]));
+    assert!(graph.reaches(graph.member(CORE), PLUGIN_API));
 }
 
 /// Обход не пуст: известные зависимости видны, иначе запреты выше проходили бы без проверки.

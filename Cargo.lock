@@ -1234,6 +1234,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shellio-keymap"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "shellio-layout"
 version = "0.1.0"
 dependencies = [
