@@ -1423,5 +1423,6 @@ for i in "${!ITEMS[@]}"; do
     record "${ITEMS[i]}" not_run "пункт задачи ${TASK[i]}"
   fi
 done
+record ck-coverage not_run "не выполнен: пункт сценария ещё не написан"
 record voiceover-speech not_run "речь VoiceOver автоматика не наблюдает"
 completed=1
