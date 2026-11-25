@@ -23,7 +23,7 @@
 | ⬜ | [P1.7](#p17-navigator-workspaces--воркспейсы-проекты-навигатор-и-поиск) | `navigator-workspaces` | Навигатор, каталог проектов, поиск, открытие папки | P1.6 |
 | ⬜ | [P1.8](#p18-settings-foundation--настройки-темы-и-редактор-клавиш) | `settings-foundation` | Экран настроек, темы, редактор клавиш | P1.6 |
 
-Порядок линейный до P1.6, затем P1.7 и P1.8 независимы друг от друга. Перед P1.6 выполняется внеочередной план `prototype-conformance`: с P1.6 каждый план содержит раздел «Сверка с прототипом» ([ADR-0037](adr/0037-prototype-conformance.md)).
+Порядок линейный до P1.6, затем P1.7 и P1.8 независимы друг от друга. Перед P1.6 выполняется внеочередной план `prototype-conformance`: с P1.6 каждый план содержит раздел «Сверка с прототипом» ([ADR-0037](adr/0037-prototype-conformance.md)). План выполнен: [plans/completed/20261125-prototype-conformance.md](plans/completed/20261125-prototype-conformance.md), его передачи закрыл план [plans/completed/20261125-conformance-closure.md](plans/completed/20261125-conformance-closure.md).
 
 ## Что получаем по итогу фазы
 
@@ -598,7 +598,7 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 | | |
 | --- | --- |
 | Статус | ⬜ не начат, плана нет |
-| Зависит от | P1.5, внеочередной план `prototype-conformance` ([ADR-0037](adr/0037-prototype-conformance.md)) |
+| Зависит от | P1.5, внеочередной план `prototype-conformance` ([ADR-0037](adr/0037-prototype-conformance.md)): план выполнен |
 | Готово, когда | Клавиатурный сценарий проходит без мыши |
 | Решения | [ADR-0010](adr/0010-input-and-navigation.md), [ADR-0007](adr/0007-control-api.md), [ADR-0018](adr/0018-storage-and-config.md), [ADR-0023](adr/0023-opaque-window-and-shell.md), [ADR-0024](adr/0024-main-screen-design.md), [ADR-0031](adr/0031-zone-splits.md), [ADR-0032](adr/0032-split-and-zoom-buttons.md), [ADR-0002](adr/0002-ui-stack-appkit.md) |
 | План | — |

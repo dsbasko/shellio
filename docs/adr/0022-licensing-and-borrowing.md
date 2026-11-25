@@ -53,7 +53,7 @@
 
 ## Уточнено в `prototype-conformance`
 
-Вывод плана [`prototype-conformance`](../plans/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
+Вывод плана [`prototype-conformance`](../plans/completed/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
 Решение не меняется, статус остаётся `Accepted`.
 
 - Четыре файла JetBrains Mono v2.304 и `OFL.txt` лежат в `prototype/fonts/` и совпадают с закреплённым выпуском: тест `prototype_fonts_are_the_pinned_release` (`crates/shellio-conformance/tests/repo.rs`).

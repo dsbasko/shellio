@@ -720,7 +720,7 @@ AX `AXSize` не делает окно шире экрана: на встрое�
 
 ## Уточнено в `prototype-conformance`
 
-Вывод плана [`prototype-conformance`](../plans/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
+Вывод плана [`prototype-conformance`](../plans/completed/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
 Слой команд и транспорт не меняются, статус остаётся `Proposed` до P2.3.
 План не готов по причине вне управляющего API: калибровка сверки не состоялась ([ADR-0037](0037-prototype-conformance.md), «Уточнено в `prototype-conformance`»).
 
