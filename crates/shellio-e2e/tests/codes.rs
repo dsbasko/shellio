@@ -65,20 +65,42 @@ fn target_code_of_four_scenarios_includes_the_fourth() -> Result<()> {
     Ok(())
 }
 
-/// Рецепт `e2e` запускает четыре сценария в порядке матрицы: каждый следующий — за проверкой
-/// `next` кода предыдущего, итог — `combine` всех четырёх кодов.
+/// Пять сценариев цели: код пятого (`conformance.sh`) входит в итог по тому же порядку, а без
+/// него итог считается по четырём запущенным.
 #[test]
-fn makefile_runs_four_scenarios_in_order() -> Result<()> {
-    let makefile =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Makefile"))?;
+fn target_code_of_five_scenarios_includes_the_fifth() -> Result<()> {
+    assert_eq!(combine(&["0", "0", "0", "0", "0"])?, "0");
+    // Пункт сверки без pass (расхождение или «нет калибровки») — код 3 пятого сценария.
+    assert_eq!(combine(&["0", "0", "0", "0", "3"])?, "3");
+    assert_eq!(combine(&["0", "0", "0", "0", "1"])?, "1");
+    assert_eq!(combine(&["0", "3", "0", "3", "1"])?, "1");
+    assert_eq!(combine(&["3", "3", "3", "3", "0"])?, "3");
+    assert_eq!(combine(&["0", "0", "0", "3", "3"])?, "3");
+    // Четвёртый сценарий с кодом 1 пятого не запускает: итог — по четырём кодам.
+    assert_eq!(codes(&["next", "1"])?.1, "1");
+    assert_eq!(combine(&["0", "0", "3", "1"])?, "1");
+    Ok(())
+}
+
+/// Рецепт `e2e` запускает пять сценариев в порядке матрицы: каждый следующий — за проверкой
+/// `next` кода предыдущего, итог — `combine` всех пяти кодов.
+#[test]
+fn makefile_runs_five_scenarios_in_order() -> Result<()> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let makefile = std::fs::read_to_string(root.join("Makefile"))?;
     for (name, script) in [
         ("E2E_SINGLE_INSTANCE", "single-instance.sh"),
         ("E2E_APPKIT", "appkit.sh"),
         ("E2E_LAYOUT", "layout.sh"),
         ("E2E_PLUGINS", "plugins.sh"),
+        ("E2E_CONFORMANCE", "conformance.sh"),
     ] {
         let line = format!("{name} := scripts/e2e/{script}\n");
         assert!(makefile.contains(&line), "нет переменной {name}");
+        let mode = std::os::unix::fs::PermissionsExt::mode(
+            &std::fs::metadata(root.join("scripts/e2e").join(script))?.permissions(),
+        );
+        assert_eq!(mode & 0o111, 0o111, "{script} не исполняемый");
     }
     let start = makefile
         .find("\nlocked-e2e:\n")
@@ -93,7 +115,10 @@ fn makefile_runs_four_scenarios_in_order() -> Result<()> {
         "$(E2E_LAYOUT) ||",
         "$(E2E_CODES) next $$third",
         "$(E2E_PLUGINS) ||",
-        "$(E2E_CODES) combine $$first $$second $$third $$fourth",
+        "$(E2E_CODES) next $$fourth",
+        "$(E2E_CONFORMANCE) ||",
+        "$(E2E_CODES) combine $$first $$second $$third $$fourth $$fifth)",
+        "exit $$code",
     ];
     let mut from = 0;
     for step in order {
