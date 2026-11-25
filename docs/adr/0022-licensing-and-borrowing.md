@@ -51,6 +51,16 @@
 План закрепляет источник (официальный выпуск), но не версию: v2.304 это последний выпуск на 2026-11-25.
 Статические файлы нужны потому, что одни и те же файлы читают `@font-face` с явными начертаниями и `ATSApplicationFontsPath`, а `check-bundle.sh` сверяет их побайтно.
 
+## Уточнено в `prototype-conformance`
+
+Вывод плана [`prototype-conformance`](../plans/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
+Решение не меняется, статус остаётся `Accepted`.
+
+- Четыре файла JetBrains Mono v2.304 и `OFL.txt` лежат в `prototype/fonts/` и совпадают с закреплённым выпуском: тест `prototype_fonts_are_the_pinned_release` (`crates/shellio-conformance/tests/repo.rs`).
+- В `prototype/index.html` и `prototype/css/tokens.css` нет адресов Google Fonts, в `tokens.css` четыре `@font-face`.
+- Бандл несёт те же файлы и лицензию. Отказы `check-bundle.sh` на отсутствующем и подменённом шрифте проверяет `scripts/test-bundle.sh`.
+- Обе стороны рисуют вложенным файлом, а не одноимённым системным шрифтом. Пункт `fonts-bundled` итогового `make e2e` получил `pass`: у плашки `⌘K` семейство `JetBrains Mono`, файл лежит в `Contents/Resources/Fonts/` бандла. Подмену системным шрифтом того же имени оракул отличает (`mono_text_from_a_system_font_of_the_same_name_is_a_font_mismatch`).
+
 ## Условие пересмотра
 
 Смена лицензии проекта.

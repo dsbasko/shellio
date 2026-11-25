@@ -718,6 +718,35 @@ AX `AXSize` не делает окно шире экрана: на встрое�
 `PROTOCOL` остаётся 4: запрос добавлен тем же планом, который ввёл протокол 4, до его первого выпуска, форма прежних ответов не меняется.
 Эталон провода: `request.ui.window_size`.
 
+## Уточнено в `prototype-conformance`
+
+Вывод плана [`prototype-conformance`](../plans/20261125-prototype-conformance.md) по `make check` и приёмочному проходу исполнителя 2026-11-25.
+Слой команд и транспорт не меняются, статус остаётся `Proposed` до P2.3.
+План не готов по причине вне управляющего API: калибровка сверки не состоялась ([ADR-0037](0037-prototype-conformance.md), «Уточнено в `prototype-conformance`»).
+
+Подтверждено тестами:
+
+- `ui.cell` и новые поля `ui.inspect` отдельным процессом против владельца тестов: `ui_cell_and_inspect_reach_the_owner`, `ui_cell_needs_an_isolated_owner_and_an_axis` (`apps/shellioctl/tests/cli.rs`);
+- отказ `isolated_profile_only`: `cell_refusal_is_isolated_profile_only` (`crates/shellio-control/tests/ui.rs`). Оси с тремя значениями, пропущенная ось в кадр не попадает: `ui_cell_axes_are_tristate_and_omitted_when_absent` (`crates/shellio-control/src/ui.rs`);
+- протокол 4 с `protocol_mismatch`: `protocol_mismatch_keeps_connection_without_greeting` (`crates/shellio-control/tests/server.rs`).
+
+Подтверждено настоящим владельцем в итоговом `make e2e` (`target/e2e/conformance/20261125-215149-25843/`): пункты `cell-override`, `fonts-bundled` и `ck-coverage` получили `pass`.
+
+Служебная команда `ui.window.size` и `shellioctl ui window size` записаны разделом «Уточнено в `prototype-conformance`: размер окна»: размер окна состояния сценарий `conformance.sh` задаёт ей, а не через AX.
+
+Форма узлов `ui.inspect`, которую раздел планирования не задавал:
+
+- Производные узлы без собственного вида: `Divider`, `ZoomZone`, `Zone` (кадр это объединение кадров плиток зоны), `ColumnBody`, `PartBody` (тело части под заглушкой, родитель заглушки) и `ColumnPart` (место части колонки навигатора под заглушкой с состоянием её панели).
+- Части кнопки отдаются узлами `ButtonTitle` и `ButtonIcon`, значок крестика вкладки узлом `TabCloseIcon`, ребёнком узла крестика. Развёрнутая плитка это ребёнок `ZoomZone`.
+- Ключ `zone.left.part.1` стоит на контейнере панели колонки навигатора.
+- Поле `behind` узла несёт цвет под видом: его читает правило переднего плана маски значка.
+- `style.line_height` отдаёт только поле с переносом по стилю абзаца. У поля без переноса значения нет: высоту строки там задаёт шрифт у `NSLayoutManager`.
+- Верхняя линия строки статуса читается слоем линии. Полный текст поля-подписи это строка поля.
+
+Отрицательный вывод: раскрытое меню «…» и выбор «Открыть в новой части» узлов с ключами `*.menu`, `*.menu.item.N`, `*.menu.separator.N`, `picker.title` и `picker.item.N` не отдают, их рисует системное `NSMenu`.
+Названия, порядок и доступность пунктов читаются по `NodeState::Menu`.
+Решение по этим ключам передано планированию (ADR-0037, «Предварительные показания и передачи»).
+
 ## Условие пересмотра
 
 Потребность в управлении с другой машины.
