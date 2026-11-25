@@ -11,6 +11,7 @@ use crate::chrome_bar::Frame;
 use crate::components::menu::Menu;
 use crate::components::tab_strip::TabStrip;
 use crate::components::tab_strip::model::{TabDrag, TabError, TabIntent, TabStripState};
+use crate::components::text_field::TextField;
 use crate::inspect::{self, InspectNode, Transition};
 use crate::layer::without_actions;
 use crate::own::ComponentId;
@@ -138,6 +139,28 @@ impl Plate {
         view.setAutoresizingMask(
             NSAutoresizingMaskOptions::ViewWidthSizable
                 | NSAutoresizingMaskOptions::ViewHeightSizable,
+        );
+    }
+
+    /// Ставит строку фильтра `field` над телом с кадром `frame` в точках плитки под слоем фокуса.
+    /// Строка держится правого верхнего угла плитки, когда та меняет размер. Строка, которая уже
+    /// стоит здесь верхней, только получает кадр: ввод в ней не прерывается.
+    pub fn place_over(&self, field: &TextField, frame: Frame) {
+        let view = field.ns_view();
+        let surface = self.surface.ns_view();
+        // SAFETY: `superview` у живого вида только читается.
+        let parent = unsafe { view.superview() };
+        let here = parent.is_some_and(|parent| std::ptr::eq(&*parent, surface));
+        if here && self.surface.is_top(view) {
+            let rect = piece::ns_rect(frame);
+            if view.frame() != rect {
+                view.setFrame(rect);
+            }
+        } else {
+            self.surface.place(field, frame);
+        }
+        view.setAutoresizingMask(
+            NSAutoresizingMaskOptions::ViewMinXMargin | NSAutoresizingMaskOptions::ViewMaxYMargin,
         );
     }
 

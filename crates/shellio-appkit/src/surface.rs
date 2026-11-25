@@ -232,6 +232,13 @@ impl Surface {
         piece::place(surface, piece.into().ns_view(), frame, Some(overlay));
     }
 
+    /// Вид `view` — верхний из поставленных под слой фокуса.
+    pub(crate) fn is_top(&self, view: &NSView) -> bool {
+        let subviews = self.view.view().subviews();
+        let count = subviews.count();
+        count >= 2 && std::ptr::eq(&*subviews.objectAtIndex(count - 2), view)
+    }
+
     /// Подложка для `ui.inspect`.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         vec![inspect::node(

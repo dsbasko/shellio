@@ -25,9 +25,10 @@ use shellio::scene::{
     SplitPlan,
 };
 use shellio_appkit::{
-    App, EmptyNote, ExpandStub, Frame, Insets, MainWindow, Menu, MenuEntry, MenuIntent, MenuItem,
-    Pane, PanelView, Plate, Presentation, SplitDirection, SplitDrag, SplitSlot, SplitSpec,
-    SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus, TabStripState, ZoneSide,
+    App, EmptyNote, ExpandStub, FILTER_PLACEHOLDER, Frame, Insets, MainWindow, Menu, MenuEntry,
+    MenuIntent, MenuItem, Pane, PanelView, Plate, Presentation, SplitDirection, SplitDrag,
+    SplitSlot, SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus,
+    TabStripState, TextField, TextFieldIntent, TextFieldState, ZoneSide, filter_size,
 };
 use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, PluginId, State, layout_metrics};
@@ -82,10 +83,31 @@ pub enum PanelAction {
 /// Запрос тела панели хосту: номер запроса, по которому вернётся исход, и сам запрос.
 type OnRequest = Rc<dyn Fn(Ticket, PanelRequest)>;
 
+/// Намерение строки фильтра панели: ввод, `Enter` или `Esc`.
+type OnFilter = Rc<dyn Fn(PanelId, TextFieldIntent)>;
+
+/// Строка фильтра хоста над телом панели (ADR-0008, «Уточнено в P1.6 (планирование)»). Поле
+/// создаётся при первом открытии и живёт, пока жив контейнер панели: закрытая строка помнит текст.
+struct FilterRow {
+    field: TextField,
+    /// Строка открыта; показана она, пока показано тело её панели.
+    open: bool,
+}
+
+fn filter_state(text: &str) -> TextFieldState {
+    TextFieldState {
+        value: text.to_owned(),
+        placeholder: FILTER_PLACEHOLDER.to_owned(),
+        editable: true,
+    }
+}
+
 /// Раскладка обычного окна.
 pub struct LayoutUi {
     // Порядок полей — порядок освобождения: сначала заглушки, тела, контейнеры панелей и плитки,
     // затем сплиты и контейнер.
+    /// Строки фильтра по панелям: стоят в плитках над телами.
+    filters: BTreeMap<PanelId, FilterRow>,
     /// Заглушки по месту тела: создаются при первой нужде и переиспользуются.
     stubs: BTreeMap<Host, ExpandStub>,
     /// Тела плагинов в контейнерах панелей.
@@ -112,6 +134,7 @@ pub struct LayoutUi {
     motion: Motion,
     on_panel: Rc<dyn Fn(PanelAction)>,
     on_request: OnRequest,
+    on_filter: OnFilter,
     /// Реестр плагинов процесса: `min_size` панелей сцены, модели и значки плагинов.
     registry: Arc<Registry>,
     /// Фабрики тел по plugin id; `None` — список регистраций неверен, тела не строятся.
@@ -123,14 +146,15 @@ pub struct LayoutUi {
 impl LayoutUi {
     /// Пустая раскладка в содержимом окна `window`. `on_drag` получает конец перетаскивания
     /// разделителя, `on_panel` — щелчки по вкладкам и телам панелей, `on_request` — запросы тел
-    /// плагинов; все вызываются на главном потоке изнутри AppKit и не должны синхронно трогать
-    /// раскладку.
+    /// плагинов, `on_filter` — намерения строки фильтра панели; все вызываются на главном потоке
+    /// изнутри AppKit и не должны синхронно трогать раскладку.
     pub fn new(
         app: &App,
         window: &MainWindow,
         on_drag: impl Fn(SplitId, SplitDrag) + 'static,
         on_panel: impl Fn(PanelAction) + 'static,
         on_request: impl Fn(Ticket, PanelRequest) + 'static,
+        on_filter: impl Fn(PanelId, TextFieldIntent) + 'static,
     ) -> LayoutUi {
         let selection = window.selection();
         let theme = selection.theme();
@@ -179,6 +203,7 @@ impl LayoutUi {
             Rc::clone(&picker_panel),
         );
         LayoutUi {
+            filters: BTreeMap::new(),
             stubs: BTreeMap::new(),
             bodies: Bodies::default(),
             views: BTreeMap::new(),
@@ -198,6 +223,7 @@ impl LayoutUi {
             motion: selection.motion,
             on_panel,
             on_request: Rc::new(on_request),
+            on_filter: Rc::new(on_filter),
             registry,
             factories,
             visible: false,
@@ -255,6 +281,123 @@ impl LayoutUi {
         let scene = self.scene.as_ref()?;
         let panel = scene::intent_target(scene, &self.registry, intent)?;
         self.bodies.intent(panel, intent)
+    }
+
+    /// Действие `panel.filter` для панели с фокусом: открывает строку фильтра над её телом и
+    /// ставит в неё ввод. `text` — текст фильтра: он уходит виду намерением и встаёт в строку;
+    /// без него строка открывается с прежним текстом. `None` — действовать не на что: рабочая
+    /// область не открыта, тело панели не показано, её плагин фильтр не объявил или панель стоит
+    /// в колонке навигатора, где плитки нет.
+    pub fn open_filter(&mut self, app: &App, text: Option<&str>) -> Option<Handled> {
+        let scene = self.scene.as_ref()?;
+        let probe = ViewIntent::Filter {
+            text: String::new(),
+        };
+        let panel = scene::intent_target(scene, &self.registry, &probe)?;
+        let host = scene.bench.as_ref()?.views.get(&panel)?.host;
+        if host == Host::Navigator || !self.bodies.active(panel) {
+            return None;
+        }
+        if let Some(text) = text {
+            let intent = ViewIntent::Filter {
+                text: text.to_owned(),
+            };
+            if self.bodies.intent(panel, &intent)? == Handled::No {
+                return Some(Handled::No);
+            }
+        }
+        let row = self.filters.entry(panel).or_insert_with(|| {
+            let on_filter = Rc::clone(&self.on_filter);
+            FilterRow {
+                field: TextField::filter(app, &self.theme, "", move |intent| {
+                    on_filter(panel, intent);
+                }),
+                open: false,
+            }
+        });
+        if let Some(text) = text {
+            row.field.set_state(filter_state(text));
+        }
+        row.open = true;
+        self.place_filters(Some(panel));
+        Some(Handled::Yes)
+    }
+
+    /// Намерение строки фильтра панели `panel`. Ввод уходит виду текстом фильтра. `Enter`
+    /// закрывает строку и оставляет фильтр, `Esc` закрывает её и снимает фильтр; оба возвращают
+    /// ввод телу панели.
+    pub fn filter_intent(&mut self, panel: PanelId, intent: TextFieldIntent) {
+        if !self.filters.get(&panel).is_some_and(|row| row.open) {
+            return;
+        }
+        let clear = match intent {
+            TextFieldIntent::Changed(text) => {
+                self.bodies.intent(panel, &ViewIntent::Filter { text });
+                return;
+            }
+            TextFieldIntent::Submitted(_) => false,
+            TextFieldIntent::Cancelled => true,
+        };
+        if let Some(row) = self.filters.get_mut(&panel) {
+            row.open = false;
+            if clear {
+                row.field.set_state(filter_state(""));
+            }
+            row.field.set_hidden(true);
+        }
+        if clear {
+            let intent = ViewIntent::Filter {
+                text: String::new(),
+            };
+            self.bodies.intent(panel, &intent);
+        }
+        if let Some(view) = self.bodies.view(panel) {
+            view.focus_preferred();
+        }
+    }
+
+    /// Панель, в чьей открытой строке фильтра идёт ввод.
+    fn filter_typing(&self) -> Option<PanelId> {
+        self.filters
+            .iter()
+            .find(|(_, row)| row.open && row.field.is_editing())
+            .map(|(&panel, _)| panel)
+    }
+
+    /// Строки фильтра по последней сцене: открытая строка стоит над показанным телом своей панели
+    /// в её плитке, остальные скрыты. `typing` — панель, строка которой держит ввод: перестановка
+    /// плитки его сбрасывает, строка получает его обратно.
+    fn place_filters(&mut self, typing: Option<PanelId>) {
+        let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
+        let size = filter_size(&self.theme);
+        for (panel, row) in &self.filters {
+            let place = bench
+                .filter(|_| row.open && self.bodies.active(*panel))
+                .and_then(|bench| {
+                    let slot = bench.views.get(panel)?;
+                    let body = slot.body?;
+                    let (plate, origin) = match slot.host {
+                        Host::Navigator => return None,
+                        Host::Part(key) => (
+                            self.plates.get(&key)?,
+                            bench.plates.get(&key)?.frame.as_ref()?.frame,
+                        ),
+                        Host::Zoom => (self.zoom.as_ref()?, bench.zoomed.as_ref()?.frame),
+                    };
+                    let rect = scene::filter_rect(slot.host, body, size);
+                    Some((plate, frame(scene::relative(rect, origin))))
+                });
+            match place {
+                Some((plate, frame)) => {
+                    plate.place_over(&row.field, frame);
+                    row.field.set_hidden(false);
+                    if typing == Some(*panel) && !row.field.is_editing() {
+                        row.field.focus();
+                    }
+                }
+                None => row.field.set_hidden(true),
+            }
+        }
     }
 
     /// Последняя применённая сцена.
@@ -331,6 +474,7 @@ impl LayoutUi {
             .iter()
             .find(|(_, view)| view.holds_focus())
             .map(|(&panel, _)| panel);
+        let typing = self.filter_typing();
         self.place(app, &next);
         let gone = self.dragging.get().is_some_and(|panel| {
             next.bench
@@ -381,6 +525,10 @@ impl LayoutUi {
         }
         self.scene = Some(next);
         self.visible = visible;
+        // Строка фильтра уходит вместе с контейнером своей панели.
+        self.filters
+            .retain(|panel, _| self.views.contains_key(panel));
+        self.place_filters(typing);
     }
 
     /// Новая ячейка темы и движение.
@@ -399,6 +547,9 @@ impl LayoutUi {
         }
         for stub in self.stubs.values() {
             stub.set_theme(theme);
+        }
+        for row in self.filters.values() {
+            row.field.set_theme(theme);
         }
         self.note.set_theme(theme);
     }
@@ -549,6 +700,25 @@ impl LayoutUi {
                 if let Some(body) = self.bodies.view(*panel) {
                     nodes.extend(body_nodes(*panel, body));
                 }
+            }
+            for (panel, row) in &self.filters {
+                let Some(slot) = bench.views.get(panel) else {
+                    continue;
+                };
+                let parent = host_id(slot.host);
+                let id = format!("{}.filter", panel_id(*panel));
+                let base = host_ck(slot.host, zoomed).filter(|_| row.open);
+                let list = row.field.inspect(&id, Some(&parent));
+                nodes.extend(list.into_iter().map(|node| {
+                    let ck = base
+                        .as_deref()
+                        .filter(|_| node.facts.visible)
+                        .map(|base| format!("{base}.filter{}", &node.id[id.len()..]));
+                    window_ui::component(match ck {
+                        Some(ck) => node.with_ck(ck),
+                        None => node,
+                    })
+                }));
             }
             for host in bench.stubs().keys() {
                 if let Some(stub) = self.stubs.get(host) {

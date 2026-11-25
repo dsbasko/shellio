@@ -73,6 +73,10 @@ pub const TEMPLATES: &[&str] = &[
     "zone.{zone}.part.{n}.body.empty.hint",
     "zone.{zone}.part.{n}.body.empty.action.{n}",
     "zone.{zone}.part.{n}.body.empty.action.{n}.label",
+    // Строка фильтра хоста над телом панели.
+    "zone.{zone}.part.{n}.filter",
+    "zone.{zone}.part.{n}.filter.icon",
+    "zone.{zone}.part.{n}.filter.input",
     // Меню «…» части.
     "zone.{zone}.part.{n}.menu",
     "zone.{zone}.part.{n}.menu.item.{n}",
@@ -169,5 +173,29 @@ pub fn check_glob(pattern: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("шаблон ключа «{pattern}» неправильный"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filter_row_keys_belong_to_a_part_and_not_to_its_body() {
+        for key in [
+            "zone.center.part.1.filter",
+            "zone.right.part.2.filter.icon",
+            "zone.bottom.part.1.filter.input",
+        ] {
+            assert_eq!(check_key(key), Ok(()), "{key}");
+            assert!(!glob_matches("zone.*.body.*", key), "{key}");
+        }
+        for key in [
+            "zone.center.part.1.body.filter",
+            "zone.center.filter",
+            "zone.center.part.1.filter.label",
+        ] {
+            assert!(check_key(key).is_err(), "{key}");
+        }
     }
 }

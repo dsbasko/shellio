@@ -30,9 +30,9 @@ use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow, Regime,
-    SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldState,
-    ThemeSelection, Transition, TransitionPath, TreeListFacts, VirtualListFacts, ZoneButton,
-    ZoneSide, instance_counts, late_callbacks,
+    SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldIntent,
+    TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts, VirtualListFacts,
+    ZoneButton, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -45,7 +45,7 @@ use shellio_control::{
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
-    Reply, ToggleTarget, UiCommand, open_workbench,
+    PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -1233,6 +1233,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             |split, drag| defer(move |app| on_drag(app, split, drag)),
             |action| defer(move |app| on_panel(app, action)),
             send_request,
+            |panel, intent| defer(move |_| on_filter_row(panel, intent)),
         )),
         WindowMode::Gallery => None,
     };
@@ -1516,20 +1517,17 @@ fn on_list(action: ListAction, source: Option<ReceiptSource>) {
     note_receipt(tag, ending);
 }
 
-/// Действие `panel.filter` для панели с фокусом. С текстом — намерение её виду: текст фильтра,
-/// пустой снимает фильтр. Без текста действие открывает строку фильтра хоста; пока строки нет,
-/// открывать нечего. Скрытое окно, панель без признака `filter` и вид, который намерение не
-/// принял, — действовать не на что.
-fn on_filter(text: Option<&str>, source: Option<ReceiptSource>) {
+/// Действие `panel.filter` для панели с фокусом: открывает строку фильтра хоста над её телом и
+/// ставит в неё ввод. С текстом — ещё и намерение её виду: текст фильтра, пустой снимает фильтр.
+/// Скрытое окно, панель без признака `filter` и вид, который намерение не принял, — действовать
+/// не на что.
+fn on_filter(app: &App, text: Option<&str>, source: Option<ReceiptSource>) {
     let tag = source.map(|source| Sent::action(UiCommand::PanelFilter.keymap_name(), source));
     let handled = with_window(|owner| {
         if !owner.window.is_visible() {
             return None;
         }
-        let intent = ViewIntent::Filter {
-            text: text?.to_owned(),
-        };
-        owner.layout.as_mut()?.intent(&intent)
+        owner.layout.as_mut()?.open_filter(app, text)
     })
     .flatten();
     let ending = match handled {
@@ -1537,6 +1535,15 @@ fn on_filter(text: Option<&str>, source: Option<ReceiptSource>) {
         Some(Handled::No) | None => Ending::NotApplicable,
     };
     note_receipt(tag, ending);
+}
+
+/// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`.
+fn on_filter_row(panel: PanelId, intent: TextFieldIntent) {
+    with_window(|owner| {
+        if let Some(layout) = owner.layout.as_mut() {
+            layout.filter_intent(panel, intent);
+        }
+    });
 }
 
 /// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую
@@ -1624,7 +1631,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         UiRequest::Filter { text } => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {
-                on_filter(Some(&text), None);
+                on_filter(app, Some(&text), None);
                 with_window(|owner| owner.accepted(UiCommand::PanelFilter))
             })
         }
@@ -1672,7 +1679,7 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
         }
         UiCommand::LayoutToggle(target) => on_toggle(app, target, source),
         UiCommand::List(action) => on_list(action, source),
-        UiCommand::PanelFilter => on_filter(None, source),
+        UiCommand::PanelFilter => on_filter(app, None, source),
     }
 }
 
