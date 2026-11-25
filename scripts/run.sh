@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Запускает владельца из подписанного бандла через open -W -n с временным профилем и ждёт его выхода.
 #
-#   run.sh [<бандл>] [-- <аргументы владельца>…]
+#   run.sh [--state <каталог>] [--scene] [<бандл>] [-- <аргументы владельца>…]
 #
 # Бандл по умолчанию — target/bundle/shellio.app, собирает и проверяет его цель make run. Аргументы после
 # -- уходят владельцу через open --args: make run ARGS="--gallery" открывает галерею во временном профиле. Каталог состояния —
 # новый временный SHELLIO_STATE_DIR в /tmp: путь сокета должен быть короче 104 байт, а $TMPDIR сам занимает
 # около 50. Вывод владельца пишется в target/run/<время>-<pid>/ и показывается в терминале.
+#
+# --state запускает владельца на постоянном профиле: каталог создаётся при первом запуске и после выхода не
+# удаляется. Занятая блокировка профиля — отказ до запуска: второй экземпляр передал бы аргументы живому
+# владельцу и вышел. --scene до запуска собирает shellioctl, а после строки готовности собирает во владельце
+# демо-сцену (scripts/run-scene.sh); её отказ окно не закрывает.
 #
 # open не передаёт код выхода приложения и не доставляет ему Ctrl-C: LaunchServices запускает приложение вне
 # группы процессов терминала. Поэтому прерывание отправляет SIGTERM только владельцу, чей PID взят из его
@@ -26,7 +31,14 @@ die() {
   exit 1
 }
 
+usage() {
+  echo "usage: $0 [--state <каталог>] [--scene] [<бандл>] [-- <аргументы владельца>…]" >&2
+  exit 2
+}
+
 bundle=""
+state=""
+scene=0
 owner_args=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,11 +47,20 @@ while [[ $# -gt 0 ]]; do
     owner_args=("$@")
     break
     ;;
+  --state)
+    [[ $# -ge 2 && -n "$2" && -z "$state" ]] || usage
+    state="$2"
+    shift 2
+    ;;
+  --scene)
+    scene=1
+    shift
+    ;;
+  -*)
+    usage
+    ;;
   *)
-    [[ -z "$bundle" ]] || {
-      echo "usage: $0 [<бандл>] [-- <аргументы владельца>…]" >&2
-      exit 2
-    }
+    [[ -z "$bundle" ]] || usage
     bundle="$1"
     shift
     ;;
@@ -51,18 +72,38 @@ app="$(cd "$app" && pwd -P)"
 exe="$app/Contents/MacOS/shellio"
 [[ -x "$exe" ]] || die "в бандле нет исполняемого $exe"
 
+ctl=""
+if [[ $scene -eq 1 ]]; then
+  ctl="$("$here/run-scene.sh" build)"
+fi
+
+persist=0
+if [[ -n "$state" ]]; then
+  persist=1
+  mkdir -p "$state"
+  state="$(cd "$state" && pwd -P)"
+  [[ "$(printf %s "$state/shellio.sock" | wc -c)" -lt 104 ]] ||
+    die "путь сокета $state/shellio.sock длиннее 103 байт: выберите каталог профиля короче"
+  if [[ -e "$state/shellio.lock" ]] && ! /usr/bin/lockf -s -k -t 0 "$state/shellio.lock" true; then
+    die "профиль $state занят: его владелец ещё работает"
+  fi
+  echo "профиль: $state"
+else
+  state="$(mktemp -d /tmp/shellio-run.XXXXXX)"
+fi
+lock="$state/shellio.lock"
+
 logs="$root/target/run/$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$logs"
 out="$logs/stdout"
 err="$logs/stderr"
 : >"$out"
 : >"$err"
-state="$(mktemp -d /tmp/shellio-run.XXXXXX)"
-lock="$state/shellio.lock"
 
-# Профиль удаляется, пока экземпляр не запущен или когда его выход подтверждён.
+# Временный профиль удаляется, пока экземпляр не запущен или когда его выход подтверждён; постоянный остаётся.
 keep_state=0
 tails=()
+scene_pid=""
 
 stop_tails() {
   local pid
@@ -75,7 +116,12 @@ stop_tails() {
 }
 
 cleanup() {
+  if [[ -n "$scene_pid" ]]; then
+    kill "$scene_pid" 2>/dev/null || true
+    wait "$scene_pid" 2>/dev/null || true
+  fi
   stop_tails
+  [[ $persist -eq 0 ]] || return 0
   if [[ $keep_state -eq 0 ]]; then
     rm -rf "$state"
   else
@@ -86,6 +132,24 @@ trap cleanup EXIT
 
 owner_pid() {
   sed -n "s/^${READY}\([0-9][0-9]*\), .*/\1/p" "$out" | head -n 1
+}
+
+owner_socket() {
+  sed -n "s/^${READY}[0-9][0-9]*, сокет \(.*\), режим .*/\1/p" "$out" | head -n 1
+}
+
+# Ждёт строку готовности, пока жив open, и собирает сцену; вывод — в терминал и в scene.log.
+run_scene() {
+  local sock=""
+  while [[ -z "$sock" ]]; do
+    sock="$(owner_socket)"
+    [[ -n "$sock" ]] && break
+    kill -0 "$open_pid" 2>/dev/null || return 0
+    sleep 0.1
+  done
+  "$here/run-scene.sh" apply "$ctl" "$sock" >"$logs/scene.log" 2>&1 ||
+    echo "сцена не собрана, окно остаётся открытым" >>"$logs/scene.log"
+  cat "$logs/scene.log" >&2
 }
 
 # Ctrl-C и SIGTERM сценария передаются владельцу; сценарий продолжает ждать его выхода.
@@ -119,6 +183,10 @@ if [[ ${#owner_args[@]} -gt 0 ]]; then
 fi
 open "${open_args[@]}" >"$logs/open.log" 2>&1 &
 open_pid=$!
+if [[ $scene -eq 1 ]]; then
+  run_scene &
+  scene_pid=$!
+fi
 
 status=0
 while :; do

@@ -36,10 +36,13 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
-LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle e2e \
-	probe-ghostty probe-ghostty-demo probe-session-surface calibrate
+LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run run-demo run-keep \
+	test-bundle e2e probe-ghostty probe-ghostty-demo probe-session-surface calibrate
 
-.PHONY: setup test-scripts conformance-tools passports probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+# Постоянный профиль make run-keep: вне настоящего каталога состояния и вне target/.
+RUN_PROFILE := $(if $(SHELLIO_CACHE_DIR),$(SHELLIO_CACHE_DIR),$(HOME)/.cache/shellio)/run-profile
+
+.PHONY: setup test-scripts conformance-tools passports run-gallery run-keep-reset run-prototype probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -114,6 +117,36 @@ locked-run:
 	CARGO=$(CARGO) $(BUNDLE)
 	$(CHECK_BUNDLE)
 	$(RUN) -- $(ARGS)
+
+# Варианты make run. run-gallery — галерея компонентов. run-demo — временный профиль с демо-сценой: проект из
+# корня репозитория, рабочая область и панель каждого плагина реестра, их после строки готовности создаёт
+# scripts/run-scene.sh штатными командами shellioctl. run-keep — то же на постоянном профиле RUN_PROFILE: сцена
+# собирается, только пока в профиле нет проекта, дальше он восстанавливается как есть; run-keep-reset удаляет
+# профиль, занятый — отказ. run-prototype открывает эталон вида в браузере без сборки и блокировки.
+run-gallery:
+	@$(MAKE) --no-print-directory run ARGS="--gallery"
+
+locked-run-demo:
+	CARGO=$(CARGO) $(BUNDLE)
+	$(CHECK_BUNDLE)
+	CARGO=$(CARGO) $(RUN) --scene
+
+locked-run-keep:
+	CARGO=$(CARGO) $(BUNDLE)
+	$(CHECK_BUNDLE)
+	CARGO=$(CARGO) $(RUN) --state "$(RUN_PROFILE)" --scene
+
+run-keep-reset:
+	@profile="$(RUN_PROFILE)"; \
+	[ -d "$$profile" ] || { echo "профиля нет: $$profile"; exit 0; }; \
+	if [ -e "$$profile/shellio.lock" ] && ! /usr/bin/lockf -s -k -t 0 "$$profile/shellio.lock" true; then \
+		echo "error: профиль $$profile занят: закройте его окно" >&2; exit 1; \
+	fi; \
+	rm -rf "$$profile"; \
+	echo "профиль удалён: $$profile"
+
+run-prototype:
+	open prototype/index.html
 
 # Продуктовый рубеж вне check и CI: сценарий второго запуска P1.2, затем сценарий окна и компонентов P1.3, затем
 # сценарий раскладки P1.4 в обычном окне, затем сценарий хоста плагинов P1.5, затем сценарий сверки с прототипом
