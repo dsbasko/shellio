@@ -8,6 +8,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod cdp;
 pub mod fields;
 pub mod keys;
 pub mod passport;
