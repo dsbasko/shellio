@@ -112,6 +112,14 @@
     });
     S.scenarios.length = 0;
     St.scene = scene; St.statusMessage = null;
+    // Возможности плагинов, отсутствующие действия и сводки правой части строки статуса — входы
+    // сцены. Вид их пока не читает: строку статуса сцены рисует её список.
+    St.sceneInputs = {
+      capabilities: Object.fromEntries(scene.catalog.map((c) => [c.id, { input: false, list_keys: false, filter: false, hints: [], ...(c.capabilities || {}) }])),
+      commandsAbsent: scene.commands_absent || [],
+      right: { load: (scene.status || {}).load || null },
+      keymapText: null,
+    };
     // Воркспейс сцены единственный: подпись из сцены, сводок других воркспейсов нет.
     const ws = S.ws(); ws.title = scene.workspace;
     W.workspaces.length = 0; W.workspaces.push(ws);
@@ -143,6 +151,33 @@
     await settle();
   };
 
+  // Аккорд в записи keymap → поля события клавиши по физической клавише раскладки US.
+  const SIGNS = { ';': ['Semicolon', 0], ':': ['Semicolon', 1], '/': ['Slash', 0], '?': ['Slash', 1], ',': ['Comma', 0], '<': ['Comma', 1], '.': ['Period', 0], '>': ['Period', 1], '[': ['BracketLeft', 0], '{': ['BracketLeft', 1], ']': ['BracketRight', 0], '}': ['BracketRight', 1], '\\': ['Backslash', 0], '|': ['Backslash', 1], '-': ['Minus', 0], '_': ['Minus', 1], '=': ['Equal', 0], '+': ['Equal', 1], "'": ['Quote', 0], '"': ['Quote', 1], '`': ['Backquote', 0], '~': ['Backquote', 1] };
+  const NAMED = { Space: [' ', 'Space'], Enter: ['Enter', 'Enter'], Esc: ['Escape', 'Escape'], Tab: ['Tab', 'Tab'], Backspace: ['Backspace', 'Backspace'], Delete: ['Delete', 'Delete'], Up: ['ArrowUp', 'ArrowUp'], Down: ['ArrowDown', 'ArrowDown'], Left: ['ArrowLeft', 'ArrowLeft'], Right: ['ArrowRight', 'ArrowRight'] };
+  const MODS = { Cmd: 'metaKey', Ctrl: 'ctrlKey', Alt: 'altKey', Shift: 'shiftKey' };
+  const chord = (name) => {
+    const e = { metaKey: false, ctrlKey: false, altKey: false, shiftKey: false };
+    let rest = name;
+    for (let m = rest.match(/^(Cmd|Ctrl|Alt|Shift)-(.+)$/); m; m = rest.match(/^(Cmd|Ctrl|Alt|Shift)-(.+)$/)) { e[MODS[m[1]]] = true; rest = m[2]; }
+    if (NAMED[rest]) [e.key, e.code] = NAMED[rest];
+    else if (/^[a-z]$/.test(rest)) { e.key = rest; e.code = `Key${rest.toUpperCase()}`; }
+    else if (/^[A-Z]$/.test(rest)) { e.key = rest; e.code = `Key${rest}`; e.shiftKey = true; }
+    else if (/^[0-9]$/.test(rest)) { e.key = rest; e.code = `Digit${rest}`; }
+    else if (SIGNS[rest]) { e.key = rest; e.code = SIGNS[rest][0]; e.shiftKey = e.shiftKey || !!SIGNS[rest][1]; }
+    else throw new Error(`аккорд ${name} не разобран`);
+    return e;
+  };
+  // Нажатие и отпускание идут тому, у кого фокус, и всплывают к маршрутизатору прототипа. Текст в
+  // поле синтетическая клавиша не печатает: его задаёт шаг filter.
+  const press = (name) => {
+    const init = { ...chord(name), bubbles: true, cancelable: true };
+    const to = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
+    to.dispatchEvent(new KeyboardEvent('keydown', init));
+    to.dispatchEvent(new KeyboardEvent('keyup', init));
+  };
+
+  const chordsOf = (keys) => keys.split(' ').map(chord);
+
   // Часть шага: номер на экране, колонка навигатора — левая часть 1.
   const partOf = (s) => { const L = S.layout(); const el = document.querySelector(`.group[data-ck="zone.${s.zone}.part.${s.part}"]`); if (!el) throw new Error(`части zone.${s.zone}.part.${s.part} нет`); return L.groups[el.dataset.g]; };
   const STEPS = {
@@ -165,6 +200,35 @@
       try { S.moveTo(id, { split: ref.id, side: 'after' }); } finally { S.splitRoom = room; }
     },
     close_tab: (s) => { const id = partOf(s).tabs.find((t) => S.st.panels[t].plugin === s.plugin); if (!id) throw new Error(`вкладки ${s.plugin} в части нет`); S.close(id, { force: true }); },
+    // Клавиши записи keymap по одной: между аккордами последовательности маршрутизатор ждёт префикс.
+    key: (s) => { s.keys.split(' ').forEach((name) => { press(name); S.renderNow(); }); },
+    // Правка keymap.toml: прототип TOML не разбирает и получает те же привязки под своими именами команд.
+    keymap: (s) => {
+      S.st.sceneInputs.keymapText = s.text;
+      Object.entries(s.commands || {}).forEach(([id, keys]) => {
+        keys.forEach(chordsOf);
+        if (id === 'escape') { if (keys.length !== 1) throw new Error('аккорд выхода один'); S.st.keymap.escape = keys[0]; return; }
+        if (!S.command(id)) throw new Error(`команды ${id} у прототипа нет`);
+        S.st.keymap[id] = keys;
+      });
+    },
+    // Фокус в поле активной панели части.
+    focus_field: (s) => {
+      const g = partOf(s); S.focus(g.active); S.renderNow();
+      const el = document.querySelector(`.group[data-ck="zone.${s.zone}.part.${s.part}"]`);
+      const field = el && [...el.querySelectorAll('input,textarea')].find((x) => S.isField(x) && x.dataset.pfilter == null);
+      if (!field) throw new Error(`в части zone.${s.zone}.part.${s.part} нет поля`);
+      field.focus();
+      if (document.activeElement !== field) throw new Error(`поле части zone.${s.zone}.part.${s.part} не получило фокус`);
+    },
+    // Текст строки фильтра панели с фокусом.
+    filter: (s) => {
+      const p = S.focused(); if (!p) throw new Error('панели с фокусом нет');
+      p.filtering = true; p.filter = s.text; S.renderNow();
+      const inp = document.querySelector(`[data-pfilter="${p.id}"]`);
+      if (!inp) throw new Error(`строки фильтра у панели ${p.plugin} нет`);
+      inp.value = s.text;
+    },
   };
 
   // Рецепт применяется над загруженной сценой в ячейке { theme, contrast }.

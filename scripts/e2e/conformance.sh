@@ -19,6 +19,12 @@
 # плитки (части 2 и дальше). Состояние с шагами или своим размером окна оставляет сцену изменённой: следующее
 # состояние получает новый профиль и нового владельца.
 #
+# Шаги клавиатуры идут в порядке рецепта вместе с командами: key — аккорды записи keymap по одному через
+# System Events (key code с модификаторами, владелец на переднем плане); keymap — текст шага пишется в
+# config/keymap.toml профиля и применяется командой keymap reload; focus_field — panel focus активной панели части,
+# клавиша Tab и first_responder поля этой панели в ui.inspect; filter — ui filter с текстом шага. Шаг, который
+# продукт не исполнил (отказ команды, поле без фокуса), — fail пункта, а не пропуск.
+#
 # Шаги split_refused, open_menu и open_picker — нажатия в окне, а не команды: штатным CLI шаг только переводит
 # фокус в свою часть, а само нажатие идёт через AX в каждой ячейке после её осей и до снимка. split_refused —
 # AXPress «Разделить» строки вкладок части и сообщение строки статуса; open_menu — фоновый AXPress «Действия
@@ -1106,6 +1112,27 @@ recipe_plan() {
     my @steps = @{ $recipe->{steps} // [] };
     binmode STDOUT, ":utf8";
     if ($mode eq "count") { print scalar(@steps), "\n"; exit 0 }
+    # Текст шага N: keymap.toml шага keymap или текст фильтра шага filter, без перевода строки в конце.
+    if ($mode eq "text") {
+      my $s = $steps[ $rest[0] - 1 ] or die "в рецепте нет шага $rest[0]\n";
+      defined $s->{text} or die "у шага $rest[0] нет текста\n";
+      print $s->{text};
+      exit 0;
+    }
+    # Виртуальные коды клавиш раскладки ANSI и модификаторы System Events.
+    my %MOD = (Cmd => "command", Ctrl => "control", Alt => "option", Shift => "shift");
+    my %CODE = (
+      a => 0, s => 1, d => 2, f => 3, h => 4, g => 5, z => 6, x => 7, c => 8, v => 9, b => 11, q => 12, w => 13,
+      e => 14, r => 15, y => 16, t => 17, 1 => 18, 2 => 19, 3 => 20, 4 => 21, 6 => 22, 5 => 23, "=" => 24, 9 => 25,
+      7 => 26, "-" => 27, 8 => 28, 0 => 29, "]" => 30, o => 31, u => 32, "[" => 33, i => 34, p => 35, Enter => 36,
+      l => 37, j => 38, "\x27" => 39, k => 40, ";" => 41, "\\" => 42, "," => 43, "/" => 44, n => 45, m => 46,
+      "." => 47, Tab => 48, Space => 49, "`" => 50, Backspace => 51, Esc => 53, Delete => 117, Left => 123,
+      Right => 124, Down => 125, Up => 126,
+    );
+    my %SHIFTED = (
+      "+" => 24, "_" => 27, "}" => 30, "{" => 33, "\x22" => 39, ":" => 41, "|" => 42, "<" => 43, "?" => 44,
+      ">" => 47, "~" => 50,
+    );
     if ($mode eq "window") {
       my $w = $recipe->{window} // {};
       print(($w->{width} // $rest[0]) . " " . ($w->{height} // $rest[1]) . "\n");
@@ -1145,6 +1172,22 @@ recipe_plan() {
       my $s = $steps[$n - 1] or fail("в рецепте нет шага $n");
       my ($op, $zone) = ($s->{op}, $s->{zone});
       fail("шаг $op — нажатие в окне, в рецепте он должен быть последним") if $press{$op} && $n != @steps;
+      if ($op eq "key") {
+        for my $name (split / /, $s->{keys} // "") {
+          my ($rest, @mods) = ($name);
+          while ($rest =~ /^(Cmd|Ctrl|Alt|Shift)-(.+)$/) { push @mods, $MOD{$1}; $rest = $2 }
+          my $code = $CODE{$rest};
+          if (!defined $code && defined $SHIFTED{$rest}) { $code = $SHIFTED{$rest}; push @mods, "shift" }
+          if (!defined $code && $rest =~ /^[A-Z]$/) { $code = $CODE{ lc $rest }; push @mods, "shift" }
+          fail("аккорд $name не разобран") unless defined $code;
+          my %seen;
+          @mods = grep { !$seen{$_}++ } @mods;
+          print "!key $code " . (@mods ? join(",", @mods) : "-") . " $name\n";
+        }
+        exit 0;
+      }
+      if ($op eq "keymap") { print "!keymap\n"; exit 0 }
+      if ($op eq "filter") { print "!filter\n"; exit 0 }
       if ($op eq "hide_zone" || $op eq "show_zone") {
         my $verb = $op eq "hide_zone" ? "hide" : "show";
         fail("центр не скрывается") if $zone eq "center";
@@ -1164,6 +1207,7 @@ recipe_plan() {
       elsif ($op eq "zoom") { print "layout zoom $active\n" }
       # Нажатие идёт в части с фокусом: штатным CLI шаг только переводит туда фокус.
       elsif ($op eq "focus" || $press{$op}) { print "panel focus $active\n" }
+      elsif ($op eq "focus_field") { print "panel focus $active\n!field $active\n" }
       elsif ($op eq "move" || $op eq "close_tab") {
         fail("в части $s->{part} зоны $zone нет вкладки $s->{plugin}") unless defined $tab;
         if ($op eq "close_tab") { print "panel close $tab\n" }
@@ -1310,6 +1354,81 @@ strip_press() {
 se_key() {
   printf '%s key code %s\n' "$(now_ms)" "$1" >>"$2"
   osascript -e "tell application \"System Events\" to key code $1" >>"$2" 2>&1
+}
+
+# Аккорд через System Events: код клавиши и модификаторы через запятую, «-» — без них; журнал — <out>.
+se_chord() {
+  local code="$1" mods="$2" out="$3" using=""
+  if [[ "$mods" != - ]]; then
+    using=" using {${mods//,/ down, } down}"
+  fi
+  printf '%s key code %s%s\n' "$(now_ms)" "$code" "$using" >>"$out"
+  osascript -e "tell application \"System Events\" to key code $code$using" >>"$out" 2>&1
+}
+
+# Шаг рецепта, который не команда ядра: строка плана «!key код модификаторы аккорд», «!keymap», «!field панель»
+# или «!filter». Отказ — причина в WHY и род в STEP_KIND: fail — продукт шаг не исполнил, broken — ошибка
+# исполнения.
+keyboard_step() {
+  local line="$1" recipe="$2" n="$3" dir="$4" prefix="$5" kind code mods name panel text deadline node
+  STEP_KIND=broken
+  WHY=""
+  read -r kind code mods name <<<"$line"
+  case "$kind" in
+    '!key')
+      front_ok "$owner_pid" "$dir" || return 1
+      se_chord "$code" "$mods" "$prefix.keys.log" || {
+        WHY="аккорд $name не отправлен: $(oneline "$prefix.keys.log")"
+        return 1
+      }
+      ;;
+    '!keymap')
+      mkdir -p "$profile/config"
+      recipe_plan text "$recipe" "$n" >"$profile/config/keymap.toml" 2>"$prefix.stderr" || {
+        WHY="текст keymap.toml шага не прочитан: $(oneline "$prefix.stderr")"
+        return 1
+      }
+      cp "$profile/config/keymap.toml" "$prefix.keymap.toml"
+      ctl "$profile" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" keymap reload || {
+        STEP_KIND=fail
+        WHY="keymap reload: $(oneline "$prefix.stdout") $(oneline "$prefix.stderr")"
+        return 1
+      }
+      ;;
+    '!field')
+      panel="$code"
+      node="ok.ui.inspect.components[id=layout.panel.$panel.field].first_responder"
+      front_ok "$owner_pid" "$dir" || return 1
+      se_chord 48 - "$prefix.keys.log" || {
+        WHY="Tab не отправлен: $(oneline "$prefix.keys.log")"
+        return 1
+      }
+      deadline=$(($(now_ms) + MIRROR_MS))
+      until ui_read "$profile" "$prefix" inspect && [[ "$(jv "$prefix.stdout" "$node" || echo ?)" == true ]]; do
+        if (($(now_ms) >= deadline)); then
+          STEP_KIND=fail
+          WHY="за $MIRROR_MS мс поле панели $panel не стало первым ответчиком по ui.inspect"
+          return 1
+        fi
+        sleep "$POLL"
+      done
+      ;;
+    '!filter')
+      text="$(recipe_plan text "$recipe" "$n" 2>"$prefix.stderr")" || {
+        WHY="текст фильтра шага не прочитан: $(oneline "$prefix.stderr")"
+        return 1
+      }
+      ui_cmd "$profile" "$prefix" ui filter "$text" || {
+        STEP_KIND=fail
+        return 1
+      }
+      ;;
+    *)
+      WHY="строка плана шага не разобрана: $line"
+      return 1
+      ;;
+  esac
+  STEP_KIND=""
 }
 
 # Выход фонового osascript до срока MENU_OSA_S от его старта t0; иначе WHY.
@@ -1481,6 +1600,14 @@ prepare_state() {
         return 1
       fi
       m=$((m + 1))
+      if [[ "$line" == '!'* ]]; then
+        if ! keyboard_step "$line" "$recipe" "$n" "$dir" "$dir/step-$n-$m"; then
+          WHY="шаг $n рецепта: $WHY"
+          return 1
+        fi
+        STEP_KIND=broken
+        continue
+      fi
       # shellcheck disable=SC2086
       if ! core_cmd "$profile" "$dir/step-$n-$m" $line --all; then
         if [[ "$(jv "$dir/step-$n-$m.stdout" err.code 2>/dev/null || true)" != "" ]]; then

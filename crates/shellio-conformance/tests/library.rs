@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
@@ -12,7 +12,7 @@ use shellio_conformance::recipe::{Recipe, Step};
 use shellio_conformance::registry::{
     Inventory, InventoryPlugin, Registry, completeness, done_steps,
 };
-use shellio_conformance::scene::Scene;
+use shellio_conformance::scene::{Capabilities, Scene, StatusHint};
 use shellio_conformance::validity::{Inputs, Problem, SNAP_SCHEMA, check_registry, tree_stamp};
 use shellio_conformance::{Zone, plans};
 
@@ -805,4 +805,162 @@ fn judgement_rows_cover_fields_appkit_does_not_carry() {
     assert_eq!(absent_value(Field::LineWidth), Some(0.0));
     assert_eq!(absent_value(Field::Radius), Some(0.0));
     assert_eq!(absent_value(Field::Fill), None);
+}
+
+#[test]
+fn recipe_keyboard_steps_parse() {
+    let recipe = Recipe::parse(
+        "r.json",
+        r#"{"scene": "p15", "steps": [
+            {"op": "key", "keys": "Ctrl-w v"},
+            {"op": "keymap", "text": "[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n",
+             "commands": {"zoom": ["Ctrl-w m"], "split.v": []}},
+            {"op": "keymap", "text": ""},
+            {"op": "focus_field", "zone": "center", "part": 1},
+            {"op": "filter", "text": "два слова"}],
+           "post": {"parts": {"center": 1}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        recipe.steps,
+        vec![
+            Step::Key {
+                keys: "Ctrl-w v".to_owned(),
+            },
+            Step::Keymap {
+                text: "[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n".to_owned(),
+                commands: BTreeMap::from([
+                    ("split.v".to_owned(), Vec::new()),
+                    ("zoom".to_owned(), vec!["Ctrl-w m".to_owned()]),
+                ]),
+            },
+            Step::Keymap {
+                text: String::new(),
+                commands: BTreeMap::new(),
+            },
+            Step::FocusField {
+                zone: Zone::Center,
+                part: 1,
+            },
+            Step::Filter {
+                text: "два слова".to_owned(),
+            },
+        ]
+    );
+    let ops: Vec<_> = recipe.steps.iter().map(Step::op).collect();
+    assert_eq!(ops, ["key", "keymap", "keymap", "focus_field", "filter"]);
+    // Имя шага на проводе совпадает с `op` записи, запись читается обратно без потерь.
+    for step in &recipe.steps {
+        let wire = serde_json::to_value(step).unwrap();
+        assert_eq!(wire["op"], step.op());
+        assert_eq!(&serde_json::from_value::<Step>(wire).unwrap(), step);
+    }
+}
+
+#[test]
+fn recipe_rejects_malformed_keyboard_steps() {
+    let parse = |step: &str| {
+        Recipe::parse(
+            "r.json",
+            &format!(r#"{{"scene": "p15", "steps": [{step}], "post": {{"parts": {{}}}}}}"#),
+        )
+    };
+    for (step, word) in [
+        (r#"{"op": "key", "keys": ""}"#, "key"),
+        (r#"{"op": "key", "keys": "Ctrl-w  v"}"#, "key"),
+        (r#"{"op": "key"}"#, "keys"),
+        (r#"{"op": "key", "keys": "j", "zone": "left"}"#, "zone"),
+        (
+            r#"{"op": "keymap", "text": "", "commands": {"zoom": [""]}}"#,
+            "zoom",
+        ),
+        (
+            r#"{"op": "keymap", "text": "", "commands": {"": ["j"]}}"#,
+            "keymap",
+        ),
+        (r#"{"op": "keymap", "commands": {}}"#, "text"),
+        (r#"{"op": "focus_field", "zone": "center"}"#, "part"),
+        (r#"{"op": "filter"}"#, "text"),
+        (r#"{"op": "type", "text": "x"}"#, "type"),
+    ] {
+        let reason = parse(step).unwrap_err().reason;
+        assert!(reason.contains(word), "{step}: {reason}");
+    }
+}
+
+const P15: &str = include_str!("../../../conformance/scenes/p15.json");
+
+#[test]
+fn scene_reads_capabilities_absent_commands_and_right_summaries() {
+    let scene = Scene::parse("p15.json", P15).unwrap();
+    let caps = |id: &str| {
+        scene
+            .catalog
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| p.capabilities.clone())
+            .unwrap()
+    };
+    // Заполнитель терминала ввода не принимает, навигатор списка не объявляет.
+    assert_eq!(caps("terminal"), Capabilities::default());
+    assert_eq!(caps("navigator"), Capabilities::default());
+    assert_eq!(
+        caps("demo-list"),
+        Capabilities {
+            list_keys: true,
+            filter: true,
+            ..Capabilities::default()
+        }
+    );
+    assert_eq!(
+        caps("demo-native"),
+        Capabilities {
+            input: true,
+            ..Capabilities::default()
+        }
+    );
+    assert_eq!(scene.commands_absent, ["palette"]);
+    // Новые поля состав не меняют: вид сцены прежний.
+    assert!(scene.composition().statusline.is_empty());
+
+    let mut value: serde_json::Value = serde_json::from_str(P15).unwrap();
+    value["status"] = serde_json::json!({"load": "3% CPU · 210 МБ"});
+    value["catalog"][0]["capabilities"] = serde_json::json!({
+        "input": true,
+        "hints": [{"key": "Enter", "label": "открыть"}]
+    });
+    let scene = Scene::parse("s", &value.to_string()).unwrap();
+    assert_eq!(scene.status.load.as_deref(), Some("3% CPU · 210 МБ"));
+    assert_eq!(scene.composition().statusline, ["status.load"]);
+    assert_eq!(
+        scene.catalog[0].capabilities.hints,
+        [StatusHint {
+            key: "Enter".to_owned(),
+            label: "открыть".to_owned(),
+        }]
+    );
+    // Запись без возможностей и без отсутствующих действий остаётся прежней сценой P1.5.
+    let back = serde_json::to_value(Scene::parse("s", SCENE).unwrap()).unwrap();
+    assert!(back.get("commands_absent").is_none());
+    assert!(back["catalog"][0].get("capabilities").is_none());
+}
+
+#[test]
+fn scene_rejects_bad_capabilities_and_absent_commands() {
+    let with = |edit: &dyn Fn(&mut serde_json::Value)| {
+        let mut value: serde_json::Value = serde_json::from_str(P15).unwrap();
+        edit(&mut value);
+        Scene::parse("s", &value.to_string()).unwrap_err().reason
+    };
+    let hint = serde_json::json!({"key": "j", "label": "вниз"});
+    let reason = with(&|v| {
+        v["catalog"][0]["capabilities"] = serde_json::json!({"hints": [hint, hint, hint, hint]});
+    });
+    assert!(reason.contains("подсказок"), "{reason}");
+    let reason = with(&|v| v["catalog"][0]["capabilities"] = serde_json::json!({"typing": true}));
+    assert!(reason.contains("typing"), "{reason}");
+    let reason = with(&|v| v["commands_absent"] = serde_json::json!(["palette", "palette"]));
+    assert!(reason.contains("palette"), "{reason}");
+    let reason = with(&|v| v["commands_absent"] = serde_json::json!([" "]));
+    assert!(reason.contains("commands_absent"), "{reason}");
 }

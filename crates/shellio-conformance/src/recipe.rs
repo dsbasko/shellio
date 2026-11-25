@@ -95,6 +95,71 @@ pub enum Step {
         part: usize,
         plugin: String,
     },
+    /// Клавиши в записи keymap: аккорды последовательности через пробел («Ctrl-w v»). Нажатие
+    /// идёт в окно с фокусом на панели сцены.
+    Key {
+        keys: String,
+    },
+    /// Правка `keymap.toml` профиля: продукт получает текст файла, прототип — те же привязки под
+    /// своими именами команд (`commands`: команда прототипа и её клавиши; пустой список снимает
+    /// клавиши команды). Разбора TOML у прототипа нет.
+    Keymap {
+        text: String,
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        commands: BTreeMap<String, Vec<String>>,
+    },
+    /// Фокус в поле активной панели части: первым ответчиком становится поле.
+    FocusField {
+        zone: Zone,
+        part: usize,
+    },
+    /// Текст строки фильтра панели с фокусом.
+    Filter {
+        text: String,
+    },
+}
+
+impl Step {
+    /// Имя шага на проводе.
+    pub fn op(&self) -> &'static str {
+        match self {
+            Step::Split { .. } => "split",
+            Step::SplitRefused { .. } => "split_refused",
+            Step::Zoom { .. } => "zoom",
+            Step::HideZone { .. } => "hide_zone",
+            Step::ShowZone { .. } => "show_zone",
+            Step::OpenMenu { .. } => "open_menu",
+            Step::OpenPicker { .. } => "open_picker",
+            Step::Focus { .. } => "focus",
+            Step::Move { .. } => "move",
+            Step::CloseTab { .. } => "close_tab",
+            Step::Key { .. } => "key",
+            Step::Keymap { .. } => "keymap",
+            Step::FocusField { .. } => "focus_field",
+            Step::Filter { .. } => "filter",
+        }
+    }
+
+    /// Внутренние правила шага: клавиши и клавиши команд прототипа названы, строка keymap не
+    /// пуста.
+    fn check(&self) -> Result<(), String> {
+        let chords = |keys: &str| !keys.is_empty() && keys.split(' ').all(|c| !c.is_empty());
+        match self {
+            Step::Key { keys } if !chords(keys) => {
+                Err(format!("шаг key: клавиши «{keys}» не разобраны"))
+            }
+            Step::Keymap { commands, .. } => commands
+                .iter()
+                .flat_map(|(id, keys)| keys.iter().map(move |k| (id, k)))
+                .find(|(id, k)| id.is_empty() || !chords(k))
+                .map_or(Ok(()), |(id, k)| {
+                    Err(format!(
+                        "шаг keymap: команда «{id}», клавиши «{k}» не разобраны"
+                    ))
+                }),
+            _ => Ok(()),
+        }
+    }
 }
 
 /// Постусловия: ожидаемый состав и число частей каждой видимой зоны.
@@ -132,6 +197,9 @@ impl Recipe {
             serde_json::from_str(text).map_err(|e| Error::new(place, e.to_string()))?;
         if recipe.window.width == 0 || recipe.window.height == 0 || recipe.window.dpr == 0 {
             return Err(Error::new(place, "пустое окно рецепта"));
+        }
+        for step in &recipe.steps {
+            step.check().map_err(|reason| Error::new(place, reason))?;
         }
         Ok(recipe)
     }

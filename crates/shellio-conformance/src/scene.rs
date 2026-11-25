@@ -43,6 +43,35 @@ pub struct Plugin {
     pub placements: Vec<Zone>,
     pub default_zone: Zone,
     pub min_size: Size,
+    /// Возможности поставленного плагина.
+    #[serde(default, skip_serializing_if = "Capabilities::is_none")]
+    pub capabilities: Capabilities,
+}
+
+/// Возможности плагина в поставленном продукте: от них зависят режим клавиатуры и подсказки
+/// строки статуса. Без поля плагин ввода не принимает, списка и фильтра не объявляет, своих
+/// подсказок не даёт.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Capabilities {
+    /// У панели есть получатель ввода.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub input: bool,
+    /// Панель обрабатывает движения списка (`list_keys` манифеста).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub list_keys: bool,
+    /// Панель принимает фильтр (`filter` манифеста).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub filter: bool,
+    /// Свои подсказки панели в строке статуса, не больше трёх (ADR-0023).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hints: Vec<StatusHint>,
+}
+
+impl Capabilities {
+    fn is_none(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 /// Вкладка части.
@@ -126,7 +155,8 @@ pub struct SceneStatus {
     pub message: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hints: Vec<StatusHint>,
-    /// Нагрузка приложения целиком: готовый текст.
+    /// Сводка правой части строки: нагрузка приложения целиком, готовый текст. Других сводок
+    /// справа у сцены нет: чего сцена не назвала, того правая часть не показывает.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub load: Option<String>,
 }
@@ -159,6 +189,10 @@ pub struct Scene {
     /// Сводки строки статуса.
     #[serde(default)]
     pub status: SceneStatus,
+    /// Действия, которых в мире сцены нет, под именами команд прототипа (`palette`): подсказки
+    /// строки статуса их не называют.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands_absent: Vec<String>,
 }
 
 impl Scene {
@@ -189,6 +223,17 @@ impl Scene {
             }
             if plugin.min_size.width == 0 || plugin.min_size.height == 0 {
                 return Err(format!("плагин «{}»: пустой min_size", plugin.id));
+            }
+            if plugin.capabilities.hints.len() > 3 {
+                return Err(format!("плагин «{}»: больше трёх подсказок", plugin.id));
+            }
+        }
+        let mut absent = BTreeSet::new();
+        for command in &self.commands_absent {
+            if command.trim().is_empty() || !absent.insert(command.as_str()) {
+                return Err(format!(
+                    "commands_absent: команда «{command}» пуста или повторяется"
+                ));
             }
         }
         let mut zones = BTreeSet::new();
