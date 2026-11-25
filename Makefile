@@ -36,7 +36,7 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 # Цели, читающие vendor/ghostty/, выполняют весь рецепт под одной блокировкой набора: рецепт цели X
 # лежит во внутренней цели locked-X и запускается вложенным make. Вторая такая цель сразу получает отказ.
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle e2e \
-	probe-ghostty probe-ghostty-demo probe-session-surface
+	probe-ghostty probe-ghostty-demo probe-session-surface calibrate
 
 .PHONY: setup test-scripts conformance-tools passports probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
@@ -153,6 +153,15 @@ locked-e2e:
 	code="$$($(E2E_CODES) combine $$first $$second $$third $$fourth)"; \
 	echo "make e2e: single-instance.sh — код $$first, appkit.sh — код $$second, layout.sh — код $$third, plugins.sh — код $$fourth, итог $$code"; \
 	exit $$code
+
+# Калибровка допусков сверки (ADR-0037) вне check и CI: замер двух сторон на материалах conformance/calibration/
+# и запись calibration.json. Сценарий сам собирает и проверяет бандл внутри этой блокировки, съём идёт под
+# passports.lock. Запись уже есть — отказ: после состоявшейся калибровки повтор запрещён. Нужны идентичность
+# Shellio Dev, открытый сеанс GUI, Screen Recording у терминала-предка, выключенные оконные менеджеры и экран с
+# масштабом 2, где тон в допуске. Сырые данные — target/calibrate/<время>-<pid>/. Коды: 0 — записано, 1 — ошибка
+# исполнения (в том числе контроли не разделены), 2 — неверный вызов.
+locked-calibrate:
+	CARGO=$(CARGO) scripts/conformance/calibrate.sh
 
 # Отказы check-bundle.sh на копиях бандла; нужна настоящая идентичность, поэтому не в test-scripts.
 locked-test-bundle:
