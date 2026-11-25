@@ -16,10 +16,10 @@ use shellio_control::{
     KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, PanelId, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId,
-    WorkspaceId,
+    AppearanceChoice, Command, PanelId, ProjectId, Revision, SplitAxis, ToggleTarget, TreeScope,
+    UiCommand, WorkbenchId, WorkspaceId,
 };
-use shellio_layout::{Direction, Edge, Hideable, Zone};
+use shellio_layout::{Dimension, Direction, Edge, Hideable, Zone};
 
 /// Справка.
 pub const USAGE: &str = "\
@@ -37,16 +37,19 @@ pub const USAGE: &str = "\
   workbench rename --target <id> <имя> (--workspace <id> | --all)
   workbench open --target <id> (--workspace <id> | --all)
   layout get [--workbench <id>] (--workspace <id> | --all)
-  layout split <панель> [--open <плагин>] (--workspace <id> | --all)
+  layout split <панель> [--open <плагин>] [--axis <row|stack>] (--workspace <id> | --all)
   layout resize --zone <зона> [--part-of <панель>] [--workbench <id>] <размер> (--workspace <id> | --all)
+  layout resize --by <±точки> (--width | --height) [--panel <панель> | --workbench <id>] (--workspace <id> | --all)
   layout equal --zone <зона> [--workbench <id>] (--workspace <id> | --all)
   layout zoom <панель> (--workspace <id> | --all)
   layout zoom --off [--workbench <id>] (--workspace <id> | --all)
   layout only [--workbench <id>] (--workspace <id> | --all)
   layout <show|hide> <navigator|plate|right|bottom> [--workbench <id>] (--workspace <id> | --all)
+  layout toggle <side|navigator|bottom|plate|right>
   panel focus <панель> (--workspace <id> | --all)
   panel focus --dir <h|j|k|l> [--workbench <id>] (--workspace <id> | --all)
   panel select <панель> (--workspace <id> | --all)
+  panel tab <prev|next|номер> --workbench <id> (--workspace <id> | --all)
   panel move <панель> --zone <зона> (--workspace <id> | --all)
   panel move-part <панель> --to <панель> [--edge <before|after>] (--workspace <id> | --all)
   panel close <панель> (--workspace <id> | --all)
@@ -64,7 +67,7 @@ pub const USAGE: &str = "\
   ui stats
   ui receipts [--after <номер>]
   ui cell [--contrast <normal|high|system>] [--motion <full|reduce|system>]
-  ui appearance <light|dark|system>
+  ui appearance <light|dark|system|cycle>
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -86,13 +89,18 @@ pub const USAGE: &str = "\
 Зона — left, right, center или bottom. Размер у layout resize — точки зоны, с --part-of — доля
 части в тысячных. Команда с панелью берёт её рабочую область, без панели — --workbench, иначе
 открытую в окне.
+layout split с --axis делит только зону с этой осью: row — части рядом, stack — одна над другой.
+layout resize --by меняет размер места панели на число точек со знаком: без --panel — панели с
+фокусом. layout toggle показывает или скрывает цель в окне владельца; side — правая зона или
+плитка левой, как у третьей кнопки заголовка. panel tab выбирает вкладку части панели с фокусом:
+prev и next идут по кругу, номер считается с единицы.
 panel open открывает панель плагина по правилу его кардинальности: новую или уже существующую.
 Действие у panel command — полное имя из манифеста плагина, <плагин>.<имя>. --args — объект JSON.
 keymap list — действующая таблица клавиш с диагностикой последнего разбора keymap.toml, с --follow
 — поток полных таблиц на каждое изменение. keymap reload применяет keymap.toml сейчас и печатает
 таблицу после применения. Окна оба вызова не требуют.
-ui receipts — служебное чтение тестов: квитанции panel.open, поданных из окна, с номером больше
---after.
+ui receipts — служебное чтение тестов: квитанции действий, исполненных в окне клавишей, пунктом
+меню или кнопкой, с номером больше --after.
 ui cell — служебный вход тестов: контраст и движение окна владельца с явным SHELLIO_STATE_DIR;
 system снимает переопределение оси, пропущенная ось не меняется.
 ui window size — служебный вход тестов: размер окна того же владельца в целых точках, не меньше
@@ -190,11 +198,16 @@ enum Flag {
     After,
     Contrast,
     Motion,
+    Axis,
+    By,
+    Width,
+    Height,
+    Panel,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 22] = [
+    const ALL: [Self; 27] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -216,6 +229,11 @@ impl Flag {
         Self::After,
         Self::Contrast,
         Self::Motion,
+        Self::Axis,
+        Self::By,
+        Self::Width,
+        Self::Height,
+        Self::Panel,
         Self::Help,
     ];
 
@@ -242,6 +260,11 @@ impl Flag {
             Self::After => "--after",
             Self::Contrast => "--contrast",
             Self::Motion => "--motion",
+            Self::Axis => "--axis",
+            Self::By => "--by",
+            Self::Width => "--width",
+            Self::Height => "--height",
+            Self::Panel => "--panel",
             Self::Help => "--help",
         }
     }
@@ -264,8 +287,17 @@ impl Flag {
             | Self::Args
             | Self::After
             | Self::Contrast
-            | Self::Motion => true,
-            Self::Json | Self::All | Self::Follow | Self::Off | Self::Help => false,
+            | Self::Motion
+            | Self::Axis
+            | Self::By
+            | Self::Panel => true,
+            Self::Json
+            | Self::All
+            | Self::Follow
+            | Self::Off
+            | Self::Width
+            | Self::Height
+            | Self::Help => false,
         }
     }
 
@@ -290,7 +322,12 @@ impl Flag {
             | Self::Args
             | Self::After
             | Self::Contrast
-            | Self::Motion => false,
+            | Self::Motion
+            | Self::Axis
+            | Self::By
+            | Self::Width
+            | Self::Height
+            | Self::Panel => false,
         }
     }
 
@@ -677,12 +714,108 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
             })
         }
         "layout split" => {
-            given.only(call, &[Flag::Open, Flag::Workspace, Flag::All])?;
+            given.only(call, &[Flag::Open, Flag::Axis, Flag::Workspace, Flag::All])?;
             let [panel] = operands(call, rest)?;
             let scope = given.scope(call)?;
             let panel = panel_id(call, &panel)?;
             let open = given.value(Flag::Open).map(str::to_owned);
-            command(Command::LayoutSplit { panel, open }, scope)
+            let axis = given
+                .value(Flag::Axis)
+                .map(|axis| {
+                    name_of(
+                        Flag::Axis.name(),
+                        axis,
+                        &[("row", SplitAxis::Row), ("stack", SplitAxis::Stack)],
+                    )
+                })
+                .transpose()?;
+            command(Command::LayoutSplit { panel, open, axis }, scope)
+        }
+        "layout resize" if given.has(Flag::By) => {
+            given.only(
+                call,
+                &[
+                    Flag::By,
+                    Flag::Width,
+                    Flag::Height,
+                    Flag::Panel,
+                    Flag::Workbench,
+                    Flag::Workspace,
+                    Flag::All,
+                ],
+            )?;
+            operands::<0>(call, rest)?;
+            let scope = given.scope(call)?;
+            let dimension = match (given.has(Flag::Width), given.has(Flag::Height)) {
+                (true, false) => Dimension::Width,
+                (false, true) => Dimension::Height,
+                (true, true) => {
+                    return Err(usage(format!(
+                        "{call}: --width и --height взаимоисключающие"
+                    )));
+                }
+                (false, false) => {
+                    return Err(usage(format!("{call}: с --by нужен --width или --height")));
+                }
+            };
+            let by = given.value(Flag::By).unwrap_or_default();
+            let delta = by.parse::<i32>().map_err(|_| {
+                usage(format!(
+                    "--by: ожидается целое число точек со знаком, получено «{by}»"
+                ))
+            })?;
+            let target = given
+                .value(Flag::Panel)
+                .map(|panel| panel_id(call, panel))
+                .transpose()?;
+            let workbench = given.workbench()?;
+            if target.is_some() && workbench.is_some() {
+                return Err(usage(format!(
+                    "{call}: --panel и --workbench взаимоисключающие"
+                )));
+            }
+            command(
+                Command::LayoutResizeBy {
+                    target,
+                    workbench,
+                    dimension,
+                    delta,
+                },
+                scope,
+            )
+        }
+        "layout toggle" => {
+            given.only(call, &[])?;
+            let [target] = operands(call, rest)?;
+            let target = ToggleTarget::parse(&target).ok_or_else(|| {
+                usage(format!(
+                    "{call}: ожидается side, navigator, bottom, plate или right, получено «{target}»"
+                ))
+            })?;
+            Ok(Action::Ui(UiRequest::Command(UiCommand::LayoutToggle(
+                target,
+            ))))
+        }
+        "panel tab" => {
+            given.only(call, &[Flag::Workbench, Flag::Workspace, Flag::All])?;
+            let [tab] = operands(call, rest)?;
+            let scope = given.scope(call)?;
+            let workbench = given
+                .workbench()?
+                .ok_or_else(|| usage(format!("{call}: нужен --workbench <id>")))?;
+            let tab = match tab.as_str() {
+                "prev" => Command::TabPrev { workbench },
+                "next" => Command::TabNext { workbench },
+                number => Command::TabSelect {
+                    workbench,
+                    index: number.parse().map_err(|_| {
+                        usage(format!(
+                            "{call}: ожидается prev, next или номер вкладки с единицы, получено «{number}»"
+                        ))
+                    })?,
+                },
+            };
+            command(tab, scope)
         }
         "layout resize" => {
             given.only(
@@ -1053,9 +1186,12 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
         "ui appearance" => {
             given.only(call, &[])?;
             let [value] = operands(call, rest)?;
+            if value == "cycle" {
+                return Ok(Action::Ui(UiRequest::Command(UiCommand::AppearanceCycle)));
+            }
             let choice = AppearanceChoice::parse(&value).ok_or_else(|| {
                 usage(format!(
-                    "{call}: ожидается light, dark или system, получено «{value}»"
+                    "{call}: ожидается light, dark, system или cycle, получено «{value}»"
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::AppearanceSet(
@@ -1457,8 +1593,14 @@ mod tests {
             (&["ui"], "не указано действие"),
             (&["ui", "window", "extra"], "операндов"),
             (&["ui", "appearance"], "операндов"),
-            (&["ui", "appearance", "sepia"], "light, dark или system"),
-            (&["ui", "appearance", "Dark"], "light, dark или system"),
+            (
+                &["ui", "appearance", "sepia"],
+                "light, dark, system или cycle",
+            ),
+            (
+                &["ui", "appearance", "Dark"],
+                "light, dark, system или cycle",
+            ),
             (&["app", "restart"], "неизвестный вызов"),
         ];
         for (args, expected) in cases {
@@ -2031,14 +2173,16 @@ mod tests {
             all(&["layout", "split", PANEL]),
             cmd(Command::LayoutSplit {
                 panel: id(PANEL),
-                open: None
+                open: None,
+                axis: None
             })
         );
         assert_eq!(
             all(&["layout", "split", PANEL, "--open", "Bad Id"]),
             cmd(Command::LayoutSplit {
                 panel: id(PANEL),
-                open: Some("Bad Id".into())
+                open: Some("Bad Id".into()),
+                axis: None
             }),
             "plugin id проверяет ядро"
         );
@@ -2461,6 +2605,165 @@ mod tests {
                 &["panel", "get", PANEL, "--workbench", BENCH, "--all"],
                 "не применим",
             ),
+        ];
+        for (args, expected) in cases {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
+        }
+    }
+
+    #[test]
+    fn axis_relative_resize_tab_toggle_and_cycle_call_forms() {
+        let all = |args: &[&str]| {
+            let mut args = args.to_vec();
+            args.push("--all");
+            action_of(&args)
+        };
+        let cmd = |command: Command| Action::Command {
+            command,
+            scope: TreeScope::All,
+        };
+        let bench: WorkbenchId = id(BENCH);
+        for (name, axis) in [("row", SplitAxis::Row), ("stack", SplitAxis::Stack)] {
+            assert_eq!(
+                all(&["layout", "split", PANEL, "--axis", name]),
+                cmd(Command::LayoutSplit {
+                    panel: id(PANEL),
+                    open: None,
+                    axis: Some(axis)
+                })
+            );
+        }
+        assert_eq!(
+            all(&["layout", "resize", "--by", "40", "--width"]),
+            cmd(Command::LayoutResizeBy {
+                target: None,
+                workbench: None,
+                dimension: Dimension::Width,
+                delta: 40
+            })
+        );
+        assert_eq!(
+            all(&[
+                "layout", "resize", "--by", "-40", "--height", "--panel", PANEL
+            ]),
+            cmd(Command::LayoutResizeBy {
+                target: Some(id(PANEL)),
+                workbench: None,
+                dimension: Dimension::Height,
+                delta: -40
+            }),
+            "отрицательный шаг — значение флага, а не флаг"
+        );
+        assert_eq!(
+            all(&[
+                "layout",
+                "resize",
+                "--by=+8",
+                "--width",
+                "--workbench",
+                BENCH
+            ]),
+            cmd(Command::LayoutResizeBy {
+                target: None,
+                workbench: Some(bench),
+                dimension: Dimension::Width,
+                delta: 8
+            })
+        );
+        assert_eq!(
+            all(&["panel", "tab", "prev", "--workbench", BENCH]),
+            cmd(Command::TabPrev { workbench: bench })
+        );
+        assert_eq!(
+            all(&["panel", "tab", "next", "--workbench", BENCH]),
+            cmd(Command::TabNext { workbench: bench })
+        );
+        assert_eq!(
+            all(&["panel", "tab", "3", "--workbench", BENCH]),
+            cmd(Command::TabSelect {
+                workbench: bench,
+                index: std::num::NonZeroU32::new(3).unwrap()
+            })
+        );
+        for target in ToggleTarget::ALL {
+            assert_eq!(
+                action_of(&["layout", "toggle", target.as_str()]),
+                Action::Ui(UiRequest::Command(UiCommand::LayoutToggle(target)))
+            );
+        }
+        assert_eq!(
+            action_of(&["ui", "appearance", "cycle"]),
+            Action::Ui(UiRequest::Command(UiCommand::AppearanceCycle))
+        );
+
+        let cases: &[(&[&str], &str)] = &[
+            (
+                &["layout", "split", PANEL, "--axis", "column", "--all"],
+                "--axis",
+            ),
+            (
+                &["layout", "resize", "--by", "40", "--all"],
+                "--width или --height",
+            ),
+            (
+                &[
+                    "layout", "resize", "--by", "40", "--width", "--height", "--all",
+                ],
+                "взаимоисключающие",
+            ),
+            (
+                &["layout", "resize", "--by", "x", "--width", "--all"],
+                "--by",
+            ),
+            (
+                &[
+                    "layout", "resize", "--by", "40", "--width", "--zone", "right", "--all",
+                ],
+                "не применим",
+            ),
+            (
+                &["layout", "resize", "--by", "40", "--width", "400", "--all"],
+                "операндов",
+            ),
+            (
+                &[
+                    "layout",
+                    "resize",
+                    "--by",
+                    "40",
+                    "--width",
+                    "--panel",
+                    PANEL,
+                    "--workbench",
+                    BENCH,
+                    "--all",
+                ],
+                "взаимоисключающие",
+            ),
+            (
+                &[
+                    "layout", "resize", "--width", "--zone", "right", "400", "--all",
+                ],
+                "не применим",
+            ),
+            (&["layout", "toggle", "left"], "side, navigator"),
+            (&["layout", "toggle", "side", "--all"], "не применим"),
+            (&["layout", "toggle"], "операндов"),
+            (&["panel", "tab", "next", "--all"], "--workbench"),
+            (
+                &["panel", "tab", "0", "--workbench", BENCH, "--all"],
+                "номер вкладки",
+            ),
+            (
+                &["panel", "tab", "last", "--workbench", BENCH, "--all"],
+                "номер вкладки",
+            ),
+            (
+                &["panel", "tab", "next", "--workbench", BENCH],
+                "нужна область",
+            ),
+            (&["ui", "appearance", "cycle", "--all"], "не применим"),
         ];
         for (args, expected) in cases {
             let message = refused(args);

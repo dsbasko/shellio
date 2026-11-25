@@ -1,37 +1,62 @@
-//! Кольцо квитанций UI (ADR-0007, «Квитанции UI»): последние завершения `panel.open`, поданных
-//! главным потоком — пунктом меню «Открыть панель» и отправителем вида плагина. Свидетель доставки
-//! команды для `ui.receipts`: данных команды в записи нет, чтение кольцо не меняет.
+//! Кольцо квитанций UI (ADR-0007, «Квитанции UI» и «Уточнено в P1.6 (планирование)»): последние
+//! завершения действий, исполненных главным потоком — клавишей маршрутизатора, пунктом меню или
+//! кнопкой. Запись несёт имя действия, источник и исход; у `panel.open` ещё плагин, панель и
+//! рабочую область. Свидетель «ровно один раз» для `ui.receipts`: данных команды в записи нет,
+//! чтение кольцо не меняет.
 
 use std::collections::VecDeque;
 
-use shellio_control::{ReceiptView, ReceiptsView};
+use shellio_control::{ReceiptSource, ReceiptView, ReceiptsView};
 use shellio_core::{Command, CommandValue, CoreError, Reply, ReplyValue, WorkbenchId};
 
 /// Сколько последних квитанций держит кольцо.
-pub const CAPACITY: usize = 16;
+pub const CAPACITY: usize = 64;
 
 /// Код записи, когда ядро не ответило на принятую команду.
 pub const NO_REPLY: &str = "no_reply";
 
-/// Поданная команда `panel.open` без её данных: plugin и рабочая область, куда она шла.
+/// Код записи, когда действию не на что подействовать: окно скрыто или рабочая область не открыта.
+pub const NOT_APPLICABLE: &str = "not_applicable";
+
+/// Исполненное действие без его данных: имя, источник, а у `panel.open` — plugin и рабочая
+/// область, куда шла команда.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sent {
-    pub plugin: String,
+    pub action: String,
+    pub source: ReceiptSource,
+    pub plugin: Option<String>,
     pub workbench: Option<WorkbenchId>,
 }
 
 impl Sent {
-    /// `None` — команда не `panel.open`: в кольцо она не пишется.
-    pub fn of(command: &Command) -> Option<Sent> {
+    /// Действие с именем keymap или именем команды ядра.
+    pub fn action(action: &str, source: ReceiptSource) -> Sent {
+        Sent {
+            action: action.to_owned(),
+            source,
+            plugin: None,
+            workbench: None,
+        }
+    }
+
+    /// Команда `panel.open`; `None` — команда другая.
+    pub fn opened(command: &Command, source: ReceiptSource) -> Option<Sent> {
         match command {
             Command::PanelOpen {
                 plugin, workbench, ..
             } => Some(Sent {
-                plugin: plugin.clone(),
+                action: command.name().to_owned(),
+                source,
+                plugin: Some(plugin.clone()),
                 workbench: *workbench,
             }),
             _ => None,
         }
+    }
+
+    /// Команда ядра действия `action`: у `panel.open` запись несёт плагин и рабочую область.
+    pub fn command(action: &str, command: &Command, source: ReceiptSource) -> Sent {
+        Self::opened(command, source).unwrap_or_else(|| Self::action(action, source))
     }
 }
 
@@ -42,6 +67,10 @@ pub enum Ending<'a> {
     /// Отказ ядра, включая ранний `busy` главного потока.
     Refused(&'a CoreError),
     NoReply,
+    /// Действие без команды ядра выполнено.
+    Done,
+    /// Действию не на что подействовать, команда не подавалась.
+    NotApplicable,
 }
 
 /// Кольцо квитанций процесса. Номера идут с 1 и не повторяются.
@@ -56,8 +85,11 @@ impl Ring {
     /// Ответ — номер записи.
     pub fn record(&mut self, sent: Sent, ending: Ending<'_>) -> u64 {
         self.last += 1;
+        let opening = sent.plugin.is_some();
         let mut receipt = ReceiptView {
             seq: self.last,
+            action: sent.action,
+            source: sent.source,
             workbench: sent.workbench,
             plugin: sent.plugin,
             outcome: None,
@@ -77,10 +109,14 @@ impl Ring {
                     receipt.panel = Some(panel);
                     receipt.revision = Some(reply.revision);
                 }
-                _ => receipt.error = Some(NO_REPLY.to_owned()),
+                // `panel.open` без панели в ответе — не ответ на неё.
+                _ if opening => receipt.error = Some(NO_REPLY.to_owned()),
+                _ => receipt.revision = Some(reply.revision),
             },
             Ending::Refused(error) => receipt.error = Some(error.code().as_str().to_owned()),
             Ending::NoReply => receipt.error = Some(NO_REPLY.to_owned()),
+            Ending::Done => {}
+            Ending::NotApplicable => receipt.error = Some(NOT_APPLICABLE.to_owned()),
         }
         if self.items.len() == CAPACITY {
             self.items.pop_front();
@@ -124,7 +160,9 @@ mod tests {
 
     fn sent(plugin: &str) -> Sent {
         Sent {
-            plugin: plugin.to_owned(),
+            action: "panel.open".to_owned(),
+            source: ReceiptSource::Menu,
+            plugin: Some(plugin.to_owned()),
             workbench: Some(workbench(1)),
         }
     }
@@ -165,8 +203,10 @@ mod tests {
             view.receipts,
             [ReceiptView {
                 seq: 1,
+                action: "panel.open".into(),
+                source: ReceiptSource::Menu,
                 workbench: Some(workbench(2)),
-                plugin: "demo-native".into(),
+                plugin: Some("demo-native".into()),
                 outcome: Some(OpenOutcome::Moved),
                 panel: Some(panel()),
                 revision: Some(Revision(9)),
@@ -176,16 +216,17 @@ mod tests {
     }
 
     #[test]
-    fn the_seventeenth_record_evicts_the_oldest() {
+    fn the_record_past_capacity_evicts_the_oldest() {
         let mut ring = Ring::default();
         for _ in 0..=CAPACITY {
             ring.record(sent("terminal"), Ending::NoReply);
         }
         let view = ring.view(None);
-        assert_eq!(view.last, 17);
+        let last = CAPACITY as u64 + 1;
+        assert_eq!(view.last, last);
         assert_eq!(view.receipts.len(), CAPACITY);
         assert_eq!(view.receipts.first().map(|r| r.seq), Some(2));
-        assert_eq!(view.receipts.last().map(|r| r.seq), Some(17));
+        assert_eq!(view.receipts.last().map(|r| r.seq), Some(last));
     }
 
     #[test]
@@ -261,7 +302,7 @@ mod tests {
             zone: Some(Zone::Bottom),
             args: Some(json!({"key": "секрет"})),
         };
-        let sent = Sent::of(&command).unwrap();
+        let sent = Sent::opened(&command, ReceiptSource::Menu).unwrap();
         assert_eq!(sent, self::sent("demo-list"));
         let mut ring = Ring::default();
         let reply = opened(3, OpenOutcome::Created);
@@ -272,7 +313,16 @@ mod tests {
         keys.sort_unstable();
         assert_eq!(
             keys,
-            ["outcome", "panel", "plugin", "revision", "seq", "workbench"]
+            [
+                "action",
+                "outcome",
+                "panel",
+                "plugin",
+                "revision",
+                "seq",
+                "source",
+                "workbench"
+            ]
         );
         assert!(!frame.to_string().contains("секрет"));
         let focus = Command::PanelFocus {
@@ -280,6 +330,78 @@ mod tests {
             workbench: None,
             direction: None,
         };
-        assert_eq!(Sent::of(&focus), None);
+        assert_eq!(Sent::opened(&focus, ReceiptSource::Button), None);
+        assert_eq!(
+            Sent::command("panel.focus", &focus, ReceiptSource::Button),
+            Sent::action("panel.focus", ReceiptSource::Button)
+        );
+    }
+
+    #[test]
+    fn an_action_records_its_name_source_and_outcome() {
+        let mut ring = Ring::default();
+        let done = Reply {
+            revision: Revision(12),
+            value: ReplyValue::Command(CommandValue::None),
+        };
+        let refused = CoreError::split_wrong_axis("stack");
+        ring.record(
+            Sent::action("ui.appearance.cycle", ReceiptSource::Key),
+            Ending::Done,
+        );
+        ring.record(
+            Sent::action("layout.toggle.navigator", ReceiptSource::Menu),
+            Ending::Reply(&done),
+        );
+        ring.record(
+            Sent::action("layout.split", ReceiptSource::Button),
+            Ending::Refused(&refused),
+        );
+        ring.record(
+            Sent::action("layout.toggle.side", ReceiptSource::Button),
+            Ending::NotApplicable,
+        );
+        let frame = serde_json::to_value(ring.view(None)).unwrap();
+        assert_eq!(
+            frame["receipts"],
+            json!([
+                {"seq": 1, "action": "ui.appearance.cycle", "source": "key", "workbench": null},
+                {
+                    "seq": 2,
+                    "action": "layout.toggle.navigator",
+                    "source": "menu",
+                    "workbench": null,
+                    "revision": 12,
+                },
+                {
+                    "seq": 3,
+                    "action": "layout.split",
+                    "source": "button",
+                    "workbench": null,
+                    "error": "invalid_argument",
+                },
+                {
+                    "seq": 4,
+                    "action": "layout.toggle.side",
+                    "source": "button",
+                    "workbench": null,
+                    "error": NOT_APPLICABLE,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn each_dispatch_is_one_record() {
+        let mut ring = Ring::default();
+        let before = ring.view(None).last;
+        ring.record(
+            Sent::action("layout.toggle.bottom", ReceiptSource::Key),
+            Ending::Done,
+        );
+        let after = ring.view(Some(before));
+        assert_eq!(after.last, before + 1);
+        assert_eq!(after.receipts.len(), 1);
+        assert_eq!(after.receipts[0].source, ReceiptSource::Key);
     }
 }

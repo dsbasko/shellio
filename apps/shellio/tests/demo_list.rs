@@ -158,6 +158,7 @@ async fn split_without_room_names_the_minimum_of_the_demo() -> TestResult<()> {
         let split = Command::LayoutSplit {
             panel: demo,
             open: Some("terminal".into()),
+            axis: None,
         };
         match w.core.request(split).await {
             Ok(_) => {

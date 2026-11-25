@@ -22,8 +22,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_core::{
-    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, SplitOpen, State, WorkbenchId,
-    min_size, open_workbench, split_open,
+    Command, CoreError, Entity, ErrorCode, PanelId, PanelStatus, SplitOpen, State, ToggleTarget,
+    WorkbenchId, min_size, open_workbench, split_open,
 };
 use shellio_layout::{
     Axis, DropTarget, Edge, Frames, Geometry, Hideable, Layout, LayoutMetrics, Location, PartFrame,
@@ -766,12 +766,32 @@ impl Scene {
 /// открыта.
 pub fn toggle_command(scene: &Scene, toggle: ZoneToggle) -> Option<Command> {
     let bench = scene.bench.as_ref()?;
-    let target = toggle_target(&bench.layout, toggle);
-    Some(Command::LayoutVisibility {
+    Some(visibility_command(
+        bench,
+        toggle_target(&bench.layout, toggle),
+    ))
+}
+
+/// Действие `layout.toggle.*` — та же команда `layout.visibility`: цель `side` разрешается кодом
+/// третьей кнопки в момент вызова. `None` — рабочая область не открыта.
+pub fn toggle_target_command(scene: &Scene, target: ToggleTarget) -> Option<Command> {
+    let bench = scene.bench.as_ref()?;
+    let target = match target {
+        ToggleTarget::Navigator => Hideable::Navigator,
+        ToggleTarget::Bottom => Hideable::Bottom,
+        ToggleTarget::Side => side_target(&bench.layout),
+        ToggleTarget::Plate => Hideable::Plate,
+        ToggleTarget::Right => Hideable::Right,
+    };
+    Some(visibility_command(bench, target))
+}
+
+fn visibility_command(bench: &Bench, target: Hideable) -> Command {
+    Command::LayoutVisibility {
         workbench: Some(bench.workbench),
         target,
         visible: !target_shown(&bench.layout, target),
-    })
+    }
 }
 
 /// Щелчок в тело панели — `panel.focus`. `None` — фокус уже на ней или рабочая область не открыта.
@@ -819,9 +839,11 @@ fn plate_panel(bench: &Bench, plate: PlateRef) -> Option<PanelId> {
 pub fn split_command(scene: &Scene, plate: PlateRef) -> Option<Command> {
     let bench = scene.bench.as_ref()?;
     match plate {
-        PlateRef::Part(_) => {
-            plate_panel(bench, plate).map(|panel| Command::LayoutSplit { panel, open: None })
-        }
+        PlateRef::Part(_) => plate_panel(bench, plate).map(|panel| Command::LayoutSplit {
+            panel,
+            open: None,
+            axis: None,
+        }),
         PlateRef::Zoom => None,
     }
 }
@@ -1162,9 +1184,10 @@ fn picker_title(title: &str, verdict: SplitOpen) -> (String, bool) {
 /// которую делили: выбор адресует её, а не место части, номера частей могут сдвинуться.
 pub fn picker_target(command: &Command, error: &CoreError) -> Option<PanelId> {
     match command {
-        Command::LayoutSplit { panel, open: None }
-            if error.code() == ErrorCode::InvalidArgument
-                && error.detail_str("reason") == Some("split_needs_panel") =>
+        Command::LayoutSplit {
+            panel, open: None, ..
+        } if error.code() == ErrorCode::InvalidArgument
+            && error.detail_str("reason") == Some("split_needs_panel") =>
         {
             Some(*panel)
         }
@@ -1177,6 +1200,7 @@ pub fn open_command(panel: PanelId, plugin: &str) -> Command {
     Command::LayoutSplit {
         panel,
         open: Some(plugin.to_owned()),
+        axis: None,
     }
 }
 
@@ -2161,6 +2185,20 @@ pub(crate) mod tests {
                 expect(Hideable::Right, false),
             ]
         );
+        // Первая конфигурация: цель `side` — правая зона.
+        for (target, hideable, visible) in [
+            (ToggleTarget::Side, Hideable::Right, false),
+            (ToggleTarget::Right, Hideable::Right, false),
+            (ToggleTarget::Navigator, Hideable::Navigator, false),
+            (ToggleTarget::Bottom, Hideable::Bottom, true),
+            (ToggleTarget::Plate, Hideable::Plate, true),
+        ] {
+            assert_eq!(
+                toggle_target_command(&scene(&fixture), target),
+                Some(expect(hideable, visible)),
+                "{target:?}"
+            );
+        }
         layout_mut(&mut fixture).hidden.right = true;
         let buttons = scene(&fixture).zone_buttons().unwrap();
         assert_eq!((buttons.side, buttons.side_shown), (Hideable::Right, false));
@@ -2183,6 +2221,20 @@ pub(crate) mod tests {
         assert_eq!(
             toggle_command(&scene(&fixture), ZoneToggle::Side),
             Some(expect(Hideable::Plate, false))
+        );
+        // Действие `layout.toggle.side` разрешает цель тем же кодом; явная цель остаётся собой:
+        // пустую правую зону оно просит показать, и ядро отвечает `zone_empty`.
+        assert_eq!(
+            toggle_target_command(&scene(&fixture), ToggleTarget::Side),
+            Some(expect(Hideable::Plate, false))
+        );
+        assert_eq!(
+            toggle_target_command(&scene(&fixture), ToggleTarget::Plate),
+            Some(expect(Hideable::Plate, false))
+        );
+        assert_eq!(
+            toggle_target_command(&scene(&fixture), ToggleTarget::Right),
+            Some(expect(Hideable::Right, true))
         );
         layout_mut(&mut fixture).hidden.plate = true;
         assert_eq!(
@@ -2256,6 +2308,7 @@ pub(crate) mod tests {
             Some(Command::LayoutSplit {
                 panel: second,
                 open: None,
+                axis: None,
             }),
             "часть без фокуса адресуется своей активной вкладкой"
         );
@@ -2299,7 +2352,11 @@ pub(crate) mod tests {
     fn split_needs_panel_opens_the_picker_instead_of_a_message() {
         let fixture = fixture();
         let panel = fixture.terminal;
-        let split = Command::LayoutSplit { panel, open: None };
+        let split = Command::LayoutSplit {
+            panel,
+            open: None,
+            axis: None,
+        };
         let needs = CoreError::split_needs_panel(panel);
         assert_eq!(picker_target(&split, &needs), Some(panel));
         let opened = open_command(panel, TERMINAL_PLUGIN);
@@ -2308,6 +2365,7 @@ pub(crate) mod tests {
             Command::LayoutSplit {
                 panel,
                 open: Some(TERMINAL_PLUGIN.to_owned()),
+                axis: None,
             }
         );
         assert_eq!(
@@ -2600,6 +2658,7 @@ pub(crate) mod tests {
         let split = Command::LayoutSplit {
             panel: fixture.terminal,
             open: None,
+            axis: None,
         };
         let parts = serde_json::json!([{
             "panel": fixture.terminal.to_string(),

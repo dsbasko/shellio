@@ -26,7 +26,7 @@ use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
-use shellio::scene::{self, SplitId, ViewportGate, ZoneToggle};
+use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
     MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow, Regime,
@@ -38,14 +38,14 @@ use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
     CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
     GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView, LateCallbackView,
-    ListRowView, MaterialView, MenuItemView, MenuView, Rect, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
-    VirtualListView, WindowView,
+    ListRowView, MaterialView, MenuItemView, MenuView, ReceiptSource, Rect, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal,
+    UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, Reply,
-    UiCommand, open_workbench,
+    ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_plugin_view::PanelRequest;
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -70,15 +70,15 @@ thread_local! {
 struct CoreLink {
     core: CoreHandle,
     runtime: tokio::runtime::Handle,
-    /// Квитанции `panel.open`, поданных главным потоком: пишутся при завершении квитанции ядра,
+    /// Квитанции действий главного потока: пишутся при завершении действия или квитанции ядра,
     /// читаются `ui.receipts`.
     receipts: RefCell<Ring>,
 }
 
-/// Завершение команды главного потока для кольца квитанций; не `panel.open` в него не пишется.
-/// Вызывается из очереди главного потока, вне заимствований слота ядра на запись.
-fn note_receipt(sent: &Command, ending: Ending<'_>) {
-    if let Some(sent) = Sent::of(sent) {
+/// Завершение действия главного потока для кольца квитанций; действие без записи (`None`) в него
+/// не пишется. Вызывается из очереди главного потока, вне заимствований слота ядра на запись.
+fn note_receipt(sent: Option<Sent>, ending: Ending<'_>) {
+    if let Some(sent) = sent {
         record_receipt(sent, ending);
     }
 }
@@ -92,8 +92,9 @@ fn record_receipt(sent: Sent, ending: Ending<'_>) {
 }
 
 impl CoreLink {
-    /// Подать команду без ожидания. Отказ разбирает [`on_refused`] на главном потоке.
-    fn send(&self, command: Command) {
+    /// Подать команду без ожидания. Отказ разбирает [`on_refused`] на главном потоке. `tag` —
+    /// запись кольца квитанций о действии, которое подало команду.
+    fn send(&self, command: Command, tag: Option<Sent>) {
         let sent = command.clone();
         match self.core.try_request(command) {
             Ok(receipt) => {
@@ -115,16 +116,16 @@ impl CoreLink {
                                 }
                             });
                         }
-                        Ok(Ok(reply)) if Sent::of(&sent).is_some() => {
-                            defer(move |_| note_receipt(&sent, Ending::Reply(&reply)));
+                        Ok(Ok(reply)) if tag.is_some() => {
+                            defer(move |_| note_receipt(tag, Ending::Reply(&reply)));
                         }
                         Ok(Ok(_)) => {}
                         Ok(Err(error)) => defer(move |app| {
-                            note_receipt(&sent, Ending::Refused(&error));
+                            note_receipt(tag, Ending::Refused(&error));
                             on_refused(app, &sent, &error);
                         }),
                         Err(_) => defer(move |app| {
-                            note_receipt(&sent, Ending::NoReply);
+                            note_receipt(tag, Ending::NoReply);
                             owner::say_err(format_args!(
                                 "shellio: {} отклонена: ядро не ответило",
                                 sent.name()
@@ -137,7 +138,7 @@ impl CoreLink {
             }
             // Ранний отказ (`busy`) — тоже завершение квитанции.
             Err(error) => defer(move |app| {
-                note_receipt(&sent, Ending::Refused(&error));
+                note_receipt(tag, Ending::Refused(&error));
                 on_refused(app, &sent, &error);
             }),
         }
@@ -178,7 +179,8 @@ fn send_request(ticket: Ticket, request: PanelRequest) {
         bodies::request_command(state, ticket.panel, request)
     });
     let name = command.name();
-    let opened = Sent::of(&command);
+    // Запрос вида плагина — нажатие в теле панели.
+    let opened = Sent::opened(&command, ReceiptSource::Button);
     let finish = move |outcome: Result<Reply, Failure>| {
         defer(move |_| {
             if let Some(sent) = opened {
@@ -1193,11 +1195,13 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             .collect(),
         |action| {
             defer(move |app| match command_of(action) {
-                Some(command) => handle(app, command),
+                Some(command) => handle(app, command, Some(ReceiptSource::Menu)),
                 None => match action {
-                    MenuAction::Zone(button) => on_zone(app, button),
                     MenuAction::OpenPanel(row) => on_open_panel(app, row),
-                    MenuAction::Quit | MenuAction::CloseWindow | MenuAction::Appearance(_) => {}
+                    MenuAction::Quit
+                    | MenuAction::CloseWindow
+                    | MenuAction::Appearance(_)
+                    | MenuAction::Zone(_) => {}
                 },
             });
         },
@@ -1377,17 +1381,39 @@ fn refresh_layout(app: &App) {
 }
 
 /// Команда раскладки из интерфейса: сообщение строки статуса убирается, отказ ядра показывается в
-/// ней. Без ядра раскладка возвращается к модели.
-fn send_ui(app: &App, command: Command) {
+/// ней. Без ядра раскладка возвращается к модели. `tag` — запись кольца квитанций о действии.
+fn send_ui(app: &App, command: Command, tag: Option<Sent>) {
     with_window(|owner| owner.show_status(None));
     let sent = CORE.with(|slot| {
         slot.borrow()
             .as_ref()
-            .map(|link| link.send(command))
+            .map(|link| link.send(command, tag))
             .is_some()
     });
     if !sent {
         refresh_layout(app);
+    }
+}
+
+/// Имя записи пункта меню панели до его команды ядра.
+const MENU_ITEM: &str = "";
+
+/// Имя и источник записи кольца квитанций о действии в раскладке. `None` — действие указателя,
+/// а не кнопки или пункта меню: щелчок в тело панели и перетаскивание.
+fn panel_action_tag(action: &PanelAction) -> Option<(&'static str, ReceiptSource)> {
+    match action {
+        PanelAction::Select(_) => Some(("panel.select", ReceiptSource::Button)),
+        PanelAction::Close(_) => Some(("panel.close", ReceiptSource::Button)),
+        PanelAction::Split(_) => Some(("layout.split", ReceiptSource::Button)),
+        PanelAction::Zoom(_) | PanelAction::Expand(_) => {
+            Some(("layout.zoom", ReceiptSource::Button))
+        }
+        // Пункт меню «…» и выбора «Открыть в новой части» называется именем своей команды ядра.
+        PanelAction::Menu(..) | PanelAction::Open { .. } => Some((MENU_ITEM, ReceiptSource::Menu)),
+        PanelAction::Focus(_)
+        | PanelAction::StubPress(_)
+        | PanelAction::Drag { .. }
+        | PanelAction::Drop { .. } => None,
     }
 }
 
@@ -1397,6 +1423,7 @@ fn send_ui(app: &App, command: Command) {
 /// заглушки «Развернуть», отпускание перетаскиваемой вкладки. Каждое — одна команда ядра; движение
 /// перетаскивания только подсвечивает цель.
 fn on_panel(app: &App, action: PanelAction) {
+    let tag = panel_action_tag(&action);
     let command = with_window(|owner| {
         owner.show_status(None);
         let layout = owner.layout.as_ref()?;
@@ -1419,29 +1446,50 @@ fn on_panel(app: &App, action: PanelAction) {
         }
     })
     .flatten();
-    if let Some(command) = command {
-        send_ui(app, command);
+    match (command, tag) {
+        (Some(command), Some((action, source))) => {
+            let action = if action == MENU_ITEM {
+                command.name()
+            } else {
+                action
+            };
+            let sent = Sent::command(action, &command, source);
+            send_ui(app, command, Some(sent));
+        }
+        (Some(command), None) => send_ui(app, command, None),
+        // Пункт меню без команды — разделитель или недоступный пункт: действия не было.
+        (None, Some((action, source))) if action != MENU_ITEM => {
+            record_receipt(Sent::action(action, source), Ending::NotApplicable);
+        }
+        (None, _) => {}
     }
 }
 
-/// Кнопка зон заголовка или пункт меню «Вид»: одна команда `layout.visibility`.
-fn on_zone(app: &App, button: ZoneButton) {
-    let toggle = match button {
-        ZoneButton::Navigator => ZoneToggle::Navigator,
-        ZoneButton::Bottom => ZoneToggle::Bottom,
-        ZoneButton::Side => ZoneToggle::Side,
-    };
+/// Цель действия `layout.toggle.*` кнопки зон заголовка и пункта меню «Вид».
+const fn zone_target(button: ZoneButton) -> ToggleTarget {
+    match button {
+        ZoneButton::Navigator => ToggleTarget::Navigator,
+        ZoneButton::Bottom => ToggleTarget::Bottom,
+        ZoneButton::Side => ToggleTarget::Side,
+    }
+}
+
+/// Действие `layout.toggle.*`: одна команда `layout.visibility`.
+fn on_toggle(app: &App, target: ToggleTarget, source: Option<ReceiptSource>) {
+    let tag =
+        source.map(|source| Sent::action(UiCommand::LayoutToggle(target).keymap_name(), source));
     // Клавиша пункта меню «Вид» срабатывает и без окна: скрытое окно её не получает.
     let command = with_window(|owner| {
         if !owner.window.is_visible() {
             return None;
         }
         let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
-        scene::toggle_command(scene, toggle)
+        scene::toggle_target_command(scene, target)
     })
     .flatten();
-    if let Some(command) = command {
-        send_ui(app, command);
+    match command {
+        Some(command) => send_ui(app, command, tag),
+        None => note_receipt(tag, Ending::NotApplicable),
     }
 }
 
@@ -1465,7 +1513,8 @@ fn on_open_panel(app: &App, row: usize) {
         scene::open_panel_command(mirror.as_ref()?.state(), plugin)
     });
     if let Some(command) = command {
-        send_ui(app, command);
+        let sent = Sent::opened(&command, ReceiptSource::Menu);
+        send_ui(app, command, sent);
     }
 }
 
@@ -1486,7 +1535,7 @@ fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
     })
     .flatten();
     if let Some(command) = command {
-        send_ui(app, command);
+        send_ui(app, command, None);
     }
 }
 
@@ -1521,7 +1570,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {
-                handle(app, command);
+                handle(app, command, None);
                 with_window(|owner| owner.accepted(command))
             })
         }
@@ -1536,8 +1585,15 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
     reply.ok_or(UiRefusal::NoUi)
 }
 
-/// Единый обработчик действий интерфейса: меню, кнопка заголовка и CLI.
-pub fn handle(app: &App, command: UiCommand) {
+/// Единый обработчик действий интерфейса: меню, кнопка заголовка и CLI. `source` — источник для
+/// кольца квитанций: клавиша, меню или кнопка; вызов CLI записи не оставляет.
+pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
+    let done = || {
+        note_receipt(
+            source.map(|source| Sent::action(command.keymap_name(), source)),
+            Ending::Done,
+        )
+    };
     match command {
         // Тела панелей скрытого окна неактивны.
         UiCommand::WindowClose => {
@@ -1545,12 +1601,22 @@ pub fn handle(app: &App, command: UiCommand) {
                 owner.window.hide();
                 owner.render_layout(app);
             });
+            done();
         }
         // Вне состояния окна: `terminate:` спрашивает делегата приложения на следующем обороте цикла.
-        UiCommand::AppQuit => app.terminate(),
+        UiCommand::AppQuit => {
+            done();
+            app.terminate();
+        }
         UiCommand::AppearanceSet(choice) => {
             with_window(|owner| owner.set_choice(choice));
+            done();
         }
+        UiCommand::AppearanceCycle => {
+            with_window(|owner| owner.set_choice(owner.choice.next()));
+            done();
+        }
+        UiCommand::LayoutToggle(target) => on_toggle(app, target, source),
     }
 }
 
@@ -1565,23 +1631,26 @@ fn on_theme() {
 fn on_intent(app: &App, intent: ChromeIntent) {
     match intent {
         ChromeIntent::AppearanceCycle => {
-            if let Some(choice) = with_window(|owner| owner.choice) {
-                handle(app, UiCommand::AppearanceSet(choice.next()));
-            }
+            handle(app, UiCommand::AppearanceCycle, Some(ReceiptSource::Button));
         }
         // Меню воркспейса появится вместе с источником в P1.7.
         ChromeIntent::WorkspaceMenu => {}
-        ChromeIntent::Zone(button) => on_zone(app, button),
+        ChromeIntent::Zone(button) => handle(
+            app,
+            UiCommand::LayoutToggle(zone_target(button)),
+            Some(ReceiptSource::Button),
+        ),
     }
 }
 
-/// Действие меню в команде `ui`; `None` — пункт зон: он идёт командой ядра.
+/// Действие меню в команде `ui`; `None` — пункт «Открыть панель»: он идёт командой ядра.
 fn command_of(action: MenuAction) -> Option<UiCommand> {
     match action {
         MenuAction::Quit => Some(UiCommand::AppQuit),
         MenuAction::CloseWindow => Some(UiCommand::WindowClose),
         MenuAction::Appearance(choice) => Some(UiCommand::AppearanceSet(core_choice(choice))),
-        MenuAction::Zone(_) | MenuAction::OpenPanel(_) => None,
+        MenuAction::Zone(button) => Some(UiCommand::LayoutToggle(zone_target(button))),
+        MenuAction::OpenPanel(_) => None,
     }
 }
 
@@ -1714,7 +1783,10 @@ mod tests {
             Some(UiCommand::WindowClose)
         );
         for button in ZoneButton::ALL {
-            assert_eq!(command_of(MenuAction::Zone(button)), None);
+            assert_eq!(
+                command_of(MenuAction::Zone(button)),
+                Some(UiCommand::LayoutToggle(zone_target(button)))
+            );
         }
         assert_eq!(
             command_of(MenuAction::OpenPanel(0)),

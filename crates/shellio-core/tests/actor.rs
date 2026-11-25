@@ -989,6 +989,7 @@ impl Race {
         Command::LayoutSplit {
             panel: self.terminal,
             open: Some("list".into()),
+            axis: None,
         }
     }
 

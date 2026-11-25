@@ -728,7 +728,11 @@ async fn layout_targets_outside_scope_look_like_missing_records() -> TestResult<
     for panel in [work_terminal, missing] {
         let expected = CoreError::not_found(Entity::Panel, panel);
         for command in [
-            Command::LayoutSplit { panel, open: None },
+            Command::LayoutSplit {
+                panel,
+                open: None,
+                axis: None,
+            },
             Command::PanelFocus {
                 panel: Some(panel),
                 workbench: None,
@@ -851,6 +855,7 @@ async fn viewport_reaches_commands_and_reads_without_revision() -> TestResult<()
     let split = || Command::LayoutSplit {
         panel: terminal,
         open: Some("terminal".into()),
+        axis: None,
     };
     let error = w
         .core
@@ -956,6 +961,7 @@ async fn panel_open_under_workspace_scope_never_reveals_a_foreign_instance() -> 
             Command::LayoutSplit {
                 panel: home_terminal,
                 open: Some("field".into()),
+                axis: None,
             },
             CoreError::scope_requires_all("layout.split"),
         ),

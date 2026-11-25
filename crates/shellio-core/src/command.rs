@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-use shellio_layout::{Direction, Edge, Hideable, Zone};
+use std::num::NonZeroU32;
+
+use shellio_layout::{Axis, Dimension, Direction, Edge, Hideable, Zone};
 
 use crate::error::{CoreError, Entity};
 use crate::ids::{PanelId, ProjectId, ProjectRootId, WorkbenchId, WorkspaceId};
@@ -50,12 +52,15 @@ pub enum Command {
     /// Сделать воркспейс активным.
     #[serde(rename = "window.focus_workspace")]
     WindowFocusWorkspace { workspace: WorkspaceId },
-    /// Деление части панели вдоль оси зоны. `open` — plugin id новой панели новой части.
+    /// Деление части панели вдоль оси зоны. `open` — plugin id новой панели новой части. `axis` —
+    /// ось, которую ждёт вызывающий: не совпала с осью зоны — отказ `split_wrong_axis`.
     #[serde(rename = "layout.split")]
     LayoutSplit {
         panel: PanelId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         open: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        axis: Option<SplitAxis>,
     },
     /// Фокус на панель (`panel`) или на соседнюю плитку по направлению (`direction`).
     #[serde(rename = "panel.focus")]
@@ -93,6 +98,29 @@ pub enum Command {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         part_of: Option<PanelId>,
         size: u32,
+    },
+    /// Размер места панели на `delta` точек: `target` — панель, без неё панель с фокусом рабочей
+    /// области (`workbench` или открытой в окне).
+    #[serde(rename = "layout.resize_by")]
+    LayoutResizeBy {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target: Option<PanelId>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workbench: Option<WorkbenchId>,
+        dimension: Dimension,
+        delta: i32,
+    },
+    /// Предыдущая вкладка части панели с фокусом, по кругу.
+    #[serde(rename = "tab.prev")]
+    TabPrev { workbench: WorkbenchId },
+    /// Следующая вкладка части панели с фокусом, по кругу.
+    #[serde(rename = "tab.next")]
+    TabNext { workbench: WorkbenchId },
+    /// Вкладка с номером `index` (с единицы) части панели с фокусом.
+    #[serde(rename = "tab.select")]
+    TabSelect {
+        workbench: WorkbenchId,
+        index: NonZeroU32,
     },
     /// Равные доли частей зоны.
     #[serde(rename = "layout.equal")]
@@ -191,6 +219,10 @@ impl Command {
             Self::PanelMovePart { .. } => "panel.move_part",
             Self::PanelClose { .. } => "panel.close",
             Self::LayoutResize { .. } => "layout.resize",
+            Self::LayoutResizeBy { .. } => "layout.resize_by",
+            Self::TabPrev { .. } => "tab.prev",
+            Self::TabNext { .. } => "tab.next",
+            Self::TabSelect { .. } => "tab.select",
             Self::LayoutEqual { .. } => "layout.equal",
             Self::LayoutZoom { .. } => "layout.zoom",
             Self::LayoutOnly { .. } => "layout.only",
@@ -217,6 +249,10 @@ impl Command {
             | Self::PanelMovePart { .. }
             | Self::PanelClose { .. }
             | Self::LayoutResize { .. }
+            | Self::LayoutResizeBy { .. }
+            | Self::TabPrev { .. }
+            | Self::TabNext { .. }
+            | Self::TabSelect { .. }
             | Self::LayoutEqual { .. }
             | Self::LayoutZoom { .. }
             | Self::LayoutOnly { .. }
@@ -242,9 +278,11 @@ impl Command {
             | Self::ProjectAdd { workspace, .. }
             | Self::WindowFocusWorkspace { workspace } => Target::Workspace(*workspace),
             Self::WorkbenchCreate { project, .. } => Target::Project(*project),
-            Self::WorkbenchRename { workbench, .. } | Self::WorkbenchOpen { workbench } => {
-                Target::Workbench(*workbench)
-            }
+            Self::WorkbenchRename { workbench, .. }
+            | Self::WorkbenchOpen { workbench }
+            | Self::TabPrev { workbench }
+            | Self::TabNext { workbench }
+            | Self::TabSelect { workbench, .. } => Target::Workbench(*workbench),
             Self::LayoutSplit { panel, .. }
             | Self::PanelFocus {
                 panel: Some(panel), ..
@@ -258,6 +296,10 @@ impl Command {
                 part_of: Some(panel),
                 ..
             }
+            | Self::LayoutResizeBy {
+                target: Some(panel),
+                ..
+            }
             | Self::LayoutZoom {
                 panel: Some(panel), ..
             } => Target::Panel(*panel),
@@ -268,6 +310,11 @@ impl Command {
             }
             | Self::LayoutResize {
                 part_of: None,
+                workbench,
+                ..
+            }
+            | Self::LayoutResizeBy {
+                target: None,
                 workbench,
                 ..
             }
@@ -313,8 +360,8 @@ impl Command {
             Self::WindowFocusWorkspace { workspace } => {
                 PreparedCommand::WindowFocusWorkspace { workspace }
             }
-            Self::LayoutSplit { panel, open } => {
-                PreparedCommand::Layout(LayoutCommand::Split { panel, open })
+            Self::LayoutSplit { panel, open, axis } => {
+                PreparedCommand::Layout(LayoutCommand::Split { panel, open, axis })
             }
             Self::PanelFocus {
                 panel,
@@ -369,6 +416,37 @@ impl Command {
                 zone,
                 part_of,
                 size,
+            }),
+            Self::LayoutResizeBy {
+                target,
+                workbench,
+                dimension,
+                delta,
+            } => {
+                if target.is_some() && workbench.is_some() {
+                    return Err(CoreError::arguments_conflict(
+                        "workbench",
+                        "layout.resize_by: рабочая область берётся у панели, workbench не задаётся",
+                    ));
+                }
+                PreparedCommand::Layout(LayoutCommand::ResizeBy {
+                    target,
+                    workbench,
+                    dimension,
+                    delta,
+                })
+            }
+            Self::TabPrev { workbench } => PreparedCommand::Layout(LayoutCommand::Tab {
+                workbench,
+                tab: TabTarget::Prev,
+            }),
+            Self::TabNext { workbench } => PreparedCommand::Layout(LayoutCommand::Tab {
+                workbench,
+                tab: TabTarget::Next,
+            }),
+            Self::TabSelect { workbench, index } => PreparedCommand::Layout(LayoutCommand::Tab {
+                workbench,
+                tab: TabTarget::At(index),
             }),
             Self::LayoutEqual { workbench, zone } => {
                 PreparedCommand::Layout(LayoutCommand::Equal { workbench, zone })
@@ -437,12 +515,98 @@ impl Command {
     }
 }
 
+/// Ось деления в запросе `layout.split`: `row` — части рядом, `stack` — одна над другой.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SplitAxis {
+    Row,
+    Stack,
+}
+
+impl SplitAxis {
+    /// Значение на проводе и в `keymap.toml`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Row => "row",
+            Self::Stack => "stack",
+        }
+    }
+
+    /// Ось деления зоны (ADR-0031).
+    pub const fn of(zone: Zone) -> Self {
+        match zone.axis() {
+            Axis::SideBySide => Self::Row,
+            Axis::Stacked => Self::Stack,
+        }
+    }
+}
+
+/// Шаг относительного размера: имена keymap `layout.grow`, `layout.shrink`, `layout.wider` и
+/// `layout.narrower` (ADR-0010, «Уточнено в P1.6 (планирование)»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ResizeStep {
+    Grow,
+    Shrink,
+    Wider,
+    Narrower,
+}
+
+impl ResizeStep {
+    pub const ALL: [Self; 4] = [Self::Grow, Self::Shrink, Self::Wider, Self::Narrower];
+
+    /// Шаг одного нажатия в точках.
+    pub const POINTS: i32 = 40;
+
+    /// Имя действия в keymap.
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Grow => "layout.grow",
+            Self::Shrink => "layout.shrink",
+            Self::Wider => "layout.wider",
+            Self::Narrower => "layout.narrower",
+        }
+    }
+
+    /// Шаг по имени в keymap.
+    pub fn from_keymap_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|step| step.keymap_name() == name)
+    }
+
+    /// Команда `layout.resize_by` шага для панели `target`.
+    pub const fn command(self, target: PanelId) -> Command {
+        let (dimension, delta) = match self {
+            Self::Grow => (Dimension::Height, Self::POINTS),
+            Self::Shrink => (Dimension::Height, -Self::POINTS),
+            Self::Wider => (Dimension::Width, Self::POINTS),
+            Self::Narrower => (Dimension::Width, -Self::POINTS),
+        };
+        Command::LayoutResizeBy {
+            target: Some(target),
+            workbench: None,
+            dimension,
+            delta,
+        }
+    }
+}
+
+/// Вкладка команд `tab.*`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TabTarget {
+    Prev,
+    Next,
+    /// Номер с единицы.
+    At(NonZeroU32),
+}
+
 /// Команда раскладки после проверки сочетания полей. Рабочую область выбирает обработчик.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum LayoutCommand {
     Split {
         panel: PanelId,
         open: Option<String>,
+        axis: Option<SplitAxis>,
     },
     Focus {
         panel: PanelId,
@@ -471,6 +635,16 @@ pub(crate) enum LayoutCommand {
         zone: Zone,
         part_of: Option<PanelId>,
         size: u32,
+    },
+    ResizeBy {
+        target: Option<PanelId>,
+        workbench: Option<WorkbenchId>,
+        dimension: Dimension,
+        delta: i32,
+    },
+    Tab {
+        workbench: WorkbenchId,
+        tab: TabTarget,
     },
     Equal {
         workbench: Option<WorkbenchId>,
@@ -934,5 +1108,57 @@ mod tests {
             serde_json::to_value(CommandValue::None).unwrap(),
             serde_json::Value::Null
         );
+    }
+
+    #[test]
+    fn resize_steps_are_forty_points_by_keymap_name() {
+        let mut ids = SequentialIds::new();
+        let panel = PanelId::generate(&mut ids);
+        for (step, name, dimension, delta) in [
+            (ResizeStep::Grow, "layout.grow", Dimension::Height, 40),
+            (ResizeStep::Shrink, "layout.shrink", Dimension::Height, -40),
+            (ResizeStep::Wider, "layout.wider", Dimension::Width, 40),
+            (
+                ResizeStep::Narrower,
+                "layout.narrower",
+                Dimension::Width,
+                -40,
+            ),
+        ] {
+            assert_eq!(step.keymap_name(), name);
+            assert_eq!(ResizeStep::from_keymap_name(name), Some(step));
+            assert_eq!(
+                step.command(panel),
+                Command::LayoutResizeBy {
+                    target: Some(panel),
+                    workbench: None,
+                    dimension,
+                    delta,
+                }
+            );
+        }
+        assert_eq!(ResizeStep::from_keymap_name("layout.resize_by"), None);
+    }
+
+    #[test]
+    fn split_axis_names_follow_the_zone_axis() {
+        for (zone, axis, name) in [
+            (Zone::Center, SplitAxis::Row, "row"),
+            (Zone::Bottom, SplitAxis::Row, "row"),
+            (Zone::Left, SplitAxis::Stack, "stack"),
+            (Zone::Right, SplitAxis::Stack, "stack"),
+        ] {
+            assert_eq!(SplitAxis::of(zone), axis, "{zone:?}");
+            assert_eq!(axis.as_str(), name);
+            assert_eq!(serde_json::to_value(axis).unwrap(), name);
+        }
+        // Без `axis` кадр `layout.split` прежний.
+        let mut ids = SequentialIds::new();
+        let split = Command::LayoutSplit {
+            panel: PanelId::generate(&mut ids),
+            open: None,
+            axis: None,
+        };
+        assert!(serde_json::to_value(&split).unwrap().get("axis").is_none());
     }
 }

@@ -413,7 +413,7 @@ fn ui_text(reply: &UiReply) -> String {
     }
 }
 
-/// Квитанции `panel.open` главного потока: итог и по строке на запись.
+/// Квитанции действий главного потока: итог и по строке на запись.
 fn receipts_text(view: &ReceiptsView) -> String {
     let mut out = format!(
         "квитанций {}, последняя {}\n",
@@ -421,25 +421,35 @@ fn receipts_text(view: &ReceiptsView) -> String {
         view.last
     );
     for receipt in &view.receipts {
-        let workbench = receipt.workbench.map_or_else(
-            || "без рабочей области".to_owned(),
-            |workbench| format!("рабочая область {workbench}"),
-        );
+        let revision = receipt
+            .revision
+            .map_or_else(String::new, |revision| format!(", ревизия {}", revision.0));
         let result = match (receipt.outcome, receipt.panel, &receipt.error) {
             (_, _, Some(error)) => format!("отказ {error}"),
             (Some(outcome), Some(panel), None) => {
-                let revision = receipt
-                    .revision
-                    .map_or_else(String::new, |revision| format!(", ревизия {}", revision.0));
                 format!("панель {panel} {}{revision}", outcome_text(outcome))
             }
-            _ => "исход не записан".to_owned(),
+            _ => format!("выполнено{revision}"),
         };
-        let _ = writeln!(
-            out,
-            "  {}: {}, {workbench}: {result}",
-            receipt.seq, receipt.plugin
-        );
+        let source = receipt.source.as_str();
+        let _ = match &receipt.plugin {
+            Some(plugin) => {
+                let workbench = receipt.workbench.map_or_else(
+                    || "без рабочей области".to_owned(),
+                    |workbench| format!("рабочая область {workbench}"),
+                );
+                writeln!(
+                    out,
+                    "  {}: {} ({source}) {plugin}, {workbench}: {result}",
+                    receipt.seq, receipt.action
+                )
+            }
+            None => writeln!(
+                out,
+                "  {}: {} ({source}): {result}",
+                receipt.seq, receipt.action
+            ),
+        };
     }
     out
 }
@@ -1209,7 +1219,7 @@ mod tests {
 
     #[test]
     fn ui_receipts_text_tells_success_from_refusal() {
-        use shellio_control::ReceiptView;
+        use shellio_control::{ReceiptSource, ReceiptView};
         use shellio_core::Revision;
 
         let empty = ui_text(&UiReply::Receipts(ReceiptsView::default()));
@@ -1220,8 +1230,10 @@ mod tests {
             "00000000-0000-0000-0000-000000000002".parse().unwrap();
         let record = |seq, plugin: &str| ReceiptView {
             seq,
+            action: "panel.open".into(),
+            source: ReceiptSource::Menu,
             workbench: Some(workbench),
-            plugin: plugin.into(),
+            plugin: Some(plugin.into()),
             outcome: None,
             panel: None,
             revision: None,
@@ -1245,15 +1257,32 @@ mod tests {
                     error: Some("invalid_argument".into()),
                     ..record(19, "demo-native")
                 },
+                ReceiptView {
+                    action: "layout.toggle.navigator".into(),
+                    source: ReceiptSource::Key,
+                    workbench: None,
+                    plugin: None,
+                    revision: Some(Revision(42)),
+                    ..record(20, "")
+                },
+                ReceiptView {
+                    action: "ui.appearance.cycle".into(),
+                    source: ReceiptSource::Button,
+                    workbench: None,
+                    plugin: None,
+                    ..record(21, "")
+                },
             ],
         };
         assert_eq!(
             ui_text(&UiReply::Receipts(view)),
             format!(
-                "квитанций 3, последняя 19\n\
-                 \x20 17: demo-list, рабочая область {workbench}: панель {panel} создана, ревизия 41\n\
-                 \x20 18: terminal, рабочая область {workbench}: отказ busy\n\
-                 \x20 19: demo-native, без рабочей области: отказ invalid_argument\n"
+                "квитанций 5, последняя 19\n\
+                 \x20 17: panel.open (menu) demo-list, рабочая область {workbench}: панель {panel} создана, ревизия 41\n\
+                 \x20 18: panel.open (menu) terminal, рабочая область {workbench}: отказ busy\n\
+                 \x20 19: panel.open (menu) demo-native, без рабочей области: отказ invalid_argument\n\
+                 \x20 20: layout.toggle.navigator (key): выполнено, ревизия 42\n\
+                 \x20 21: ui.appearance.cycle (button): выполнено\n"
             )
         );
         for (outcome, said) in [

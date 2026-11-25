@@ -45,6 +45,19 @@ impl Hideable {
     }
 }
 
+/// Измерение относительного размера.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Dimension {
+    Width,
+    Height,
+}
+
+/// Размер `current`, сдвинутый на `delta`, не меньше нуля.
+fn shifted(current: u32, delta: i32) -> u32 {
+    u32::try_from((i64::from(current) + i64::from(delta)).max(0)).unwrap_or(u32::MAX)
+}
+
 /// Затронутая делением часть: активная панель, её `min_size` и тело, которое осталось бы ей.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -548,6 +561,201 @@ impl<P: Copy + Ord> Layout<P> {
         let mut next = self.clone();
         with_share(&mut next, share);
         Ok(next)
+    }
+
+    /// Ширина колонки навигатора в точках. Снизу — `min_size` панели навигатора по ширине, сверху —
+    /// остаток, где части зон не уже своего `min_size`. Граница, которую текущая ширина уже нарушает,
+    /// расширяется до неё.
+    ///
+    /// # Errors
+    ///
+    /// [`OpError::TargetEmpty`] без панели навигатора, [`OpError::ResizeOutOfRange`].
+    pub fn resize_navigator(
+        &self,
+        size: u32,
+        viewport: Viewport,
+        metrics: &LayoutMetrics,
+        min_size: impl Fn(P) -> MinSize,
+    ) -> Result<Self, OpError<P>> {
+        let Some(navigator) = self.navigator else {
+            return Err(OpError::TargetEmpty(Hideable::Navigator));
+        };
+        let current = self.sizes.navigator;
+        let need = min_size(navigator);
+        let mut scratch = self.clone();
+        scratch.zoomed = None;
+        scratch.only = None;
+        scratch.hidden.navigator = false;
+        let frames_at = |s: u32| {
+            let mut candidate = scratch.clone();
+            candidate.sizes.navigator = s;
+            geometry(&candidate, viewport, metrics, &min_size)
+        };
+        let own_fits = |s: u32| {
+            frames_at(s)
+                .navigator
+                .is_some_and(|column| column.body.width >= need.width)
+        };
+        let rest_fits = |s: u32| {
+            frames_at(s)
+                .parts
+                .iter()
+                .all(|part| fits_along(part, min_size(part.active), Axis::SideBySide))
+        };
+        let min = smallest(0, viewport.width, own_fits).map_or(current, |min| min.min(current));
+        let max = largest(0, viewport.width, rest_fits).map_or(current, |max| max.max(current));
+        if size < min || size > max {
+            return Err(OpError::ResizeOutOfRange { min, max });
+        }
+        let mut next = self.clone();
+        next.sizes.navigator = size;
+        Ok(next)
+    }
+
+    /// Размер места панели на `delta` точек в измерении `dimension`. Вдоль оси зоны меняется доля
+    /// части панели, если частей больше одной, поперёк — размер зоны. У центра своего размера нет:
+    /// его высота меняет нижнюю зону, ширина единственной части — правую. Панель колонки навигатора
+    /// меняет ширину колонки.
+    ///
+    /// # Errors
+    ///
+    /// [`OpError::NotFound`], [`OpError::NavigatorColumn`] для высоты колонки навигатора,
+    /// [`OpError::ZoneEmpty`], [`OpError::ResizeOutOfRange`] с границами итогового размера в точках.
+    pub fn resize_by(
+        &self,
+        panel: P,
+        dimension: Dimension,
+        delta: i32,
+        viewport: Viewport,
+        metrics: &LayoutMetrics,
+        min_size: impl Fn(P) -> MinSize,
+    ) -> Result<Self, OpError<P>> {
+        let Location::Part { zone, .. } = self.require(panel)? else {
+            return match dimension {
+                Dimension::Width => self.resize_navigator(
+                    shifted(self.sizes.navigator, delta),
+                    viewport,
+                    metrics,
+                    min_size,
+                ),
+                Dimension::Height => Err(OpError::NavigatorColumn(panel)),
+            };
+        };
+        let along = match dimension {
+            Dimension::Width => Axis::SideBySide,
+            Dimension::Height => Axis::Stacked,
+        };
+        let single = self.zones.get(zone).parts.len() == 1;
+        let (target, delta) = match zone {
+            Zone::Center if along == Axis::Stacked => (Zone::Bottom, delta.saturating_neg()),
+            Zone::Center if single => (Zone::Right, delta.saturating_neg()),
+            Zone::Left | Zone::Right | Zone::Bottom if zone.axis() != along => (zone, delta),
+            Zone::Left | Zone::Right | Zone::Center | Zone::Bottom => {
+                return self.resize_part_by(panel, delta, viewport, metrics, min_size);
+            }
+        };
+        let current = match target {
+            Zone::Left => self.sizes.plate,
+            Zone::Right => self.sizes.right,
+            Zone::Bottom | Zone::Center => self.sizes.bottom,
+        };
+        self.resize_zone(target, shifted(current, delta), viewport, metrics, min_size)
+    }
+
+    /// Доля части панели на `delta` точек вдоль оси зоны. Границы отказа — длина части в точках.
+    fn resize_part_by(
+        &self,
+        panel: P,
+        delta: i32,
+        viewport: Viewport,
+        metrics: &LayoutMetrics,
+        min_size: impl Fn(P) -> MinSize,
+    ) -> Result<Self, OpError<P>> {
+        let location = self.require(panel)?;
+        let Location::Part { zone, part, .. } = location else {
+            return Err(OpError::NavigatorColumn(panel));
+        };
+        let mut scratch = self.clone();
+        scratch.zoomed = None;
+        scratch.reveal(location);
+        let total: f64 = geometry(&scratch, viewport, metrics, &min_size)
+            .parts
+            .iter()
+            .filter(|frame| frame.zone == zone)
+            .map(|frame| match zone.axis() {
+                Axis::SideBySide => frame.frame.width,
+                Axis::Stacked => frame.frame.height,
+            })
+            .sum();
+        let whole = f64::from(SHARE_TOTAL);
+        // Длина неотрицательна, приведение насыщается.
+        let points = |share: u32| (f64::from(share) * total / whole).round() as u32;
+        let parts = &self.zones.get(zone).parts;
+        let current = parts[part].share;
+        if parts.len() == 1 || total <= 0.0 {
+            let size = points(u32::from(current));
+            return if delta == 0 {
+                Ok(self.clone())
+            } else {
+                Err(OpError::ResizeOutOfRange {
+                    min: size,
+                    max: size,
+                })
+            };
+        }
+        let wanted = f64::from(current) + (f64::from(delta) * whole / total).round();
+        let share = wanted.clamp(0.0, whole) as u16;
+        self.resize_part(zone, panel, share, viewport, metrics, min_size)
+            .map_err(|error| match error {
+                OpError::ResizeOutOfRange { min, max } => OpError::ResizeOutOfRange {
+                    min: points(min),
+                    max: points(max),
+                },
+                other => other,
+            })
+    }
+
+    /// Соседняя вкладка части панели с фокусом по кругу: `forward` — следующая, иначе предыдущая.
+    /// Без видимой панели с фокусом, в колонке навигатора и у части с одной вкладкой раскладка не
+    /// меняется.
+    #[must_use]
+    pub fn tab_step(&self, forward: bool) -> Self {
+        self.focus_tab(|active, count| {
+            Some(if forward {
+                (active + 1) % count
+            } else {
+                (active + count - 1) % count
+            })
+        })
+    }
+
+    /// Вкладка `index` (с нуля) части панели с фокусом. Вкладки с таким номером нет — раскладка не
+    /// меняется.
+    #[must_use]
+    pub fn tab_at(&self, index: usize) -> Self {
+        self.focus_tab(|_, count| (index < count).then_some(index))
+    }
+
+    fn focus_tab(&self, pick: impl FnOnce(usize, usize) -> Option<usize>) -> Self {
+        let target = self
+            .focused()
+            .filter(|&panel| self.is_visible(panel))
+            .and_then(|panel| match self.locate(panel)? {
+                Location::Navigator => None,
+                Location::Part { zone, part, .. } => {
+                    let part = &self.zones.get(zone).parts[part];
+                    part.tabs.get(pick(part.active, part.tabs.len())?).copied()
+                }
+            });
+        match target {
+            Some(panel) => {
+                let mut next = self.clone();
+                next.focus_on(panel);
+                next.settle(None);
+                next
+            }
+            None => self.clone(),
+        }
     }
 
     /// Равные доли частей зоны, остаток — последней части.
@@ -2023,5 +2231,167 @@ mod tests {
         for (op, count) in succeeded.iter().enumerate() {
             assert!(*count > 0, "операция {op} ни разу не прошла: {succeeded:?}");
         }
+    }
+
+    fn by(
+        layout: &Layout<u32>,
+        panel: u32,
+        dimension: Dimension,
+        delta: i32,
+    ) -> Result<Layout<u32>, OpError<u32>> {
+        layout.resize_by(panel, dimension, delta, SMALL, &METRICS, min)
+    }
+
+    #[test]
+    fn resize_by_moves_the_zone_size_across_the_zone_axis() {
+        let layout = with_right();
+        let wider = by(&layout, 40, Dimension::Width, 40).unwrap();
+        valid(&wider);
+        assert_eq!(wider.sizes.right, 412);
+        assert_eq!(by(&wider, 40, Dimension::Width, -40).unwrap(), layout);
+        // Единственная часть центра шире — правая зона уже.
+        assert_eq!(
+            by(&layout, TERM, Dimension::Width, 40).unwrap().sizes.right,
+            332
+        );
+
+        let mut bottom = base();
+        singles(&mut bottom, Zone::Bottom, &[(30, SHARE_TOTAL)]);
+        assert_eq!(
+            by(&bottom, 30, Dimension::Height, 40).unwrap().sizes.bottom,
+            276
+        );
+        // Высота центра переводится в размер нижней зоны.
+        assert_eq!(
+            by(&bottom, TERM, Dimension::Height, 40)
+                .unwrap()
+                .sizes
+                .bottom,
+            196
+        );
+
+        let mut plate = base();
+        singles(&mut plate, Zone::Left, &[(20, SHARE_TOTAL)]);
+        assert_eq!(
+            by(&plate, 20, Dimension::Width, -40).unwrap().sizes.plate,
+            332
+        );
+    }
+
+    #[test]
+    fn resize_by_refuses_past_min_size_and_without_a_zone() {
+        let layout = with_right();
+        assert_eq!(
+            by(&layout, 40, Dimension::Width, -200),
+            Err(OpError::ResizeOutOfRange { min: 202, max: 730 })
+        );
+        assert_eq!(
+            by(&base(), TERM, Dimension::Height, 40),
+            Err(OpError::ZoneEmpty(Zone::Bottom))
+        );
+        assert_eq!(
+            by(&base(), TERM, Dimension::Width, 40),
+            Err(OpError::ZoneEmpty(Zone::Right))
+        );
+        // Единственной части вдоль оси зоны меняться не за чей счёт.
+        let Err(OpError::ResizeOutOfRange { min, max }) = by(&layout, 40, Dimension::Height, 40)
+        else {
+            panic!("ожидался отказ размера");
+        };
+        assert!(min == max && min > 0, "{min}..={max}");
+        assert_eq!(by(&layout, 40, Dimension::Height, 0).unwrap(), layout);
+        assert_eq!(
+            by(&layout, 99, Dimension::Width, 40),
+            Err(OpError::NotFound(99))
+        );
+    }
+
+    #[test]
+    fn resize_by_moves_the_share_of_a_part_along_the_zone_axis() {
+        let layout = two_center();
+        let width =
+            |l: &Layout<u32>, panel: u32| frames(l, SMALL).part_of(&panel).unwrap().frame.width;
+        let wider = by(&layout, 2, Dimension::Width, 40).unwrap();
+        valid(&wider);
+        let grown = shares(&wider, Zone::Center);
+        assert!(grown[0] > 500, "{grown:?}");
+        assert_eq!(grown[0] + grown[1], SHARE_TOTAL);
+        let step = width(&wider, 2) - width(&layout, 2);
+        assert!((step - 40.0).abs() <= 2.0, "шаг {step}");
+        // Последняя часть растёт за счёт предыдущей.
+        let last = by(&layout, 3, Dimension::Width, 40).unwrap();
+        assert_eq!(shares(&last, Zone::Center), [grown[1], grown[0]]);
+        // Границы отказа — длина части в точках.
+        let Err(OpError::ResizeOutOfRange { min, max }) = by(&layout, 2, Dimension::Width, 4000)
+        else {
+            panic!("ожидался отказ размера");
+        };
+        assert!(min >= 200 && min < max, "{min}..={max}");
+        assert!(f64::from(max) < 2.0 * width(&layout, 2), "{max}");
+    }
+
+    #[test]
+    fn resize_by_in_the_navigator_column_changes_only_its_width() {
+        let layout = base();
+        let wider = by(&layout, NAV, Dimension::Width, 40).unwrap();
+        valid(&wider);
+        assert_eq!(wider.sizes.navigator, 276);
+        assert_eq!(by(&wider, NAV, Dimension::Width, -40).unwrap(), layout);
+        assert_eq!(
+            by(&layout, NAV, Dimension::Height, 40),
+            Err(OpError::NavigatorColumn(NAV))
+        );
+        let Err(OpError::ResizeOutOfRange { min, max }) = by(&layout, NAV, Dimension::Width, -230)
+        else {
+            panic!("ожидался отказ размера");
+        };
+        assert!((200..=236).contains(&min) && max > 236, "{min}..={max}");
+        assert_eq!(
+            by(&layout, NAV, Dimension::Width, 4000),
+            Err(OpError::ResizeOutOfRange { min, max })
+        );
+        // На границах ни колонка, ни центр не уходят в заглушку.
+        for size in [min, max] {
+            let resized = layout
+                .resize_navigator(size, SMALL, &METRICS, min_size_of)
+                .unwrap();
+            let f = frames(&resized, SMALL);
+            assert!(!f.navigator.as_ref().unwrap().stub, "{size}");
+            assert!(!f.part_of(&TERM).unwrap().stub, "{size}");
+        }
+    }
+
+    fn min_size_of(panel: u32) -> MinSize {
+        min(panel)
+    }
+
+    #[test]
+    fn tab_step_wraps_and_tab_at_ignores_a_missing_tab() {
+        let layout = base().open(3, None).unwrap().open(4, None).unwrap();
+        assert_eq!(tabs(&layout, Zone::Center), [vec![2, 3, 4]]);
+        assert_eq!(layout.focused(), Some(4));
+        let next = layout.tab_step(true);
+        valid(&next);
+        assert_eq!(next.focused(), Some(2), "за последней вкладкой — первая");
+        assert_eq!(
+            next.tab_step(false).focused(),
+            Some(4),
+            "перед первой — последняя"
+        );
+        assert_eq!(layout.tab_step(false).focused(), Some(3));
+        assert_eq!(layout.tab_at(0).focused(), Some(2));
+        assert_eq!(layout.tab_at(2), layout, "вкладка уже активна");
+        assert_eq!(layout.tab_at(3), layout, "вкладки нет");
+        assert_eq!(
+            tabs(&next, Zone::Center),
+            [vec![2, 3, 4]],
+            "порядок прежний"
+        );
+
+        // Одна вкладка и колонка навигатора.
+        assert_eq!(base().tab_step(true), base());
+        let navigator = base().focus_panel(NAV).unwrap();
+        assert_eq!(navigator.tab_step(true), navigator);
+        assert_eq!(navigator.tab_at(0), navigator);
     }
 }

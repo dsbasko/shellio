@@ -267,6 +267,20 @@ impl CoreError {
         )
     }
 
+    /// Деление с осью, не совпавшей с осью зоны. `axis` — ось зоны: `row` или `stack`.
+    pub fn split_wrong_axis(axis: &str) -> Self {
+        let message = match axis {
+            "row" => "зона делится на части рядом: ось row",
+            _ => "зона делится на части одна над другой: ось stack",
+        };
+        Self::refused(
+            "axis",
+            "split_wrong_axis",
+            message.to_owned(),
+            [("axis", axis.into())],
+        )
+    }
+
     /// Затронутым частям деления не хватит места. `parts` — `[{panel, need, have}]`.
     pub fn split_no_room(parts: Value, message: String) -> Self {
         Self::refused("panel", "split_no_room", message, [("parts", parts)])
@@ -644,6 +658,11 @@ mod tests {
                 "split_needs_panel",
             ),
             (
+                CoreError::split_wrong_axis("stack"),
+                "axis",
+                "split_wrong_axis",
+            ),
+            (
                 CoreError::split_no_room(Value::Array(Vec::new()), "x".into()),
                 "panel",
                 "split_no_room",
@@ -697,6 +716,12 @@ mod tests {
             CoreError::zone_empty("target", "plate").detail_str("target"),
             Some("plate")
         );
+
+        for axis in ["row", "stack"] {
+            let error = CoreError::split_wrong_axis(axis);
+            assert_eq!(error.detail_str("axis"), Some(axis));
+            assert!(error.message().contains(axis), "{error}");
+        }
 
         let hidden = CoreError::open_workbench_hidden();
         assert_eq!(hidden.detail_str("entity"), Some("workbench"));

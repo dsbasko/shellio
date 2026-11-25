@@ -7,6 +7,8 @@
         "receipts": [
           {
             "seq": 2,
+            "action": "panel.open",
+            "source": "menu",
             "workbench": "00000000-0000-0000-0000-000000000002",
             "plugin": "demo-list",
             "outcome": "created",
@@ -15,8 +17,9 @@
           },
           {
             "seq": 3,
-            "workbench": "00000000-0000-0000-0000-000000000002",
-            "plugin": "terminal",
+            "action": "layout.toggle.side",
+            "source": "key",
+            "workbench": null,
             "error": "busy"
           }
         ]

@@ -15,7 +15,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 use shellio_core::{
-    AppearanceChoice, OpenOutcome, PanelId, PanelStatus, Revision, UiCommand, WorkbenchId,
+    AppearanceChoice, OpenOutcome, PanelId, PanelStatus, Revision, ToggleTarget, UiCommand,
+    WorkbenchId,
 };
 use shellio_layout::{SizeClass, Zone};
 
@@ -33,7 +34,7 @@ pub enum UiRequest {
     /// `ui.stats`: счётчики, монитор цикла и старт процесса. После чтения владелец сливает пул
     /// автоосвобождения цикла событий: следующее чтение видит освобождения, отложенные до ввода.
     Stats,
-    /// `ui.receipts`: квитанции `panel.open`, поданных главным потоком, с номером больше `after`.
+    /// `ui.receipts`: квитанции действий главного потока с номером больше `after`.
     /// Чтение ничего не меняет.
     Receipts { after: Option<u64> },
     /// Действие интерфейса: тот же обработчик, что у главного меню.
@@ -398,6 +399,18 @@ enum WireUiRequest {
     AppQuit(NoArgs),
     #[serde(rename = "ui.appearance.set")]
     AppearanceSet(AppearanceArgs),
+    #[serde(rename = "ui.appearance.cycle")]
+    AppearanceCycle(NoArgs),
+    #[serde(rename = "layout.toggle.navigator")]
+    ToggleNavigator(NoArgs),
+    #[serde(rename = "layout.toggle.bottom")]
+    ToggleBottom(NoArgs),
+    #[serde(rename = "layout.toggle.side")]
+    ToggleSide(NoArgs),
+    #[serde(rename = "layout.toggle.plate")]
+    TogglePlate(NoArgs),
+    #[serde(rename = "layout.toggle.right")]
+    ToggleRight(NoArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
@@ -443,6 +456,22 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::AppQuit(NoArgs {}) => Self::Command(UiCommand::AppQuit),
             WireUiRequest::AppearanceSet(AppearanceArgs { appearance }) => {
                 Self::Command(UiCommand::AppearanceSet(appearance))
+            }
+            WireUiRequest::AppearanceCycle(NoArgs {}) => Self::Command(UiCommand::AppearanceCycle),
+            WireUiRequest::ToggleNavigator(NoArgs {}) => {
+                Self::Command(UiCommand::LayoutToggle(ToggleTarget::Navigator))
+            }
+            WireUiRequest::ToggleBottom(NoArgs {}) => {
+                Self::Command(UiCommand::LayoutToggle(ToggleTarget::Bottom))
+            }
+            WireUiRequest::ToggleSide(NoArgs {}) => {
+                Self::Command(UiCommand::LayoutToggle(ToggleTarget::Side))
+            }
+            WireUiRequest::TogglePlate(NoArgs {}) => {
+                Self::Command(UiCommand::LayoutToggle(ToggleTarget::Plate))
+            }
+            WireUiRequest::ToggleRight(NoArgs {}) => {
+                Self::Command(UiCommand::LayoutToggle(ToggleTarget::Right))
             }
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
@@ -504,6 +533,14 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::Command(UiCommand::AppearanceSet(appearance)) => {
                 Self::AppearanceSet(AppearanceArgs { appearance })
             }
+            UiRequest::Command(UiCommand::AppearanceCycle) => Self::AppearanceCycle(NoArgs {}),
+            UiRequest::Command(UiCommand::LayoutToggle(target)) => match target {
+                ToggleTarget::Navigator => Self::ToggleNavigator(NoArgs {}),
+                ToggleTarget::Bottom => Self::ToggleBottom(NoArgs {}),
+                ToggleTarget::Side => Self::ToggleSide(NoArgs {}),
+                ToggleTarget::Plate => Self::TogglePlate(NoArgs {}),
+                ToggleTarget::Right => Self::ToggleRight(NoArgs {}),
+            },
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
@@ -569,7 +606,8 @@ pub struct CellView {
     pub generation: u64,
 }
 
-/// Квитанции `panel.open` главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI»).
+/// Квитанции действий главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI» и «Уточнено
+/// в P1.6 (планирование)»).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptsView {
@@ -579,25 +617,54 @@ pub struct ReceiptsView {
     pub receipts: Vec<ReceiptView>,
 }
 
-/// Завершение одной команды `panel.open`, поданной главным потоком. Данных команды в записи нет.
+/// Откуда пришло действие главного потока.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiptSource {
+    /// Клавиша через маршрутизатор.
+    Key,
+    /// Пункт меню приложения, меню «…» или выбора «Открыть в новой части».
+    Menu,
+    /// Кнопка заголовка, строки вкладок, заглушки или тела панели.
+    Button,
+}
+
+impl ReceiptSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Key => "key",
+            Self::Menu => "menu",
+            Self::Button => "button",
+        }
+    }
+}
+
+/// Завершение одного действия главного потока: имя, источник и исход. Данных команды в записи
+/// нет. Исход — отсутствие `error`; у `panel.open` к нему добавлены `outcome`, `panel` и `revision`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptView {
     /// Монотонный номер в пределах процесса, с 1.
     pub seq: u64,
-    /// Рабочая область: при успехе — где стоит панель, при отказе — куда шла команда.
+    /// Имя действия: имя keymap UI-команды или имя команды ядра.
+    pub action: String,
+    pub source: ReceiptSource,
+    /// Рабочая область `panel.open`: при успехе — где стоит панель, при отказе — куда шла команда.
     pub workbench: Option<WorkbenchId>,
-    pub plugin: String,
+    /// Плагин `panel.open`; у остальных действий ключа нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
     /// Исход успешной команды; при отказе ключа нет.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outcome: Option<OpenOutcome>,
     /// Панель успешной команды.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panel: Option<PanelId>,
-    /// Ревизия ответа успешной команды.
+    /// Ревизия ответа успешной команды ядра; у действия без команды ядра ключа нет.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision: Option<Revision>,
-    /// Код отказа ядра; ранний отказ главного потока — `busy`, ядро без ответа — `no_reply`.
+    /// Код отказа ядра; ранний отказ главного потока — `busy`, ядро без ответа — `no_reply`,
+    /// действию не на что подействовать — `not_applicable`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -1502,6 +1569,16 @@ mod tests {
             (
                 UiRequest::Command(UiCommand::AppearanceSet(AppearanceChoice::Dark)),
                 "ui.appearance.set",
+                true,
+            ),
+            (
+                UiRequest::Command(UiCommand::AppearanceCycle),
+                "ui.appearance.cycle",
+                true,
+            ),
+            (
+                UiRequest::Command(UiCommand::LayoutToggle(ToggleTarget::Side)),
+                "layout.toggle.side",
                 true,
             ),
             (

@@ -16,4 +16,4 @@ pub use model::{
     Axis, Hidden, Layout, LayoutError, Location, MinSize, Part, SHARE_TOTAL, Zone, ZoneMap,
     ZoneSizes, ZoneState,
 };
-pub use ops::{Direction, Hideable, OpError, Room};
+pub use ops::{Dimension, Direction, Hideable, OpError, Room};

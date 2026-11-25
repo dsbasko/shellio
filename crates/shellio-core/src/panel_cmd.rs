@@ -798,6 +798,7 @@ mod tests {
             .ok(Command::LayoutSplit {
                 panel: first,
                 open: Some("terminal".into()),
+                axis: None,
             })
             .value
         else {
@@ -875,6 +876,7 @@ mod tests {
         let error = w.err(Command::LayoutSplit {
             panel: terminal,
             open: Some("narrow".into()),
+            axis: None,
         });
         assert_refused(&error, &[("reason", "zone_not_allowed"), ("field", "open")]);
 
@@ -989,6 +991,7 @@ mod tests {
         let error = w.err(Command::LayoutSplit {
             panel: terminal,
             open: Some("huge".into()),
+            axis: None,
         });
         assert_refused(
             &error,
@@ -1178,6 +1181,7 @@ mod tests {
         let error = w.err(Command::LayoutSplit {
             panel: caller,
             open: Some("field".into()),
+            axis: None,
         });
         assert_refused(
             &error,
@@ -1194,6 +1198,7 @@ mod tests {
         let outcome = w.ok(Command::LayoutSplit {
             panel: terminal,
             open: Some("field".into()),
+            axis: None,
         });
         let CommandValue::Panel { panel: field } = outcome.value else {
             panic!("ожидалась панель");
@@ -1306,6 +1311,7 @@ mod tests {
         let error = w.err(Command::LayoutSplit {
             panel: terminal,
             open: Some("list".into()),
+            axis: None,
         });
         assert_refused(&error, &[("reason", "singleton_exists"), ("field", "open")]);
         assert_eq!(error.detail_str("panel"), Some(panel.to_string().as_str()));
@@ -1316,6 +1322,7 @@ mod tests {
             .ok(Command::LayoutSplit {
                 panel: other,
                 open: Some("list".into()),
+                axis: None,
             })
             .value
         else {

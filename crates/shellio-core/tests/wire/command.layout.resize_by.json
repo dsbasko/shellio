@@ -1,0 +1,6 @@
+{
+  "cmd": "layout.resize_by",
+  "target": "00000000-0000-0000-0000-00000000000a",
+  "dimension": "width",
+  "delta": -40
+}

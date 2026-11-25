@@ -21,6 +21,7 @@ pub const HOST_NAMESPACES: &[&str] = &[
     "panel",
     "project",
     "query",
+    "tab",
     "ui",
     "window",
     "workbench",

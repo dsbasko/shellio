@@ -36,11 +36,11 @@ pub use ui::{
     ComponentView, Contrast, FontView, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView,
     GalleryView, IconView, InsetsView, InspectView, InstanceKind, InstanceView, IntentKind,
     IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Lightness, LineSide, ListRowView,
-    MaterialView, MenuItemView, MenuView, Motion, PanelNodeView, PartNodeView, ReceiptView,
-    ReceiptsView, Rect, Rgba, RowViewsView, RunLoopView, ScreenView, ShadowView, Size, StartupView,
-    StatsView, StripButtonView, StyleView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT,
-    UiGate, UiRefusal, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
+    MaterialView, MenuItemView, MenuView, Motion, PanelNodeView, PartNodeView, ReceiptSource,
+    ReceiptView, ReceiptsView, Rect, Rgba, RowViewsView, RunLoopView, ScreenView, ShadowView, Size,
+    StartupView, StatsView, StripButtonView, StyleView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView,
+    UI_TIMEOUT, UiGate, UiRefusal, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
 pub use wire::{
     Activation, Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL,

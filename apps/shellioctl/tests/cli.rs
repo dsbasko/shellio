@@ -21,8 +21,9 @@ use shellio_control::{
 };
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
-    OwnerState, Ownership, ReceiptView, ReceiptsView, RequestId, Response, SHUTDOWN_GRACE,
-    SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
+    OwnerState, Ownership, ReceiptSource, ReceiptView, ReceiptsView, RequestId, Response,
+    SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply,
+    UiRequest, WithoutUi,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
@@ -898,8 +899,10 @@ impl ReceiptsUi {
     fn view(&self, after: Option<u64>) -> ReceiptsView {
         let record = |seq, plugin: &str| ReceiptView {
             seq,
+            action: "panel.open".into(),
+            source: ReceiptSource::Menu,
             workbench: Some(self.workbench),
-            plugin: plugin.into(),
+            plugin: Some(plugin.into()),
             outcome: None,
             panel: None,
             revision: None,
@@ -988,8 +991,8 @@ async fn ui_receipts_reads_the_ring_from_the_cursor() -> TestResult {
         text.stdout,
         format!(
             "квитанций 2, последняя 3\n\
-             \x20 2: terminal, рабочая область {workbench}: отказ busy\n\
-             \x20 3: notes, рабочая область {workbench}: панель {panel} в фокусе, ревизия 5\n",
+             \x20 2: panel.open (menu) terminal, рабочая область {workbench}: отказ busy\n\
+             \x20 3: panel.open (menu) notes, рабочая область {workbench}: панель {panel} в фокусе, ревизия 5\n",
             workbench = ui.workbench,
             panel = ui.panel
         )
@@ -1419,6 +1422,99 @@ fn assert_refused(run: Run, reason: &str) -> TestResult {
         Response::CoreError { .. } if run.stdout.contains(&format!("\"{reason}\"")) => Ok(()),
         other => Err(format!("ожидался отказ {reason}, получено {other:?}").into()),
     }
+}
+
+/// `layout split --axis`, `panel tab` и `layout resize --by` отдельным процессом против владельца с
+/// размером окна: отказ не той оси не меняет ни раскладку, ни ревизию, вкладки идут по кругу, шаг
+/// размера считается от панели с фокусом или от названной панели.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn axis_tab_and_relative_resize_calls_against_sized_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_sized(
+        &dir,
+        Viewport {
+            width: 1180,
+            height: 720,
+        },
+    )
+    .await?;
+    let workbench = open_workbench(&dir).await?;
+    let bench_id = workbench.to_string();
+    let start = layout(&dir, &[]).await?;
+    let terminal = panel_of(&start, "terminal")?;
+    let term = terminal.to_string();
+
+    let before = revision(&dir).await?;
+    assert_refused(
+        dir.run(&[
+            "layout", "split", &term, "--open", "terminal", "--axis", "stack", "--all", "--json",
+        ])
+        .await?,
+        "split_wrong_axis",
+    )?;
+    assert_eq!(revision(&dir).await?, before, "отказ оси не пишет");
+    assert_eq!(layout(&dir, &[]).await?, start);
+
+    let split = dir
+        .run(&[
+            "layout", "split", &term, "--open", "terminal", "--axis", "row", "--all", "--json",
+        ])
+        .await?
+        .expect(0)?;
+    let CommandValue::Panel { panel: second } = split.command_value()? else {
+        return Err(format!("ожидалась новая панель: {split:?}").into());
+    };
+    let sec = second.to_string();
+    dir.run(&["panel", "move-part", &sec, "--to", &term, "--all"])
+        .await?
+        .expect(0)?;
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(zone_tabs(&view, Zone::Center), vec![vec![terminal, second]]);
+    assert_eq!(view.layout.focus.last(), Some(&second));
+
+    for (tab, focus) in [("next", terminal), ("prev", second), ("1", terminal)] {
+        dir.run(&["panel", "tab", tab, "--workbench", &bench_id, "--all"])
+            .await?
+            .expect(0)?;
+        assert_eq!(
+            layout(&dir, &[]).await?.layout.focus.last(),
+            Some(&focus),
+            "{tab}"
+        );
+    }
+    let quiet = revision(&dir).await?;
+    dir.run(&["panel", "tab", "9", "--workbench", &bench_id, "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(revision(&dir).await?, quiet, "вкладки 9 нет: без ревизии");
+
+    dir.run(&["panel", "move", &sec, "--zone", "right", "--all"])
+        .await?
+        .expect(0)?;
+    // Фокус остался на терминале центра: шире единственная часть центра — уже правая зона.
+    let view = layout(&dir, &[]).await?;
+    assert_eq!(view.layout.focus.last(), Some(&terminal));
+    let size = view.layout.sizes.right;
+    dir.run(&["layout", "resize", "--by", "40", "--width", "--all"])
+        .await?
+        .expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.sizes.right, size - 40);
+    // С `--panel` шаг считается от её места: правая зона шире.
+    dir.run(&[
+        "layout", "resize", "--by", "40", "--width", "--panel", &sec, "--all",
+    ])
+    .await?
+    .expect(0)?;
+    assert_eq!(layout(&dir, &[]).await?.layout.sizes.right, size);
+    assert_refused(
+        dir.run(&[
+            "layout", "resize", "--by", "-1000", "--width", "--panel", &sec, "--all", "--json",
+        ])
+        .await?,
+        "resize_out_of_range",
+    )?;
+    assert_eq!(layout(&dir, &[]).await?.layout.sizes.right, size);
+    owner.stop().await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

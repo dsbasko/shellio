@@ -31,7 +31,9 @@ use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
     StyleView,
 };
-use shellio_control::{KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView};
+use shellio_control::{
+    KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView, ReceiptSource,
+};
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
@@ -39,7 +41,8 @@ use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
     EventsSince, FsRootResolver, IdGen, LayoutView, OpenOutcome, PanelId, PanelStatus, PanelView,
     PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView, Title,
-    TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
+    ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace,
+    WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -200,6 +203,16 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(_))) => {
             "request.ui.appearance_set"
         }
+        RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceCycle)) => {
+            "request.ui.appearance_cycle"
+        }
+        RequestBody::Ui(UiRequest::Command(UiCommand::LayoutToggle(target))) => match target {
+            ToggleTarget::Navigator => "request.ui.layout_toggle_navigator",
+            ToggleTarget::Bottom => "request.ui.layout_toggle_bottom",
+            ToggleTarget::Side => "request.ui.layout_toggle_side",
+            ToggleTarget::Plate => "request.ui.layout_toggle_plate",
+            ToggleTarget::Right => "request.ui.layout_toggle_right",
+        },
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -290,6 +303,17 @@ fn requests() -> Vec<Request> {
             12,
             RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(
                 AppearanceChoice::Light,
+            ))),
+        ),
+        // `navigation-keymap`, задача 4: цикл оформления и скрытие боковой зоны.
+        request(
+            47,
+            RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceCycle)),
+        ),
+        request(
+            48,
+            RequestBody::Ui(UiRequest::Command(UiCommand::LayoutToggle(
+                ToggleTarget::Side,
             ))),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
@@ -394,6 +418,7 @@ fn requests() -> Vec<Request> {
             Command::LayoutSplit {
                 panel,
                 open: Some("terminal".into()),
+                axis: None,
             },
             Command::PanelFocus {
                 panel: None,
@@ -956,7 +981,8 @@ fn keymap_view() -> KeymapView {
     }
 }
 
-/// Ответ эталона `ui.receipts` на `after: 1`: успешное открытие и ранний отказ `busy`.
+/// Ответ эталона `ui.receipts` на `after: 1`: успешное открытие пунктом меню и ранний отказ `busy`
+/// действия клавиши.
 fn receipts_view() -> ReceiptsView {
     let (panel, _, workbench) = layout_ids();
     ReceiptsView {
@@ -964,8 +990,10 @@ fn receipts_view() -> ReceiptsView {
         receipts: vec![
             ReceiptView {
                 seq: 2,
+                action: "panel.open".into(),
+                source: ReceiptSource::Menu,
                 workbench: Some(workbench),
-                plugin: "demo-list".into(),
+                plugin: Some("demo-list".into()),
                 outcome: Some(OpenOutcome::Created),
                 panel: Some(panel),
                 revision: Some(Revision(41)),
@@ -973,8 +1001,10 @@ fn receipts_view() -> ReceiptsView {
             },
             ReceiptView {
                 seq: 3,
-                workbench: Some(workbench),
-                plugin: "terminal".into(),
+                action: "layout.toggle.side".into(),
+                source: ReceiptSource::Key,
+                workbench: None,
+                plugin: None,
                 outcome: None,
                 panel: None,
                 revision: None,
@@ -2202,8 +2232,10 @@ fn receipt_record_is_strict() {
         with(done, "panel", json!("не id")),
         with(refused, "extra", json!(1)),
         with(refused, "error", json!(7)),
+        with(done, "source", json!("mouse")),
         without(done, "seq"),
-        without(done, "plugin"),
+        without(done, "action"),
+        without(done, "source"),
     ] {
         assert!(
             serde_json::from_value::<ReceiptView>(bad.clone()).is_err(),

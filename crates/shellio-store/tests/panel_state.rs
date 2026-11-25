@@ -174,6 +174,7 @@ async fn open(core: &CoreHandle, beside: PanelId, plugin: &str) -> TestResult<Pa
     let command = Command::LayoutSplit {
         panel: beside,
         open: Some(plugin.to_owned()),
+        axis: None,
     };
     match created(core, command).await? {
         CommandValue::Panel { panel } => Ok(panel),
@@ -327,6 +328,7 @@ async fn statuses_keep_row_bytes_through_writes_and_restart() -> TestResult {
         .request(Command::LayoutSplit {
             panel: panels["initfail"],
             open: Some("initfail".to_owned()),
+            axis: None,
         })
         .await
         .unwrap_err();

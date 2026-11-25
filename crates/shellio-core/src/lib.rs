@@ -30,7 +30,7 @@ mod wire;
 pub use actor::{QUEUE_CAPACITY, SUBSCRIBER_CAPACITY};
 pub use change::Change;
 pub use clock::{Clock, SystemClock, UnixMillis};
-pub use command::{Command, CommandValue, OpenOutcome, open_workbench};
+pub use command::{Command, CommandValue, OpenOutcome, ResizeStep, SplitAxis, open_workbench};
 pub use error::{CoreError, Entity, ErrorCode};
 pub use events::{EVENT_BUFFER, EventsSince, Snapshot};
 pub use handle::{Core, CoreHandle, ReplyReceipt, StartError};
@@ -56,7 +56,7 @@ pub use query::{
 pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootResolver};
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
-pub use ui_command::{AppearanceChoice, UiCommand};
+pub use ui_command::{AppearanceChoice, ToggleTarget, UiCommand};
 pub use wire::{Event, Reply, ReplyValue};
 
 /// Тестовая поддержка ядра, доступная только с функцией `test-support`.

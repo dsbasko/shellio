@@ -8,6 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::fs;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -22,7 +23,7 @@ use shellio_core::{
     Route, Snapshot, State, StorageInfo, Title, TreeScope, TreeView, UnixMillis, WindowState,
     Workbench, WorkbenchId, WorkbenchLayout, Workspace, WorkspaceId, read,
 };
-use shellio_layout::{Direction, Edge, Hideable, Viewport, Zone};
+use shellio_layout::{Dimension, Direction, Edge, Hideable, Viewport, Zone};
 
 fn wire_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/wire")
@@ -153,6 +154,10 @@ fn command_golden(command: &Command) -> &'static str {
         Command::PanelMovePart { .. } => "command.panel.move_part",
         Command::PanelClose { .. } => "command.panel.close",
         Command::LayoutResize { .. } => "command.layout.resize",
+        Command::LayoutResizeBy { .. } => "command.layout.resize_by",
+        Command::TabPrev { .. } => "command.tab.prev",
+        Command::TabNext { .. } => "command.tab.next",
+        Command::TabSelect { .. } => "command.tab.select",
         Command::LayoutEqual { .. } => "command.layout.equal",
         Command::LayoutZoom { .. } => "command.layout.zoom",
         Command::LayoutOnly { .. } => "command.layout.only",
@@ -194,6 +199,7 @@ fn commands() -> Vec<Command> {
         Command::LayoutSplit {
             panel: ids.terminal,
             open: Some("terminal".into()),
+            axis: None,
         },
         Command::PanelFocus {
             panel: None,
@@ -220,6 +226,22 @@ fn commands() -> Vec<Command> {
             zone: Zone::Center,
             part_of: Some(ids.terminal),
             size: 500,
+        },
+        Command::LayoutResizeBy {
+            target: Some(ids.terminal),
+            workbench: None,
+            dimension: Dimension::Width,
+            delta: -40,
+        },
+        Command::TabPrev {
+            workbench: ids.workbench,
+        },
+        Command::TabNext {
+            workbench: ids.workbench,
+        },
+        Command::TabSelect {
+            workbench: ids.workbench,
+            index: NonZeroU32::MIN.saturating_add(2),
         },
         Command::LayoutEqual {
             workbench: Some(ids.workbench),

@@ -9,7 +9,9 @@ use shellio_layout::{Hideable, Location, MinSize, OpError, Room, Viewport, Zone}
 use shellio_plugin_api::{Cardinality, Registry};
 
 use crate::change::Change;
-use crate::command::{CommandValue, LayoutCommand, chosen_workbench, panel_workbench};
+use crate::command::{
+    CommandValue, LayoutCommand, SplitAxis, TabTarget, chosen_workbench, panel_workbench,
+};
 use crate::error::{CoreError, Entity};
 use crate::handler::{Ctx, Outcome};
 use crate::ids::{PanelId, WorkbenchId};
@@ -28,9 +30,17 @@ pub(crate) fn layout_command(
     let registry = ctx.registry;
     let sizes = |panel: PanelId| panel_min_size(state, registry, panel);
     match command {
-        LayoutCommand::Split { panel, open } => {
+        LayoutCommand::Split { panel, open, axis } => {
             let workbench = panel_workbench(state, panel)?;
             let layout = current(state, workbench)?;
+            // Ось сверяется раньше места и состава части: клавиша не той оси получает причину
+            // оси, а не выбор «Открыть в новой части».
+            if let Some(axis) = axis
+                && let Some(Location::Part { zone, .. }) = layout.locate(panel)
+                && SplitAxis::of(zone) != axis
+            {
+                return Err(CoreError::split_wrong_axis(SplitAxis::of(zone).as_str()));
+            }
             let Some(open) = open else {
                 let viewport = need_viewport(ctx, "layout.split")?;
                 let next = layout
@@ -165,6 +175,42 @@ pub(crate) fn layout_command(
                 .resize_zone(zone, size, viewport, &metrics, sizes)
                 .map_err(|error| refusal(error, "zone"))?;
             Ok(set(workbench, layout, next))
+        }
+        LayoutCommand::ResizeBy {
+            target,
+            workbench,
+            dimension,
+            delta,
+        } => {
+            let (workbench, panel) = match target {
+                Some(panel) => (panel_workbench(state, panel)?, panel),
+                None => {
+                    let workbench = chosen_workbench(state, workbench)?;
+                    let Some(panel) = current(state, workbench)?.focused() else {
+                        return Ok(Outcome::unchanged());
+                    };
+                    (workbench, panel)
+                }
+            };
+            let layout = current(state, workbench)?;
+            let viewport = need_viewport(ctx, "layout.resize_by")?;
+            let next = layout
+                .resize_by(panel, dimension, delta, viewport, &metrics, sizes)
+                .map_err(|error| refusal(error, "target"))?;
+            Ok(set(workbench, layout, next))
+        }
+        LayoutCommand::Tab { workbench, tab } => {
+            with_workbench(state, Some(workbench), |layout| {
+                Ok(match tab {
+                    TabTarget::Prev => layout.tab_step(false),
+                    TabTarget::Next => layout.tab_step(true),
+                    TabTarget::At(index) => {
+                        // Номер с единицы; номер вне `usize` — вкладки нет.
+                        let index = usize::try_from(index.get() - 1).unwrap_or(usize::MAX);
+                        layout.tab_at(index)
+                    }
+                })
+            })
         }
         LayoutCommand::Equal { workbench, zone } => {
             with_workbench(state, workbench, |layout| layout.equal(zone))
@@ -327,11 +373,13 @@ const fn target_name(target: Hideable) -> &'static str {
 mod tests {
     use std::sync::Arc;
 
-    use shellio_layout::{Direction, Edge};
+    use std::num::NonZeroU32;
+
+    use shellio_layout::{Dimension, Direction, Edge};
 
     use super::*;
     use crate::clock::UnixMillis;
-    use crate::command::Command;
+    use crate::command::{Command, ResizeStep};
     use crate::error::ErrorCode;
     use crate::handler::{handle, startup};
     use crate::model::Route;
@@ -446,6 +494,7 @@ mod tests {
                 .ok(Command::LayoutSplit {
                     panel,
                     open: Some(plugin.into()),
+                    axis: None,
                 })
                 .value
             {
@@ -488,6 +537,7 @@ mod tests {
         let outcome = h.ok(Command::LayoutSplit {
             panel: terminal,
             open: Some("terminal".into()),
+            axis: None,
         });
         let CommandValue::Panel { panel } = outcome.value else {
             panic!("ожидалась панель, получено {:?}", outcome.value);
@@ -537,6 +587,7 @@ mod tests {
         let error = h.err(Command::LayoutSplit {
             panel: h.terminal,
             open: Some("notes".into()),
+            axis: None,
         });
         assert_refused(
             &error,
@@ -559,6 +610,7 @@ mod tests {
         let outcome = h.ok(Command::LayoutSplit {
             panel: terminal,
             open: None,
+            axis: None,
         });
         assert_eq!(outcome.value, CommandValue::None);
         single_layout_set(&outcome);
@@ -598,6 +650,7 @@ mod tests {
         let outcome = h.ok(Command::LayoutSplit {
             panel: right,
             open: Some("terminal".into()),
+            axis: None,
         });
         assert!(
             matches!(
@@ -845,6 +898,7 @@ mod tests {
         let error = h.err(Command::LayoutSplit {
             panel: terminal,
             open: None,
+            axis: None,
         });
         let panel = terminal.to_string();
         assert_refused(
@@ -859,6 +913,7 @@ mod tests {
         let error = h.err(Command::LayoutSplit {
             panel: navigator,
             open: Some("terminal".into()),
+            axis: None,
         });
         assert_refused(
             &error,
@@ -868,6 +923,7 @@ mod tests {
         let error = h.err(Command::LayoutSplit {
             panel: terminal,
             open: Some("Bad Name".into()),
+            axis: None,
         });
         assert_refused(
             &error,
@@ -881,6 +937,7 @@ mod tests {
             match h.run(Command::LayoutSplit {
                 panel: target,
                 open: Some("terminal".into()),
+                axis: None,
             }) {
                 Ok(outcome) => {
                     let CommandValue::Panel { panel } = outcome.value else {
@@ -915,6 +972,7 @@ mod tests {
         let error = h.err(Command::LayoutSplit {
             panel: terminal,
             open: Some("terminal".into()),
+            axis: None,
         });
         assert_refused(&error, ErrorCode::NoUi, &[]);
         let error = h.err(Command::LayoutResize {
@@ -1208,5 +1266,251 @@ mod tests {
                 &[("reason", "arguments_conflict"), ("field", field)],
             );
         }
+    }
+
+    // --- P1.6: ось деления, относительный размер, вкладки ---
+
+    #[test]
+    fn split_axis_is_checked_against_the_zone_axis_in_all_four_zones() {
+        for (zone, own, other) in [
+            (Zone::Center, SplitAxis::Row, SplitAxis::Stack),
+            (Zone::Bottom, SplitAxis::Row, SplitAxis::Stack),
+            (Zone::Left, SplitAxis::Stack, SplitAxis::Row),
+            (Zone::Right, SplitAxis::Stack, SplitAxis::Row),
+        ] {
+            let mut h = H::new();
+            let panel = h.terminal;
+            if zone != Zone::Center {
+                h.ok(Command::PanelMove { panel, zone });
+            }
+            // Не та ось — отказ раньше состава части и места, без изменений и без окна.
+            for (open, viewport) in [
+                (None, Some(VIEWPORT)),
+                (Some("terminal".to_owned()), Some(VIEWPORT)),
+                (Some("terminal".to_owned()), None),
+            ] {
+                h.viewport = viewport;
+                let error = h.err(Command::LayoutSplit {
+                    panel,
+                    open,
+                    axis: Some(other),
+                });
+                assert_refused(
+                    &error,
+                    ErrorCode::InvalidArgument,
+                    &[
+                        ("reason", "split_wrong_axis"),
+                        ("field", "axis"),
+                        ("axis", own.as_str()),
+                    ],
+                );
+            }
+            h.viewport = Some(VIEWPORT);
+            let outcome = h.ok(Command::LayoutSplit {
+                panel,
+                open: Some("terminal".into()),
+                axis: Some(own),
+            });
+            assert!(
+                matches!(outcome.value, CommandValue::Panel { .. }),
+                "{zone:?}"
+            );
+            assert_eq!(h.layout().zones.get(zone).parts.len(), 2, "{zone:?}");
+        }
+    }
+
+    #[test]
+    fn split_axis_keeps_the_other_refusals() {
+        let mut h = H::new();
+        let (terminal, navigator) = (h.terminal, h.navigator);
+        let error = h.err(Command::LayoutSplit {
+            panel: terminal,
+            open: None,
+            axis: Some(SplitAxis::Row),
+        });
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "split_needs_panel")],
+        );
+        let error = h.err(Command::LayoutSplit {
+            panel: navigator,
+            open: Some("terminal".into()),
+            axis: Some(SplitAxis::Row),
+        });
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "navigator_not_splittable")],
+        );
+    }
+
+    #[test]
+    fn resize_by_steps_forty_points_and_refuses_past_min_size() {
+        let mut h = H::new();
+        let (terminal, workbench) = (h.terminal, h.workbench);
+        let right = h.split_open(terminal, "terminal");
+        h.ok(Command::PanelMove {
+            panel: right,
+            zone: Zone::Right,
+        });
+        let before = h.layout().sizes.right;
+        let outcome = h.ok(ResizeStep::Wider.command(right));
+        single_layout_set(&outcome);
+        assert_eq!(h.layout().sizes.right, before + 40);
+        h.ok(ResizeStep::Narrower.command(right));
+        assert_eq!(h.layout().sizes.right, before);
+        // Без `target` — панель с фокусом открытой или явной рабочей области.
+        assert_eq!(h.layout().focused(), Some(right));
+        for workbench in [None, Some(workbench)] {
+            h.ok(Command::LayoutResizeBy {
+                target: None,
+                workbench,
+                dimension: Dimension::Width,
+                delta: 20,
+            });
+        }
+        assert_eq!(h.layout().sizes.right, before + 40);
+
+        // Высота центра переводится в нижнюю зону; без неё менять нечего.
+        let error = h.err(ResizeStep::Grow.command(terminal));
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "zone_empty"), ("zone", "bottom")],
+        );
+        let bottom = h.split_open(terminal, "terminal");
+        h.ok(Command::PanelMove {
+            panel: bottom,
+            zone: Zone::Bottom,
+        });
+        let size = h.layout().sizes.bottom;
+        h.ok(ResizeStep::Grow.command(terminal));
+        assert_eq!(h.layout().sizes.bottom, size - 40);
+        h.ok(ResizeStep::Shrink.command(terminal));
+        h.ok(ResizeStep::Grow.command(bottom));
+        assert_eq!(h.layout().sizes.bottom, size + 40);
+
+        // Отказ по `min_size` — причина размера P1.4 с границами в точках.
+        let mut steps = 0;
+        let error = loop {
+            match h.run(ResizeStep::Narrower.command(right)) {
+                Ok(_) => steps += 1,
+                Err(error) => break error,
+            }
+            assert!(steps < 20, "шаг не отказал");
+        };
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "resize_out_of_range"), ("field", "size")],
+        );
+        let min = error.detail("min").and_then(Value::as_u64).unwrap();
+        let max = error.detail("max").and_then(Value::as_u64).unwrap();
+        let now = u64::from(h.layout().sizes.right);
+        assert!(
+            min <= now && now < min + 40 && now < max,
+            "{min}..={max}: {now}"
+        );
+        assert_eq!(u64::from(before + 40) - now, steps * 40);
+
+        let error = h.err(Command::LayoutResizeBy {
+            target: Some(right),
+            workbench: Some(workbench),
+            dimension: Dimension::Width,
+            delta: 40,
+        });
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "arguments_conflict"), ("field", "workbench")],
+        );
+        h.viewport = None;
+        let error = h.err(ResizeStep::Wider.command(right));
+        assert_refused(&error, ErrorCode::NoUi, &[]);
+    }
+
+    #[test]
+    fn resize_by_in_the_navigator_column_changes_its_width_only() {
+        let mut h = H::new();
+        let navigator = h.navigator;
+        let width = h.layout().sizes.navigator;
+        let outcome = h.ok(ResizeStep::Wider.command(navigator));
+        single_layout_set(&outcome);
+        assert_eq!(h.layout().sizes.navigator, width + 40);
+        h.ok(ResizeStep::Narrower.command(navigator));
+        assert_eq!(h.layout().sizes.navigator, width);
+        for step in [ResizeStep::Grow, ResizeStep::Shrink] {
+            let error = h.err(step.command(navigator));
+            assert_refused(
+                &error,
+                ErrorCode::InvalidArgument,
+                &[("reason", "navigator_column"), ("field", "target")],
+            );
+        }
+        let error = h.err(Command::LayoutResizeBy {
+            target: Some(navigator),
+            workbench: None,
+            dimension: Dimension::Width,
+            delta: -1000,
+        });
+        assert_refused(
+            &error,
+            ErrorCode::InvalidArgument,
+            &[("reason", "resize_out_of_range")],
+        );
+    }
+
+    #[test]
+    fn tab_commands_wrap_and_ignore_a_missing_tab() {
+        let mut h = H::new();
+        let (terminal, workbench) = (h.terminal, h.workbench);
+        let second = h.split_open(terminal, "terminal");
+        h.ok(Command::PanelMovePart {
+            panel: second,
+            anchor: terminal,
+            edge: None,
+        });
+        let third = h.split_open(second, "terminal");
+        h.ok(Command::PanelMovePart {
+            panel: third,
+            anchor: terminal,
+            edge: None,
+        });
+        assert_eq!(h.center_tabs(), [vec![terminal, second, third]]);
+        assert_eq!(h.layout().focused(), Some(third));
+
+        let outcome = h.ok(Command::TabNext { workbench });
+        single_layout_set(&outcome);
+        assert_eq!(h.layout().focused(), Some(terminal), "за краем — первая");
+        h.ok(Command::TabPrev { workbench });
+        assert_eq!(
+            h.layout().focused(),
+            Some(third),
+            "перед первой — последняя"
+        );
+        h.ok(Command::TabPrev { workbench });
+        assert_eq!(h.layout().focused(), Some(second));
+
+        let select = |index: u32| Command::TabSelect {
+            workbench,
+            index: NonZeroU32::new(index).unwrap(),
+        };
+        h.ok(select(1));
+        assert_eq!(h.layout().focused(), Some(terminal));
+        assert_eq!(h.ok(select(1)).changes, Vec::new(), "вкладка уже активна");
+        for missing in [4, u32::MAX] {
+            assert_eq!(h.ok(select(missing)).changes, Vec::new(), "{missing}");
+        }
+        h.ok(select(3));
+        assert_eq!(h.layout().focused(), Some(third));
+        assert_eq!(h.center_tabs(), [vec![terminal, second, third]]);
+
+        // Номер с единицы: нуля на проводе нет.
+        let zero = json!({"cmd": "tab.select", "workbench": workbench.to_string(), "index": 0});
+        assert!(serde_json::from_value::<Command>(zero).is_err());
+        let missing = WorkbenchId::from_bytes([0xee; 16]);
+        let error = h.err(Command::TabNext { workbench: missing });
+        assert_refused(&error, ErrorCode::NotFound, &[("entity", "workbench")]);
     }
 }

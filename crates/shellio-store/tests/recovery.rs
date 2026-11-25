@@ -223,6 +223,7 @@ async fn layout_survives_restart_on_same_database() -> TestResult {
         Command::LayoutSplit {
             panel: terminal,
             open: Some("terminal".into()),
+            axis: None,
         },
     )
     .await?;
@@ -290,6 +291,7 @@ async fn layout_survives_restart_on_same_database() -> TestResult {
         .request(Command::LayoutSplit {
             panel: terminal,
             open: Some("terminal".into()),
+            axis: None,
         })
         .await
         .err()

@@ -44,6 +44,46 @@ impl AppearanceChoice {
     }
 }
 
+/// Цель действия `layout.toggle.*`: что показать или скрыть в открытой рабочей области.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ToggleTarget {
+    Navigator,
+    Bottom,
+    /// Боковая зона третьей кнопки заголовка: плитка левой зоны или правая зона, цель выбирается
+    /// в момент вызова.
+    Side,
+    Plate,
+    Right,
+}
+
+impl ToggleTarget {
+    pub const ALL: [Self; 5] = [
+        Self::Navigator,
+        Self::Bottom,
+        Self::Side,
+        Self::Plate,
+        Self::Right,
+    ];
+
+    /// Операнд `shellioctl layout toggle` и последний сегмент имени действия.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Navigator => "navigator",
+            Self::Bottom => "bottom",
+            Self::Side => "side",
+            Self::Plate => "plate",
+            Self::Right => "right",
+        }
+    }
+
+    /// Цель по операнду.
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|target| target.as_str() == value)
+    }
+}
+
 /// Действие интерфейса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UiCommand {
@@ -53,16 +93,27 @@ pub enum UiCommand {
     AppQuit,
     /// Выбрать оформление до выхода процесса.
     AppearanceSet(AppearanceChoice),
+    /// Следующее оформление по кругу: система → светлое → тёмное.
+    AppearanceCycle,
+    /// Показать или скрыть цель в открытой рабочей области: видимость читается в момент вызова,
+    /// затем идёт команда ядра `layout.visibility`.
+    LayoutToggle(ToggleTarget),
 }
 
 impl UiCommand {
-    /// Все действия: по одному на каждое значение выбора оформления.
-    pub const ALL: [Self; 5] = [
+    /// Все действия: по одному на каждое значение выбора оформления и каждую цель скрытия.
+    pub const ALL: [Self; 11] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
         Self::AppearanceSet(AppearanceChoice::Dark),
         Self::AppearanceSet(AppearanceChoice::System),
+        Self::AppearanceCycle,
+        Self::LayoutToggle(ToggleTarget::Navigator),
+        Self::LayoutToggle(ToggleTarget::Bottom),
+        Self::LayoutToggle(ToggleTarget::Side),
+        Self::LayoutToggle(ToggleTarget::Plate),
+        Self::LayoutToggle(ToggleTarget::Right),
     ];
 
     /// Имя команды в управляющем API.
@@ -71,11 +122,11 @@ impl UiCommand {
             Self::WindowClose => "window.close",
             Self::AppQuit => "app.quit",
             Self::AppearanceSet(_) => "ui.appearance.set",
+            Self::AppearanceCycle | Self::LayoutToggle(_) => self.keymap_name(),
         }
     }
 
-    /// Имя действия в keymap: у выбора оформления своё имя на каждое значение. Привязку в
-    /// `keymap.toml` делает P1.6.
+    /// Имя действия в keymap: у выбора оформления своё имя на каждое значение.
     pub const fn keymap_name(self) -> &'static str {
         match self {
             Self::WindowClose => "window.close",
@@ -83,6 +134,12 @@ impl UiCommand {
             Self::AppearanceSet(AppearanceChoice::Light) => "ui.appearance.light",
             Self::AppearanceSet(AppearanceChoice::Dark) => "ui.appearance.dark",
             Self::AppearanceSet(AppearanceChoice::System) => "ui.appearance.system",
+            Self::AppearanceCycle => "ui.appearance.cycle",
+            Self::LayoutToggle(ToggleTarget::Navigator) => "layout.toggle.navigator",
+            Self::LayoutToggle(ToggleTarget::Bottom) => "layout.toggle.bottom",
+            Self::LayoutToggle(ToggleTarget::Side) => "layout.toggle.side",
+            Self::LayoutToggle(ToggleTarget::Plate) => "layout.toggle.plate",
+            Self::LayoutToggle(ToggleTarget::Right) => "layout.toggle.right",
         }
     }
 
@@ -108,6 +165,12 @@ mod tests {
             ("ui.appearance.set", "ui.appearance.light"),
             ("ui.appearance.set", "ui.appearance.dark"),
             ("ui.appearance.set", "ui.appearance.system"),
+            ("ui.appearance.cycle", "ui.appearance.cycle"),
+            ("layout.toggle.navigator", "layout.toggle.navigator"),
+            ("layout.toggle.bottom", "layout.toggle.bottom"),
+            ("layout.toggle.side", "layout.toggle.side"),
+            ("layout.toggle.plate", "layout.toggle.plate"),
+            ("layout.toggle.right", "layout.toggle.right"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {
@@ -118,6 +181,18 @@ mod tests {
         let unique: BTreeSet<_> = UiCommand::ALL.map(UiCommand::keymap_name).into();
         assert_eq!(unique.len(), UiCommand::ALL.len(), "имена keymap различны");
         assert_eq!(UiCommand::from_keymap_name("ui.appearance.set"), None);
+    }
+
+    #[test]
+    fn toggle_targets_parse_their_operands() {
+        for target in ToggleTarget::ALL {
+            assert_eq!(ToggleTarget::parse(target.as_str()), Some(target));
+            assert_eq!(
+                UiCommand::LayoutToggle(target).name(),
+                format!("layout.toggle.{}", target.as_str())
+            );
+        }
+        assert_eq!(ToggleTarget::parse("left"), None);
     }
 
     #[test]
