@@ -367,6 +367,18 @@ fn role(view: &NSView) -> Option<String> {
 
 const UNKNOWN_ROLE: &str = "AXUnknown";
 
+/// Полный текст поля-подписи без имени доступности: его несёт строка поля. Поле ввода имя не
+/// получает: его строка — значение, а не подпись.
+fn with_field_text(mut facts: ViewFacts, view: &NSView) -> ViewFacts {
+    if facts.label.is_none()
+        && let Some(field) = view.downcast_ref::<NSTextField>()
+        && !field.isEditable()
+    {
+        facts.label = text(Some(field.stringValue()));
+    }
+    facts
+}
+
 /// Узел дерева по виду.
 pub(crate) fn node(
     id: &str,
@@ -382,7 +394,7 @@ pub(crate) fn node(
         object: object_id(view),
         parent: parent.map(str::to_owned),
         ck: None,
-        facts: facts(view, enabled),
+        facts: with_field_text(facts(view, enabled), view),
         style: Some(style::view_style(view)).filter(|style| !style.is_empty()),
         truncated: view.downcast_ref::<NSTextField>().map(style::truncated),
         under: seen_fill(view),
