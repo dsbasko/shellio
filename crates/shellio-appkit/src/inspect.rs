@@ -197,6 +197,7 @@ impl InspectNode {
         let text = style::view_style(field);
         let style = self.style.get_or_insert_with(Style::default);
         style.font = text.font;
+        style.line_height = text.line_height;
         style.color = text.color;
         self.facts.label = Some(field.stringValue().to_string());
         self.truncated = Some(style::truncated(field));
@@ -639,4 +640,120 @@ pub(crate) fn added_animations(
 ) -> u32 {
     let added = after.iter().filter(|entry| !before.contains(entry)).count();
     u32::try_from(added).unwrap_or(u32::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bare(style: Option<Style>) -> InspectNode {
+        InspectNode {
+            id: "tab".to_owned(),
+            class: "Tab",
+            object: 0,
+            parent: None,
+            ck: None,
+            facts: ViewFacts {
+                frame: Frame::new(0.0, 0.0, 120.0, 26.0),
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: None,
+                label: None,
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+            },
+            style,
+            truncated: None,
+            under: None,
+            behind: None,
+            state: None,
+        }
+    }
+
+    #[test]
+    fn line_layer_gives_the_node_a_line_at_the_named_sides() {
+        let line = CALayer::new();
+        line.setFrame(objc2_foundation::NSRect::new(
+            objc2_foundation::NSPoint::ZERO,
+            objc2_foundation::NSSize::new(1180.0, 1.0),
+        ));
+        assert_eq!(
+            bare(None).with_line_layer(&line, &[style::Side::Top]).style,
+            None,
+            "слой без заливки линии не рисует"
+        );
+
+        crate::layer::set_fill(&line, shellio_theme::Srgb8::new(48, 46, 43));
+        let style = bare(None)
+            .with_line_layer(&line, &[style::Side::Top])
+            .style
+            .unwrap();
+        assert_eq!(
+            style.line_color,
+            Some(style::Rgba {
+                r: 48,
+                g: 46,
+                b: 43,
+                a: 1.0
+            })
+        );
+        assert_eq!(
+            style.line_width,
+            Some(1.0),
+            "толщина — меньшая сторона слоя"
+        );
+        assert_eq!(style.line_sides, [style::Side::Top]);
+        assert_eq!(style.fill, None, "заливка слоя линии — не заливка узла");
+    }
+
+    #[test]
+    fn ring_layer_gives_the_node_its_line_on_four_sides() {
+        let ring = CALayer::new();
+        assert_eq!(
+            bare(None).with_ring_layer(&ring).style,
+            None,
+            "слой без линии узлу ничего не даёт"
+        );
+
+        crate::layer::set_line(&ring, Some((shellio_theme::Srgb8::new(64, 61, 57), 1.0)));
+        let style = bare(None).with_ring_layer(&ring).style.unwrap();
+        assert_eq!(
+            style.line_color,
+            Some(style::Rgba {
+                r: 64,
+                g: 61,
+                b: 57,
+                a: 1.0
+            })
+        );
+        assert_eq!(style.line_width, Some(1.0));
+        assert_eq!(style.line_sides, style::Side::ALL);
+        assert_eq!(style.fill, None);
+
+        let filled = Style {
+            fill: Some(style::Rgba {
+                r: 10,
+                g: 9,
+                b: 8,
+                a: 1.0,
+            }),
+            ..Style::default()
+        };
+        let kept = bare(Some(filled.clone()))
+            .with_ring_layer(&ring)
+            .style
+            .unwrap();
+        assert_eq!(kept.fill, filled.fill, "кольцо не трогает заливку узла");
+        assert_eq!(kept.line_width, Some(1.0));
+
+        crate::layer::set_line(&ring, None);
+        assert_eq!(
+            bare(Some(filled.clone())).with_ring_layer(&ring).style,
+            Some(filled),
+            "снятая линия кольца узел не меняет"
+        );
+    }
 }

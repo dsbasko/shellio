@@ -88,10 +88,12 @@ impl StatusLine {
     }
 
     /// Строка и слот сообщения для `ui.inspect`: слот — `<id>.message`, его подпись — текст.
+    /// Линию над строкой рисует отдельный слой.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let view = self.view.view();
         vec![
-            inspect::node(id, "StatusLine", parent, view, None, None),
+            inspect::node(id, "StatusLine", parent, view, None, None)
+                .with_line_layer(&view.ivars().line, &[crate::style::Side::Top]),
             inspect::node(
                 &format!("{id}.message"),
                 "StatusMessage",

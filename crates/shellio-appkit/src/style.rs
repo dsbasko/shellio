@@ -3,10 +3,11 @@
 
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSColor, NSColorSpace, NSFont, NSFontTraitsAttribute, NSFontWeightTrait, NSTextField, NSView,
+    NSColor, NSColorSpace, NSFont, NSFontTraitsAttribute, NSFontWeightTrait, NSLayoutManager,
+    NSLineBreakMode, NSParagraphStyle, NSParagraphStyleAttributeName, NSTextField, NSView,
 };
 use objc2_core_text::kCTFontURLAttribute;
-use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL};
+use objc2_foundation::{NSAttributedString, NSDictionary, NSNumber, NSString, NSURL};
 use objc2_quartz_core::CALayer;
 
 /// Цвет sRGB с непрозрачностью 0–1.
@@ -264,8 +265,74 @@ pub(crate) fn font_file(font: &NSFont) -> Option<String> {
     url.absoluteString().map(|url| url.to_string())
 }
 
+/// Правило высоты строки из стиля абзаца; ноль у предела и множителя — «не задан».
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub(crate) struct LineRule {
+    pub minimum: f64,
+    pub maximum: f64,
+    pub multiple: f64,
+    pub spacing: f64,
+}
+
+/// Межстрочный интервал: высота строки шрифта `natural`, растянутая множителем и зажатая
+/// пределами правила, плюс промежуток между строками.
+pub(crate) fn line_pitch(natural: f64, rule: LineRule) -> f64 {
+    let mut height = natural;
+    if rule.multiple > 0.0 {
+        height *= rule.multiple;
+    }
+    if rule.minimum > 0.0 {
+        height = height.max(rule.minimum);
+    }
+    if rule.maximum > 0.0 {
+        height = height.min(rule.maximum);
+    }
+    height + rule.spacing.max(0.0)
+}
+
+/// Правило высоты строки у первого знака текста; `None` — стиля абзаца у текста нет.
+fn line_rule(text: &NSAttributedString) -> Option<LineRule> {
+    if text.length() == 0 {
+        return None;
+    }
+    // SAFETY: имя атрибута — неизменяемая константа AppKit, знак 0 есть у непустого текста,
+    // диапазон действия не запрашивается.
+    let value = unsafe {
+        text.attribute_atIndex_effectiveRange(
+            NSParagraphStyleAttributeName,
+            0,
+            std::ptr::null_mut(),
+        )
+    }?;
+    let paragraph = value.downcast::<NSParagraphStyle>().ok()?;
+    Some(LineRule {
+        minimum: paragraph.minimumLineHeight(),
+        maximum: paragraph.maximumLineHeight(),
+        multiple: paragraph.lineHeightMultiple(),
+        spacing: paragraph.lineSpacing(),
+    })
+}
+
+/// Межстрочный интервал текста `text`, набранного шрифтом `font`: высота строки шрифта по
+/// умолчанию у `NSLayoutManager` по правилу стиля абзаца текста.
+pub(crate) fn text_line_height(text: &NSAttributedString, font: &NSFont) -> f64 {
+    let natural = NSLayoutManager::new().defaultLineHeightForFont(font);
+    line_pitch(natural, line_rule(text).unwrap_or_default())
+}
+
+/// Переносит ли поле текст на новые строки: ячейка переносит по словам или знакам и поле не
+/// ограничено одной строкой.
+pub(crate) fn wraps(field: &NSTextField) -> bool {
+    let mode = field.lineBreakMode();
+    (mode == NSLineBreakMode::ByWordWrapping || mode == NSLineBreakMode::ByCharWrapping)
+        && field.maximumNumberOfLines() != 1
+        && !field.usesSingleLineMode()
+        && field.cell().is_some_and(|cell| cell.wraps())
+}
+
 /// Свойства вида: слой, а у поля с текстом ещё шрифт и цвет текста. Контрол без текста шрифта не
-/// несёт: шрифт кнопки отдаёт узел её подписи.
+/// несёт: шрифт кнопки отдаёт узел её подписи. Межстрочный интервал отдаёт только поле с
+/// переносом: у однострочного текста его несёт кадр.
 pub(crate) fn view_style(view: &NSView) -> Style {
     let mut style = view
         .layer()
@@ -274,7 +341,12 @@ pub(crate) fn view_style(view: &NSView) -> Style {
     if let Some(field) = view.downcast_ref::<NSTextField>() {
         style.color = field.textColor().and_then(|color| rgba(&color));
         if field.stringValue().length() > 0 {
-            style.font = field.font().map(|font| font_facts(&font));
+            let font = field.font();
+            style.font = font.as_deref().map(font_facts);
+            if wraps(field) {
+                style.line_height =
+                    font.map(|font| text_line_height(&field.attributedStringValue(), &font));
+            }
         }
     }
     style
@@ -287,9 +359,83 @@ pub(crate) fn truncated(field: &NSTextField) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use objc2_app_kit::{NSFontWeightBold, NSFontWeightMedium, NSFontWeightRegular};
+    use objc2_app_kit::{
+        NSFontWeightBold, NSFontWeightMedium, NSFontWeightRegular, NSMutableParagraphStyle,
+    };
+    use objc2_foundation::{NSMutableAttributedString, NSRange};
 
     use super::*;
+
+    fn styled(
+        text: &str,
+        shape: impl Fn(&NSMutableParagraphStyle),
+    ) -> Retained<NSAttributedString> {
+        let text = NSMutableAttributedString::from_nsstring(&NSString::from_str(text));
+        let paragraph = NSMutableParagraphStyle::new();
+        shape(&paragraph);
+        // SAFETY: имя атрибута — неизменяемая константа AppKit, значение — стиль абзаца, диапазон
+        // лежит в тексте.
+        unsafe {
+            text.addAttribute_value_range(
+                NSParagraphStyleAttributeName,
+                &paragraph,
+                NSRange::new(0, text.length()),
+            );
+        }
+        Retained::into_super(text)
+    }
+
+    #[test]
+    fn line_pitch_follows_the_paragraph_rule() {
+        let rule = LineRule::default();
+        assert!((line_pitch(15.0, rule) - 15.0).abs() < f64::EPSILON);
+        let fixed = LineRule {
+            minimum: 18.0,
+            maximum: 18.0,
+            ..rule
+        };
+        assert!((line_pitch(15.0, fixed) - 18.0).abs() < f64::EPSILON);
+        assert!((line_pitch(22.0, fixed) - 18.0).abs() < f64::EPSILON);
+        let floor = LineRule {
+            minimum: 18.0,
+            ..rule
+        };
+        assert!((line_pitch(22.0, floor) - 22.0).abs() < f64::EPSILON);
+        let stretched = LineRule {
+            multiple: 1.5,
+            spacing: 2.0,
+            ..rule
+        };
+        assert!((line_pitch(12.0, stretched) - 20.0).abs() < f64::EPSILON);
+        let negative = LineRule {
+            spacing: -4.0,
+            ..rule
+        };
+        assert!((line_pitch(15.0, negative) - 15.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn text_line_height_reads_the_paragraph_style_or_the_font_default() {
+        // SAFETY: вес шрифта — неизменяемая константа AppKit.
+        let font = NSFont::systemFontOfSize_weight(12.0, unsafe { NSFontWeightRegular });
+        let natural = NSLayoutManager::new().defaultLineHeightForFont(&font);
+        assert!(natural > 12.0 && natural < 18.0, "{natural}");
+
+        let plain = NSAttributedString::from_nsstring(&NSString::from_str("Терминал: здесь тесно"));
+        assert!((text_line_height(&plain, &font) - natural).abs() < f64::EPSILON);
+        let empty = NSAttributedString::from_nsstring(&NSString::from_str(""));
+        assert!((text_line_height(&empty, &font) - natural).abs() < f64::EPSILON);
+
+        let fixed = styled("Терминал: здесь тесно", |paragraph| {
+            paragraph.setMinimumLineHeight(18.0);
+            paragraph.setMaximumLineHeight(18.0);
+        });
+        assert!((text_line_height(&fixed, &font) - 18.0).abs() < f64::EPSILON);
+        let spaced = styled("Терминал: здесь тесно", |paragraph| {
+            paragraph.setLineSpacing(3.0);
+        });
+        assert!((text_line_height(&spaced, &font) - (natural + 3.0)).abs() < f64::EPSILON);
+    }
 
     const fn rgb(r: u8, g: u8, b: u8, a: f64) -> Rgba {
         Rgba { r, g, b, a }
