@@ -165,12 +165,15 @@ pub enum UiCommand {
     LayoutToggle(ToggleTarget),
     /// Движение списка панели с фокусом: намерение её виду.
     List(ListAction),
+    /// Открыть строку фильтра панели с фокусом. Текст фильтра действие не несёт: его задаёт
+    /// запрос `panel.filter` с полем `text`.
+    PanelFilter,
 }
 
 impl UiCommand {
     /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия и
     /// каждое движение списка.
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 21] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
@@ -191,6 +194,7 @@ impl UiCommand {
         Self::List(ListAction::Collapse),
         Self::List(ListAction::Expand),
         Self::List(ListAction::Activate),
+        Self::PanelFilter,
     ];
 
     /// Имя команды в управляющем API.
@@ -199,7 +203,9 @@ impl UiCommand {
             Self::WindowClose => "window.close",
             Self::AppQuit => "app.quit",
             Self::AppearanceSet(_) => "ui.appearance.set",
-            Self::AppearanceCycle | Self::LayoutToggle(_) | Self::List(_) => self.keymap_name(),
+            Self::AppearanceCycle | Self::LayoutToggle(_) | Self::List(_) | Self::PanelFilter => {
+                self.keymap_name()
+            }
         }
     }
 
@@ -218,6 +224,7 @@ impl UiCommand {
             Self::LayoutToggle(ToggleTarget::Plate) => "layout.toggle.plate",
             Self::LayoutToggle(ToggleTarget::Right) => "layout.toggle.right",
             Self::List(action) => action.keymap_name(),
+            Self::PanelFilter => "panel.filter",
         }
     }
 
@@ -258,6 +265,7 @@ mod tests {
             ("list.collapse", "list.collapse"),
             ("list.expand", "list.expand"),
             ("list.activate", "list.activate"),
+            ("panel.filter", "panel.filter"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {

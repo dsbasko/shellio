@@ -24,7 +24,7 @@ use shellio_layout::{SizeClass, Zone};
 pub const UI_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Запрос `ui`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(from = "WireUiRequest", into = "WireUiRequest")]
 pub enum UiRequest {
     /// `ui.window`: окно владельца.
@@ -39,6 +39,9 @@ pub enum UiRequest {
     Receipts { after: Option<u64> },
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
+    /// `panel.filter` с полем `text`: текст фильтра панели с фокусом, пустой снимает фильтр. Тот
+    /// же запрос без `text` — действие [`UiCommand::PanelFilter`].
+    Filter { text: String },
     /// Служебная команда галереи.
     Gallery(GalleryCommand),
     /// `ui.cell`: переопределение контраста и движения в окне владельца с явным
@@ -251,13 +254,14 @@ impl GalleryFocus {
 
 impl UiRequest {
     /// Имя запроса в кадре и в ADR-0007.
-    pub const fn name(self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::Window => "ui.window",
             Self::Inspect => "ui.inspect",
             Self::Stats => "ui.stats",
             Self::Receipts { .. } => "ui.receipts",
             Self::Command(command) => command.name(),
+            Self::Filter { .. } => UiCommand::PanelFilter.name(),
             Self::Gallery(command) => command.name(),
             Self::Cell { .. } => "ui.cell",
             Self::WindowSize { .. } => "ui.window.size",
@@ -265,17 +269,19 @@ impl UiRequest {
     }
 
     /// Изменяет ли запрос состояние: начатый изменяющий запрос не повторяется.
-    pub const fn is_mutation(self) -> bool {
+    pub const fn is_mutation(&self) -> bool {
         match self {
             Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } => false,
-            Self::Command(_) | Self::Gallery(_) | Self::Cell { .. } | Self::WindowSize { .. } => {
-                true
-            }
+            Self::Command(_)
+            | Self::Filter { .. }
+            | Self::Gallery(_)
+            | Self::Cell { .. }
+            | Self::WindowSize { .. } => true,
         }
     }
 
     /// Отвечает ли `reply` на этот запрос.
-    pub const fn answered_by(self, reply: &UiReply) -> bool {
+    pub const fn answered_by(&self, reply: &UiReply) -> bool {
         matches!(
             (self, reply),
             (Self::Window, UiReply::Window(_))
@@ -283,7 +289,10 @@ impl UiRequest {
                 | (Self::Stats, UiReply::Stats(_))
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
                 | (
-                    Self::Command(_) | Self::Gallery(_) | Self::WindowSize { .. },
+                    Self::Command(_)
+                        | Self::Filter { .. }
+                        | Self::Gallery(_)
+                        | Self::WindowSize { .. },
                     UiReply::Accepted(_)
                 )
                 | (Self::Cell { .. }, UiReply::Cell(_))
@@ -307,6 +316,13 @@ struct ReceiptsArgs {
 #[serde(deny_unknown_fields)]
 struct AppearanceArgs {
     appearance: AppearanceChoice,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FilterArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -429,6 +445,8 @@ enum WireUiRequest {
     ListExpand(NoArgs),
     #[serde(rename = "list.activate")]
     ListActivate(NoArgs),
+    #[serde(rename = "panel.filter")]
+    PanelFilter(FilterArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
@@ -512,6 +530,10 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::ListActivate(NoArgs {}) => {
                 Self::Command(UiCommand::List(ListAction::Activate))
             }
+            WireUiRequest::PanelFilter(FilterArgs { text: None }) => {
+                Self::Command(UiCommand::PanelFilter)
+            }
+            WireUiRequest::PanelFilter(FilterArgs { text: Some(text) }) => Self::Filter { text },
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
                 Self::WindowSize { width, height }
@@ -591,6 +613,10 @@ impl From<UiRequest> for WireUiRequest {
                 ListAction::Expand => Self::ListExpand(NoArgs {}),
                 ListAction::Activate => Self::ListActivate(NoArgs {}),
             },
+            UiRequest::Command(UiCommand::PanelFilter) => {
+                Self::PanelFilter(FilterArgs { text: None })
+            }
+            UiRequest::Filter { text } => Self::PanelFilter(FilterArgs { text: Some(text) }),
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
@@ -1637,6 +1663,25 @@ mod tests {
                 true,
             ),
             (
+                UiRequest::Command(UiCommand::PanelFilter),
+                "panel.filter",
+                true,
+            ),
+            (
+                UiRequest::Filter {
+                    text: "вид".into()
+                },
+                "panel.filter",
+                true,
+            ),
+            (
+                UiRequest::Filter {
+                    text: String::new(),
+                },
+                "panel.filter",
+                true,
+            ),
+            (
                 UiRequest::Cell {
                     contrast: Some(CellContrast::Increased),
                     motion: None,
@@ -1760,10 +1805,28 @@ mod tests {
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
             assert_eq!(request.is_mutation(), mutation, "{name}");
-            let json = serde_json::to_value(request).unwrap();
+            let json = serde_json::to_value(request.clone()).unwrap();
             let keys: Vec<&String> = json.as_object().unwrap().keys().collect();
             assert_eq!(keys, [name]);
             assert_eq!(serde_json::from_value::<UiRequest>(json).unwrap(), request);
+        }
+    }
+
+    /// Один кадр — одно значение: без `text` это действие «открыть строку фильтра», с `text`,
+    /// даже пустым, — текст фильтра.
+    #[test]
+    fn panel_filter_text_separates_opening_from_setting() {
+        let open: UiRequest = serde_json::from_value(json!({"panel.filter": {}})).unwrap();
+        assert_eq!(open, UiRequest::Command(UiCommand::PanelFilter));
+        assert_eq!(
+            serde_json::to_value(open).unwrap(),
+            json!({"panel.filter": {}})
+        );
+        for text in ["", "вид"] {
+            let frame = json!({"panel.filter": {"text": text}});
+            let set: UiRequest = serde_json::from_value(frame.clone()).unwrap();
+            assert_eq!(set, UiRequest::Filter { text: text.into() });
+            assert_eq!(serde_json::to_value(set).unwrap(), frame);
         }
     }
 
@@ -1781,6 +1844,9 @@ mod tests {
             json!({"ui.receipts": {"extra": 1}}),
             json!({"ui.receipts": null}),
             json!({"ui.receipts": {"after": "x"}}),
+            json!({"panel.filter": null}),
+            json!({"panel.filter": {"text": 1}}),
+            json!({"panel.filter": {"text": "вид", "panel": 1}}),
             json!({"ui.cell": {"contrast": "high"}}),
             json!({"ui.cell": {"motion": "reduce"}}),
             json!({"ui.cell": {"appearance": "dark"}}),
@@ -1861,7 +1927,7 @@ mod tests {
             motion: Some(CellMotion::Reduced),
         };
         assert_eq!(
-            serde_json::to_value(both).unwrap(),
+            serde_json::to_value(&both).unwrap(),
             json!({"ui.cell": {"contrast": "increased", "motion": "reduced"}})
         );
         let back: UiRequest =
@@ -1938,7 +2004,7 @@ mod tests {
         );
         let later = UiRequest::Receipts { after: Some(3) };
         assert_eq!(
-            serde_json::to_value(later).unwrap(),
+            serde_json::to_value(&later).unwrap(),
             json!({"ui.receipts": {"after": 3}})
         );
         assert_eq!(

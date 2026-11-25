@@ -550,6 +550,7 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> Connection<C, L
     async fn ui(&self, request: UiRequest) -> Result<UiReply, ControlError> {
         let gate = UiGate::new();
         let deadline = self.shared.clock.deadline(UI_TIMEOUT);
+        let (name, mutation) = (request.name(), request.is_mutation());
         let handled = self
             .shared
             .clock
@@ -560,10 +561,10 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> Connection<C, L
             Ok(Err(UiRefusal::NoUi)) => Err(ControlError::no_ui()),
             Ok(Err(UiRefusal::GalleryOnly)) => Err(ControlError::gallery_only()),
             Ok(Err(UiRefusal::IsolatedProfileOnly)) => Err(ControlError::isolated_profile_only()),
-            Err(Expired) if !gate.cancel() && request.is_mutation() => {
+            Err(Expired) if !gate.cancel() && mutation => {
                 Err(ControlError::outcome_unknown(format_args!(
                     "{} начат на главном потоке и не закончен за {} мс",
-                    request.name(),
+                    name,
                     UI_TIMEOUT.as_millis()
                 )))
             }

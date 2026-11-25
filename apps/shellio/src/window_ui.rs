@@ -475,7 +475,7 @@ impl OwnerWindow {
     fn set_window_size(
         &mut self,
         app: &App,
-        request: UiRequest,
+        command: &'static str,
         width: u32,
         height: u32,
     ) -> UiReply {
@@ -483,7 +483,7 @@ impl OwnerWindow {
         self.render_layout(app);
         self.bump();
         UiReply::Accepted(Accepted {
-            command: request.name().to_owned(),
+            command: command.to_owned(),
             pid: std::process::id(),
             generation: self.generation.get(),
         })
@@ -1516,6 +1516,29 @@ fn on_list(action: ListAction, source: Option<ReceiptSource>) {
     note_receipt(tag, ending);
 }
 
+/// Действие `panel.filter` для панели с фокусом. С текстом — намерение её виду: текст фильтра,
+/// пустой снимает фильтр. Без текста действие открывает строку фильтра хоста; пока строки нет,
+/// открывать нечего. Скрытое окно, панель без признака `filter` и вид, который намерение не
+/// принял, — действовать не на что.
+fn on_filter(text: Option<&str>, source: Option<ReceiptSource>) {
+    let tag = source.map(|source| Sent::action(UiCommand::PanelFilter.keymap_name(), source));
+    let handled = with_window(|owner| {
+        if !owner.window.is_visible() {
+            return None;
+        }
+        let intent = ViewIntent::Filter {
+            text: text?.to_owned(),
+        };
+        owner.layout.as_mut()?.intent(&intent)
+    })
+    .flatten();
+    let ending = match handled {
+        Some(Handled::Yes) => Ending::Done,
+        Some(Handled::No) | None => Ending::NotApplicable,
+    };
+    note_receipt(tag, ending);
+}
+
 /// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую
 /// в момент нажатия. Экземпляр ищет актор, завершение команды пишется в кольцо квитанций. Без
 /// открытой рабочей области пункт недоступен, и нажатие ничего не делает. Скрытое окно пункт не
@@ -1565,6 +1588,7 @@ fn on_drag(app: &App, split: SplitId, drag: SplitDrag) {
 /// Запрос `ui` управляющего API. Без окна — `no_ui`. Действие выполняет [`handle`]; `app.quit`
 /// отвечает квитанцией до `terminate:`, который [`App::terminate`] ставит таймером цикла.
 pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
+    let name = request.name();
     if let UiRequest::Gallery(command) = request {
         return with_window(|owner| owner.gallery_command(app, command))
             .unwrap_or(Err(UiRefusal::NoUi));
@@ -1597,11 +1621,18 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
                 with_window(|owner| owner.accepted(command))
             })
         }
+        UiRequest::Filter { text } => {
+            let owner = with_window(|_| ());
+            owner.and_then(|()| {
+                on_filter(Some(&text), None);
+                with_window(|owner| owner.accepted(UiCommand::PanelFilter))
+            })
+        }
         UiRequest::Cell { contrast, motion } => {
             with_window(|owner| owner.set_cell(contrast, motion))
         }
         UiRequest::WindowSize { width, height } => {
-            with_window(|owner| owner.set_window_size(app, request, width, height))
+            with_window(|owner| owner.set_window_size(app, name, width, height))
         }
         UiRequest::Gallery(_) => None,
     };
@@ -1641,6 +1672,7 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
         }
         UiCommand::LayoutToggle(target) => on_toggle(app, target, source),
         UiCommand::List(action) => on_list(action, source),
+        UiCommand::PanelFilter => on_filter(None, source),
     }
 }
 

@@ -170,8 +170,10 @@ async fn request_reaches_handler_and_reply_returns() -> TestResult {
     let fixture = Fixture::start(ui).await?;
     let mut session = fixture.session().await?;
     let set = UiRequest::Command(UiCommand::AppearanceSet(AppearanceChoice::Dark));
-    let request =
-        tokio::spawn(async move { session.request(shellio_control::RequestBody::Ui(set)).await });
+    let request = tokio::spawn({
+        let set = set.clone();
+        async move { session.request(shellio_control::RequestBody::Ui(set)).await }
+    });
     let call = calls.recv().await.ok_or("порт не вызван")?;
     assert_eq!(call.request, set);
     assert!(call.gate.begin());
@@ -255,9 +257,10 @@ async fn work_not_started_by_deadline_is_cancelled() -> TestResult {
         let (ui, mut calls) = fake();
         let fixture = Fixture::start(ui).await?;
         let mut session = fixture.session().await?;
+        let sent = request.clone();
         let pending = tokio::spawn(async move {
             session
-                .request(shellio_control::RequestBody::Ui(request))
+                .request(shellio_control::RequestBody::Ui(sent))
                 .await
         });
         let call = calls.recv().await.ok_or("порт не вызван")?;
@@ -289,9 +292,10 @@ async fn started_work_past_deadline_depends_on_mutation() -> TestResult {
         let (ui, mut calls) = fake();
         let fixture = Fixture::start(ui).await?;
         let mut session = fixture.session().await?;
+        let sent = request.clone();
         let pending = tokio::spawn(async move {
             session
-                .request(shellio_control::RequestBody::Ui(request))
+                .request(shellio_control::RequestBody::Ui(sent))
                 .await
         });
         let call = calls.recv().await.ok_or("порт не вызван")?;

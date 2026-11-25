@@ -69,6 +69,7 @@ pub const USAGE: &str = "\
   ui cell [--contrast <normal|high|system>] [--motion <full|reduce|system>]
   ui appearance <light|dark|system|cycle>
   ui list <down|up|top|bottom|page-down|page-up|collapse|expand|activate>
+  ui filter [<текст>]
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -1194,6 +1195,15 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::List(action))))
+        }
+        "ui filter" => {
+            given.only(call, &[])?;
+            let request = match rest {
+                [] => UiRequest::Command(UiCommand::PanelFilter),
+                [text] => UiRequest::Filter { text: text.clone() },
+                _ => return Err(usage(format!("{call}: ожидается не больше одного текста"))),
+            };
+            Ok(Action::Ui(request))
         }
         "ui appearance" => {
             given.only(call, &[])?;
@@ -2713,6 +2723,29 @@ mod tests {
                 action_of(&["ui", "list", action.as_str()]),
                 Action::Ui(UiRequest::Command(UiCommand::List(action)))
             );
+        }
+        assert_eq!(
+            action_of(&["ui", "filter"]),
+            Action::Ui(UiRequest::Command(UiCommand::PanelFilter))
+        );
+        for text in ["вид", "", "два слова"] {
+            assert_eq!(
+                action_of(&["ui", "filter", text]),
+                Action::Ui(UiRequest::Filter { text: text.into() })
+            );
+        }
+        assert_eq!(
+            action_of(&["ui", "filter", "--", "--all"]),
+            Action::Ui(UiRequest::Filter {
+                text: "--all".into()
+            })
+        );
+        for (args, part) in [
+            (&["ui", "filter", "а", "б"][..], "не больше одного текста"),
+            (&["ui", "filter", "вид", "--all"], "не применим"),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(part), "{args:?}: {message}");
         }
 
         let cases: &[(&[&str], &str)] = &[

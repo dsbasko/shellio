@@ -539,7 +539,7 @@ impl<U: Ui> UiHandler for UiPort<U> {
         request: UiRequest,
         gate: UiGate,
     ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
-        let admitted = admit_ui(request, self.explicit);
+        let admitted = admit_ui(&request, self.explicit);
         let work = admitted.is_ok().then(|| self.ui.ui_request(request, gate));
         async move {
             admitted?;
@@ -554,7 +554,7 @@ impl<U: Ui> UiHandler for UiPort<U> {
 /// Допуск запроса `ui` до главного потока: `ui.cell` и `ui.window.size` принимает только владелец
 /// с явным каталогом состояния (ADR-0007, «Уточнено в `prototype-conformance`»). Отказ приходит до
 /// изменения.
-pub const fn admit_ui(request: UiRequest, explicit: bool) -> Result<(), UiRefusal> {
+pub const fn admit_ui(request: &UiRequest, explicit: bool) -> Result<(), UiRefusal> {
     match request {
         UiRequest::Cell { .. } | UiRequest::WindowSize { .. } if !explicit => {
             Err(UiRefusal::IsolatedProfileOnly)
@@ -566,6 +566,7 @@ pub const fn admit_ui(request: UiRequest, explicit: bool) -> Result<(), UiRefusa
         | UiRequest::Stats
         | UiRequest::Receipts { .. }
         | UiRequest::Command(_)
+        | UiRequest::Filter { .. }
         | UiRequest::Gallery(_) => Ok(()),
     }
 }
@@ -832,9 +833,9 @@ mod tests {
             },
         ];
         for cell in cells {
-            assert_eq!(admit_ui(cell, isolated.is_explicit()), Ok(()));
+            assert_eq!(admit_ui(&cell, isolated.is_explicit()), Ok(()));
             assert_eq!(
-                admit_ui(cell, false),
+                admit_ui(&cell, false),
                 Err(UiRefusal::IsolatedProfileOnly),
                 "{cell:?}"
             );
@@ -845,10 +846,14 @@ mod tests {
             UiRequest::Stats,
             UiRequest::Receipts { after: None },
             UiRequest::Command(UiCommand::WindowClose),
+            UiRequest::Command(UiCommand::PanelFilter),
+            UiRequest::Filter {
+                text: "вид".into()
+            },
             UiRequest::Gallery(GalleryCommand::Reset),
         ] {
             for explicit in [false, true] {
-                assert_eq!(admit_ui(other, explicit), Ok(()), "{other:?}");
+                assert_eq!(admit_ui(&other, explicit), Ok(()), "{other:?}");
             }
         }
     }

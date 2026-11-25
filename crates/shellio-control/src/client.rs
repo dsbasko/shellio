@@ -312,7 +312,7 @@ async fn read_frame(reader: &mut Reader) -> Result<Response, ReadFailure> {
 }
 
 /// Какой успешный ответ ждёт запрос.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Expect {
     Hello,
     Reply,
@@ -324,7 +324,7 @@ enum Expect {
 }
 
 impl Expect {
-    fn matches(self, value: &OkValue) -> bool {
+    fn matches(&self, value: &OkValue) -> bool {
         match value {
             OkValue::Hello(_) => matches!(self, Self::Hello),
             OkValue::Reply(_) => matches!(self, Self::Reply),
@@ -468,7 +468,7 @@ impl<C: Clock> Session<C> {
             RequestBody::Query(_) => (Expect::Reply, false),
             RequestBody::EventsSince { .. } => (Expect::EventsSince, false),
             RequestBody::Launch(_) => (Expect::Launch, true),
-            RequestBody::Ui(request) => (Expect::Ui(*request), request.is_mutation()),
+            RequestBody::Ui(request) => (Expect::Ui(request.clone()), request.is_mutation()),
             // Перечитывание файла повторяемо: тот же файл даёт ту же таблицу.
             RequestBody::Keymap(KeymapRequest::Query | KeymapRequest::Reload) => {
                 (Expect::Keymap, false)

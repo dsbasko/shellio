@@ -224,6 +224,9 @@ fn request_golden_static(request: &Request) -> &'static str {
             ListAction::Expand => "request.ui.list_expand",
             ListAction::Activate => "request.ui.list_activate",
         },
+        RequestBody::Ui(UiRequest::Command(UiCommand::PanelFilter) | UiRequest::Filter { .. }) => {
+            "request.ui.panel_filter"
+        }
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -331,6 +334,13 @@ fn requests() -> Vec<Request> {
         request(
             49,
             RequestBody::Ui(UiRequest::Command(UiCommand::List(ListAction::PageDown))),
+        ),
+        // P1.6, задача 6: текст фильтра панели с фокусом.
+        request(
+            50,
+            RequestBody::Ui(UiRequest::Filter {
+                text: "вид".into()
+            }),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
