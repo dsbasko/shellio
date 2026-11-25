@@ -14,13 +14,15 @@ use shellio_core::{
 };
 
 use crate::error::ControlError;
+use crate::keymap::{KeymapRequest, KeymapView};
 use crate::ui::{UiReply, UiRequest};
 
 /// Версия протокола, которую говорят сервер и клиент этой сборки. Версия 2 добавила в снимок
 /// панели и раскладки (ADR-0007, «Уточнено в P1.4 (планирование)»), версия 3 — данные и статус
-/// панелей, вызывающую панель и их дельты (ADR-0007, «Уточнено в P1.5 (планирование)»): смешанные
+/// панелей, вызывающую панель и их дельты (ADR-0007, «Уточнено в P1.5 (планирование)»), версия 5 —
+/// запрос `keymap` и кадр подписки keymap (ADR-0007, «Уточнено в P1.6 (планирование)»): смешанные
 /// версии расходятся на `hello`.
-pub const PROTOCOL: u32 = 4;
+pub const PROTOCOL: u32 = 5;
 
 /// Номер запроса. Ответ несёт номер своего запроса, кадры подписки — номер `subscribe`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -58,6 +60,8 @@ pub enum RequestBody {
     Launch(Launch),
     /// Запрос к UI владельца (P1.3): выполняется на главном потоке.
     Ui(UiRequest),
+    /// Запрос к службе keymap владельца (P1.6): без ядра и без главного потока.
+    Keymap(KeymapRequest),
 }
 
 impl RequestBody {
@@ -71,6 +75,7 @@ impl RequestBody {
             Self::Subscribe => "subscribe",
             Self::Launch(_) => "launch",
             Self::Ui(_) => "ui",
+            Self::Keymap(_) => "keymap",
         }
     }
 }
@@ -134,10 +139,12 @@ struct WireRequest {
     #[serde(default, deserialize_with = "present")]
     ui: Option<UiRequest>,
     #[serde(default, deserialize_with = "present")]
+    keymap: Option<KeymapRequest>,
+    #[serde(default, deserialize_with = "present")]
     scope: Option<TreeScope>,
 }
 
-const REQUEST_KINDS: &str = "hello, command, query, events_since, subscribe, launch, ui";
+const REQUEST_KINDS: &str = "hello, command, query, events_since, subscribe, launch, ui, keymap";
 
 /// У вида `kind` поля `scope` нет.
 fn without_scope(kind: &str, scope: Option<TreeScope>) -> Result<(), ControlError> {
@@ -169,6 +176,7 @@ impl WireRequest {
             subscribe,
             launch,
             ui,
+            keymap,
             scope,
         } = self;
         let kinds = [
@@ -179,6 +187,7 @@ impl WireRequest {
             subscribe.is_some(),
             launch.is_some(),
             ui.is_some(),
+            keymap.is_some(),
         ]
         .into_iter()
         .filter(|present| *present)
@@ -209,6 +218,9 @@ impl WireRequest {
         } else if let Some(ui) = ui {
             without_scope("ui", scope)?;
             Ok(RequestBody::Ui(ui))
+        } else if let Some(keymap) = keymap {
+            without_scope("keymap", scope)?;
+            Ok(RequestBody::Keymap(keymap))
         } else {
             Err(ControlError::malformed_request(format_args!(
                 "нет вида запроса, ожидается одно из: {REQUEST_KINDS}"
@@ -303,6 +315,7 @@ impl Serialize for Request {
             }
             RequestBody::Launch(launch) => map.serialize_entry(kind, launch)?,
             RequestBody::Ui(ui) => map.serialize_entry(kind, ui)?,
+            RequestBody::Keymap(keymap) => map.serialize_entry(kind, keymap)?,
         }
         map.end()
     }
@@ -329,6 +342,8 @@ pub enum Response {
     Event { id: RequestId, event: Event },
     /// Подписчик отстал: новый снимок, дальше события после его ревизии.
     Reset { id: RequestId, snapshot: Snapshot },
+    /// Кадр подписки keymap: полная таблица.
+    Keymap { id: RequestId, keymap: KeymapView },
 }
 
 impl Response {
@@ -340,7 +355,8 @@ impl Response {
             | Self::CoreError { id, .. }
             | Self::Snapshot { id, .. }
             | Self::Event { id, .. }
-            | Self::Reset { id, .. } => Some(*id),
+            | Self::Reset { id, .. }
+            | Self::Keymap { id, .. } => Some(*id),
         }
     }
 
@@ -361,6 +377,7 @@ impl Serialize for Response {
             Self::Snapshot { snapshot, .. } => map.serialize_entry("snapshot", snapshot)?,
             Self::Event { event, .. } => map.serialize_entry("event", event)?,
             Self::Reset { snapshot, .. } => map.serialize_entry("reset", snapshot)?,
+            Self::Keymap { keymap, .. } => map.serialize_entry("keymap", keymap)?,
         }
         map.end()
     }
@@ -385,6 +402,8 @@ struct WireResponse {
     event: Option<Event>,
     #[serde(default, deserialize_with = "present")]
     reset: Option<Snapshot>,
+    #[serde(default, deserialize_with = "present")]
+    keymap: Option<KeymapView>,
 }
 
 impl TryFrom<WireResponse> for Response {
@@ -399,6 +418,7 @@ impl TryFrom<WireResponse> for Response {
             snapshot,
             event,
             reset,
+            keymap,
         } = wire;
         let kinds = [
             ok.is_some(),
@@ -407,6 +427,7 @@ impl TryFrom<WireResponse> for Response {
             snapshot.is_some(),
             event.is_some(),
             reset.is_some(),
+            keymap.is_some(),
         ]
         .into_iter()
         .filter(|present| *present)
@@ -428,17 +449,20 @@ impl TryFrom<WireResponse> for Response {
             Ok(Self::Event { id, event })
         } else if let Some(snapshot) = reset {
             Ok(Self::Reset { id, snapshot })
+        } else if let Some(keymap) = keymap {
+            Ok(Self::Keymap { id, keymap })
         } else {
             Err(
-                "нет вида ответа, ожидается одно из: ok, core_error, error, snapshot, event, reset"
+                "нет вида ответа, ожидается одно из: ok, core_error, error, snapshot, event, \
+                 reset, keymap"
                     .to_owned(),
             )
         }
     }
 }
 
-/// Значение успешного ответа. `Reply` и `EventsSince` идут как есть, `hello`, `launch` и
-/// `ui` — под своим ключом.
+/// Значение успешного ответа. `Reply` и `EventsSince` идут как есть, `hello`, `launch`, `ui` и
+/// `keymap` — под своим ключом.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(from = "WireOk")]
 pub enum OkValue {
@@ -452,6 +476,8 @@ pub enum OkValue {
     Launch(LaunchReceipt),
     /// Ответ запроса `ui`.
     Ui(UiReply),
+    /// Ответ `query.keymap` и `keymap.reload`: действующая таблица.
+    Keymap(KeymapView),
 }
 
 impl Serialize for OkValue {
@@ -462,6 +488,7 @@ impl Serialize for OkValue {
             Self::EventsSince(since) => since.serialize(serializer),
             Self::Launch(receipt) => keyed(serializer, "launch", receipt),
             Self::Ui(reply) => keyed(serializer, "ui", reply),
+            Self::Keymap(view) => keyed(serializer, "keymap", view),
         }
     }
 }
@@ -492,6 +519,7 @@ enum KeyedOk {
     Hello(HelloReply),
     Launch(LaunchReceipt),
     Ui(UiReply),
+    Keymap(KeymapView),
 }
 
 impl From<WireOk> for OkValue {
@@ -500,6 +528,7 @@ impl From<WireOk> for OkValue {
             WireOk::Keyed(KeyedOk::Hello(hello)) => Self::Hello(hello),
             WireOk::Keyed(KeyedOk::Launch(receipt)) => Self::Launch(receipt),
             WireOk::Keyed(KeyedOk::Ui(reply)) => Self::Ui(reply),
+            WireOk::Keyed(KeyedOk::Keymap(view)) => Self::Keymap(view),
             WireOk::Reply(reply) => Self::Reply(reply),
             WireOk::EventsSince(since) => Self::EventsSince(since),
         }

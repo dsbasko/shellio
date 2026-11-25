@@ -31,6 +31,7 @@ use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
     StyleView,
 };
+use shellio_control::{KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView};
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
@@ -187,6 +188,9 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::EventsSince { .. } => "request.events_since",
         RequestBody::Subscribe => "request.subscribe",
         RequestBody::Launch(_) => "request.launch",
+        RequestBody::Keymap(KeymapRequest::Query) => "request.keymap.query",
+        RequestBody::Keymap(KeymapRequest::Reload) => "request.keymap.reload",
+        RequestBody::Keymap(KeymapRequest::Subscribe) => "request.keymap.subscribe",
         RequestBody::Ui(UiRequest::Window) => "request.ui.window",
         RequestBody::Ui(UiRequest::Inspect) => "request.ui.inspect",
         RequestBody::Ui(UiRequest::Stats) => "request.ui.stats",
@@ -470,6 +474,10 @@ fn requests() -> Vec<Request> {
             44,
             RequestBody::Ui(UiRequest::Gallery(GalleryCommand::Calibration)),
         ),
+        // P1.6, задача 3: запросы службы keymap.
+        request(45, RequestBody::Keymap(KeymapRequest::Query)),
+        request(46, RequestBody::Keymap(KeymapRequest::Reload)),
+        request(47, RequestBody::Keymap(KeymapRequest::Subscribe)),
     ])
     .collect()
 }
@@ -545,6 +553,10 @@ fn response_golden(response: &Response) -> &'static str {
             value: OkValue::Launch(_),
             ..
         } => "response.ok.launch",
+        Response::Ok {
+            value: OkValue::Keymap(_),
+            ..
+        } => "response.ok.keymap",
         Response::Ok {
             value: OkValue::Ui(reply),
             ..
@@ -624,6 +636,7 @@ fn response_golden(response: &Response) -> &'static str {
         Response::Snapshot { .. } => "response.snapshot",
         Response::Event { .. } => "response.event",
         Response::Reset { .. } => "response.reset",
+        Response::Keymap { .. } => "response.keymap",
     }
 }
 
@@ -886,7 +899,61 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(41, OkValue::Reply(core_reply("reply.plugins")?)),
         // P1.5, задача 10: квитанции `panel.open` главного потока — успех и ранний отказ.
         ok(42, OkValue::Ui(UiReply::Receipts(receipts_view()))),
+        // P1.6, задача 3: ответ `query.keymap` и кадр подписки keymap.
+        ok(45, OkValue::Keymap(keymap_view())),
+        Response::Keymap {
+            id: RequestId(47),
+            keymap: keymap_view(),
+        },
     ])
+}
+
+/// Таблица эталона: строка по умолчанию с `args`, строка файла и обе формы диагностики.
+fn keymap_view() -> KeymapView {
+    let row = |context: &str, sequence: &str, action: &str, args, source| KeymapRow {
+        context: context.into(),
+        sequence: sequence.into(),
+        action: action.into(),
+        args,
+        source,
+    };
+    KeymapView {
+        version: 2,
+        leader: "Space".into(),
+        bindings: vec![
+            row(
+                "navigation",
+                "Ctrl-w v",
+                "layout.split",
+                Some(json!({"axis": "row"})),
+                KeymapSource::Default,
+            ),
+            row(
+                "panel.demo-list",
+                "x",
+                "demo-list.back",
+                None,
+                KeymapSource::File,
+            ),
+        ],
+        diagnostics: vec![
+            KeymapDiagnostic {
+                line: Some(7),
+                kind: "unknown_action".into(),
+                reason: "неизвестное действие «x.y»".into(),
+                message: "keymap.toml, строка 7: неизвестное действие «x.y» — привязка отключена"
+                    .into(),
+            },
+            KeymapDiagnostic {
+                line: None,
+                kind: "unreadable".into(),
+                reason: "строка 2: нет значения".into(),
+                message: "keymap.toml не прочитан: строка 2: нет значения — действует прежняя \
+                          таблица"
+                    .into(),
+            },
+        ],
+    }
 }
 
 /// Ответ эталона `ui.receipts` на `after: 1`: успешное открытие и ранний отказ `busy`.
@@ -1774,6 +1841,10 @@ fn request_golden_names_follow_frame_keys() {
                 let suffix = suffix.strip_prefix("ui_").unwrap_or(&suffix);
                 assert_eq!(name, format!("{kind}.{suffix}"));
             }
+            RequestBody::Keymap(keymap) => {
+                let suffix = keymap.name().replace("keymap", "");
+                assert_eq!(name, format!("{kind}.{}", suffix.trim_matches('.')));
+            }
             RequestBody::Command { command, .. } if name != kind => {
                 assert_eq!(name, format!("{kind}.{}", command.name().replace('.', "_")));
             }
@@ -1903,7 +1974,7 @@ fn assert_malformed(line: &str, id: Option<u64>, reason: &str) {
     assert_rejected(line, ControlErrorCode::MalformedRequest, id, reason);
 }
 
-const HELLO: &str = r#"{"protocol":4,"client":"test"}"#;
+const HELLO: &str = r#"{"protocol":5,"client":"test"}"#;
 const ID: &str = "00000000-0000-0000-0000-000000000001";
 
 #[test]
@@ -1914,7 +1985,7 @@ fn extra_field_is_malformed_and_keeps_id() {
         "unknown field `extra`",
     );
     assert_malformed(
-        r#"{"id":1,"hello":{"protocol":4,"client":"test","extra":1}}"#,
+        r#"{"id":1,"hello":{"protocol":5,"client":"test","extra":1}}"#,
         Some(1),
         "unknown field `extra`",
     );
@@ -2549,7 +2620,7 @@ fn assert_response_rejected(line: &str, reason: &str) {
     }
 }
 
-const HELLO_REPLY: &str = r#"{"protocol":4,"server":"0.1.0","pid":1,"owner":"ready"}"#;
+const HELLO_REPLY: &str = r#"{"protocol":5,"server":"0.1.0","pid":1,"owner":"ready"}"#;
 const LEAVING: &str = r#"{"code":"owner_leaving","message":"","retryable":true,"details":{}}"#;
 
 #[test]
@@ -2584,8 +2655,8 @@ fn ok_value_is_strict() {
     for ok in [
         r#"{"status":{}}"#.to_owned(),
         format!(r#"{{"hello":{HELLO_REPLY},"extra":1}}"#),
-        r#"{"hello":{"protocol":4,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
-        r#"{"hello":{"protocol":4,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
+        r#"{"hello":{"protocol":5,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
+        r#"{"hello":{"protocol":5,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
         r#"{"launch":{"activation":"requested","refused":[{"arg":"x","reason":"busy"}]}}"#
             .to_owned(),
         r#"{"launch":{"activation":"done","refused":[]}}"#.to_owned(),

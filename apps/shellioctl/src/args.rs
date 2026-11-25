@@ -13,7 +13,7 @@ use std::time::Duration;
 use serde_json::Value;
 use shellio_control::{
     CLI_TIMEOUT, CellContrast, CellMotion, Contrast, GalleryCommand, GalleryFocus, GalleryStrip,
-    Lightness, Motion, TreeMutation, UiRequest,
+    KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
     AppearanceChoice, Command, PanelId, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId,
@@ -54,6 +54,8 @@ pub const USAGE: &str = "\
   panel command <панель> <действие> [--args <json>] (--workspace <id> | --all)
   panel get <панель> (--workspace <id> | --all)
   plugin list
+  keymap list [--follow]
+  keymap reload
   events --since <курсор> --all
   events --follow --all
   ui window
@@ -86,6 +88,9 @@ pub const USAGE: &str = "\
 открытую в окне.
 panel open открывает панель плагина по правилу его кардинальности: новую или уже существующую.
 Действие у panel command — полное имя из манифеста плагина, <плагин>.<имя>. --args — объект JSON.
+keymap list — действующая таблица клавиш с диагностикой последнего разбора keymap.toml, с --follow
+— поток полных таблиц на каждое изменение. keymap reload применяет keymap.toml сейчас и печатает
+таблицу после применения. Окна оба вызова не требуют.
 ui receipts — служебное чтение тестов: квитанции panel.open, поданных из окна, с номером больше
 --after.
 ui cell — служебный вход тестов: контраст и движение окна владельца с явным SHELLIO_STATE_DIR;
@@ -144,6 +149,8 @@ pub enum Action {
     Follow,
     /// Запрос к UI владельца.
     Ui(UiRequest),
+    /// Запрос к службе keymap владельца; `keymap.subscribe` — поток до закрытия.
+    Keymap(KeymapRequest),
 }
 
 /// Ошибка использования.
@@ -565,6 +572,7 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                     | "layout"
                     | "panel"
                     | "plugin"
+                    | "keymap"
                     | "ui"
                     | "window"
                     | "app"
@@ -930,6 +938,20 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
             given.only(call, &[])?;
             operands::<0>(call, rest)?;
             Ok(Action::Plugins)
+        }
+        "keymap list" => {
+            given.only(call, &[Flag::Follow])?;
+            operands::<0>(call, rest)?;
+            Ok(Action::Keymap(if given.has(Flag::Follow) {
+                KeymapRequest::Subscribe
+            } else {
+                KeymapRequest::Query
+            }))
+        }
+        "keymap reload" => {
+            given.only(call, &[])?;
+            operands::<0>(call, rest)?;
+            Ok(Action::Keymap(KeymapRequest::Reload))
         }
         "events" => {
             given.only(call, &[Flag::Since, Flag::Follow, Flag::All])?;
@@ -1386,6 +1408,37 @@ mod tests {
             action_of(&["app", "quit"]),
             Action::Ui(UiRequest::Command(UiCommand::AppQuit))
         );
+    }
+
+    #[test]
+    fn keymap_calls_take_no_scope_and_only_follow() {
+        assert_eq!(
+            action_of(&["keymap", "list"]),
+            Action::Keymap(KeymapRequest::Query)
+        );
+        assert_eq!(
+            action_of(&["keymap", "list", "--follow"]),
+            Action::Keymap(KeymapRequest::Subscribe)
+        );
+        assert_eq!(
+            action_of(&["keymap", "reload"]),
+            Action::Keymap(KeymapRequest::Reload)
+        );
+        let flagged = run(&["--json", "keymap", "list", "--timeout", "50"]);
+        assert!(flagged.json);
+        assert_eq!(flagged.action, Action::Keymap(KeymapRequest::Query));
+        for (args, reason) in [
+            (&["keymap"][..], "не указано действие"),
+            (&["keymap", "get"], "неизвестный вызов"),
+            (&["keymap", "list", "extra"], "операндов"),
+            (&["keymap", "list", "--all"], "не применим"),
+            (&["keymap", "list", "--workspace", WORK], "не применим"),
+            (&["keymap", "reload", "--follow"], "не применим"),
+            (&["keymap", "reload", "now"], "операндов"),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(reason), "{args:?}: {message}");
+        }
     }
 
     #[test]

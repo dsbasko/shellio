@@ -900,6 +900,10 @@ mod tests {
                 include_str!("../../shellio-control/src/ui.rs"),
                 "gallery.cell",
             ),
+            (
+                include_str!("../../shellio-control/src/keymap.rs"),
+                "keymap.reload",
+            ),
         ];
         for (source, known) in sources {
             let names = host_names(source);

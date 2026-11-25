@@ -13,6 +13,10 @@
 //! начало работы на главном потоке через [`UiGate`], и по сроку сервер отличает работу, которая не
 //! начиналась и уже не начнётся (`ui_timeout`), от начатой (`outcome_unknown` у изменяющего
 //! запроса).
+//!
+//! Запрос `keymap` отвечает порт [`KeymapHandler`] службы keymap владельца: без ядра и без главного
+//! потока. Подписка keymap — свой поток полных таблиц: первая сразу, дальше последняя на каждое
+//! изменение.
 
 use std::future::{Future, pending, ready};
 use std::io;
@@ -34,6 +38,7 @@ use crate::clock::{Clock, Expired, RETRY_INTERVAL};
 use crate::codec::{LineError, LineReader, REQUEST_LINE_LIMIT, encode_line};
 use crate::error::{ControlError, ControlErrorCode};
 use crate::instance::admit_peer;
+use crate::keymap::{KeymapHandler, KeymapRequest, KeymapView, WithoutKeymap};
 use crate::ui::{UI_TIMEOUT, UiGate, UiRefusal, UiReply, UiRequest};
 use crate::wire::{
     Hello, HelloReply, Launch, LaunchReceipt, OkValue, OwnerState, PROTOCOL, Rejected, Request,
@@ -103,12 +108,19 @@ impl ServerConfig {
 ///
 /// Брошенный без [`Self::shutdown`] сервер закрывает допуск и слушатель и отменяет
 /// соединения, но ядро не останавливает.
-pub struct Server<C: Clock, L: LaunchHandler, U: UiHandler = WithoutUi> {
-    shared: Arc<Shared<C, L, U>>,
+pub struct Server<
+    C: Clock,
+    L: LaunchHandler,
+    U: UiHandler = WithoutUi,
+    K: KeymapHandler = WithoutKeymap,
+> {
+    shared: Arc<Shared<C, L, U, K>>,
     accept: Option<JoinHandle<()>>,
 }
 
-impl<C: Clock, L: LaunchHandler, U: UiHandler> std::fmt::Debug for Server<C, L, U> {
+impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> std::fmt::Debug
+    for Server<C, L, U, K>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Server")
             .field("config", &self.shared.config)
@@ -120,17 +132,18 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler> std::fmt::Debug for Server<C, L, 
 /// Состояние допуска: `None` — владелец готов, `Some` — уходит, со сроком шагов завершения.
 type Leaving<D> = watch::Sender<Option<D>>;
 
-struct Shared<C: Clock, L, U> {
+struct Shared<C: Clock, L, U, K> {
     core: CoreHandle,
     launcher: L,
     ui: U,
+    keymap: K,
     clock: C,
     config: ServerConfig,
     leaving: Leaving<C::Deadline>,
     hooks: hooks::ServerHooks,
 }
 
-impl<C: Clock, L, U> Shared<C, L, U> {
+impl<C: Clock, L, U, K> Shared<C, L, U, K> {
     fn is_leaving(&self) -> bool {
         self.leaving.borrow().is_some()
     }
@@ -167,15 +180,42 @@ async fn wait_leaving<D: Copy>(leaving: &mut watch::Receiver<Option<D>>) -> D {
 }
 
 impl<C: Clock, L: LaunchHandler, U: UiHandler> Server<C, L, U> {
-    /// Запустить сервер на `runtime` над слушателем `listener`, например из
-    /// [`crate::Ownership::publish`]. Слушатель переводится в неблокирующий режим. Запросы
-    /// `launch` идут обработчику `launcher`, запросы `ui` — порту `ui`.
+    /// [`Server::start_with_keymap`] без службы keymap: запрос `keymap` отвечает пустой таблицей.
     pub fn start(
         runtime: &Handle,
         listener: StdUnixListener,
         core: CoreHandle,
         launcher: L,
         ui: U,
+        clock: C,
+        config: ServerConfig,
+    ) -> io::Result<Self> {
+        Self::start_with_keymap(
+            runtime,
+            listener,
+            core,
+            launcher,
+            ui,
+            WithoutKeymap::default(),
+            clock,
+            config,
+        )
+    }
+}
+
+impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> Server<C, L, U, K> {
+    /// Запустить сервер на `runtime` над слушателем `listener`, например из
+    /// [`crate::Ownership::publish`]. Слушатель переводится в неблокирующий режим. Запросы
+    /// `launch` идут обработчику `launcher`, запросы `ui` — порту `ui`, запросы `keymap` — порту
+    /// `keymap`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_with_keymap(
+        runtime: &Handle,
+        listener: StdUnixListener,
+        core: CoreHandle,
+        launcher: L,
+        ui: U,
+        keymap: K,
         clock: C,
         config: ServerConfig,
     ) -> io::Result<Self> {
@@ -188,6 +228,7 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler> Server<C, L, U> {
             core,
             launcher,
             ui,
+            keymap,
             clock,
             config,
             leaving: watch::Sender::new(None),
@@ -237,7 +278,7 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler> Server<C, L, U> {
     }
 }
 
-impl<C: Clock, L: LaunchHandler, U: UiHandler> Drop for Server<C, L, U> {
+impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> Drop for Server<C, L, U, K> {
     fn drop(&mut self) {
         if self.accept.is_some() {
             self.leave();
@@ -255,8 +296,8 @@ fn rethrow(joined: Result<(), JoinError>) {
 }
 
 /// Цикл приёма до `leaving`, затем ожидание конца всех соединений.
-async fn accept<C: Clock, L: LaunchHandler, U: UiHandler>(
-    shared: Arc<Shared<C, L, U>>,
+async fn accept<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler>(
+    shared: Arc<Shared<C, L, U, K>>,
     listener: UnixListener,
 ) {
     let mut leaving = shared.leaving.subscribe();
@@ -331,20 +372,25 @@ const fn names_request_kind(code: ControlErrorCode) -> bool {
     }
 }
 
+/// Представление таблицы из снимка службы keymap.
+fn table<S: AsRef<KeymapView>>(snapshot: &Arc<S>) -> KeymapView {
+    S::as_ref(snapshot).clone()
+}
+
 fn transport_error(id: Option<RequestId>, error: ControlError) -> Response {
     Response::Error { id, error }
 }
 
-struct Connection<C: Clock, L, U> {
-    shared: Arc<Shared<C, L, U>>,
+struct Connection<C: Clock, L, U, K> {
+    shared: Arc<Shared<C, L, U, K>>,
     reader: LineReader<BufReader<OwnedReadHalf>>,
     writer: OwnedWriteHalf,
     leaving: watch::Receiver<Option<C::Deadline>>,
     greeted: bool,
 }
 
-impl<C: Clock, L: LaunchHandler, U: UiHandler> Connection<C, L, U> {
-    fn new(shared: Arc<Shared<C, L, U>>, stream: UnixStream) -> Self {
+impl<C: Clock, L: LaunchHandler, U: UiHandler, K: KeymapHandler> Connection<C, L, U, K> {
+    fn new(shared: Arc<Shared<C, L, U, K>>, stream: UnixStream) -> Self {
         let (reader, writer) = stream.into_split();
         let leaving = shared.leaving.subscribe();
         Self {
@@ -446,6 +492,54 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler> Connection<C, L, U> {
                 self.send(&response).await
             }
             RequestBody::Subscribe => self.stream(id).await,
+            RequestBody::Keymap(KeymapRequest::Query) => {
+                let view = table(&self.shared.keymap.watch().borrow());
+                self.keymap_reply(id, view).await
+            }
+            RequestBody::Keymap(KeymapRequest::Reload) => {
+                let applied = self.shared.keymap.reload().await;
+                self.keymap_reply(id, table(&applied)).await
+            }
+            RequestBody::Keymap(KeymapRequest::Subscribe) => self.keymap_stream(id).await,
+        }
+    }
+
+    async fn keymap_reply(&mut self, id: RequestId, view: KeymapView) -> Result<(), Hangup> {
+        self.shared.hooks.before_reply().await;
+        self.send(&Response::Ok {
+            id,
+            value: OkValue::Keymap(view),
+        })
+        .await
+    }
+
+    /// Поток подписки keymap до закрытия. Получатель заводится раньше первого кадра, поэтому
+    /// изменение между ними не теряется. Отставший подписчик получает последнюю таблицу:
+    /// промежуточные поколения не гарантируются. Ввод клиента в потоке не отвечается.
+    async fn keymap_stream(&mut self, id: RequestId) -> Result<(), Hangup> {
+        let mut tables = self.shared.keymap.watch();
+        loop {
+            let keymap = table(&tables.borrow_and_update());
+            self.send(&Response::Keymap { id, keymap }).await?;
+            loop {
+                tokio::select! {
+                    biased;
+                    _ = wait_leaving(&mut self.leaving) => {
+                        self.send(&transport_error(Some(id), ControlError::owner_leaving()))
+                            .await?;
+                        return Err(Hangup);
+                    }
+                    input = self.reader.next_line() => match input {
+                        Ok(Some(_)) => {}
+                        Ok(None) | Err(_) => return Err(Hangup),
+                    },
+                    changed = tables.changed() => match changed {
+                        Ok(()) => break,
+                        // Служба ушла раньше сервера: поток кончается вместе с соединением.
+                        Err(_) => return Err(Hangup),
+                    },
+                }
+            }
         }
     }
 
@@ -661,7 +755,7 @@ pub(crate) mod hooks {
             Gate::arm(&self.admission)
         }
 
-        /// Следующий ответ команды, чтения, `events_since`, `launch` или `ui` остановится после
+        /// Следующий ответ команды, чтения, `events_since`, `launch`, `ui` или `keymap` остановится после
         /// квитанции ядра или порта и до записи, пока его не отпустят.
         pub fn hold_next_reply(&self) -> Hold {
             Gate::arm(&self.reply)

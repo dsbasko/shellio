@@ -28,11 +28,12 @@ use shellio::owner::{
 };
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
-    Activation, Address, Client, ControlError, ControlErrorCode, Exit, HelloReply, Launch,
-    LaunchReceipt, LineReader, OkValue, OwnerState, Ownership, PROTOCOL, Probe, REQUEST_LINE_LIMIT,
-    RequestBody, RequestId, Response, TokioClock, encode_line, lock_path, probe_owner, socket_path,
+    Activation, Address, Client, ControlError, ControlErrorCode, Exit, HelloReply, KeymapSource,
+    KeymapView, Launch, LaunchReceipt, LineReader, OkValue, OwnerState, Ownership, PROTOCOL, Probe,
+    REQUEST_LINE_LIMIT, RequestBody, RequestId, Response, TokioClock, encode_line, lock_path,
+    probe_owner, socket_path,
 };
-use shellio_core::{Command as CoreCommand, Query, ReplyValue, TreeScope, TreeView};
+use shellio_core::{Command as CoreCommand, Query, ReplyValue, Revision, TreeScope, TreeView};
 use shellio_store::Profile;
 use tempfile::TempDir;
 use tokio::io::AsyncWriteExt;
@@ -1277,4 +1278,218 @@ async fn leaving_owner_is_retried_until_launch_is_delivered() {
         "передача на каждый hello с ready, уходящему — нет"
     );
     fake.stop();
+}
+
+impl Fixture {
+    fn keymap_file(&self) -> PathBuf {
+        self.profile().config_dir().join("keymap.toml")
+    }
+
+    fn write_keymap(&self, text: &str) {
+        fs::create_dir_all(self.profile().config_dir()).unwrap();
+        fs::write(self.keymap_file(), text).unwrap();
+    }
+
+    /// Таблица из ответа `shellioctl keymap … --json`.
+    fn keymap(&self, call: &[&str]) -> KeymapView {
+        let mut args = call.to_vec();
+        args.push("--json");
+        let output = self.ctl(&args);
+        assert_eq!(output.status.code(), Some(0), "{call:?}: {output:?}");
+        match Response::parse(text(&output.stdout).trim_end().as_bytes()).unwrap() {
+            Response::Ok {
+                value: OkValue::Keymap(view),
+                ..
+            } => view,
+            other => panic!("{call:?}: ожидалась таблица, получено {other:?}"),
+        }
+    }
+
+    /// Доменная ревизия ядра по `query.status`.
+    fn revision(&self) -> Revision {
+        match block_on(self.client().call(RequestBody::Query(Query::Status {}))).unwrap() {
+            Response::Ok {
+                value: OkValue::Reply(reply),
+                ..
+            } => reply.revision,
+            frame => panic!("статус: {frame:?}"),
+        }
+    }
+}
+
+fn has_key(view: &KeymapView, sequence: &str) -> bool {
+    view.bindings
+        .iter()
+        .any(|row| row.context == "navigation" && row.sequence == sequence)
+}
+
+/// Следующая таблица потока `keymap list --follow --json`.
+fn followed(lines: &mut impl BufRead) -> KeymapView {
+    let mut line = String::new();
+    assert_ne!(lines.read_line(&mut line).unwrap(), 0, "поток кончился");
+    match Response::parse(line.trim_end().as_bytes()).unwrap() {
+        Response::Keymap { keymap, .. } => keymap,
+        other => panic!("ожидался кадр keymap, получено {other:?}"),
+    }
+}
+
+/// Таблица keymap у владельца без окна: `shellioctl keymap list|reload` отдельным процессом, правка
+/// файла профиля, неверная строка, нечитаемый файл и поток `--follow`. Доменная ревизия растёт
+/// только от доменной команды.
+#[test]
+fn shellioctl_keymap_calls_work_without_a_window() {
+    let fixture = Fixture::new();
+    let gone = fixture.ctl(&["keymap", "list", "--json"]);
+    assert_eq!(gone.status.code(), Some(69), "{gone:?}");
+
+    let mut owner = fixture.owner();
+    owner.handled();
+    let start = fixture.revision();
+
+    let defaults = fixture.keymap(&["keymap", "list"]);
+    assert_eq!((defaults.version, defaults.leader.as_str()), (1, "Space"));
+    assert!(defaults.diagnostics.is_empty());
+    assert!(has_key(&defaults, "Ctrl-w z"));
+    assert!(
+        defaults
+            .bindings
+            .iter()
+            .all(|row| row.source == KeymapSource::Default)
+    );
+    let plain = fixture.ctl(&["keymap", "list"]);
+    assert_eq!(plain.status.code(), Some(0), "{plain:?}");
+    assert!(
+        text(&plain.stdout).starts_with("keymap версия 1, лидер Space, строк "),
+        "{plain:?}"
+    );
+
+    // Правка с одной неверной строкой: верные действуют, неверная — в диагностике.
+    fixture.write_keymap(
+        "[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n\"Ctrl-w z\" = false\n\
+         \"Ctrl-w y\" = \"layout.none\"\n",
+    );
+    let edited = fixture.keymap(&["keymap", "reload"]);
+    assert_eq!(edited.version, 2);
+    assert!(has_key(&edited, "Ctrl-w m") && !has_key(&edited, "Ctrl-w z"));
+    assert!(!has_key(&edited, "Ctrl-w y"));
+    assert_eq!(edited.diagnostics.len(), 1, "{:?}", edited.diagnostics);
+    assert_eq!(
+        (
+            edited.diagnostics[0].line,
+            edited.diagnostics[0].kind.as_str()
+        ),
+        (Some(4), "unknown_action")
+    );
+    assert_eq!(fixture.keymap(&["keymap", "list"]), edited);
+
+    // Нечитаемый файл: версия и строки прежние, диагностика новая.
+    fixture.write_keymap("[navigation\n");
+    let broken = fixture.keymap(&["keymap", "reload"]);
+    assert_eq!(broken.version, edited.version);
+    assert_eq!(broken.bindings, edited.bindings);
+    assert_eq!(broken.diagnostics.len(), 1);
+    assert_eq!(broken.diagnostics[0].kind, "unreadable");
+    assert!(
+        broken.diagnostics[0]
+            .message
+            .starts_with("keymap.toml не прочитан: ")
+    );
+    assert_eq!(
+        fixture.revision(),
+        start,
+        "keymap доменную ревизию не меняет"
+    );
+
+    // Поток начинается с полной таблицы и догоняет версию чтения.
+    let mut follow = Guard(Some(
+        Command::new(shellioctl())
+            .env_clear()
+            .env("SHELLIO_STATE_DIR", fixture.state())
+            .args(["keymap", "list", "--follow", "--json"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    ));
+    let mut lines = BufReader::new(follow.child().stdout.take().unwrap());
+    assert_eq!(followed(&mut lines), broken);
+
+    // Одновременно `keymap.reload` и доменная команда.
+    fixture.write_keymap("[navigation]\n\"Ctrl-w n\" = \"layout.zoom\"\n");
+    let (reloaded, created) = thread::scope(|scope| {
+        let reload = scope.spawn(|| fixture.keymap(&["keymap", "reload"]));
+        let create = scope.spawn(|| fixture.ctl(&["workspace", "new", "Работа", "--all"]));
+        (reload.join().unwrap(), create.join().unwrap())
+    });
+    assert_eq!(created.status.code(), Some(0), "{created:?}");
+    assert_eq!(reloaded.version, 3);
+    let read = fixture.keymap(&["keymap", "list"]);
+    assert_eq!(read, reloaded);
+    assert!(has_key(&read, "Ctrl-w n") && !has_key(&read, "Ctrl-w m"));
+    let mut seen = followed(&mut lines);
+    while seen.version < read.version {
+        seen = followed(&mut lines);
+    }
+    assert_eq!(seen, read, "подписчик догнал версию чтения");
+    assert_eq!(
+        fixture.revision(),
+        start.next(),
+        "ревизия выросла ровно на одну доменную запись"
+    );
+
+    // Уход владельца кончает поток кадром `owner_leaving`.
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
+    let mut last = String::new();
+    lines.read_to_string(&mut last).unwrap();
+    let (code, follow_stderr) = follow.wait();
+    assert_eq!(code.code(), Some(75), "{last} {follow_stderr}");
+    let last = last.lines().last().unwrap_or_default();
+    match Response::parse(last.as_bytes()).unwrap() {
+        Response::Error { error, .. } => {
+            assert_eq!(error.code(), ControlErrorCode::OwnerLeaving);
+        }
+        other => panic!("ожидался owner_leaving, получено {other:?}"),
+    }
+}
+
+/// Клиент прежнего протокола у владельца: отказ `hello` с поддерживаемой версией, запрос keymap
+/// без приветствия не исполняется.
+#[tokio::test]
+async fn previous_protocol_client_is_refused_by_the_owner() {
+    let fixture = Fixture::new();
+    let mut owner = fixture.owner();
+    owner.handled();
+
+    let stream = tokio::net::UnixStream::connect(socket_path(&fixture.profile()))
+        .await
+        .unwrap();
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = LineReader::new(tokio::io::BufReader::new(reader), REQUEST_LINE_LIMIT);
+    let mut call = async |frame: Value| {
+        writer
+            .write_all(format!("{frame}\n").as_bytes())
+            .await
+            .unwrap();
+        Response::parse(reader.next_line().await.unwrap().unwrap()).unwrap()
+    };
+    assert_eq!(PROTOCOL, 5);
+    let old = serde_json::json!({"id": 1, "hello": {"protocol": 4, "client": "old"}});
+    match call(old).await {
+        Response::Error { error, .. } => {
+            assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
+            assert_eq!(error.detail("supported"), Some(&serde_json::json!([5])));
+        }
+        other => panic!("ожидался protocol_mismatch, получено {other:?}"),
+    }
+    let read = serde_json::json!({"id": 2, "keymap": {"query.keymap": {}}});
+    match call(read).await {
+        Response::Error { error, .. } => {
+            assert_eq!(error.code(), ControlErrorCode::HelloRequired);
+        }
+        other => panic!("ожидался hello_required, получено {other:?}"),
+    }
+    let (status, rest, stderr) = owner.stop(Signal::TERM);
+    assert_clean_exit(status, &rest, &stderr, "SIGTERM");
 }

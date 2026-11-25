@@ -1,0 +1,39 @@
+{
+  "id": 45,
+  "ok": {
+    "keymap": {
+      "version": 2,
+      "leader": "Space",
+      "bindings": [
+        {
+          "context": "navigation",
+          "sequence": "Ctrl-w v",
+          "action": "layout.split",
+          "args": {
+            "axis": "row"
+          },
+          "source": "default"
+        },
+        {
+          "context": "panel.demo-list",
+          "sequence": "x",
+          "action": "demo-list.back",
+          "source": "file"
+        }
+      ],
+      "diagnostics": [
+        {
+          "line": 7,
+          "kind": "unknown_action",
+          "reason": "неизвестное действие «x.y»",
+          "message": "keymap.toml, строка 7: неизвестное действие «x.y» — привязка отключена"
+        },
+        {
+          "kind": "unreadable",
+          "reason": "строка 2: нет значения",
+          "message": "keymap.toml не прочитан: строка 2: нет значения — действует прежняя таблица"
+        }
+      ]
+    }
+  }
+}

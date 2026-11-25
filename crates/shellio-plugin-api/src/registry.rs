@@ -16,6 +16,7 @@ use crate::model::{DynModel, PanelModel};
 pub const HOST_NAMESPACES: &[&str] = &[
     "app",
     "gallery",
+    "keymap",
     "layout",
     "panel",
     "project",

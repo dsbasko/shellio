@@ -262,7 +262,7 @@ impl Peer {
 }
 
 fn hello(id: u64) -> String {
-    json!({"id": id, "hello": {"protocol": 4, "client": "test"}}).to_string()
+    json!({"id": id, "hello": {"protocol": PROTOCOL, "client": "test"}}).to_string()
 }
 
 fn subscribe(id: u64) -> String {
@@ -392,7 +392,7 @@ async fn hello_must_come_first() -> TestResult {
     assert_eq!(
         reply,
         json!({"id": 4, "ok": {"hello": {
-            "protocol": 4, "server": SERVER, "pid": PID, "owner": "ready"
+            "protocol": 5, "server": SERVER, "pid": PID, "owner": "ready"
         }}})
     );
     let again = peer.call_value(&hello(5)).await?;
@@ -406,17 +406,17 @@ async fn hello_must_come_first() -> TestResult {
     Ok(())
 }
 
-/// Клиент протокола v3 у владельца v4 получает отказ `hello` и ни одной команды не выполняет.
+/// Клиент протокола v4 у владельца v5 получает отказ `hello` и ни одной команды не выполняет.
 #[tokio::test]
 async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
 
-    assert_eq!(PROTOCOL, 4);
-    let wrong = json!({"id": 1, "hello": {"protocol": 3, "client": "test"}}).to_string();
+    assert_eq!(PROTOCOL, 5);
+    let wrong = json!({"id": 1, "hello": {"protocol": 4, "client": "test"}}).to_string();
     let error = control_error(Some(1), peer.call(&wrong).await?)?;
     assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
-    assert_eq!(error.detail("supported"), Some(&json!([4])));
+    assert_eq!(error.detail("supported"), Some(&json!([5])));
 
     let created = json!({"id": 5, "command": {"cmd": "workspace.create", "title": "Работа"},
         "scope": "all"});
@@ -448,7 +448,7 @@ async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
 async fn request_of_exactly_limit_is_served() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
-    let head = r#"{"id":1,"hello":{"protocol":4,"client":""#;
+    let head = r#"{"id":1,"hello":{"protocol":5,"client":""#;
     let tail = r#""}}"#;
     let padding = "a".repeat(REQUEST_LINE_LIMIT - head.len() - tail.len());
     let line = format!("{head}{padding}{tail}");

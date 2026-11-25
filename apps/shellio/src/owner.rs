@@ -37,6 +37,7 @@ use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::task::{JoinHandle, spawn_blocking};
 
+use crate::keymap_service::{Actions, KeymapService};
 use crate::launch::{self, Outgoing, Run, WindowMode};
 use crate::plugins;
 
@@ -385,7 +386,8 @@ fn describe(frame: &Response) -> String {
         Response::Ok { .. }
         | Response::Snapshot { .. }
         | Response::Event { .. }
-        | Response::Reset { .. } => serde_json::to_string(frame).unwrap_or_default(),
+        | Response::Reset { .. }
+        | Response::Keymap { .. } => serde_json::to_string(frame).unwrap_or_default(),
     }
 }
 
@@ -660,6 +662,13 @@ async fn serve<U: Ui>(
     ui.ready().await;
     ui.attach_core(core.clone()).await;
 
+    // Служба keymap отдаёт первичный снимок до публикации сокета: первый `query.keymap` уже видит
+    // таблицу по файлу профиля.
+    let keymap = match start_keymap(&profile).await {
+        Ok(keymap) => keymap,
+        Err(reason) => return abort(core, ownership, reason).await,
+    };
+
     let (ownership, published) = blocking(move || {
         let mut ownership = ownership;
         let published = ownership.publish();
@@ -673,7 +682,7 @@ async fn serve<U: Ui>(
     let launcher = Launcher {
         ui: Arc::clone(&ui),
     };
-    let server = match Server::start(
+    let server = match Server::start_with_keymap(
         &Handle::current(),
         listener,
         core.clone(),
@@ -682,6 +691,7 @@ async fn serve<U: Ui>(
             ui: Arc::clone(&ui),
             explicit,
         },
+        keymap.port(),
         TokioClock,
         ServerConfig::new(VERSION),
     ) {
@@ -709,8 +719,22 @@ async fn serve<U: Ui>(
     let cause = signals.wait(&*ui).await;
     say(format_args!("shellio: завершение: {cause}"));
     server.shutdown().await;
+    drop(keymap);
     release(ownership).await;
     Finish::Terminate
+}
+
+/// Служба keymap профиля: действия берутся из реестра плагинов процесса, наблюдение включено.
+async fn start_keymap(profile: &Profile) -> Result<KeymapService, String> {
+    let registry = plugins::shared_registry().map_err(|error| error.to_string())?;
+    KeymapService::start(
+        &Handle::current(),
+        profile.config_dir().to_owned(),
+        Actions::of(&registry),
+        true,
+    )
+    .await
+    .map_err(|reason| format!("служба keymap не запущена: {reason}"))
 }
 
 /// Строка готовности владельца: PID, сокет, режим окна и `windowNumber`. Сценарии берут PID из

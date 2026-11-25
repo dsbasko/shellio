@@ -9,6 +9,7 @@ mod clock;
 mod codec;
 mod error;
 mod instance;
+mod keymap;
 mod server;
 mod ui;
 mod wire;
@@ -23,6 +24,10 @@ pub use error::{ControlError, ControlErrorCode};
 pub use instance::{
     InstanceError, LOCK_FILE, MAX_SOCKET_PATH, NodeKind, Ownership, Probe, SOCKET_FILE,
     SocketPaths, admit_peer, check_socket_path, is_own_uid, lock_path, probe_owner, socket_path,
+};
+pub use keymap::{
+    KeymapDiagnostic, KeymapHandler, KeymapRequest, KeymapRow, KeymapSource, KeymapView,
+    WithoutKeymap,
 };
 pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig, UiHandler, WithoutUi};
 pub use ui::{

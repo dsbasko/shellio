@@ -9,12 +9,14 @@ publish.workspace = true
 plugin-demo-list = { path = "../../plugins/demo-list" }
 plugin-demo-native = { path = "../../plugins/demo-native" }
 plugin-navigator = { path = "../../plugins/navigator" }
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 plugin-terminal = { path = "../../plugins/terminal" }
 serde_json = "1.0"
 shellio-appkit = { path = "../../crates/shellio-appkit" }
 shellio-control = { path = "../../crates/shellio-control" }
 shellio-core = { path = "../../crates/shellio-core" }
 shellio-ghostty = { path = "../../crates/shellio-ghostty" }
+shellio-keymap = { path = "../../crates/shellio-keymap" }
 shellio-layout = { path = "../../crates/shellio-layout" }
 shellio-plugin-api = { path = "../../crates/shellio-plugin-api" }
 shellio-plugin-view = { path = "../../crates/shellio-plugin-view" }

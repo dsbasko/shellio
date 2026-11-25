@@ -9,7 +9,8 @@ mod output;
 use std::process::ExitCode;
 
 use shellio_control::{
-    Address, AddressError, Client, Exit, RequestBody, Response, SOCKET_VAR, TokioClock,
+    Address, AddressError, Client, ClientError, Exit, KeymapRequest, RequestBody, Response,
+    SOCKET_VAR, Subscription, TokioClock,
 };
 use shellio_core::Query;
 use shellio_store::Profile;
@@ -61,7 +62,11 @@ fn run() -> Exit {
 async fn execute(client: &Client<TokioClock>, action: Action, printer: Printer) -> Exit {
     let body = match action {
         Action::Version => return finish(printer, client.version().await),
-        Action::Follow => return follow(client, printer).await,
+        Action::Follow => return follow(client.subscribe().await, printer).await,
+        Action::Keymap(KeymapRequest::Subscribe) => {
+            return follow(client.subscribe_keymap().await, printer).await;
+        }
+        Action::Keymap(request) => RequestBody::Keymap(request),
         Action::Status => RequestBody::Query(Query::Status {}),
         Action::Tree(scope) => RequestBody::Query(Query::Tree { scope }),
         Action::Layout { scope, workbench } => {
@@ -76,7 +81,7 @@ async fn execute(client: &Client<TokioClock>, action: Action, printer: Printer) 
     finish(printer, client.call(body).await)
 }
 
-fn finish(printer: Printer, outcome: Result<Response, shellio_control::ClientError>) -> Exit {
+fn finish(printer: Printer, outcome: Result<Response, ClientError>) -> Exit {
     match outcome {
         Ok(frame) => printer.frame(&frame),
         Err(error) => printer.client_error(&error),
@@ -85,8 +90,8 @@ fn finish(printer: Printer, outcome: Result<Response, shellio_control::ClientErr
 
 /// Поток подписки до последнего кадра: отказа ядра или транспорта, в том числе
 /// `owner_leaving`, либо обрыва.
-async fn follow(client: &Client<TokioClock>, printer: Printer) -> Exit {
-    let mut subscription = match client.subscribe().await {
+async fn follow(opened: Result<Subscription, ClientError>, printer: Printer) -> Exit {
+    let mut subscription = match opened {
         Ok(subscription) => subscription,
         Err(error) => return printer.client_error(&error),
     };
@@ -96,7 +101,10 @@ async fn follow(client: &Client<TokioClock>, printer: Printer) -> Exit {
             Err(error) => return printer.client_error(&error),
         };
         let streaming = match &frame {
-            Response::Snapshot { .. } | Response::Event { .. } | Response::Reset { .. } => true,
+            Response::Snapshot { .. }
+            | Response::Event { .. }
+            | Response::Reset { .. }
+            | Response::Keymap { .. } => true,
             Response::Ok { .. } | Response::CoreError { .. } | Response::Error { .. } => false,
         };
         let exit = printer.frame(&frame);

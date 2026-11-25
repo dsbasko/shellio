@@ -9,9 +9,9 @@ use std::io::{self, Write};
 
 use shellio_control::{
     Activation, AxisSource, ClientError, ComponentState, ComponentView, Contrast, ControlError,
-    Exit, GalleryView, HelloReply, InspectView, IntentKind, LaunchReceipt, Lightness, Motion,
-    OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply, WindowView,
-    encode_line,
+    Exit, GalleryView, HelloReply, InspectView, IntentKind, KeymapView, LaunchReceipt, Lightness,
+    Motion, OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply,
+    WindowView, encode_line,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
@@ -140,11 +140,13 @@ fn text(frame: &Response) -> Text {
             OkValue::EventsSince(since) => events_since_text(since),
             OkValue::Launch(receipt) => receipt_text(receipt),
             OkValue::Ui(reply) => ui_text(reply),
+            OkValue::Keymap(view) => keymap_text(view),
         }),
         Response::Snapshot { snapshot, .. } => {
             Text::Out(format!("снимок: ревизия {}\n", snapshot.revision.0))
         }
         Response::Event { event, .. } => Text::Out(event_text(event)),
+        Response::Keymap { keymap, .. } => Text::Out(keymap_text(keymap)),
         Response::Reset { snapshot, .. } => Text::Out(format!(
             "сброс: подписка отстала, снимок на ревизии {}\n",
             snapshot.revision.0
@@ -154,6 +156,35 @@ fn text(frame: &Response) -> Text {
         }
         Response::Error { error, .. } => Text::Err(control_text(error)),
     }
+}
+
+/// Таблица клавиш: версия и лидер, строки по одной, затем диагностика последнего разбора.
+fn keymap_text(view: &KeymapView) -> String {
+    let mut lines = vec![format!(
+        "keymap версия {}, лидер {}, строк {}, диагностика {}",
+        view.version,
+        view.leader,
+        view.bindings.len(),
+        view.diagnostics.len()
+    )];
+    for row in &view.bindings {
+        let args = row
+            .args
+            .as_ref()
+            .map(|args| format!(" {args}"))
+            .unwrap_or_default();
+        lines.push(format!(
+            "  {}  {}  {}{args}  [{}]",
+            row.context,
+            row.sequence,
+            row.action,
+            row.source.as_str()
+        ));
+    }
+    for diagnostic in &view.diagnostics {
+        lines.push(format!("  ! {}", diagnostic.message));
+    }
+    lines.join("\n")
 }
 
 fn hello_text(hello: &HelloReply) -> String {
@@ -810,6 +841,53 @@ mod tests {
                 }],
             }],
         }
+    }
+
+    #[test]
+    fn keymap_text_lists_rows_and_diagnostics() {
+        use shellio_control::{KeymapDiagnostic, KeymapRow, KeymapSource};
+
+        let view = KeymapView {
+            version: 2,
+            leader: "Space".into(),
+            bindings: vec![
+                KeymapRow {
+                    context: "navigation".into(),
+                    sequence: "Ctrl-w v".into(),
+                    action: "layout.split".into(),
+                    args: Some(serde_json::json!({"axis": "row"})),
+                    source: KeymapSource::Default,
+                },
+                KeymapRow {
+                    context: "global".into(),
+                    sequence: "Cmd-Alt-b".into(),
+                    action: "layout.toggle.bottom".into(),
+                    args: None,
+                    source: KeymapSource::File,
+                },
+            ],
+            diagnostics: vec![KeymapDiagnostic {
+                line: Some(4),
+                kind: "unknown_action".into(),
+                reason: "неизвестное действие «x»".into(),
+                message: "keymap.toml, строка 4: неизвестное действие «x» — привязка отключена"
+                    .into(),
+            }],
+        };
+        let expected = "keymap версия 2, лидер Space, строк 2, диагностика 1\n  \
+                        navigation  Ctrl-w v  layout.split {\"axis\":\"row\"}  [default]\n  \
+                        global  Cmd-Alt-b  layout.toggle.bottom  [file]\n  \
+                        ! keymap.toml, строка 4: неизвестное действие «x» — привязка отключена";
+        let reply = Response::Ok {
+            id: RequestId(2),
+            value: OkValue::Keymap(view.clone()),
+        };
+        assert_eq!(out(&reply), expected);
+        let frame = Response::Keymap {
+            id: RequestId(2),
+            keymap: view,
+        };
+        assert_eq!(out(&frame), expected);
     }
 
     #[test]

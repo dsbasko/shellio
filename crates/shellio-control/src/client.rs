@@ -22,6 +22,7 @@ use crate::clock::{Clock, Expired};
 use crate::codec::{LineError, LineReader, REQUEST_LINE_LIMIT, RESPONSE_LINE_LIMIT, encode_line};
 use crate::error::{ControlError, ControlErrorCode};
 use crate::instance::{Probe, probe_owner, socket_path};
+use crate::keymap::KeymapRequest;
 use crate::ui::UiRequest;
 use crate::wire::{
     Hello, OkValue, OwnerState, PROTOCOL, Request, RequestBody, RequestId, Response,
@@ -104,7 +105,8 @@ impl Exit {
             Response::Ok { .. }
             | Response::Snapshot { .. }
             | Response::Event { .. }
-            | Response::Reset { .. } => Self::Success,
+            | Response::Reset { .. }
+            | Response::Keymap { .. } => Self::Success,
             Response::CoreError { error, .. } => Self::of_core(error.code()),
             Response::Error { error, .. } => Self::of_control(error.code()),
         }
@@ -318,6 +320,7 @@ enum Expect {
     Launch,
     /// Ответ `ui` того же запроса.
     Ui(UiRequest),
+    Keymap,
 }
 
 impl Expect {
@@ -329,8 +332,11 @@ impl Expect {
             OkValue::Launch(_) => matches!(self, Self::Launch),
             OkValue::Ui(reply) => match self {
                 Self::Ui(request) => request.answered_by(reply),
-                Self::Hello | Self::Reply | Self::EventsSince | Self::Launch => false,
+                Self::Hello | Self::Reply | Self::EventsSince | Self::Launch | Self::Keymap => {
+                    false
+                }
             },
+            OkValue::Keymap(_) => matches!(self, Self::Keymap),
         }
     }
 }
@@ -342,7 +348,10 @@ fn answer(id: RequestId, expect: Expect, frame: Response) -> Result<Response, Re
         Response::Ok { id: got, value } => *got == id && expect.matches(value),
         Response::CoreError { id: got, .. } => *got == id,
         Response::Error { id: got, .. } => got.is_none_or(|got| got == id),
-        Response::Snapshot { .. } | Response::Event { .. } | Response::Reset { .. } => false,
+        Response::Snapshot { .. }
+        | Response::Event { .. }
+        | Response::Reset { .. }
+        | Response::Keymap { .. } => false,
     };
     if fits {
         Ok(frame)
@@ -351,12 +360,29 @@ fn answer(id: RequestId, expect: Expect, frame: Response) -> Result<Response, Re
     }
 }
 
+/// Какой поток несёт подписка: события ядра или таблицы keymap. Чужие кадры поток отклоняет.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stream {
+    Events,
+    Keymap,
+}
+
 /// Кадр потока подписки `id`: первый — снимок, дальше события и `reset`; отказ ядра или
 /// транспорта кончает поток.
-fn stream_frame(id: RequestId, frame: Response, first: bool) -> Result<Response, ClientError> {
+fn stream_frame(
+    stream: Stream,
+    id: RequestId,
+    frame: Response,
+    first: bool,
+) -> Result<Response, ClientError> {
+    let events = stream == Stream::Events;
     let fits = match &frame {
-        Response::Snapshot { id: got, .. } => first && *got == id,
-        Response::Event { id: got, .. } | Response::Reset { id: got, .. } => !first && *got == id,
+        Response::Snapshot { id: got, .. } => events && first && *got == id,
+        Response::Event { id: got, .. } | Response::Reset { id: got, .. } => {
+            events && !first && *got == id
+        }
+        // Каждый кадр подписки keymap — полная таблица, первый и следующие одного вида.
+        Response::Keymap { id: got, .. } => !events && *got == id,
         Response::CoreError { id: got, .. } => *got == id,
         Response::Error { id: got, .. } => got.is_none_or(|got| got == id),
         Response::Ok { .. } => false,
@@ -443,7 +469,11 @@ impl<C: Clock> Session<C> {
             RequestBody::EventsSince { .. } => (Expect::EventsSince, false),
             RequestBody::Launch(_) => (Expect::Launch, true),
             RequestBody::Ui(request) => (Expect::Ui(*request), request.is_mutation()),
-            RequestBody::Subscribe => {
+            // Перечитывание файла повторяемо: тот же файл даёт ту же таблицу.
+            RequestBody::Keymap(KeymapRequest::Query | KeymapRequest::Reload) => {
+                (Expect::Keymap, false)
+            }
+            RequestBody::Subscribe | RequestBody::Keymap(KeymapRequest::Subscribe) => {
                 return Err(ClientError::Failed(
                     "подписка идёт через Session::subscribe".to_owned(),
                 ));
@@ -468,25 +498,36 @@ impl<C: Clock> Session<C> {
     }
 
     /// Подписка: первый кадр ждётся до срока, дальше поток идёт без срока.
-    pub async fn subscribe(mut self) -> Result<Subscription, ClientError> {
+    pub async fn subscribe(self) -> Result<Subscription, ClientError> {
+        self.open_stream(Stream::Events).await
+    }
+
+    /// Подписка keymap: первый кадр с полной таблицей ждётся до срока, дальше поток идёт без
+    /// срока.
+    pub async fn subscribe_keymap(self) -> Result<Subscription, ClientError> {
+        self.open_stream(Stream::Keymap).await
+    }
+
+    async fn open_stream(mut self, stream: Stream) -> Result<Subscription, ClientError> {
         let id = self.next_id();
-        self.send(&Request {
-            id,
-            body: RequestBody::Subscribe,
-        })
-        .await?;
+        let body = match stream {
+            Stream::Events => RequestBody::Subscribe,
+            Stream::Keymap => RequestBody::Keymap(KeymapRequest::Subscribe),
+        };
+        self.send(&Request { id, body }).await?;
         let first = self
             .read()
             .await
             .map_err(|failure| failure.after_send(false))?;
-        let first = stream_frame(id, first, true)?;
-        Ok(self.into_subscription(id, first))
+        let first = stream_frame(stream, id, first, true)?;
+        Ok(self.into_subscription(stream, id, first))
     }
 
-    fn into_subscription(self, id: RequestId, first: Response) -> Subscription {
+    fn into_subscription(self, stream: Stream, id: RequestId, first: Response) -> Subscription {
         Subscription {
             reader: self.reader,
             _writer: self.writer,
+            stream,
             id,
             pending: Some(first),
         }
@@ -532,12 +573,14 @@ pub struct Subscription {
     reader: Reader,
     /// Закрытие записи сервер читает как уход клиента: она живёт, пока жив поток.
     _writer: OwnedWriteHalf,
+    stream: Stream,
     id: RequestId,
     pending: Option<Response>,
 }
 
 impl Subscription {
-    /// Следующий кадр: сначала снимок, затем события и `reset`. Отказ ядра или транспорта,
+    /// Следующий кадр: сначала снимок, затем события и `reset`; у подписки keymap — полные
+    /// таблицы. Отказ ядра или транспорта,
     /// в том числе `owner_leaving`, — последний кадр потока. Обрыв без него — повторяемый
     /// `unavailable`.
     pub async fn next(&mut self) -> Result<Response, ClientError> {
@@ -545,7 +588,7 @@ impl Subscription {
             return Ok(frame);
         }
         match read_frame(&mut self.reader).await {
-            Ok(frame) => stream_frame(self.id, frame, false),
+            Ok(frame) => stream_frame(self.stream, self.id, frame, false),
             Err(ReadFailure::Bad(reason)) => Err(ClientError::Failed(format!(
                 "владелец: кадр подписки негоден: {reason}"
             ))),
@@ -607,12 +650,21 @@ impl<C: Clock + Clone> Client<C> {
 
     /// Подписка: срок действует до первого кадра.
     pub async fn subscribe(&self) -> Result<Subscription, ClientError> {
+        self.open_stream(Stream::Events).await
+    }
+
+    /// Подписка keymap: срок действует до первого кадра.
+    pub async fn subscribe_keymap(&self) -> Result<Subscription, ClientError> {
+        self.open_stream(Stream::Keymap).await
+    }
+
+    async fn open_stream(&self, stream: Stream) -> Result<Subscription, ClientError> {
         let deadline = self.clock.deadline(self.timeout);
         match self.greeted(deadline).await? {
-            Greeted::Ready(session) => session.subscribe().await,
+            Greeted::Ready(session) => session.open_stream(stream).await,
             Greeted::Refused { session, frame } => {
                 let id = frame.id().unwrap_or(RequestId(1));
-                Ok(session.into_subscription(id, frame))
+                Ok(session.into_subscription(stream, id, frame))
             }
         }
     }

@@ -427,7 +427,7 @@ async fn probe_failure_is_not_retryable() -> TestResult {
     Ok(())
 }
 
-/// Поддельный владелец протокола v3: клиент v4 получает отказ `hello` до первой команды.
+/// Поддельный владелец протокола v4: клиент v5 получает отказ `hello` до первой команды.
 #[tokio::test]
 async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
     let refuse = async |fake: &Fake| -> TestResult<Peer> {
@@ -435,12 +435,12 @@ async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
         let hello = peer.read_line().await?.ok_or("hello не пришёл")?;
         let hello: serde_json::Value = serde_json::from_str(&hello)?;
         assert_eq!(hello["hello"]["protocol"], PROTOCOL, "{hello}");
-        assert_eq!(PROTOCOL, 4);
+        assert_eq!(PROTOCOL, 5);
         let refusal = serde_json::json!({"id": 1, "error": {
             "code": "protocol_mismatch",
-            "message": "версия протокола 4 не поддерживается, сервер поддерживает 3",
+            "message": "версия протокола 5 не поддерживается, сервер поддерживает 4",
             "retryable": false,
-            "details": {"supported": [3]},
+            "details": {"supported": [4]},
         }});
         peer.write(format!("{refusal}\n").as_bytes()).await?;
         Ok(peer)
@@ -448,7 +448,7 @@ async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
     let is_mismatch = |frame: &Response| {
         matches!(frame, Response::Error { id: Some(RequestId(1)), error }
             if error.code() == ControlErrorCode::ProtocolMismatch
-                && error.detail("supported") == Some(&serde_json::json!([3])))
+                && error.detail("supported") == Some(&serde_json::json!([4])))
     };
 
     let fake = Fake::bind()?;
