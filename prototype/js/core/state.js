@@ -250,7 +250,7 @@
     if (t.split && cur === ref && cur.tabs.length === 1) return;
     const stay = t.split ? ref.tabs.filter((x) => x !== id) : [];
     if (stay.length) {
-      const room = S.splitRoom(ref, [p.plugin, St.panels[stay.includes(ref.active) ? ref.active : stay[0]].plugin]);
+      const room = S.splitRoom(ref, [St.panels[stay.includes(ref.active) ? ref.active : stay[0]].plugin, p.plugin]);
       if (!room.ok) { tight(ref, room); return; }
     }
     detach(L, id);
@@ -262,29 +262,40 @@
   };
 
   // Сколько места займёт панель вдоль оси зоны. Ниже этого часть покажет заглушку.
-  const need = (pluginId, axis) => { const m = S.plugins[pluginId].minSize || { w: 160, h: 90 }; return axis === 'row' ? m.w : m.h; };
+  const minOf = (pluginId) => S.plugins[pluginId].minSize || { w: 160, h: 90 };
   const KEY = { row: 'Ctrl-w v', stack: 'Ctrl-w s' };
   const AXIS_TEXT = { row: 'на части рядом', stack: 'на части одна над другой' };
   S.splitAxis = () => { const L = S.layout(); const g = L.focus && groupOf(L, L.focus); return g && !g.nav ? S.AXIS[g.zone] : null; };
 
-  // Хватит ли части места на две половины для этих плагинов.
-  S.splitRoom = (g, plugins) => {
+  // Хватит ли места остающейся и новой части: plugins — [остающаяся, новая]. Деление пересчитывает
+  // всю зону по долям, поэтому место под новый разделитель отдают все её части, а не только делимая.
+  S.splitRoom = (g, plugins, o = {}) => {
     const axis = S.AXIS[g.zone];
-    const el = document.querySelector(`.group[data-g="${g.id}"]`);
-    const body = el && el.querySelector('.panel-body');
-    if (!body) return { ok: true };
-    // Заглушку решает размер тела панели, поэтому из половины вычитаются строка вкладок и рамки.
-    const size = (e) => (axis === 'row' ? e.getBoundingClientRect().width : e.getBoundingClientRect().height);
-    const len = size(el); const overhead = len - size(body);
-    const half = Math.floor((len - 6) / 2 - overhead);
-    const want = Math.max(...plugins.map((id) => need(id, axis)));
-    const cross = Math.floor(axis === 'row' ? body.getBoundingClientRect().height : body.getBoundingClientRect().width);
-    return { ok: half >= want, half, want, axis, cross, plugins };
+    const groupEl = (x) => document.querySelector(`.group[data-g="${x.id}"]`);
+    const list = partsOf(S.layout(), g.zone);
+    const els = list.map(groupEl);
+    const at = list.indexOf(g);
+    const body = at >= 0 && els[at] && els[at].querySelector('.panel-body');
+    if (!body || els.some((e) => !e)) return { ok: true };
+    const rect = (e) => e.getBoundingClientRect();
+    const along = (e) => (axis === 'row' ? rect(e).width : rect(e).height);
+    // Заглушку решает размер тела панели, поэтому из длины части вычитаются строка вкладок и рамки.
+    const overhead = along(els[at]) - along(body);
+    const weights = list.flatMap((x) => (x === g ? [x.w / 2, x.w / 2] : [x.w]));
+    const total = weights.reduce((n, w) => n + w, 0) || 1;
+    const avail = els.reduce((n, e) => n + along(e), 0) + 6 * (list.length - 1) - 6 * (weights.length - 1);
+    const lens = weights.map((w) => Math.floor((avail * w) / total));
+    lens[lens.length - 1] = avail - lens.slice(0, -1).reduce((n, v) => n + v, 0);
+    const cross = Math.floor(axis === 'row' ? rect(body).height : rect(body).width);
+    const parts = plugins.map((plugin, i) => ({ plugin, have: Math.floor(lens[at + i] - overhead), fresh: !!o.fresh && i === 1 }));
+    const fits = (p) => { const m = minOf(p.plugin); return axis === 'row' ? m.w <= p.have && m.h <= cross : m.h <= p.have && m.w <= cross; };
+    return { ok: parts.every(fits), axis, cross, parts };
   };
   // Отказ деления — одна строка в строке статуса, без уведомления (docs/ux.md, «Пограничные пути»).
-  // Следующее действие пользователя её убирает.
+  // Она называет каждую затронутую часть: сначала остающуюся, затем новую. Часть, панель которой ещё
+  // не открыта, зовётся «новая часть». Следующее действие пользователя строку убирает.
   S.roomText = (room) => {
-    const parts = [...new Set(room.plugins)].filter((id) => need(id, room.axis) > room.half).map((id) => { const d = S.plugins[id]; const m = d.minSize || { w: 160, h: 90 }; return `«${d.title}» — нужно ${m.w}×${m.h}, будет ${room.axis === 'row' ? `${room.half}×${room.cross}` : `${room.cross}×${room.half}`}`; });
+    const parts = room.parts.map((p) => { const m = minOf(p.plugin); return `${p.fresh ? 'новая часть' : `«${S.plugins[p.plugin].title}»`} — нужно ${m.w}×${m.h}, будет ${room.axis === 'row' ? `${p.have}×${room.cross}` : `${room.cross}×${p.have}`}`; });
     return parts.length ? `Не хватает места для новой части: ${parts.join('; ')}` : 'Не хватает места для новой части';
   };
   S.refuse = (text) => { St.statusMessage = text; S.render(); };
@@ -301,7 +312,7 @@
     const axis = S.AXIS[g.zone];
     if (want !== axis) { S.notify({ title: `${S.ZONE_TITLE[g.zone]} делится ${AXIS_TEXT[axis]}`, text: `Клавиша этой зоны: ${KEY[axis]}.` }); return; }
     if (g.tabs.length > 1) { S.moveTo(id, { split: g.id, side: 'after' }); return; }
-    const room = S.splitRoom(g, [St.panels[id].plugin, 'terminal']);
+    const room = S.splitRoom(g, [St.panels[id].plugin, 'terminal'], { fresh: true });
     if (!room.ok) { tight(g, room); return; }
     S.partPicker(g);
   };

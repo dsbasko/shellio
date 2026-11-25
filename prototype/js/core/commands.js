@@ -184,7 +184,7 @@
       body: () => list.map((d, n) => { const why = reason(d); return K.row({ k: d.id, title: why ? `${d.title} (${why})` : d.title, do: why ? null : 'open', arg: d.id, quiet: true, dim: !!why, ck: `picker.item.${n + 1}` }); }).join(''),
       on: { open: (id, o) => {
         S.ov.pop(o);
-        const room = S.splitRoom(g, [g.active ? St.panels[g.active].plugin : 'terminal', id]);
+        const room = S.splitRoom(g, [g.active ? St.panels[g.active].plugin : 'terminal', id], { fresh: true });
         if (!room.ok) { S.refuse(S.roomText(room)); return; }
         if (id === 'agent') S.newAgent(g.zone, at); else S.open(id, { zone: g.zone, at });
       } },

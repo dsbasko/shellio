@@ -390,7 +390,7 @@
       const edge = Math.min(EDGE, len / 2);
       const inBody = y >= b.top;
       const side = inBody && at < edge ? 'before' : inBody && at > len - edge ? 'after' : null;
-      const fits = () => { const stay = g.tabs.filter((x) => x !== id); return !stay.length || S.splitRoom(g, [S.st.panels[id].plugin, S.st.panels[stay.includes(g.active) ? g.active : stay[0]].plugin]).ok; };
+      const fits = () => { const stay = g.tabs.filter((x) => x !== id); return !stay.length || S.splitRoom(g, [S.st.panels[stay.includes(g.active) ? g.active : stay[0]].plugin, S.st.panels[id].plugin]).ok; };
       if (side && !(from === g && g.tabs.length === 1) && fits()) {
         const half = row ? { left: side === 'before' ? r.left : r.left + r.width / 2, top: r.top, width: r.width / 2, height: r.height } : { left: r.left, top: side === 'before' ? r.top : r.top + r.height / 2, width: r.width, height: r.height / 2 };
         return { t: { split: g.id, side }, r: { ...half, right: half.left + half.width, bottom: half.top + half.height }, title: 'Новая часть' };
