@@ -1,6 +1,7 @@
 //! Годность паспорта (ADR-0037, «Паспорт и годность»): штамп `prototype/`, SHA-256 канонических
 //! сцены и рецепта, ячейка, SHA-256 закрепления браузера и номер схемы съёмщика.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -9,13 +10,15 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::Error;
+use crate::fields::ElementKind;
+use crate::mask::Mask;
 use crate::passport::{Cell, Passport, Validity, canonical_json};
 use crate::recipe::Recipe;
 use crate::registry::Registry;
 use crate::scene::Scene;
 
 /// Номер схемы паспорта и съёмщика. Растёт при любом изменении сбора.
-pub const SNAP_SCHEMA: u32 = 1;
+pub const SNAP_SCHEMA: u32 = 2;
 
 /// Файлы, которые штамп `prototype/` не учитывает: служебные файлы Finder.
 const IGNORED_NAMES: &[&str] = &[".DS_Store"];
@@ -270,6 +273,44 @@ fn judge(path: &Path, text: &str, want: &Validity) -> Option<Problem> {
         Ok(_) => return Some(Problem::Broken("запись не каноническая".to_owned())),
         Err(e) => return Some(Problem::Broken(e.reason)),
     }
+    if let Err(reason) = check_masks(path, &passport) {
+        return Some(Problem::Broken(reason));
+    }
     let stale = stale_fields(&passport.validity, want);
     (!stale.is_empty()).then_some(Problem::Stale(stale))
+}
+
+/// Маски значков рядом с паспортом (`<ячейка>.icons/<ключ>.png`): ровно по одной на видимый
+/// значок, каждая разбирается.
+fn check_masks(path: &Path, passport: &Passport) -> Result<(), String> {
+    let want: BTreeSet<String> = passport
+        .elements
+        .iter()
+        .filter(|e| e.kind == ElementKind::Icon && e.visible)
+        .map(|e| e.ck.clone())
+        .collect();
+    let dir = path.with_extension("icons");
+    let mut have = BTreeSet::new();
+    if dir.exists() {
+        for entry in fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if IGNORED_NAMES.contains(&name.as_str()) {
+                continue;
+            }
+            let ck = name
+                .strip_suffix(".png")
+                .ok_or_else(|| format!("{}: лишний файл {name}", dir.display()))?;
+            let bytes = fs::read(entry.path()).map_err(|e| e.to_string())?;
+            Mask::read_png(&bytes).map_err(|e| format!("маска {name}: {e}"))?;
+            have.insert(ck.to_owned());
+        }
+    }
+    if let Some(ck) = want.difference(&have).next() {
+        return Err(format!("нет маски значка {ck}"));
+    }
+    if let Some(ck) = have.difference(&want).next() {
+        return Err(format!("маска {ck} без видимого значка"));
+    }
+    Ok(())
 }

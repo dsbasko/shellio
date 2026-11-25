@@ -1,0 +1,810 @@
+{
+  "dpr": 2.0,
+  "facts": {
+    "composition": {
+      "focus": {
+        "part": 1,
+        "zone": "center"
+      },
+      "statusline": [],
+      "titlebar": [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+        "chrome.workspace",
+        "chrome.search",
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+        "chrome.appearance"
+      ],
+      "zones": {
+        "center": [
+          {
+            "active": 1,
+            "body": "ready",
+            "tabs": [
+              "terminal"
+            ],
+            "tools": [
+              "split",
+              "zoom",
+              "menu"
+            ]
+          }
+        ],
+        "left": [
+          {
+            "active": 1,
+            "body": "ready",
+            "tabs": [
+              "navigator"
+            ],
+            "tools": []
+          }
+        ]
+      }
+    },
+    "elements": [
+      {
+        "ck": "chrome",
+        "frame": {
+          "h": 40,
+          "w": 1180,
+          "x": 0,
+          "y": 0
+        },
+        "icon": null,
+        "parent": null,
+        "style": {
+          "background": "rgb(30, 29, 27)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "10px",
+            "0px",
+            "14px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "header",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.window.close",
+        "frame": {
+          "h": 12,
+          "w": 12,
+          "x": 14,
+          "y": 13.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgb(255, 95, 87)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "50%",
+          "shadow": "rgb(226, 70, 63) 0px 0px 0px 0.5px inset"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.window.minimize",
+        "frame": {
+          "h": 12,
+          "w": 12,
+          "x": 34,
+          "y": 13.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgb(254, 188, 46)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "50%",
+          "shadow": "rgb(225, 161, 22) 0px 0px 0px 0.5px inset"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.window.zoom",
+        "frame": {
+          "h": 12,
+          "w": 12,
+          "x": 54,
+          "y": 13.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgb(40, 200, 64)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "50%",
+          "shadow": "rgb(22, 167, 44) 0px 0px 0px 0.5px inset"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.workspace",
+        "frame": {
+          "h": 22,
+          "w": 68.03125,
+          "x": 84,
+          "y": 8.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "3px",
+            "0px",
+            "6px"
+          ],
+          "radius": "5px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.workspace.label",
+        "frame": {
+          "h": 18,
+          "w": 45.03125,
+          "x": 90,
+          "y": 10.5
+        },
+        "icon": null,
+        "parent": "chrome.workspace",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "span",
+        "text": "Работа",
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.workspace.chevron",
+        "frame": {
+          "h": 11,
+          "w": 11,
+          "x": 138.03125,
+          "y": 14
+        },
+        "icon": {
+          "name": "chevD",
+          "size": 11
+        },
+        "parent": "chrome.workspace",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.search",
+        "frame": {
+          "h": 26,
+          "w": 460,
+          "x": 362,
+          "y": 6.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgb(25, 24, 22)",
+          "borderColor": "rgb(48, 46, 43)",
+          "borderStyle": "solid",
+          "borderWidth": "1px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "6px",
+            "0px",
+            "9px"
+          ],
+          "radius": "6px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.search.icon",
+        "frame": {
+          "h": 14,
+          "w": 14,
+          "x": 372,
+          "y": 12.5
+        },
+        "icon": {
+          "name": "search",
+          "size": 14
+        },
+        "parent": "chrome.search",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.search.label",
+        "frame": {
+          "h": 18,
+          "w": 390.390625,
+          "x": 394,
+          "y": 10.5
+        },
+        "icon": null,
+        "parent": "chrome.search",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "span",
+        "text": "Сессии, файлы, команды",
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.search.kbd",
+        "frame": {
+          "h": 17,
+          "w": 22.609375,
+          "x": 792.390625,
+          "y": 11
+        },
+        "icon": null,
+        "parent": "chrome.search",
+        "style": {
+          "background": "rgb(37, 36, 33)",
+          "borderColor": "rgb(64, 61, 57)",
+          "borderStyle": "solid",
+          "borderWidth": "1px",
+          "color": "rgb(171, 165, 154)",
+          "fontFamily": "\"JetBrains Mono\", \"SF Mono\", Menlo, monospace",
+          "fontSize": "10.5px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "14px",
+          "padding": [
+            "0px",
+            "4px",
+            "0px",
+            "4px"
+          ],
+          "radius": "4px",
+          "shadow": "none"
+        },
+        "tag": "kbd",
+        "text": "⌘K",
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones",
+        "frame": {
+          "h": 26,
+          "w": 92,
+          "x": 1042,
+          "y": 6.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgb(30, 29, 27)",
+          "borderColor": "rgb(48, 46, 43)",
+          "borderStyle": "solid",
+          "borderWidth": "1px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "6px",
+          "shadow": "none"
+        },
+        "tag": "div",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.left",
+        "frame": {
+          "h": 24,
+          "w": 30,
+          "x": 1043,
+          "y": 7.5
+        },
+        "icon": null,
+        "parent": "chrome.zones",
+        "style": {
+          "background": "rgb(40, 39, 37)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.left.icon",
+        "frame": {
+          "h": 15,
+          "w": 15,
+          "x": 1050.5,
+          "y": 12
+        },
+        "icon": {
+          "name": "sideL",
+          "size": 15
+        },
+        "parent": "chrome.zones.left",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(217, 212, 202)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(217, 212, 202)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.bottom",
+        "frame": {
+          "h": 24,
+          "w": 30,
+          "x": 1073,
+          "y": 7.5
+        },
+        "icon": null,
+        "parent": "chrome.zones",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.bottom.icon",
+        "frame": {
+          "h": 15,
+          "w": 15,
+          "x": 1081,
+          "y": 12
+        },
+        "icon": {
+          "name": "sideB",
+          "size": 15
+        },
+        "parent": "chrome.zones.bottom",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.right",
+        "frame": {
+          "h": 24,
+          "w": 30,
+          "x": 1103,
+          "y": 7.5
+        },
+        "icon": null,
+        "parent": "chrome.zones",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.zones.right.icon",
+        "frame": {
+          "h": 15,
+          "w": 15,
+          "x": 1111,
+          "y": 12
+        },
+        "icon": {
+          "name": "sideR",
+          "size": 15
+        },
+        "parent": "chrome.zones.right",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.appearance",
+        "frame": {
+          "h": 24,
+          "w": 28,
+          "x": 1142,
+          "y": 7.5
+        },
+        "icon": null,
+        "parent": "chrome",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "5px",
+          "shadow": "none"
+        },
+        "tag": "button",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      },
+      {
+        "ck": "chrome.appearance.icon",
+        "frame": {
+          "h": 15,
+          "w": 15,
+          "x": 1148.5,
+          "y": 12
+        },
+        "icon": {
+          "name": "sun",
+          "size": 15
+        },
+        "parent": "chrome.appearance",
+        "style": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(143, 137, 126)",
+          "borderStyle": "none",
+          "borderWidth": "0px",
+          "color": "rgb(143, 137, 126)",
+          "fontFamily": "-apple-system, \"system-ui\", \"SF Pro Text\", Inter, system-ui, sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "400",
+          "letterSpacing": "normal",
+          "lineHeight": "18px",
+          "padding": [
+            "0px",
+            "0px",
+            "0px",
+            "0px"
+          ],
+          "radius": "0px",
+          "shadow": "none"
+        },
+        "tag": "svg",
+        "text": null,
+        "truncated": false,
+        "visible": true
+      }
+    ]
+  },
+  "fonts": {
+    "chrome.search.kbd": {
+      "fonts": [
+        {
+          "familyName": "JetBrains Mono",
+          "glyphCount": 2,
+          "isCustomFont": false,
+          "postScriptName": "JetBrainsMono-Regular"
+        }
+      ]
+    },
+    "chrome.search.label": {
+      "fonts": [
+        {
+          "familyName": ".SF NS",
+          "glyphCount": 22,
+          "isCustomFont": false,
+          "postScriptName": ".SFNS-Regular"
+        }
+      ]
+    },
+    "chrome.workspace.label": {
+      "fonts": [
+        {
+          "familyName": ".SF NS",
+          "glyphCount": 6,
+          "isCustomFont": false,
+          "postScriptName": ".SFNS-Regular"
+        }
+      ]
+    }
+  },
+  "pseudo": [],
+  "icons": {
+    "chrome.appearance.icon": "iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAIAAAC0Ujn1AAADk0lEQVR4nNRW2U8TYRDfdncL5SqUFtrSg4Lcct+oIZCqHBEkkOCDf54vGLlEJUGISIIKIjetyH21pcdCOdrSax27ta3bpccDD042zW/nm/llZr6Z6WJyWRZyN8JG7kyw6E05HPxlfw+AVwPDDoczon0MUYszM3i8ZHgARGMfQ9QYhtJAeGGIOj6O09rclKuUI1HLvRwFuEDFIlBXlJWUlxZ1dT4uzM8N1jtdLhqgBMyedajABRyD9QwF0ekNFHiqarbZ7QeHJ9Tr8Yl+Q/2LAn5jpUIGZhTW60+DeVAeL4VGbbm4vLqy5mTL2GyWUiFdWlGTJMlms4XpfBJBrq6tJELabHZQoija39uJ4zjgyU+zWzv7EaIGWVdvejxuVctDIEIQsqK0uLG+Kj4+zm9gt9tnv/1Qa7YgCAzDJqdnNT+3aSSsMNOYmJgA0fU978iSZDIaHGt1gyPjXC73+k8EdAnXfODQUFtJ8e4dHM0vrJiJM8ACPr++rlIhk0gl4pqq8vmFZUb3CCNTW10Gv1qtfmRsQqs7vblxwHOi0w+NjoMSjmqqSm/zDUQNg5AhFLBZLMAOl8toNGUI0qGO8Pp1fjHUc25hpadLFMfhCNL5ZoIQCgUcr7GHJA1Gk8vlDlD3drdLxIGaQppW+w2Fz84vQqnPLT6lVCIqyFPW1VT4jyC/gcF34WqNsn3lYnlToQm0IAVwnJkkoB0cHacVRC71NU9qagr0Os0zjcejwKnRdHSs3do9CC7IP9RQHUgk2NloJijQWFt5eKSlUdfXlFNAf2okScRgMNEMGKbRL06nKzkpEVJJTk6SiDJhSm8cDhzDMjIFT1oeSaUSsFlZ02zvHjC6hx2ZBC6s/L6edtEtC1pvML4Zfs/BOddWW+jprVEXF+X1drcps+Wvh8YwDBeLhMGXCUtjcXl9fGL6RV9XU0P15dW1yUTQGJgvt7SkUNXyAEBaKg9FsZnZOc3mVjo/DfJAvBvKTJybzARs9lReCvR+m6oZQ9G1jc0IUStkWZ1trQA8HvLth48EcQ7YarUB3f3iggQu9/viqtVbAZfbDcHm5+VAQjlKOcyn5SLQSAyDLhb5KjsxNeNf1pS+pDgfHr8B4t0tYEZh2pUwFGRpdQMS3z883tk7DNZz/y5VbtB2BdFsbjudTmiH5TV1BGpYQFOfvyCxCPRfaAvG8I8OY0YD4SUGaq3OYLFcUiAae9Z/+c33GwAA//9BbeweAAAABklEQVQDAFU6ia0hawjvAAAAAElFTkSuQmCC",
+    "chrome.search.icon": "iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAIAAAD9b0jDAAACz0lEQVR4nNSW+0/TUBTHb9fSEdYN2PsBiKJsAiGR+IjxESXBQALGCAn+ef7gTxqjUQGjYghCMGh0oIAECY5t7bru2b3bPTxbw3SyrQvqD3yzNGe9937uuefcc1LCYjaify0F+g86PlCi/jClarFZzZRKxbB+H8vl83l0ZCiOKy5fHBrod2jUVPllNptze5mFxRUuEER1hR3OfleHdezWjdZWTdUF4Oynta/vllbFbBY1CD3RaZuempDs3T3X1vauz+ePJxJmkxHicGFosLlZCUN+Lnj/wUNYXhWKqylV+Q9JNt2bmiBJMplMvZibX1r5CCdNpdO5XD7KxzxeZn3jW6tGrddpVaqWjCDSDFsVWpH9kZvXqNIez2ff7Oz+ODw7lUo/m3ntpRmwr1+5pNW2yUAJgujv6wXDubbhcntRbc28fCuKWYLAB/sdMlCDXicZn9c3UV1ForH90q46XbsMVH9wllA4jOQUikSL0BrH/3VPlUoSnpAT+CE5iYJQXEIqUX1P4Zag0rU36LVITgaDHp5cMCgDZbmAZBiNeiQnU2kOywZkoJmMEOV5MM6fG1Qo6jUa+5lTUvmyfjko6P0Hp+TFyPBVhApVF0DGx0eHYTAUju5836s6p6KiWJaDgMIys8lgtZj3XO5sZYEP9Nnv3h4lmgjYcH5huZanf9Y+VOr05LjFbAI7kUx6aV88nswIgoai2trUNqulUAAghmFIEMXHT2fdHkbGU1S6Ul82tqFPQPtQkqRO2w67dtosRoNOo1bDhFAovLi8erK7s4kg7L09Xprl+ZgMVNK+h3a5PflcPi0IkDRMgXGBEHi9ubUz92oBGjbD+B32HuCetfd4aIbn4/WO37i6uzom74zhOA5xf/Rk5vc4VPe0EUWiPLjs6D0NnQXi4KF9ZX+PDi1yI8BlgQtxgAvjPOhEfwWVuBBryKpzbZPx+aWX2LH5QvkJAAD//9rQb3QAAAAGSURBVAMAZm4tWdj7liQAAAAASUVORK5CYII=",
+    "chrome.workspace.chevron": "iVBORw0KGgoAAAANSUhEUgAAABcAAAAWCAIAAACkFJBSAAABC0lEQVR4nOzTSWvCQBQH8EmMHtqiiWkmY0sL3dLv4aF1Afev6o4LeFAQvGvcEPWknlxRiE8UEU0ioogH/7dh3vx4b+Ax72+v6OzQ6BK5K1dTONbs/rcTLGhVExFDAWsx6ykvRJR+PoI+p42oQDaCg14HFBBx/9Zg2YF7/YGV4zDmpe/Pdqc7HI53iYDHYTIZK3KjUCzpKZBqvcHzViysoFarMxqvIFF4hgaBkGvNSDytKOiIApFrG+hX+gLo6fEh5HetiXAsdUhAKNU9oijk+rPDF8wXCzgaGQYGiSTSqoR6L9vROJaFjgw0Xa7Uo8mMFgFhtC7gDbyczKZIQdlcXodAWhOdmvs23r6yBAAA//9wruaUAAAABklEQVQDAHH+V9pJRwIUAAAAAElFTkSuQmCC",
+    "chrome.zones.bottom.icon": "iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAIAAAC0Ujn1AAAB0UlEQVR4nOyW20vCUBzHf8ezMCwyVzm3yqggKrKbXaAIooco6qE/tYcIKrKC6A8oKQq6qLXSLjCtTHRbx505py/qzKDw87Lvb3A+287OjfF2d0JtsEHN+Jtqpqj2jQzynLu5uclW9kMVBd4T7+JTLHh+ab6PjN/IYLy2stTX6wWrXN+Et3cCGVmmJXY6W2hamJ8eHhqAKmBdTszgcOSBlnqHuFpbJsd9JHx8fAaOTu5C98bDS0I+VxC4udlJ3sNNTfhOgxeSlMirBQ9Hw17g+DYUgUogLxGOiE0OB69JiKpA7WJbaXiMxsASRj+05VS6GtsQDQr535ZIZzK6Cutjqz4b/4U6N0IYDKCSeT/jH5PLnixmMMbaVdVUJnU7yxIvCdP+MagKpKlM6mTyC34IQ6Wr44lEtj9A3dzaTaczUDkNDczG+jJ566zKrFZVpPUHEp+eU6kUVI7dbgeEdJWGPkKkeJyGLsEDljAaSlK8QB17fqVhyj/q7RagEsiiSpqQhrSMxl5oyO8yq8uLgwP9UB2XVzfbuwc053eZu1DE0Wjn3B1glbPgxf7hiaKqtERFR5yOdra/t4fn3cbaWBJZVkQxen0bfnl9M99H9dPTr6m/AQAA//+i1TxbAAAABklEQVQDAEhFlWWvfb8fAAAAAElFTkSuQmCC",
+    "chrome.zones.left.icon": "iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAIAAAC0Ujn1AAABtUlEQVR4nOyWy0sCQRzHJ3dXo6ekHXz09pkURS+IivAQRVIGXewQ3YOgor+iqIMRhYQR0R8QgShGl4KyUtMOmtnr5IvsmNpmIwPrI4RcMQj8nL7zW36fHWaZmcVlUjEoDAxQMP6nGv9ZGh1RSiViDqcGY2BwWMvllpaxAv5gJBLNZiG/yFDozeW+N5lPqWJJ6mdksZgrSws93Z2ALpYr69qGFk0C43I51IO5WY1yeBDkgUDAI3DCfusEqQvCF/AmVGMwhMPvO7q9a6s9FouVl5cd7utg8ejYsKs/yGYkCEIhl81opqUSkXpy3GA0+/yBpFoulaCwuaWDXpALcBJ2h5PNrobqhEomSVMLBXwU3B4voIXDeYdCXb0QpC4IjmMokOQnoMVHJIICgSe0xd1YVBfVOZHcjfF4HAWMQfN9VCNSJS1+fxAFRasc0IJq9PkCaWrv4xMKU2pVR3sbyAV4qMIW2IiGD96EKu2WWV6cHxroB/lxdn6xuq4FGbeMzeaoqqwQtTQDuhhNJ9s6PUmSIGPWiKbGhr7eLnioMwkm+N21G41FXW7PpeXm+eWVKpYU/57+TP0NAAD//7LTwhUAAAAGSURBVAMAm1KL2ONk7HMAAAAASUVORK5CYII=",
+    "chrome.zones.right.icon": "iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAIAAAC0Ujn1AAABrUlEQVR4nOyWa0vCUBjHj25RmHkrnVtpmCAWGWVW0IWiF1H0/XrTy76DUJEVhB+gJDHwXpamwbwEXrZ16sytzYI5MAj2f7P/M/b8nrNzds4z3O2aBIORHgxM/xONy+LAvJ8kHEbjqP73okM4bjKNtVrtWr0OQ5YF9Vq98FKK3Se+P6YTlhHHsMP93RmPGygUhwDijWQqFz6NdBgGhZjZbEJua2NlbtYHFIn7ROokXCib1YzhWC7/xI8VXawWU3AxAE2j8R65jmayj0LxXm1vrqKHj45Pms0WfF2KItbXgqSTCC0FbmNxmq6JaMpJIHMeuUln86AfwUHk8oVRg4H8gkCUBG21WZB5LpaAKgnzMN5F8WhMz08bC9dbldqdDo/C+G9L240aWkP3JX43chy/G3U6lcWERAHFx3S1iswU5QSqJCTSdFWCLr1WkAktL7hdFOhH8FCFKTARhcVSGRmxyxzs7fh9XmU0Tt4Fuko8pMJnl8iLXSaTzRtGhgmHHSjSD+i7WPziKspynHzUSPYJm9czTZIO4WzslaztMgxbKBST6Vy58iYprv09/Rn6AwAA//+C6sOIAAAABklEQVQDANtFinypuVcLAAAAAElFTkSuQmCC"
+  }
+}

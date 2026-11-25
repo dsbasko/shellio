@@ -58,3 +58,14 @@ fn scenes_and_recipes_parse() {
     }
     assert!(recipes > 0, "в conformance/recipes нет рецептов");
 }
+
+#[test]
+fn icon_threshold_matches_calibration_controls() {
+    let text =
+        std::fs::read_to_string(root().join("conformance/calibration/controls.json")).unwrap();
+    let controls: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        controls["icon_fg"].as_u64(),
+        Some(u64::from(shellio_conformance::mask::ICON_FG))
+    );
+}

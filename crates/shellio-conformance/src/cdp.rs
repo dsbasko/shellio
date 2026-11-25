@@ -1,10 +1,17 @@
 //! Перевод фактов, которые вход `?conformance=1` прототипа отдаёт по CDP (`conformance.facts()`),
 //! в элементы паспорта. Чистая часть съёмщика: тесты идут на записанных ответах CDP без браузера.
 
-use serde_json::Value;
+use std::collections::BTreeMap;
+
+use base64::Engine as _;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::fields::ElementKind;
-use crate::passport::{Element, Font, Insets, Rect, Rgba};
+use crate::mask::{Mask, PixelClip, backdrop};
+use crate::passport::{Element, Font, FontFace, Insets, Rect, Rgba};
+use crate::recipe::Recipe;
+use crate::scene::{Composition, Scene};
 
 /// Длина CSS в пикселях (`12px`); `normal` и пустое значение — нет значения.
 pub fn parse_px(text: &str) -> Option<f64> {
@@ -127,17 +134,26 @@ pub fn element(fact: &Value) -> Result<Element, String> {
         kind,
         ElementKind::Text | ElementKind::Control | ElementKind::Tab | ElementKind::Badge
     );
-    if matches!(kind, ElementKind::Text | ElementKind::Badge)
-        && let Some(text) = fact.get("text").and_then(Value::as_str)
-    {
-        if kind == ElementKind::Text {
-            out.text = Some(text.to_owned());
-            out.truncated = Some(
-                fact.get("truncated")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false),
-            );
-        }
+    // Текст пишут подпись и плашка, а также контрол и вкладка с собственным текстом без
+    // вложенных элементов.
+    let own_text = fact
+        .get("text")
+        .and_then(Value::as_str)
+        .filter(|t| match kind {
+            ElementKind::Text | ElementKind::Badge => true,
+            ElementKind::Control | ElementKind::Tab => !t.trim().is_empty(),
+            ElementKind::Container
+            | ElementKind::Icon
+            | ElementKind::Plate
+            | ElementKind::Pseudo => false,
+        });
+    if let Some(text) = own_text {
+        out.text = Some(text.to_owned());
+        out.truncated = Some(
+            fact.get("truncated")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        );
         out.font = Some(Font {
             family: first_family(str_of(&style, "fontFamily")),
             weight: str_of(&style, "fontWeight").parse().unwrap_or(400.0),
@@ -206,4 +222,253 @@ pub fn elements(facts: &Value) -> Result<Vec<Element>, String> {
         crate::keys::check_key(&e.ck)?;
     }
     Ok(out)
+}
+
+/// Шрифты, которыми Chrome набрал текст узла, по ответу `CSS.getPlatformFontsForNode`: имя
+/// PostScript (иначе семейство), вложен ли файл (`isCustomFont`) и число глифов, по убыванию
+/// глифов.
+pub fn font_faces(reply: &Value) -> Result<Vec<FontFace>, String> {
+    let list = reply
+        .get("fonts")
+        .and_then(Value::as_array)
+        .ok_or("в ответе CSS.getPlatformFontsForNode нет списка fonts")?;
+    let mut faces = list
+        .iter()
+        .map(|f| {
+            let family = f
+                .get("postScriptName")
+                .and_then(Value::as_str)
+                .filter(|n| !n.is_empty())
+                .or_else(|| f.get("familyName").and_then(Value::as_str))
+                .filter(|n| !n.is_empty())
+                .ok_or("шрифт без имени")?;
+            let glyphs = f
+                .get("glyphCount")
+                .and_then(Value::as_u64)
+                .ok_or("шрифт без glyphCount")?;
+            Ok(FontFace {
+                family: family.to_owned(),
+                custom: f
+                    .get("isCustomFont")
+                    .and_then(Value::as_bool)
+                    .ok_or("шрифт без isCustomFont")?,
+                glyphs: u32::try_from(glyphs).map_err(|e| e.to_string())?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    faces.sort_by(|a, b| {
+        b.glyphs
+            .cmp(&a.glyphs)
+            .then_with(|| a.family.cmp(&b.family))
+    });
+    Ok(faces)
+}
+
+/// Псевдоэлемент узла с ключом: ответы CDP для него.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PseudoReply {
+    /// Ключ узла-владельца.
+    pub owner: String,
+    /// `before` или `after`.
+    pub pseudo: String,
+    /// Ответ `CSS.getComputedStyleForNode`.
+    pub style: Value,
+    /// Ответ `DOM.getBoxModel`; `null` — у псевдоэлемента нет блока (`display: none`).
+    pub box_model: Value,
+}
+
+/// Факт псевдоэлемента в форме фактов `conformance.facts()`: ключ `<владелец>::<before|after>`,
+/// кадр по рамке блока, видимость и вычисленный стиль. Непрозрачность псевдоэлемента входит в
+/// альфу заливки: вуаль фокуса задана заливкой и `opacity`.
+pub fn pseudo_fact(reply: &PseudoReply) -> Result<Value, String> {
+    if reply.pseudo != "before" && reply.pseudo != "after" {
+        return Err(format!(
+            "{}: псевдоэлемент «{}» не сверяется",
+            reply.owner, reply.pseudo
+        ));
+    }
+    let ck = format!("{}::{}", reply.owner, reply.pseudo);
+    let css: BTreeMap<&str, &str> = reply
+        .style
+        .get("computedStyle")
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{ck}: нет computedStyle"))?
+        .iter()
+        .filter_map(|p| Some((p.get("name")?.as_str()?, p.get("value")?.as_str()?)))
+        .collect();
+    let get = |name: &str| css.get(name).copied().unwrap_or_default();
+    let frame = match reply.box_model.get("model").and_then(|m| m.get("border")) {
+        Some(quad) => {
+            let q: Vec<f64> = quad
+                .as_array()
+                .ok_or_else(|| format!("{ck}: рамка не список"))?
+                .iter()
+                .filter_map(Value::as_f64)
+                .collect();
+            if q.len() != 8 {
+                return Err(format!("{ck}: в рамке {} чисел вместо 8", q.len()));
+            }
+            let xs = [q[0], q[2], q[4], q[6]];
+            let ys = [q[1], q[3], q[5], q[7]];
+            let min = |v: [f64; 4]| v.into_iter().fold(f64::INFINITY, f64::min);
+            let max = |v: [f64; 4]| v.into_iter().fold(f64::NEG_INFINITY, f64::max);
+            Rect {
+                x: min(xs),
+                y: min(ys),
+                w: max(xs) - min(xs),
+                h: max(ys) - min(ys),
+            }
+        }
+        None if reply.box_model.is_null() => Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
+        },
+        None => return Err(format!("{ck}: в ответе DOM.getBoxModel нет рамки")),
+    };
+    let opacity: f64 = get("opacity").parse().unwrap_or(1.0);
+    let background = parse_color(get("background-color")).map(|c| {
+        format!(
+            "rgba({}, {}, {}, {})",
+            c.r,
+            c.g,
+            c.b,
+            (c.a * opacity * 1e6).round() / 1e6
+        )
+    });
+    let visible = get("content") != "none"
+        && get("display") != "none"
+        && get("visibility") != "hidden"
+        && frame.w > 0.0
+        && frame.h > 0.0;
+    Ok(json!({
+        "ck": ck,
+        "tag": "pseudo",
+        "parent": reply.owner,
+        "frame": {"x": frame.x, "y": frame.y, "w": frame.w, "h": frame.h},
+        "visible": visible,
+        "text": null,
+        "truncated": false,
+        "icon": null,
+        "style": {
+            "color": get("color"),
+            "background": background.unwrap_or_default(),
+            "borderColor": get("border-top-color"),
+            "borderWidth": get("border-top-width"),
+            "borderStyle": get("border-top-style"),
+            "radius": get("border-top-left-radius"),
+            "shadow": get("box-shadow"),
+        },
+    }))
+}
+
+/// Всё, что съёмщик получил от браузера для одного паспорта. Записывается целиком (`--record`),
+/// поэтому сборка паспорта проверяется на записанных ответах без браузера.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Capture {
+    /// Плотность пикселей снимков значков.
+    pub dpr: f64,
+    /// Ответ `conformance.facts()`.
+    pub facts: Value,
+    /// Ответы `CSS.getPlatformFontsForNode` по ключу узла с текстом.
+    pub fonts: BTreeMap<String, Value>,
+    /// Псевдоэлементы узлов с ключом в порядке документа.
+    pub pseudo: Vec<PseudoReply>,
+    /// Снимки видимых значков: ключ → PNG в base64 из `Page.captureScreenshot` по области
+    /// [`PixelClip`].
+    pub icons: BTreeMap<String, String>,
+}
+
+/// Собранный паспорт без полей годности и окна: наблюдаемый состав, элементы и маски значков
+/// (ключ → PNG маски).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assembled {
+    pub composition: Composition,
+    pub elements: Vec<Element>,
+    pub masks: BTreeMap<String, Vec<u8>>,
+}
+
+/// Собирает паспорт из записанного съёма: постусловия рецепта, элементы с псевдоэлементами сразу
+/// за владельцем, шрифты по ключу, маски видимых значков. Невыполненное постусловие, узел текста
+/// без ответа о шрифтах, видимый значок без снимка или снимок не того размера — ошибка.
+pub fn assemble(scene: &Scene, recipe: &Recipe, capture: &Capture) -> Result<Assembled, String> {
+    let observed: Composition = serde_json::from_value(
+        capture
+            .facts
+            .get("composition")
+            .cloned()
+            .ok_or("в фактах нет состава")?,
+    )
+    .map_err(|e| format!("состав: {e}"))?;
+    let unmet = recipe.check_post(scene, &observed);
+    if !unmet.is_empty() {
+        return Err(format!(
+            "постусловие рецепта не выполнено: {}",
+            unmet.join("; ")
+        ));
+    }
+    let base = elements(&capture.facts)?;
+    let mut pseudo: BTreeMap<&str, Vec<Element>> = BTreeMap::new();
+    let mut order = capture.pseudo.iter().collect::<Vec<_>>();
+    order.sort_by_key(|p| p.pseudo != "before");
+    for reply in order {
+        if !base.iter().any(|e| e.ck == reply.owner) {
+            return Err(format!(
+                "псевдоэлемент узла «{}» без элемента-владельца",
+                reply.owner
+            ));
+        }
+        let element = element(&pseudo_fact(reply)?)?;
+        pseudo
+            .entry(reply.owner.as_str())
+            .or_default()
+            .push(element);
+    }
+    let mut out = Vec::new();
+    for mut element in base {
+        if let Some(font) = element.font.as_mut() {
+            let reply = capture
+                .fonts
+                .get(&element.ck)
+                .ok_or_else(|| format!("{}: нет ответа о шрифтах", element.ck))?;
+            font.faces = font_faces(reply).map_err(|e| format!("{}: {e}", element.ck))?;
+        }
+        let owned = pseudo.remove(element.ck.as_str()).unwrap_or_default();
+        out.push(element);
+        out.extend(owned);
+    }
+    crate::keys::check_unique(out.iter().map(|e| e.ck.as_str()))?;
+    let mut masks = BTreeMap::new();
+    for icon in out
+        .iter()
+        .filter(|e| e.kind == ElementKind::Icon && e.visible)
+    {
+        let data = capture
+            .icons
+            .get(&icon.ck)
+            .ok_or_else(|| format!("{}: нет снимка значка", icon.ck))?;
+        let png = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .map_err(|e| format!("{}: снимок не base64: {e}", icon.ck))?;
+        let clip = PixelClip::of(&icon.frame, capture.dpr)?;
+        let mask = Mask::from_png(&png, backdrop(&out, &icon.ck)?)?;
+        if (mask.width, mask.height) != (clip.width, clip.height) {
+            return Err(format!(
+                "{}: снимок {}×{} вместо области {}×{}",
+                icon.ck, mask.width, mask.height, clip.width, clip.height
+            ));
+        }
+        masks.insert(icon.ck.clone(), mask.to_png()?);
+    }
+    if let Some(stray) = capture.icons.keys().find(|k| !masks.contains_key(*k)) {
+        return Err(format!("{stray}: снимок без видимого значка"));
+    }
+    Ok(Assembled {
+        composition: observed,
+        elements: out,
+        masks,
+    })
 }

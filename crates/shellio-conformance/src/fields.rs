@@ -149,9 +149,10 @@ pub fn rule(field: Field, kind: ElementKind) -> Rule {
     let applicability = match field {
         Field::Composition | Field::Frame | Field::Visible => Required,
         Field::Text | Field::Truncated => match kind {
-            K::Text => Required,
+            // Плашка всегда несёт текст: знак клавиши или имя режима.
+            K::Text | K::Badge => Required,
             K::Control | K::Tab => IfSet,
-            K::Container | K::Icon | K::Plate | K::Badge | K::Pseudo => NotApplicable,
+            K::Container | K::Icon | K::Plate | K::Pseudo => NotApplicable,
         },
         Field::Font => match kind {
             K::Text => Required,

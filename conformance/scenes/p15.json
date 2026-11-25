@@ -1,4 +1,5 @@
 {
+  "workspace": "Работа",
   "catalog": [
     {"id": "terminal", "title": "Терминал", "icon": "term", "cardinality": "multi",
      "placements": ["left", "right", "center", "bottom"], "default_zone": "center",

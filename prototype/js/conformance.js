@@ -98,6 +98,9 @@
       if (!known[c.id]) { delete S.plugins[c.id].tabTitle; S.plugins[c.id].view = () => ''; }
     });
     S.scenarios.length = 0;
+    // Воркспейс сцены единственный: подпись из сцены, сводок других воркспейсов нет.
+    const ws = S.ws(); ws.title = scene.workspace;
+    W.workspaces.length = 0; W.workspaces.push(ws);
     St.overlays = []; St.pending = [];
     S.resetLayouts();
     S.uid.reset();
@@ -148,6 +151,17 @@
 
   // Наблюдаемый состав и сырые факты элементов с ключами; шрифты, псевдоэлементы и маски
   // съёмщик берёт по CDP.
+  // Заливка, которую видно под элементом: фоны предков от корня документа, полупрозрачные
+  // накладываются на нижние. Корень поверхности несёт её вместо прозрачной заливки, чтобы фон под
+  // значком был известен из паспорта.
+  const parseRgba = (text) => { const m = text.match(/rgba?\(([^)]*)\)/); if (!m) return null; const [r, g, b, a = 1] = m[1].split(',').map(Number); return { r, g, b, a }; };
+  const seenFill = (el) => {
+    const chain = []; for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.unshift(parseRgba(getComputedStyle(n).backgroundColor));
+    let c = { r: 255, g: 255, b: 255 };
+    chain.forEach((f) => { if (f && f.a > 0) c = { r: f.r * f.a + c.r * (1 - f.a), g: f.g * f.a + c.g * (1 - f.a), b: f.b * f.a + c.b * (1 - f.a) }; });
+    return `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+  };
+
   const facts = () => {
     const L = S.layout();
     const ck = (el) => el.dataset.ck;
@@ -180,7 +194,7 @@
         icon: el.dataset.icon ? { name: el.dataset.icon, size: +el.getAttribute('width') } : null,
         style: {
           fontFamily: cs.fontFamily, fontWeight: cs.fontWeight, fontSize: cs.fontSize, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
-          color: cs.color, background: cs.backgroundColor, borderColor: cs.borderTopColor, borderWidth: cs.borderTopWidth, borderStyle: cs.borderTopStyle,
+          color: cs.color, background: parent ? cs.backgroundColor : seenFill(el), borderColor: cs.borderTopColor, borderWidth: cs.borderTopWidth, borderStyle: cs.borderTopStyle,
           radius: cs.borderTopLeftRadius, padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft], shadow: cs.boxShadow,
         },
       };

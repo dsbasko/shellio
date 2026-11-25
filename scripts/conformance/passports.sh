@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Пересъём паспортов сверки с прототипом (ADR-0037): make passports [STATES="…"].
 # Каждый паспорт снимается двумя свежими процессами браузера; набор публикуется, только если все
-# выбранные ячейки сняты и оба съёма каждой совпали побайтно. Несовпадение оставляет оба файла в
+# выбранные ячейки сняты и оба съёма каждой совпали побайтно вместе с масками значков
+# (<ячейка>.icons/<ключ>.png рядом с паспортом; прежние маски ячейки заменяются целиком). Несовпадение оставляет оба файла в
 # target/passports/<время>-<pid>/ и паспорта репозитория не трогает. Непереснятые паспорта
 # проверяются на годность. Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
 set -euo pipefail
@@ -54,6 +55,12 @@ while read -r state recipe cell; do
     echo "passports: $state [$cell] два съёма разошлись: $RUN/$state/$cell.{1,2}.json" >&2
     exit 1
   fi
+  if [ -d "$RUN/$state/$cell.1.icons" ] || [ -d "$RUN/$state/$cell.2.icons" ]; then
+    if ! diff -r "$RUN/$state/$cell.1.icons" "$RUN/$state/$cell.2.icons" > /dev/null 2>&1; then
+      echo "passports: $state [$cell] маски значков двух съёмов разошлись: $RUN/$state/$cell.{1,2}.icons" >&2
+      exit 1
+    fi
+  fi
   echo "passports: $state [$cell] два съёма совпали" >&2
 done <<< "$LIST"
 
@@ -61,6 +68,17 @@ while read -r state recipe cell; do
   dest="$ROOT/conformance/passports/$state"
   mkdir -p "$dest"
   cp "$RUN/$state/$cell.1.json" "$dest/.$cell.json.part"
+  rm -rf "$dest/.$cell.icons.part" "$dest/.$cell.icons.old"
+  if [ -d "$RUN/$state/$cell.1.icons" ]; then
+    cp -R "$RUN/$state/$cell.1.icons" "$dest/.$cell.icons.part"
+  fi
+  if [ -d "$dest/$cell.icons" ]; then
+    mv "$dest/$cell.icons" "$dest/.$cell.icons.old"
+  fi
+  if [ -d "$dest/.$cell.icons.part" ]; then
+    mv "$dest/.$cell.icons.part" "$dest/$cell.icons"
+  fi
+  rm -rf "$dest/.$cell.icons.old"
   mv "$dest/.$cell.json.part" "$dest/$cell.json"
 done <<< "$LIST"
 

@@ -44,6 +44,12 @@
   "elements": [
     {
       "ck": "chrome",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
       "frame": {
         "h": 40.000000,
         "w": 1180.000000,
@@ -372,6 +378,8 @@
       },
       "parent": "chrome.search",
       "radius": 4.000000,
+      "text": "⌘K",
+      "truncated": false,
       "visible": true
     },
     {
@@ -600,10 +608,10 @@
   "validity": {
     "cell": "light-normal",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "cd7ac87ce828ef2c4509a2ea4c7d9b23be1c19b9c1a97e4007c43da2425b061b",
+    "prototype": "42a80fb5e6514a7983e4feb3b3ca7a5f39024b2427e2752097654d4059b14759",
     "recipe": "ea814ff2c892b8c58b6800d51ffc7fb6db048bf5178eaad5dddc4ae1c11f3cd5",
-    "scene": "7ba9eea9f2f779d3722b6a8d6a3c05fe8dbab3d06fabf2e08c42439b6d6c7208",
-    "schema": 1
+    "scene": "20aa453541f6e398436ffc64e5b6d617a1f267179e79678376652a1250d7393f",
+    "schema": 2
   },
   "window": {
     "dpr": 2.000000,

@@ -3,10 +3,13 @@
 //! `?conformance=1` прототипа и пишет канонический паспорт.
 //!
 //! Вызов: `shellio-snap --chrome <путь> --root <репозиторий> --recipe <имя> --cell <ячейка>
-//! --out <файл>`. Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
+//! --out <файл> [--record <файл>]`. Маски значков ложатся рядом: `<файл без .json>.icons/`.
+//! `--record` записывает все ответы браузера ([`cdp::Capture`]) для тестов на записанных ответах.
+//! Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
 
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -15,10 +18,12 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 use shellio_conformance::cdp;
-use shellio_conformance::passport::{Cell, Element, FontFace, Passport, Window};
+use shellio_conformance::fields::ElementKind;
+use shellio_conformance::mask::PixelClip;
+use shellio_conformance::passport::{Cell, Passport, Window};
 use shellio_conformance::recipe::Recipe;
 use shellio_conformance::registry::Registry;
-use shellio_conformance::scene::{Composition, Scene};
+use shellio_conformance::scene::Scene;
 use shellio_conformance::validity::{Inputs, check_registry};
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
@@ -28,11 +33,13 @@ struct Args {
     recipe: String,
     cell: Cell,
     out: PathBuf,
+    record: Option<PathBuf>,
 }
 
 fn parse_args() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let (mut chrome, mut root, mut recipe, mut cell, mut out) = (None, None, None, None, None);
+    let mut record = None;
     while let Some(flag) = it.next() {
         let value = it.next().ok_or_else(|| format!("{flag}: нет значения"))?;
         match flag.as_str() {
@@ -41,6 +48,7 @@ fn parse_args() -> Result<Args, String> {
             "--recipe" => recipe = Some(value),
             "--cell" => cell = Some(value.parse::<Cell>().map_err(|e| e.to_string())?),
             "--out" => out = Some(PathBuf::from(value)),
+            "--record" => record = Some(PathBuf::from(value)),
             other => return Err(format!("неизвестный флаг {other}")),
         }
     }
@@ -50,6 +58,7 @@ fn parse_args() -> Result<Args, String> {
         recipe: recipe.ok_or("нет --recipe")?,
         cell: cell.ok_or("нет --cell")?,
         out: out.ok_or("нет --out")?,
+        record,
     })
 }
 
@@ -174,21 +183,9 @@ impl Cdp {
     }
 }
 
-fn snap(args: &Args) -> Result<String, String> {
-    let recipe_path = args
-        .root
-        .join(format!("conformance/recipes/{}.json", args.recipe));
-    let recipe_text = fs::read_to_string(&recipe_path).map_err(|e| e.to_string())?;
-    let recipe = Recipe::parse(&recipe_path.display().to_string(), &recipe_text)
-        .map_err(|e| e.to_string())?;
-    let scene_path = args
-        .root
-        .join(format!("conformance/scenes/{}.json", recipe.scene));
-    let scene_text = fs::read_to_string(&scene_path).map_err(|e| e.to_string())?;
-    let index =
-        fs::canonicalize(args.root.join("prototype/index.html")).map_err(|e| e.to_string())?;
-
-    let (_browser, url) = launch(&args.chrome)?;
+/// Браузер с новым профилем и сеанс CDP его единственной страницы.
+fn open_page(chrome: &Path) -> Result<(Browser, Cdp), String> {
+    let (browser, url) = launch(chrome)?;
     let (ws, _) = tungstenite::connect(url.as_str()).map_err(|e| e.to_string())?;
     let mut cdp = Cdp {
         ws,
@@ -208,6 +205,81 @@ fn snap(args: &Args) -> Result<String, String> {
         json!({"targetId": page, "flatten": true}),
     )?;
     cdp.session = attached["sessionId"].as_str().map(str::to_owned);
+    Ok((browser, cdp))
+}
+
+/// Разметка обычного мира без ключей сверки и значков: `body` без скриптов, без `data-ck` и
+/// `data-icon`; порядковые id (`<префикс>-<n>`) заменены на `<префикс>-#`.
+const WORLD_DOM: &str = r#"(() => {
+  const body = document.body.cloneNode(true);
+  body.querySelectorAll('script').forEach((e) => e.remove());
+  body.querySelectorAll('[data-ck]').forEach((e) => e.removeAttribute('data-ck'));
+  body.querySelectorAll('[data-icon]').forEach((e) => e.removeAttribute('data-icon'));
+  return body.innerHTML.replace(/\b([a-z]+)-\d+\b/g, '$1-#');
+})()"#;
+
+/// `world --chrome <c> --index <index.html> --out <каталог>`: обычный мир прототипа без
+/// `?conformance=1` (с `?still`, такт агентов стоит). Стартовый мир — `start.html`, каждый
+/// сценарий `S.scenarios` в свежей странице — `<id>.html`, исключение сценария — текстом в файле.
+/// Сравнение двух копий прототипа — `diff -r` каталогов.
+fn world(chrome: &Path, index: &Path, out: &Path) -> Result<(), String> {
+    let index = fs::canonicalize(index).map_err(|e| format!("{}: {e}", index.display()))?;
+    fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
+    let (_browser, mut cdp) = open_page(chrome)?;
+    cdp.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width": 1180, "height": 720, "deviceScaleFactor": 2, "mobile": false}),
+    )?;
+    cdp.call("Page.enable", json!({}))?;
+    let frames = "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))))";
+    let fresh = |cdp: &mut Cdp| -> Result<(), String> {
+        cdp.call(
+            "Page.navigate",
+            json!({"url": format!("file://{}?still", index.display())}),
+        )?;
+        cdp.wait_event("Page.loadEventFired")?;
+        cdp.eval(frames)?;
+        Ok(())
+    };
+    fresh(&mut cdp)?;
+    let start = cdp.eval(WORLD_DOM)?;
+    fs::write(out.join("start.html"), start.as_str().unwrap_or_default())
+        .map_err(|e| e.to_string())?;
+    let ids = cdp.eval("S.scenarios.map((s) => s.id)")?;
+    for id in ids
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+    {
+        fresh(&mut cdp)?;
+        let run = format!(
+            "(() => {{ S.scenarios.find((s) => s.id === {id:?}).run(); S.renderNow(); }})()"
+        );
+        let text = match cdp.eval(&run).and_then(|_| cdp.eval(frames)) {
+            Ok(_) => cdp.eval(WORLD_DOM)?.as_str().unwrap_or_default().to_owned(),
+            Err(e) => format!("исключение: {e}"),
+        };
+        fs::write(out.join(format!("{id}.html")), text).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn snap(args: &Args) -> Result<(String, BTreeMap<String, Vec<u8>>), String> {
+    let recipe_path = args
+        .root
+        .join(format!("conformance/recipes/{}.json", args.recipe));
+    let recipe_text = fs::read_to_string(&recipe_path).map_err(|e| e.to_string())?;
+    let recipe = Recipe::parse(&recipe_path.display().to_string(), &recipe_text)
+        .map_err(|e| e.to_string())?;
+    let scene_path = args
+        .root
+        .join(format!("conformance/scenes/{}.json", recipe.scene));
+    let scene_text = fs::read_to_string(&scene_path).map_err(|e| e.to_string())?;
+    let index =
+        fs::canonicalize(args.root.join("prototype/index.html")).map_err(|e| e.to_string())?;
+
+    let (_browser, mut cdp) = open_page(&args.chrome)?;
     cdp.call("Network.enable", json!({}))?;
     cdp.call(
         "Network.setBlockedURLs",
@@ -232,20 +304,15 @@ fn snap(args: &Args) -> Result<String, String> {
     });
     cdp.eval(&format!("window.conformance.apply({recipe_text}, {cell})"))?;
     let facts = cdp.eval("window.conformance.facts()")?;
+    let capture = capture(&mut cdp, facts, f64::from(recipe.window.dpr))?;
+    if let Some(path) = &args.record {
+        let text = serde_json::to_string_pretty(&capture).map_err(|e| e.to_string())?;
+        fs::write(path, text + "\n").map_err(|e| format!("{}: {e}", path.display()))?;
+    }
 
     let scene =
         Scene::parse(&scene_path.display().to_string(), &scene_text).map_err(|e| e.to_string())?;
-    let observed: Composition =
-        serde_json::from_value(facts["composition"].clone()).map_err(|e| format!("состав: {e}"))?;
-    let unmet = recipe.check_post(&scene, &observed);
-    if !unmet.is_empty() {
-        return Err(format!(
-            "постусловие рецепта не выполнено: {}",
-            unmet.join("; ")
-        ));
-    }
-    let mut elements = cdp::elements(&facts)?;
-    fonts(&mut cdp, &mut elements)?;
+    let assembled = cdp::assemble(&scene, &recipe, &capture)?;
     let inputs = Inputs::from_root(&args.root).map_err(|e| e.to_string())?;
     let passport = Passport {
         validity: inputs
@@ -256,67 +323,111 @@ fn snap(args: &Args) -> Result<String, String> {
             height: f64::from(recipe.window.height),
             dpr: f64::from(recipe.window.dpr),
         },
-        composition: observed,
-        elements,
+        composition: assembled.composition,
+        elements: assembled.elements,
     };
     passport.check()?;
-    passport.to_canonical().map_err(|e| e.to_string())
+    Ok((
+        passport.to_canonical().map_err(|e| e.to_string())?,
+        assembled.masks,
+    ))
 }
 
-/// Шрифты, которыми Chrome фактически набрал текст элемента, с `isCustomFont` и числом глифов.
-/// Узлы `[data-ck]` идут в порядке документа, как факты.
-fn fonts(cdp: &mut Cdp, elements: &mut [Element]) -> Result<(), String> {
+/// Узлы документа с ключом: ключ → `nodeId` и псевдоэлементы `::before` и `::after` в порядке
+/// документа. Один `DOM.getDocument` на съём: следующий сделал бы эти `nodeId` негодными.
+fn keyed_nodes(
+    node: &Value,
+    owner: Option<&str>,
+    keys: &mut BTreeMap<String, u64>,
+    pseudo: &mut Vec<(String, String, u64)>,
+) {
+    let attrs: Vec<&str> = node["attributes"]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    let ck = attrs
+        .chunks(2)
+        .find(|pair| pair.first() == Some(&"data-ck"))
+        .and_then(|pair| pair.get(1).copied());
+    if let (Some(ck), Some(id)) = (ck, node["nodeId"].as_u64()) {
+        keys.insert(ck.to_owned(), id);
+    }
+    let here = ck.or(owner);
+    if let Some(ck) = ck {
+        for p in node["pseudoElements"].as_array().into_iter().flatten() {
+            if let (Some(kind @ ("before" | "after")), Some(id)) =
+                (p["pseudoType"].as_str(), p["nodeId"].as_u64())
+            {
+                pseudo.push((ck.to_owned(), kind.to_owned(), id));
+            }
+        }
+    }
+    for child in node["children"].as_array().into_iter().flatten() {
+        keyed_nodes(child, here, keys, pseudo);
+    }
+}
+
+/// Ответы браузера для паспорта: шрифты текста по ключу, псевдоэлементы, снимки видимых значков
+/// по пиксельной сетке. Снимки идут последними, после всех фактов.
+fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String> {
+    let list = cdp::elements(&facts)?;
     cdp.call("DOM.enable", json!({}))?;
     cdp.call("CSS.enable", json!({}))?;
-    let doc = cdp.call("DOM.getDocument", json!({"depth": 0}))?;
-    let root = doc["root"]["nodeId"]
-        .as_u64()
-        .ok_or("нет корня документа")?;
-    let found = cdp.call(
-        "DOM.querySelectorAll",
-        json!({"nodeId": root, "selector": "[data-ck]"}),
-    )?;
-    let nodes: Vec<u64> = found["nodeIds"]
-        .as_array()
-        .map(|a| a.iter().filter_map(Value::as_u64).collect())
-        .unwrap_or_default();
-    if nodes.len() != elements.len() {
+    let doc = cdp.call("DOM.getDocument", json!({"depth": -1, "pierce": true}))?;
+    let mut keys = BTreeMap::new();
+    let mut pseudo_nodes = Vec::new();
+    keyed_nodes(&doc["root"], None, &mut keys, &mut pseudo_nodes);
+    if keys.len() != list.len() {
         return Err(format!(
             "узлов с data-ck {}, фактов {}",
-            nodes.len(),
-            elements.len()
+            keys.len(),
+            list.len()
         ));
     }
-    for (node, element) in nodes.into_iter().zip(elements.iter_mut()) {
-        let Some(font) = element.font.as_mut() else {
-            continue;
-        };
+    let mut fonts = BTreeMap::new();
+    for element in list.iter().filter(|e| e.font.is_some()) {
+        let node = keys
+            .get(&element.ck)
+            .ok_or_else(|| format!("{}: узла нет в документе", element.ck))?;
         let reply = cdp.call("CSS.getPlatformFontsForNode", json!({"nodeId": node}))?;
-        let mut faces: Vec<FontFace> = reply["fonts"]
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .map(|f| FontFace {
-                        family: f["postScriptName"]
-                            .as_str()
-                            .filter(|n| !n.is_empty())
-                            .or_else(|| f["familyName"].as_str())
-                            .unwrap_or_default()
-                            .to_owned(),
-                        custom: f["isCustomFont"].as_bool().unwrap_or(false),
-                        glyphs: f["glyphCount"].as_u64().unwrap_or(0) as u32,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        faces.sort_by(|a, b| {
-            b.glyphs
-                .cmp(&a.glyphs)
-                .then_with(|| a.family.cmp(&b.family))
-        });
-        font.faces = faces;
+        fonts.insert(element.ck.clone(), reply);
     }
-    Ok(())
+    let mut pseudo = Vec::new();
+    for (owner, kind, node) in pseudo_nodes {
+        let style = cdp.call("CSS.getComputedStyleForNode", json!({"nodeId": node}))?;
+        // Псевдоэлемент без блока (`display: none`) отвечает ошибкой: кадра у него нет.
+        let box_model = cdp
+            .call("DOM.getBoxModel", json!({"nodeId": node}))
+            .unwrap_or(Value::Null);
+        pseudo.push(cdp::PseudoReply {
+            owner,
+            pseudo: kind,
+            style,
+            box_model,
+        });
+    }
+    let mut icons = BTreeMap::new();
+    for icon in list
+        .iter()
+        .filter(|e| e.kind == ElementKind::Icon && e.visible)
+    {
+        let area = PixelClip::of(&icon.frame, dpr)?.in_points(dpr);
+        let shot = cdp.call(
+            "Page.captureScreenshot",
+            json!({"format": "png", "captureBeyondViewport": false, "fromSurface": true,
+                   "clip": {"x": area.x, "y": area.y, "width": area.w, "height": area.h,
+                            "scale": 1}}),
+        )?;
+        let data = shot["data"].as_str().ok_or("снимок без данных")?;
+        icons.insert(icon.ck.clone(), data.to_owned());
+    }
+    Ok(cdp::Capture {
+        dpr,
+        facts,
+        fonts,
+        pseudo,
+        icons,
+    })
 }
 
 fn read_registry(root: &Path) -> Result<Registry, String> {
@@ -357,8 +468,41 @@ fn check(root: &Path) -> Result<ExitCode, String> {
     })
 }
 
+/// Паспорт и маски значков рядом с ним: `<имя>.json` и `<имя>.icons/<ключ>.png`.
+fn write(out: &Path, text: &str, masks: &BTreeMap<String, Vec<u8>>) -> Result<(), String> {
+    let dir = out.with_extension("icons");
+    if dir.exists() {
+        fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    if !masks.is_empty() {
+        fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    }
+    for (ck, png) in masks {
+        let path = dir.join(format!("{ck}.png"));
+        fs::write(&path, png).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    fs::write(out, text).map_err(|e| format!("{}: {e}", out.display()))
+}
+
 fn main() -> ExitCode {
     let all: Vec<String> = std::env::args().skip(1).collect();
+    if all.first().map(String::as_str) == Some("world") {
+        return match all.get(1..).unwrap_or_default() {
+            [c, chrome, i, index, o, out] if c == "--chrome" && i == "--index" && o == "--out" => {
+                match world(Path::new(chrome), Path::new(index), Path::new(out)) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("shellio-snap: {e}");
+                        ExitCode::from(1)
+                    }
+                }
+            }
+            _ => {
+                eprintln!("shellio-snap: world --chrome <c> --index <index.html> --out <каталог>");
+                ExitCode::from(2)
+            }
+        };
+    }
     if let Some(sub) = all.first().filter(|s| *s == "states" || *s == "check") {
         let root = match (all.get(1).map(String::as_str), all.get(2)) {
             (Some("--root"), Some(root)) => PathBuf::from(root),
@@ -384,7 +528,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    match snap(&args).and_then(|text| fs::write(&args.out, text).map_err(|e| e.to_string())) {
+    match snap(&args).and_then(|(text, masks)| write(&args.out, &text, &masks)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("shellio-snap: {e}");

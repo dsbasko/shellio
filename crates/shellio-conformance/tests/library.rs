@@ -15,6 +15,7 @@ use shellio_conformance::validity::{Inputs, Problem, SNAP_SCHEMA, check_registry
 use shellio_conformance::{Zone, plans};
 
 const SCENE: &str = r#"{
+  "workspace": "Работа",
   "catalog": [
     {"id": "terminal", "title": "Терминал", "icon": "terminal", "cardinality": "multi",
      "placements": ["left", "right", "center", "bottom"], "default_zone": "center",
