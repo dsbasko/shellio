@@ -863,7 +863,8 @@ pub fn judge(
     for element in &passport.elements {
         let ck = element.ck.as_str();
         if element.kind == ElementKind::Pseudo {
-            if element.visible {
+            // Псевдоэлемент без заливки ничего не рисует и не сверяется.
+            if element.visible && element.fill.is_some() {
                 let kind = if ck.contains(".tabs.tab.") && ck.ends_with("::after") {
                     SnapshotKind::Underline
                 } else {
@@ -1227,8 +1228,8 @@ pub const STRIP_MARGIN: f64 = 2.0;
 /// Наименьшая ширина свободного промежутка строки вкладок, в точках.
 pub const STRIP_MIN: f64 = 4.0;
 
-/// Свободный промежуток строки вкладок в координатах паспорта: самый широкий участок кадра
-/// полосы, не занятый другим видимым узлом продукта, с отступом [`STRIP_MARGIN`]. Узел, чей кадр
+/// Свободный промежуток узла (строки вкладок или вкладки) в координатах паспорта: самый широкий
+/// участок его кадра, не занятый другим видимым узлом продукта, с отступом [`STRIP_MARGIN`]. Узел, чей кадр
 /// накрывает полосу целиком (предок, слой над плиткой), промежуток не занимает. Промежутка не
 /// уже [`STRIP_MIN`] нет — отказ.
 pub fn free_strip(product: &Product, strip: &Node) -> Result<Rect, String> {
@@ -1453,16 +1454,33 @@ pub fn snapshot_stage(
                 Some((_, tint)) if tint.a < 1.0 => {
                     // Вуаль и тон плитки лежат над всей плиткой: судятся там, где основа под
                     // ними известна, — на свободном промежутке строки вкладок.
+                    // Основа — полоса вкладок, а в полосе без свободного места — её вкладка с
+                    // собственной непрозрачной заливкой (активная).
                     let strip = ck
                         .strip_suffix("::after")
-                        .and_then(|owner| product.keyed(&format!("{owner}.tabs")))
-                        .filter(|n| n.visible);
-                    let base = strip
-                        .and_then(|n| n.style.as_ref()?.fill)
-                        .filter(|fill| fill.a >= 1.0);
-                    match (strip, base) {
-                        (Some(strip), Some(base)) => free_strip(product, strip)
-                            .and_then(|gap| region_median(&gap, snapshot.scale, snapshot.pixel))
+                        .map(|owner| format!("{owner}.tabs"));
+                    let found = strip.as_deref().and_then(|strip| {
+                        let tab = format!("{strip}.tab.");
+                        product
+                            .components
+                            .iter()
+                            .filter(|n| {
+                                n.visible
+                                    && n.ck.as_deref().is_some_and(|key| {
+                                        key == strip
+                                            || key
+                                                .strip_prefix(tab.as_str())
+                                                .is_some_and(|rest| !rest.contains('.'))
+                                    })
+                            })
+                            .filter_map(|n| {
+                                let base = n.style.as_ref()?.fill.filter(|fill| fill.a >= 1.0)?;
+                                Some((free_strip(product, n).ok()?, base))
+                            })
+                            .next()
+                    });
+                    match found {
+                        Some((gap, base)) => region_median(&gap, snapshot.scale, snapshot.pixel)
                             .map(|median| {
                                 let over = blend(
                                     Rgb::new(base.r, base.g, base.b),
@@ -1479,9 +1497,9 @@ pub fn snapshot_stage(
                                 };
                                 fill_mismatch(ck, Field::Fill, expected, median)
                             }),
-                        _ => Err(
-                            "полупрозрачный участок судится по строке вкладок плитки: её узла \
-                             или непрозрачной заливки нет"
+                        None => Err(
+                            "полупрозрачный участок судится по строке вкладок плитки: у полосы и \
+                             её вкладок нет непрозрачной заливки со свободным промежутком"
                                 .to_owned(),
                         ),
                     }

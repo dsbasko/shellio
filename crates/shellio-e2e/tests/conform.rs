@@ -915,10 +915,12 @@ fn veil_and_tone_are_judged_on_the_free_tab_strip_in_every_cell() {
             );
         }
     }
-    // Полоса без свободного промежутка или без непрозрачной заливки: суждения нет, поле названо.
+    // Ни у полосы, ни у её вкладок нет читаемой заливки: суждения нет, поле названо.
     let passport = passport(state, "dark-normal");
     let mut tree = mirror(&passport);
-    node(&mut tree, "zone.center.part.1.tabs")["style"]["fill"] = Value::Null;
+    for key in ["zone.center.part.1.tabs", "zone.center.part.1.tabs.tab.1"] {
+        node(&mut tree, key)["style"]["fill"] = Value::Null;
+    }
     let (_, blind) = staged(&passport, &tree, [0, 0, 0]);
     assert!(
         blind
@@ -1014,6 +1016,78 @@ fn conform_on_white(
     (code, report, [passport_arg, inspect, window, png])
 }
 
+/// Отрицательные случаи оракула подкомандой: правка годного дерева даёт код 3, а отчёт называет
+/// поле, которого без правки в нём нет.
+#[test]
+fn conform_subcommand_names_the_field_of_every_negative_case() {
+    type Edit = fn(&mut Value);
+    let cases: [(&str, &str, &str, Edit); 7] = [
+        (
+            "layout-stub",
+            "zone.center.part.2.body.stub.expand",
+            "composition",
+            |tree| remove(tree, "zone.center.part.2.body.stub.expand"),
+        ),
+        ("menu-panel", "", "composition", |tree| {
+            let tabs = node(tree, "zone.center.part.1.tabs")["state"]["tab_strip"]["tabs"]
+                .as_array_mut()
+                .expect("вкладки");
+            let (first, second) = (tabs[0]["kind"].clone(), tabs[1]["kind"].clone());
+            tabs[0]["kind"] = second;
+            tabs[1]["kind"] = first;
+        }),
+        ("menu-panel", "", "composition", |tree| {
+            node(tree, "zone.center.part.1.tabs")["state"]["tab_strip"]["selected"] = json!("t2");
+        }),
+        ("menu-panel", "", "composition", |tree| {
+            let holder = tree["components"]
+                .as_array_mut()
+                .expect("узлы")
+                .iter_mut()
+                .find(|n| n["state"]["menu"]["open"] == true)
+                .expect("открытое меню");
+            holder["state"]["menu"]["items"]
+                .as_array_mut()
+                .expect("пункты")
+                .swap(0, 1);
+        }),
+        (
+            "chrome-titlebar",
+            "chrome.appearance",
+            "composition",
+            |tree| node(tree, "chrome.appearance")["ck"] = Value::Null,
+        ),
+        ("chrome-titlebar", "chrome.search.kbd", "font", |tree| {
+            node(tree, "chrome.search.kbd")["style"]["font"]["file"] =
+                json!("file:///Users/u/Library/Fonts/JetBrainsMono-Regular.ttf");
+        }),
+        (
+            "layout-all-zones",
+            "zone.center.part.1.tabs.tab.1.label",
+            "frame",
+            |tree| {
+                let label = node(tree, "zone.center.part.1.tabs.tab.1.label");
+                let x = label["frame"]["x"].as_f64().expect("x");
+                label["frame"]["x"] = json!(x + 2.0);
+            },
+        ),
+    ];
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let named = |report: &Value, ck: &str, field: &str| {
+        report["mismatches"]
+            .as_array()
+            .is_some_and(|m| m.iter().any(|m| m["ck"] == ck && m["field"] == field))
+    };
+    for (index, (state, ck, field, edit)) in cases.into_iter().enumerate() {
+        let (_, clean, _) = conform_on_white(dir.path(), state, |_| {});
+        assert!(!named(&clean, ck, field), "случай {index}: {clean:#}");
+        let (code, report, _) = conform_on_white(dir.path(), state, edit);
+        assert_eq!(code, Some(3), "случай {index}: {report:#}");
+        assert_eq!(report["unjudged"], json!([]), "случай {index}");
+        assert!(named(&report, ck, field), "случай {index}: {report:#}");
+    }
+}
+
 #[test]
 fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is_unjudged() {
     let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
@@ -1050,9 +1124,12 @@ fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is
     );
     assert!(named("zone.center.part.1::after", "fill"), "{report:#}");
 
-    // Полоса вкладок без читаемой заливки: тон плитки судить не на чем — вердикта нет, код 1.
+    // Полоса вкладок и её вкладка без читаемой заливки: тон плитки судить не на чем — вердикта
+    // нет, код 1.
     let (code, report, _) = conform_on_white(dir.path(), "layout-all-zones", |tree| {
-        node(tree, "zone.center.part.1.tabs")["style"]["fill"] = Value::Null;
+        for key in ["zone.center.part.1.tabs", "zone.center.part.1.tabs.tab.1"] {
+            node(tree, key)["style"]["fill"] = Value::Null;
+        }
     });
     assert_eq!(code, Some(1), "{report:#}");
     assert_eq!(report["verdict"], "error");
