@@ -319,7 +319,11 @@ impl TextField {
             return;
         }
         if hidden && self.is_editing() {
-            self.field().abortEditing();
+            let field = self.field();
+            field.abortEditing();
+            // Прерванный ввод отбрасывает текст field editor: поле получает значение состояния.
+            let value = NSString::from_str(&self.view.rust().shown.borrow().value);
+            field.setStringValue(&value);
         }
         without_actions(|| view.setHidden(hidden));
     }
