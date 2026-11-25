@@ -45,7 +45,7 @@ impl PixelClip {
         })
     }
 
-    /// Та же область в точках CSS (для `Page.captureScreenshot`).
+    /// Та же область в точках CSS.
     pub fn in_points(&self, dpr: f64) -> Rect {
         Rect {
             x: f64::from(self.x) / dpr,
@@ -54,6 +54,60 @@ impl PixelClip {
             h: f64::from(self.height) / dpr,
         }
     }
+
+    /// Область для `Page.captureScreenshot` в целых точках CSS, покрывающая кадр, и место кадра в
+    /// её снимке. Целая область не зависит от того, как Chrome привязывает дробное начало области
+    /// снимка к пикселям; кадр вырезается из её снимка по своим пикселям ([`crop_png`]). Плотность —
+    /// целое число: иначе целая точка не ложится на границу пикселя.
+    pub fn capture(&self, dpr: f64) -> Result<(Rect, PixelClip), String> {
+        if dpr < 1.0 || dpr.fract() != 0.0 {
+            return Err(format!("область снимка: плотность {dpr} не целое число"));
+        }
+        let step = dpr as u32;
+        let (x0, y0) = (self.x / step, self.y / step);
+        let (x1, y1) = (
+            (self.x + self.width).div_ceil(step),
+            (self.y + self.height).div_ceil(step),
+        );
+        Ok((
+            Rect {
+                x: f64::from(x0),
+                y: f64::from(y0),
+                w: f64::from(x1 - x0),
+                h: f64::from(y1 - y0),
+            },
+            PixelClip {
+                x: self.x - x0 * step,
+                y: self.y - y0 * step,
+                width: self.width,
+                height: self.height,
+            },
+        ))
+    }
+}
+
+/// Вырезка области из PNG: RGBA 8 бит по строкам, запись детерминирована. Область за краем
+/// снимка — ошибка.
+pub fn crop_png(bytes: &[u8], clip: PixelClip) -> Result<Vec<u8>, String> {
+    let (width, height, rgba) = decode_rgba(bytes)?;
+    if clip.x + clip.width > width || clip.y + clip.height > height {
+        return Err(format!("область {clip:?} за краем снимка {width}×{height}"));
+    }
+    let row = clip.width as usize * 4;
+    let mut data = Vec::with_capacity(row * clip.height as usize);
+    for y in clip.y..clip.y + clip.height {
+        let start = (y as usize * width as usize + clip.x as usize) * 4;
+        data.extend_from_slice(&rgba[start..start + row]);
+    }
+    let mut out = Vec::new();
+    {
+        let mut encoder = Encoder::new(&mut out, clip.width, clip.height);
+        encoder.set_color(ColorType::Rgba);
+        encoder.set_depth(BitDepth::Eight);
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        writer.write_image_data(&data).map_err(|e| e.to_string())?;
+    }
+    Ok(out)
 }
 
 /// Фон под значком: заливка ближайшего предка с ключом. Непрозрачная заливка — фон; полупрозрачная

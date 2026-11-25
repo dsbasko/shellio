@@ -240,7 +240,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght1F40000",
             "glyphs": 6
           }
         ],
@@ -361,7 +361,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 22
           }
         ],
@@ -371,7 +371,7 @@
       },
       "frame": {
         "h": 18.000000,
-        "w": 390.390625,
+        "w": 390.398438,
         "x": 392.000000,
         "y": 10.500000
       },
@@ -410,8 +410,8 @@
       },
       "frame": {
         "h": 17.000000,
-        "w": 22.609375,
-        "x": 790.390625,
+        "w": 22.601562,
+        "x": 790.398438,
         "y": 11.000000
       },
       "kind": "badge",
@@ -808,8 +808,8 @@
       "ck": "zone.center.part.1.body.empty",
       "frame": {
         "h": 158.000000,
-        "w": 441.796875,
-        "x": 484.093750,
+        "w": 441.773438,
+        "x": 484.109375,
         "y": 288.000000
       },
       "kind": "container",
@@ -827,7 +827,7 @@
       "frame": {
         "h": 22.000000,
         "w": 22.000000,
-        "x": 693.984375,
+        "x": 693.992188,
         "y": 304.000000
       },
       "icon": {
@@ -850,7 +850,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Bold",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght2580000",
             "glyphs": 21
           }
         ],
@@ -883,7 +883,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 64
           }
         ],
@@ -894,7 +894,7 @@
       "frame": {
         "h": 32.000000,
         "w": 320.000000,
-        "x": 544.984375,
+        "x": 544.992188,
         "y": 358.000000
       },
       "kind": "text",
@@ -920,8 +920,8 @@
       },
       "frame": {
         "h": 26.000000,
-        "w": 152.109375,
-        "x": 500.093750,
+        "w": 152.101562,
+        "x": 500.109375,
         "y": 404.000000
       },
       "kind": "control",
@@ -960,7 +960,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 8
           }
         ],
@@ -970,8 +970,8 @@
       },
       "frame": {
         "h": 18.000000,
-        "w": 60.609375,
-        "x": 512.093750,
+        "w": 60.601562,
+        "x": 512.109375,
         "y": 408.000000
       },
       "kind": "text",
@@ -997,8 +997,8 @@
       },
       "frame": {
         "h": 26.000000,
-        "w": 126.531250,
-        "x": 658.203125,
+        "w": 126.523438,
+        "x": 658.210938,
         "y": 404.000000
       },
       "kind": "control",
@@ -1037,7 +1037,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 5
           }
         ],
@@ -1047,8 +1047,8 @@
       },
       "frame": {
         "h": 18.000000,
-        "w": 35.031250,
-        "x": 670.203125,
+        "w": 35.023438,
+        "x": 670.210938,
         "y": 408.000000
       },
       "kind": "text",
@@ -1074,7 +1074,7 @@
       },
       "frame": {
         "h": 26.000000,
-        "w": 119.156250,
+        "w": 119.148438,
         "x": 790.734375,
         "y": 404.000000
       },
@@ -1114,7 +1114,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 4
           }
         ],
@@ -1124,7 +1124,7 @@
       },
       "frame": {
         "h": 18.000000,
-        "w": 27.656250,
+        "w": 27.648438,
         "x": 802.734375,
         "y": 408.000000
       },
@@ -1169,7 +1169,7 @@
     "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
     "recipe": "acad504496deee18212d1b89c1092cd80dff8026cd3f99d71f3fc19c879529fe",
     "scene": "02aa2f61c94949baf520b3d46db21d441de957a9c194be5cc4ecb047abf004ce",
-    "schema": 3
+    "schema": 4
   },
   "window": {
     "dpr": 2.000000,

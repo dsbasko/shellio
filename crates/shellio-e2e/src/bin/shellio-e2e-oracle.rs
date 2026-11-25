@@ -26,7 +26,9 @@ use shellio_e2e::conform::{self, Mismatch, Product, Snapshot, Tolerances, Unjudg
 use shellio_e2e::css::{Appearance, Contrast, Layer, Palette};
 use shellio_e2e::expect::{self, Geometry};
 use shellio_e2e::underline::{UnderlineInputs, UnderlineReport, underline};
-use shellio_e2e::{Error, Inputs, Previous, Report, Verdict, compare, png, read_marker};
+use shellio_e2e::{
+    Error, Inputs, Previous, Report, Verdict, compare, frame_unsettled, png, read_marker,
+};
 
 const USAGE: &str = "\
 использование:
@@ -41,6 +43,8 @@ const USAGE: &str = "\
   shellio-e2e-oracle conform --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
                              --window <ui.window.json> --png <снимок sRGB>
                              --registry <registry.toml> --calibration <calibration.json>
+                             [--previous-window <ui.window.json> --previous-png <снимок sRGB>
+                              --elapsed-ms <мс>]
   shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
                                --materials <conformance/calibration> --raw <замер.json>
                                --out <calibration.json>
@@ -52,7 +56,9 @@ none). marker печатает поколение из маркера снимк
 код 4 и \"retry\": true — нужен следующий снимок, \"retry\": false — срок истёк.
 conform сверяет паспорт прототипа с продуктом: состав, элементы по ключу, поля контракта и
 стадию снимка; состояние — имя каталога паспорта, маски значков — <ячейка>.icons/ рядом с ним.
-Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1.
+Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1. С --previous-*
+снимок принимается, когда поколение ui.window между двумя снимками то же и ни один пиксель окна не
+изменился больше допуска; иначе код 4 с тем же \"retry\".
 calibrate выводит допуск ширины текста и порог маски из замеров двух сторон: chrome.json с
 масками <ячейка>.icons/ и чтения страницы «Калибровка» <ячейка>.{inspect.json,window.json,png}
 каждой ячейки controls.json. Сырые числа пишутся в --raw при любом исходе вывода, --out — только
@@ -202,11 +208,10 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             Ok(Command::Calibrate(parsed))
         }
         "conform" => {
-            if parsed.expect.is_some() || parsed.generation.is_some() || underline_only || stable[0]
-            {
+            if parsed.expect.is_some() || parsed.generation.is_some() || underline_only {
                 return Err(
                     "conform: принимает только --passport, --inspect, --window, --png, \
-                            --registry и --calibration"
+                            --registry, --calibration и --previous-*"
                         .to_owned(),
                 );
             }
@@ -431,6 +436,9 @@ struct ConformReport {
     state: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+    /// Режим без маркера: при вердикте `generation` — нужен ли следующий снимок до срока.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retry: Option<bool>,
     mismatches: Vec<Mismatch>,
     unjudged: Vec<Unjudged>,
 }
@@ -465,6 +473,26 @@ fn run_conform(args: &Args) -> Result<ConformReport, Error> {
     let inspect = expect::parse_inspect(&inspect_text)?;
     let image = read_image(args.png.as_ref())?;
     let geometry = Geometry::new(&window, &inspect, (image.width, image.height))?;
+    let previous = read_previous(args)?;
+    let mut retry = None;
+    if let Some((previous_window, previous_image)) = &previous {
+        let pair = Previous {
+            window: previous_window,
+            image: previous_image,
+            elapsed_ms: args.elapsed_ms.unwrap_or_default(),
+        };
+        if let Some((reason, again)) = frame_unsettled(&pair, &window, &inspect, &image)? {
+            return Ok(ConformReport {
+                verdict: Verdict::Generation,
+                state: Some(state),
+                reason: Some(reason),
+                retry: Some(again),
+                mismatches: Vec::new(),
+                unjudged: Vec::new(),
+            });
+        }
+        retry = Some(false);
+    }
     let product = Product::parse(&inspect_text)?;
     let report = conform::judge(&passport, &product, &registry, &state, tolerances)?;
     let icons = path.with_extension("icons");
@@ -518,6 +546,7 @@ fn run_conform(args: &Args) -> Result<ConformReport, Error> {
         verdict,
         state: Some(state),
         reason,
+        retry,
         mismatches,
         unjudged: staged.unjudged,
     })
@@ -528,6 +557,7 @@ fn conform_command(args: &Args) -> u8 {
         verdict: Verdict::Error,
         state: None,
         reason: Some(error.to_string()),
+        retry: None,
         mismatches: Vec::new(),
         unjudged: Vec::new(),
     });

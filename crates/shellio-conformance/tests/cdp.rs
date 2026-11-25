@@ -8,7 +8,9 @@ use shellio_conformance::cdp::{
     parse_color, parse_px, parse_shadows, pseudo_fact,
 };
 use shellio_conformance::fields::ElementKind;
-use shellio_conformance::mask::{ICON_FG, Mask, PixelClip, backdrop, foreground};
+use shellio_conformance::mask::{
+    ICON_FG, Mask, PixelClip, backdrop, crop_png, decode_rgba, foreground,
+};
 use shellio_conformance::passport::{Rect, Rgba, Side};
 use shellio_conformance::recipe::Recipe;
 use shellio_conformance::registry::Surface;
@@ -279,6 +281,81 @@ fn foreground_threshold_and_pixel_grid() {
         )
         .is_err()
     );
+}
+
+/// Область снимка целая в точках CSS при любом начале кадра, а кадр вырезается из её снимка по
+/// своим пикселям: начало в половине точки не сдвигает маску.
+#[test]
+fn capture_area_is_whole_points_and_the_frame_is_cropped_from_it() {
+    // Кадр (1050.5, 12, 15×15) при плотности 2: пиксели 2101..2131 и 24..54.
+    let clip = PixelClip::of(
+        &Rect {
+            x: 1050.5,
+            y: 12.0,
+            w: 15.0,
+            h: 15.0,
+        },
+        2.0,
+    )
+    .unwrap();
+    let (area, inner) = clip.capture(2.0).unwrap();
+    assert_eq!((area.x, area.y, area.w, area.h), (1050.0, 12.0, 16.0, 15.0));
+    assert_eq!(
+        (inner.x, inner.y, inner.width, inner.height),
+        (1, 0, 30, 30)
+    );
+    // Кадр с целым началом снимается как есть.
+    let whole = PixelClip {
+        x: 740,
+        y: 26,
+        width: 28,
+        height: 28,
+    };
+    let (area, inner) = whole.capture(2.0).unwrap();
+    assert_eq!((area.x, area.y, area.w, area.h), (370.0, 13.0, 14.0, 14.0));
+    assert_eq!((inner.x, inner.y), (0, 0));
+    assert!(clip.capture(1.5).is_err());
+
+    // Снимок области 4×2 пикселя: столбец 1 красный. Вырезка кадра со сдвигом 1 начинается с него.
+    let mut png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png, 4, 2);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+        let row = [
+            [0, 0, 0, 255],
+            [255, 0, 0, 255],
+            [0, 255, 0, 255],
+            [0, 0, 255, 255],
+        ]
+        .concat();
+        writer
+            .write_image_data(&[row.clone(), row].concat())
+            .unwrap();
+    }
+    let part = PixelClip {
+        x: 1,
+        y: 0,
+        width: 2,
+        height: 2,
+    };
+    let cropped = crop_png(&png, part).unwrap();
+    let (width, height, rgba) = decode_rgba(&cropped).unwrap();
+    assert_eq!((width, height), (2, 2));
+    assert_eq!(rgba[..8], [255, 0, 0, 255, 0, 255, 0, 255]);
+    assert_eq!(
+        cropped,
+        crop_png(&png, part).unwrap(),
+        "запись детерминирована"
+    );
+    let outside = PixelClip {
+        x: 3,
+        y: 0,
+        width: 2,
+        height: 2,
+    };
+    assert!(crop_png(&png, outside).unwrap_err().contains("за краем"));
 }
 
 #[test]

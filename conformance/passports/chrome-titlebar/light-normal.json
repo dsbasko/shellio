@@ -278,7 +278,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght1F40000",
             "glyphs": 6
           }
         ],
@@ -399,7 +399,7 @@
         "faces": [
           {
             "custom": false,
-            "family": ".SFNS-Regular",
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
             "glyphs": 22
           }
         ],
@@ -409,7 +409,7 @@
       },
       "frame": {
         "h": 18.000000,
-        "w": 390.390625,
+        "w": 390.398438,
         "x": 392.000000,
         "y": 10.500000
       },
@@ -448,8 +448,8 @@
       },
       "frame": {
         "h": 17.000000,
-        "w": 22.609375,
-        "x": 790.390625,
+        "w": 22.601562,
+        "x": 790.398438,
         "y": 11.000000
       },
       "kind": "badge",
@@ -745,7 +745,7 @@
     "prototype": "8573587124d8609beb9f078f40932a5fc46b645cec32370ebbb320e2ffa5debf",
     "recipe": "df78b9ed2cb0a21c740d17eca3be33fafb7bc6143ccb8fe4a60792dc02960640",
     "scene": "02aa2f61c94949baf520b3d46db21d441de957a9c194be5cc4ecb047abf004ce",
-    "schema": 3
+    "schema": 4
   },
   "window": {
     "dpr": 2.000000,

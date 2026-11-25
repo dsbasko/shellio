@@ -208,6 +208,40 @@ fn generations_differ(
     })
 }
 
+/// Пара снимков режима без маркера для сверки всего окна. `None` — пара принята: поколение
+/// `ui.window` между снимками то же, `ui.inspect` снят на нём, и ни один пиксель окна не изменился
+/// больше допуска [`TOLERANCE`]. Иначе — причина и признак повтора до срока [`SETTLE_MS`].
+pub fn frame_unsettled(
+    previous: &Previous<'_>,
+    window: &WindowView,
+    inspect: &InspectView,
+    image: &Image,
+) -> Result<Option<(String, bool)>, Error> {
+    let mut reason = generations_differ(previous, window, inspect, image)?;
+    if reason.is_none() {
+        let (mut moved, mut worst) = (0_u64, 0_u8);
+        for y in 0..image.height {
+            for x in 0..image.width {
+                let (Some(before), Some(now)) = (previous.image.pixel(x, y), image.pixel(x, y))
+                else {
+                    return Err(Error::new(format!("пиксель {x}×{y} за кадром снимка")));
+                };
+                let delta = before.rgb.max_delta(now.rgb);
+                if delta > TOLERANCE {
+                    moved += 1;
+                    worst = worst.max(delta);
+                }
+            }
+        }
+        if moved > 0 {
+            reason = Some(format!(
+                "между снимками изменилось пикселей: {moved}, наибольшая разница канала {worst}"
+            ));
+        }
+    }
+    Ok(reason.map(|reason| unsettled(reason, previous.elapsed_ms)))
+}
+
 /// Поколения сравнения.
 #[derive(Debug, Clone, Serialize)]
 pub struct Generations {

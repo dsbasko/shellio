@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
+use base64::Engine as _;
 use serde_json::{Value, json};
 use shellio_conformance::calibration;
 use shellio_conformance::cdp;
@@ -90,7 +91,12 @@ impl Drop for Browser {
     }
 }
 
-fn launch(chrome: &Path) -> Result<(Browser, String), String> {
+/// Браузер с настоящей плотностью `dpr`, а не только с эмулируемой
+/// (`Emulation.setDeviceMetricsOverride`): при одной эмуляции Chrome привязывает отрисовку к целой
+/// точке CSS, и элемент с началом кадра в половине точки рисуется на пиксель в стороне от своего
+/// кадра — маска значка уезжает. С настоящей плотностью отрисовка привязана к пикселю, как в
+/// браузере на экране с этим масштабом.
+fn launch(chrome: &Path, dpr: f64) -> Result<(Browser, String), String> {
     let profile = std::env::temp_dir().join(format!("shellio-snap.{}", std::process::id()));
     let _ = fs::remove_dir_all(&profile);
     fs::create_dir_all(&profile).map_err(|e| e.to_string())?;
@@ -108,6 +114,7 @@ fn launch(chrome: &Path) -> Result<(Browser, String), String> {
             "--force-color-profile=srgb",
             "--font-render-hinting=none",
         ])
+        .arg(format!("--force-device-scale-factor={dpr}"))
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("about:blank")
         .stdout(Stdio::null())
@@ -198,8 +205,8 @@ impl Cdp {
 }
 
 /// Браузер с новым профилем и сеанс CDP его единственной страницы.
-fn open_page(chrome: &Path) -> Result<(Browser, Cdp), String> {
-    let (browser, url) = launch(chrome)?;
+fn open_page(chrome: &Path, dpr: f64) -> Result<(Browser, Cdp), String> {
+    let (browser, url) = launch(chrome, dpr)?;
     let (ws, _) = tungstenite::connect(url.as_str()).map_err(|e| e.to_string())?;
     let mut cdp = Cdp {
         ws,
@@ -239,7 +246,7 @@ const WORLD_DOM: &str = r#"(() => {
 fn world(chrome: &Path, index: &Path, out: &Path) -> Result<(), String> {
     let index = fs::canonicalize(index).map_err(|e| format!("{}: {e}", index.display()))?;
     fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
-    let (_browser, mut cdp) = open_page(chrome)?;
+    let (_browser, mut cdp) = open_page(chrome, 2.0)?;
     cdp.call(
         "Emulation.setDeviceMetricsOverride",
         json!({"width": 1180, "height": 720, "deviceScaleFactor": 2, "mobile": false}),
@@ -293,7 +300,7 @@ fn snap(args: &Args) -> Result<(String, BTreeMap<String, Vec<u8>>), String> {
     let index =
         fs::canonicalize(args.root.join("prototype/index.html")).map_err(|e| e.to_string())?;
 
-    let (_browser, mut cdp) = open_page(&args.chrome)?;
+    let (_browser, mut cdp) = open_page(&args.chrome, f64::from(recipe.window.dpr))?;
     cdp.call("Network.enable", json!({}))?;
     cdp.call(
         "Network.setBlockedURLs",
@@ -383,6 +390,20 @@ fn keyed_nodes(
 
 /// Ответы браузера для паспорта: шрифты текста по ключу, псевдоэлементы, снимки видимых значков
 /// по пиксельной сетке. Снимки идут последними, после всех фактов.
+/// Снимок кадра `clip` в PNG: область в целых точках CSS и вырезка кадра из неё
+/// ([`PixelClip::capture`]).
+fn frame_shot(cdp: &mut Cdp, clip: PixelClip, dpr: f64) -> Result<Vec<u8>, String> {
+    let (area, inner) = clip.capture(dpr)?;
+    let shot = cdp.call(
+        "Page.captureScreenshot",
+        json!({"format": "png", "captureBeyondViewport": false, "fromSurface": true,
+               "clip": {"x": area.x, "y": area.y, "width": area.w, "height": area.h,
+                        "scale": 1}}),
+    )?;
+    let png = calibration::shot(shot["data"].as_str().ok_or("снимок без данных")?)?;
+    shellio_conformance::mask::crop_png(&png, inner)
+}
+
 fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String> {
     let list = cdp::elements(&facts)?;
     cdp.call("DOM.enable", json!({}))?;
@@ -425,15 +446,12 @@ fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String
         .iter()
         .filter(|e| e.kind == ElementKind::Icon && e.visible)
     {
-        let area = PixelClip::of(&icon.frame, dpr)?.in_points(dpr);
-        let shot = cdp.call(
-            "Page.captureScreenshot",
-            json!({"format": "png", "captureBeyondViewport": false, "fromSurface": true,
-                   "clip": {"x": area.x, "y": area.y, "width": area.w, "height": area.h,
-                            "scale": 1}}),
-        )?;
-        let data = shot["data"].as_str().ok_or("снимок без данных")?;
-        icons.insert(icon.ck.clone(), data.to_owned());
+        let png = frame_shot(cdp, PixelClip::of(&icon.frame, dpr)?, dpr)
+            .map_err(|e| format!("{}: {e}", icon.ck))?;
+        icons.insert(
+            icon.ck.clone(),
+            base64::engine::general_purpose::STANDARD.encode(png),
+        );
     }
     Ok(cdp::Capture {
         dpr,
@@ -449,7 +467,7 @@ fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String
 /// штампом `prototype/`, канонической записью.
 fn inventory(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
     let index = fs::canonicalize(root.join("prototype/index.html")).map_err(|e| e.to_string())?;
-    let (_browser, mut cdp) = open_page(chrome)?;
+    let (_browser, mut cdp) = open_page(chrome, 1.0)?;
     cdp.call("Network.enable", json!({}))?;
     cdp.call(
         "Network.setBlockedURLs",
@@ -557,7 +575,7 @@ fn calibrate(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
     );
     fs::write(&page, html).map_err(|e| format!("{}: {e}", page.display()))?;
 
-    let (_browser, mut cdp) = open_page(chrome)?;
+    let (_browser, mut cdp) = open_page(chrome, dpr)?;
     cdp.call("Network.enable", json!({}))?;
     cdp.call(
         "Network.setBlockedURLs",
@@ -620,14 +638,7 @@ fn calibrate(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
                 h: side("h")?,
             };
             let clip = PixelClip::of(&frame, dpr)?;
-            let area = clip.in_points(dpr);
-            let shot = cdp.call(
-                "Page.captureScreenshot",
-                json!({"format": "png", "captureBeyondViewport": false, "fromSurface": true,
-                       "clip": {"x": area.x, "y": area.y, "width": area.w, "height": area.h,
-                                "scale": 1}}),
-            )?;
-            let png = calibration::shot(shot["data"].as_str().ok_or("снимок без данных")?)?;
+            let png = frame_shot(&mut cdp, clip, dpr).map_err(|e| format!("{cell}: {id}: {e}"))?;
             let mask = Mask::from_png(&png, background)?;
             if (mask.width, mask.height) != (clip.width, clip.height) {
                 return Err(format!(

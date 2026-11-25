@@ -1004,6 +1004,81 @@ fn veil_falls_back_to_a_tab_only_when_the_strip_has_no_gap() {
     assert!(fallbacks >= 4, "запасная основа есть в каждой ячейке");
 }
 
+/// Порядок основ вуали — полоса, затем вкладки — не зависит от порядка узлов `ui.inspect`: живое
+/// окно отдаёт узлы в порядке построения видов, и вкладка может стоять раньше своей полосы.
+#[test]
+fn veil_base_is_the_strip_even_when_a_tab_node_comes_first() {
+    let state = "layout-all-zones";
+    let passport = passport(state, "dark-normal");
+    let mut tree = mirror(&passport);
+    let product =
+        Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
+    let opaque = |ck: &str| {
+        let fill = product.keyed(ck)?.style.as_ref()?.fill?;
+        (fill.a >= 1.0).then_some(fill)
+    };
+    // Часть, у которой и полоса, и вкладка годятся основой, а заливки у них разные.
+    let (part, strip_fill, tab, tab_fill) = ["zone.center.part.1", "zone.right.part.1"]
+        .into_iter()
+        .find_map(|part| {
+            let strip = format!("{part}.tabs");
+            let strip_fill = opaque(&strip)?;
+            free_strip(&product, product.keyed(&strip)?).ok()?;
+            (1..9).find_map(|n| {
+                let tab = format!("{strip}.tab.{n}");
+                let tab_fill = opaque(&tab)?;
+                free_strip(&product, product.keyed(&tab)?).ok()?;
+                (tab_fill != strip_fill).then_some((part, strip_fill, tab, tab_fill))
+            })
+        })
+        .unwrap_or_else(|| panic!("нет части с двумя разными основами"));
+    let veil = format!("{part}::after");
+    let tint = passport
+        .elements
+        .iter()
+        .find(|e| e.ck == veil)
+        .and_then(|e| e.fill)
+        .unwrap_or_else(|| panic!("заливка {veil}"));
+    let over = |base: shellio_conformance::passport::Rgba| {
+        let mix = |base: u8, over: u8| {
+            (f64::from(base) + (f64::from(over) - f64::from(base)) * tint.a).round() as u8
+        };
+        [
+            mix(base.r, tint.r),
+            mix(base.g, tint.g),
+            mix(base.b, tint.b),
+        ]
+    };
+    assert_ne!(
+        over(strip_fill),
+        over(tab_fill),
+        "основы различимы под вуалью"
+    );
+    // Узел вкладки переставлен в начало дерева, перед полосой.
+    let nodes = tree["components"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("узлы"));
+    let at = nodes
+        .iter()
+        .position(|n| n["ck"] == tab.as_str())
+        .unwrap_or_else(|| panic!("нет узла {tab}"));
+    let moved = nodes.remove(at);
+    nodes.insert(0, moved);
+    let judged = |colour: [u8; 3]| {
+        let (_, staged) = staged(&passport, &tree, colour);
+        assert!(
+            staged.unjudged.iter().all(|u| u.ck != veil),
+            "{veil}: {:?}",
+            staged.unjudged
+        );
+        staged.mismatches.into_iter().find(|m| m.ck == veil)
+    };
+    assert_eq!(judged(over(strip_fill)), None, "основа — полоса");
+    let wrong = judged(over(tab_fill))
+        .unwrap_or_else(|| panic!("вуаль над заливкой вкладки принята за вуаль над полосой"));
+    assert_eq!(wrong.field, Field::Fill);
+}
+
 #[test]
 fn pseudo_element_of_an_absent_owner_is_left_to_the_owner_mismatch() {
     let state = "layout-empty-workbench";
@@ -1268,4 +1343,187 @@ fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is
         &png,
     ]);
     assert_eq!(code, Some(2));
+}
+
+/// Запись живого окна сцены `p15` в ячейке `light-normal`: `ui.inspect`, `ui.window` и снимок окна
+/// 1180×720 при масштабе 2 (путь бандла в записи заменён на `/fixture/`). Допуски — свои, тестовые:
+/// калибровки они не заменяют.
+fn recorded(name: &str) -> String {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/conform")
+        .join(name)
+        .display()
+        .to_string()
+}
+
+fn conform_recorded(state: &str, window: &str, extra: &[&str]) -> (Option<i32>, Value) {
+    let passport = root()
+        .join(format!("conformance/passports/{state}/light-normal.json"))
+        .display()
+        .to_string();
+    let registry = root()
+        .join("conformance/registry.toml")
+        .display()
+        .to_string();
+    let (inspect, png, tolerances) = (
+        recorded("p15-light-normal.inspect.json"),
+        recorded("p15-light-normal.png"),
+        recorded("tolerances.json"),
+    );
+    let mut args = vec![
+        "conform",
+        "--passport",
+        &passport,
+        "--inspect",
+        &inspect,
+        "--window",
+        window,
+        "--png",
+        &png,
+        "--registry",
+        &registry,
+        "--calibration",
+        &tolerances,
+    ];
+    args.extend_from_slice(extra);
+    oracle(&args)
+}
+
+/// Настоящее окно судится целиком: вердикт есть у каждого поля (код 0 или 3, не 1), а силуэты
+/// значков заголовка с началом кадра в половине точки совпадают с масками паспорта.
+#[test]
+fn conform_subcommand_judges_the_recorded_p15_window() {
+    let window = recorded("p15-light-normal.window.json");
+    for state in ["chrome-titlebar", "chrome-statusline", "layout-all-zones"] {
+        let (code, report) = conform_recorded(state, &window, &[]);
+        assert!(matches!(code, Some(0 | 3)), "{state}: {code:?} {report:#}");
+        assert_eq!(report["state"], state);
+        assert_eq!(report["unjudged"], json!([]), "{state}: {report:#}");
+        let masks: Vec<&Value> = report["mismatches"]
+            .as_array()
+            .map(|m| {
+                m.iter()
+                    .filter(|m| {
+                        m["field"] == "icon_mask"
+                            && m["ck"].as_str().is_some_and(|ck| ck.starts_with("chrome."))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert!(masks.is_empty(), "{state}: {masks:#?}");
+    }
+}
+
+/// Режим без маркера у `conform`: пара одинаковых снимков одного поколения принимается, другое
+/// поколение прежнего снимка — код 4 с повтором до срока и без повтора после него.
+#[test]
+fn conform_subcommand_accepts_a_settled_pair_and_rejects_another_generation() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let window = recorded("p15-light-normal.window.json");
+    let png = recorded("p15-light-normal.png");
+    let state = "chrome-statusline";
+    let (alone, _) = conform_recorded(state, &window, &[]);
+    let (code, report) = conform_recorded(
+        state,
+        &window,
+        &[
+            "--previous-window",
+            &window,
+            "--previous-png",
+            &png,
+            "--elapsed-ms",
+            "0",
+        ],
+    );
+    assert_eq!(code, alone, "{report:#}");
+    assert_eq!(report["retry"], false, "{report:#}");
+
+    let text = fs::read_to_string(&window).unwrap_or_else(|e| panic!("{window}: {e}"));
+    let mut before: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+    let generation = before["ok"]["ui"]["window"]["generation"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("поколение записи"));
+    before["ok"]["ui"]["window"]["generation"] = json!(generation - 1);
+    let earlier = dir.path().join("earlier.window.json");
+    fs::write(&earlier, before.to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let earlier = earlier.display().to_string();
+    for (elapsed, retry) in [("0", true), ("60000", false)] {
+        let (code, report) = conform_recorded(
+            state,
+            &window,
+            &[
+                "--previous-window",
+                &earlier,
+                "--previous-png",
+                &png,
+                "--elapsed-ms",
+                elapsed,
+            ],
+        );
+        assert_eq!(code, Some(4), "{report:#}");
+        assert_eq!(report["verdict"], "generation", "{report:#}");
+        assert_eq!(report["retry"], retry, "{report:#}");
+        assert_eq!(report["mismatches"], json!([]));
+    }
+}
+
+/// Пара снимков одного поколения, между которыми изменились пиксели окна, не принимается.
+#[test]
+fn conform_subcommand_rejects_a_pair_with_changed_pixels() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let window = recorded("p15-light-normal.window.json");
+    let file = fs::File::open(recorded("p15-light-normal.png")).unwrap_or_else(|e| panic!("{e}"));
+    let mut reader = png::Decoder::new(std::io::BufReader::new(file))
+        .read_info()
+        .unwrap_or_else(|e| panic!("png: {e}"));
+    let mut pixels = vec![
+        0;
+        reader
+            .output_buffer_size()
+            .unwrap_or_else(|| panic!("размер"))
+    ];
+    let info = reader
+        .next_frame(&mut pixels)
+        .unwrap_or_else(|e| panic!("png: {e}"));
+    pixels.truncate(info.buffer_size());
+    // Первые пиксели верхней строки инвертированы: разница канала больше допуска.
+    for byte in pixels.iter_mut().take(64) {
+        *byte = 255 - *byte;
+    }
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut bytes, info.width, info.height);
+        encoder.set_color(info.color_type);
+        encoder.set_depth(info.bit_depth);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+        let mut writer = encoder
+            .write_header()
+            .unwrap_or_else(|e| panic!("png: {e}"));
+        writer
+            .write_image_data(&pixels)
+            .unwrap_or_else(|e| panic!("png: {e}"));
+    }
+    let changed = dir.path().join("changed.png");
+    fs::write(&changed, bytes).unwrap_or_else(|e| panic!("{e}"));
+    let changed = changed.display().to_string();
+    let (code, report) = conform_recorded(
+        "chrome-statusline",
+        &window,
+        &[
+            "--previous-window",
+            &window,
+            "--previous-png",
+            &changed,
+            "--elapsed-ms",
+            "0",
+        ],
+    );
+    assert_eq!(code, Some(4), "{report:#}");
+    assert_eq!(report["retry"], true, "{report:#}");
+    assert!(
+        report["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("изменилось пикселей")),
+        "{report:#}"
+    );
 }
