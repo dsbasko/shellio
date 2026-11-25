@@ -11,12 +11,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Zone};
 
-/// Кардинальность плагина.
+/// Кардинальность плагина: имена продукта (`shellio_plugin_api::manifest::Cardinality`), чтобы
+/// сценарий сверки создавал сцену штатным CLI из того же файла.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Cardinality {
-    PerApp,
-    PerWorkbench,
     Multi,
+    PerWorkbench,
+    PerProject,
+    PerWorkspace,
+    PerApp,
 }
 
 /// Наименьший размер тела в точках.
@@ -189,6 +193,11 @@ impl Scene {
                         } else {
                             BodyMode::Ready
                         },
+                        tools: if part.tabs.is_empty() {
+                            Vec::new()
+                        } else {
+                            PART_TOOLS.iter().map(|t| (*t).to_owned()).collect()
+                        },
                     })
                     .collect();
                 (zone.zone, parts)
@@ -198,9 +207,28 @@ impl Scene {
             zones,
             focus: Some(self.focus),
             menu: None,
+            titlebar: TITLEBAR_CONTROLS.iter().map(|c| (*c).to_owned()).collect(),
+            statusline: Vec::new(),
         }
     }
 }
+
+/// Контролы заголовка по порядку на экране: ключи сверки. Третья кнопка зон — кнопка правой
+/// стороны окна, что бы она ни переключала.
+pub const TITLEBAR_CONTROLS: &[&str] = &[
+    "chrome.window.close",
+    "chrome.window.minimize",
+    "chrome.window.zoom",
+    "chrome.workspace",
+    "chrome.search",
+    "chrome.zones.left",
+    "chrome.zones.bottom",
+    "chrome.zones.right",
+    "chrome.appearance",
+];
+
+/// Контролы строки вкладок части с вкладками без шагов рецепта, по порядку: сегменты `{tool}`.
+pub const PART_TOOLS: &[&str] = &["split", "zoom", "menu"];
 
 /// Режим тела части.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -214,7 +242,8 @@ pub enum BodyMode {
     Empty,
 }
 
-/// Состав части: типы плагинов вкладок по порядку, номер активной вкладки, режим тела.
+/// Состав части: типы плагинов вкладок по порядку, номер активной вкладки, режим тела и
+/// контролы строки вкладок по порядку (сегменты `{tool}` ключа).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PartComposition {
@@ -222,6 +251,8 @@ pub struct PartComposition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active: Option<usize>,
     pub body: BodyMode,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<String>,
 }
 
 /// Пункт открытого меню или выбора.
@@ -243,6 +274,12 @@ pub struct Composition {
     /// Пункты открытого меню или выбора по порядку.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub menu: Option<Vec<MenuItem>>,
+    /// Видимые контролы заголовка по порядку: ключи сверки.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub titlebar: Vec<String>,
+    /// Видимые контролы строки статуса по порядку: ключи сверки.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub statusline: Vec<String>,
 }
 
 impl Composition {
@@ -283,6 +320,12 @@ impl Composition {
                                 w.body, g.body
                             ));
                         }
+                        if w.tools != g.tools {
+                            out.push(format!(
+                                "{place}: контролы строки вкладок ожидаются {:?}, наблюдаются {:?}",
+                                w.tools, g.tools
+                            ));
+                        }
                     }
                 }
             }
@@ -297,6 +340,18 @@ impl Composition {
             out.push(format!(
                 "меню ожидается {:?}, наблюдается {:?}",
                 self.menu, observed.menu
+            ));
+        }
+        if self.titlebar != observed.titlebar {
+            out.push(format!(
+                "контролы заголовка ожидаются {:?}, наблюдаются {:?}",
+                self.titlebar, observed.titlebar
+            ));
+        }
+        if self.statusline != observed.statusline {
+            out.push(format!(
+                "контролы строки статуса ожидаются {:?}, наблюдаются {:?}",
+                self.statusline, observed.statusline
             ));
         }
         out

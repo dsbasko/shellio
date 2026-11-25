@@ -134,6 +134,12 @@ impl Inputs {
         let recipe_place = recipe_path.display().to_string();
         let recipe_text = read(&recipe_path)?;
         let parsed = Recipe::parse(&recipe_place, &recipe_text)?;
+        if !parsed.allows(cell) {
+            return Err(Error::new(
+                &recipe_place,
+                format!("ячейка {cell} расходится с осью, закреплённой рецептом"),
+            ));
+        }
         let scene_path = self.scene_path(&parsed.scene);
         let scene_place = scene_path.display().to_string();
         let scene_text = read(&scene_path)?;
@@ -220,6 +226,19 @@ impl std::fmt::Display for Finding {
 pub fn check_registry(inputs: &Inputs, registry: &Registry) -> Result<Vec<Finding>, Error> {
     let mut findings = Vec::new();
     for state in &registry.states {
+        let recipe_path = inputs.recipe_path(&state.recipe);
+        let recipe_place = recipe_path.display().to_string();
+        let recipe = Recipe::parse(&recipe_place, &read(&recipe_path)?)?;
+        // Годность хеширует сцену рецепта, поэтому сцена строки состояния обязана совпадать с ней.
+        if recipe.scene != state.scene {
+            return Err(Error::new(
+                &recipe_place,
+                format!(
+                    "состояние «{}» называет сцену «{}», а рецепт — «{}»",
+                    state.id, state.scene, recipe.scene
+                ),
+            ));
+        }
         for cell in state.cells() {
             let want = inputs.expected(&state.recipe, cell)?;
             let path = inputs.passport_path(&state.id, cell);

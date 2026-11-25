@@ -349,9 +349,12 @@
 - [ ] тесты на записанных ответах CDP: сбор, псевдоэлементы, шрифты, маска, ошибка постусловия, дубликат ключа
 - [ ] без параметра поведение прототипа прежнее: сценарии из `js/scenarios.js` работают
 - [ ] `make check`; `make passports STATES="chrome-titlebar"` — два съёма каждой ячейки совпали
-- [ ] ➕ состав `scene::Composition` дополнен контролами заголовка и строки вкладок (и строки статуса) по DOM прототипа: без них у поверхностей `titlebar` и `statusline` правилу «видимый контрол без `ck` — провал» не на что опереться. Формат меняется до первого паспорта
-- [ ] ➕ `Registry`/`check_registry`: `State.scene` сверяется с `Recipe.scene` (годность хеширует сцену рецепта), ячейки состояния — с `Recipe::allows`
-- [ ] ➕ `scene::Cardinality` приведена к именам продукта (`crates/shellio-plugin-api/src/manifest.rs`: `multi`, `per_workbench`, `per_project`, `per_workspace`, `per_app`, snake_case) до записи `p15.json`, чтобы `conformance.sh` создавал сцену штатным CLI из того же файла
+- [x] ➕ состав `scene::Composition` дополнен контролами заголовка и строки вкладок (и строки статуса) по DOM прототипа: без них у поверхностей `titlebar` и `statusline` правилу «видимый контрол без `ck` — провал» не на что опереться. Формат меняется до первого паспорта
+  - ⚠️ решение исполнителя по правилу плана: `Composition.titlebar` и `Composition.statusline` — ключи сверки видимых контролов по порядку, `PartComposition.tools` — сегменты `{tool}` строки вкладок. Сцена без шагов даёт заголовок `scene::TITLEBAR_CONTROLS` (три кнопки окна, воркспейс, поиск, три кнопки зон, оформление; третья кнопка зон — `chrome.zones.right`, что бы она ни переключала), части с вкладками — `split`, `zoom`, `menu`, строку статуса — пустую: её состав задаёт `post.composition` рецепта. Тест `composition_lists_titlebar_and_tab_strip_controls`
+- [x] ➕ `Registry`/`check_registry`: `State.scene` сверяется с `Recipe.scene` (годность хеширует сцену рецепта), ячейки состояния — с `Recipe::allows`
+  - расхождение — ошибка входа (`Err`), а не устаревший паспорт; тесты `state_scene_must_match_recipe_scene`, `state_cells_must_fit_recipe_axes`
+- [x] ➕ `scene::Cardinality` приведена к именам продукта (`crates/shellio-plugin-api/src/manifest.rs`: `multi`, `per_workbench`, `per_project`, `per_workspace`, `per_app`, snake_case) до записи `p15.json`, чтобы `conformance.sh` создавал сцену штатным CLI из того же файла
+  - тест `scene_cardinality_uses_product_names`
 - [ ] ➕ `keys::TEMPLATES` — черновик задачи 2, написанный до `data-ck`: сверить с ключами заголовка (здесь) и остального каркаса (задача 5)
 - [ ] ➕ `tests/repo.rs`: убрать запасной путь «реестра нет», когда появится `conformance/registry.toml`
 

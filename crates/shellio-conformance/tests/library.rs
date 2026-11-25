@@ -16,10 +16,10 @@ use shellio_conformance::{Zone, plans};
 
 const SCENE: &str = r#"{
   "catalog": [
-    {"id": "terminal", "title": "Терминал", "icon": "terminal", "cardinality": "Multi",
+    {"id": "terminal", "title": "Терминал", "icon": "terminal", "cardinality": "multi",
      "placements": ["left", "right", "center", "bottom"], "default_zone": "center",
      "min_size": {"width": 320, "height": 120}},
-    {"id": "navigator", "title": "Навигатор", "icon": "folder", "cardinality": "PerWorkbench",
+    {"id": "navigator", "title": "Навигатор", "icon": "folder", "cardinality": "per_workbench",
      "placements": ["left", "right", "center", "bottom"], "default_zone": "left",
      "min_size": {"width": 200, "height": 160}}
   ],
@@ -577,4 +577,70 @@ fn plans_without_conformance_section_are_named() {
     write(&dir.path().join("completed/c.md"), "# C\n");
     let missing = plans::missing_section(dir.path()).unwrap();
     assert_eq!(missing, vec![dir.path().join("b.md")]);
+}
+
+#[test]
+fn scene_cardinality_uses_product_names() {
+    for name in [
+        "multi",
+        "per_workbench",
+        "per_project",
+        "per_workspace",
+        "per_app",
+    ] {
+        let text = SCENE.replace("\"multi\"", &format!("\"{name}\""));
+        assert!(Scene::parse("s", &text).is_ok(), "{name}");
+    }
+    assert!(Scene::parse("s", &SCENE.replace("\"multi\"", "\"Multi\"")).is_err());
+}
+
+#[test]
+fn composition_lists_titlebar_and_tab_strip_controls() {
+    let scene = Scene::parse("s", SCENE).unwrap();
+    let want = scene.composition();
+    assert_eq!(
+        want.titlebar.first().map(String::as_str),
+        Some("chrome.window.close")
+    );
+    for key in &want.titlebar {
+        check_key(key).unwrap();
+    }
+    let mut observed = want.clone();
+    observed.titlebar.retain(|k| k != "chrome.search");
+    assert!(want.diff(&observed).iter().any(|d| d.contains("заголовка")));
+    let mut observed = want.clone();
+    if let Some(parts) = observed.zones.get_mut(&Zone::Center) {
+        parts[0].tools.reverse();
+    }
+    assert!(
+        want.diff(&observed)
+            .iter()
+            .any(|d| d.contains("строки вкладок"))
+    );
+    let mut observed = want.clone();
+    observed.statusline.push("status.mode".to_owned());
+    assert!(
+        want.diff(&observed)
+            .iter()
+            .any(|d| d.contains("строки статуса"))
+    );
+}
+
+#[test]
+fn state_scene_must_match_recipe_scene() {
+    let (_dir, inputs, mut registry) = repo();
+    registry.states[0].scene = "other".to_owned();
+    let err = check_registry(&inputs, &registry).unwrap_err();
+    assert!(err.reason.contains("other"), "{err}");
+}
+
+#[test]
+fn state_cells_must_fit_recipe_axes() {
+    let (dir, inputs, registry) = repo();
+    write(
+        &dir.path().join("conformance/recipes/r.json"),
+        r#"{"scene": "s", "theme": "dark", "post": {"parts": {"left": 1, "center": 1}}}"#,
+    );
+    let err = check_registry(&inputs, &registry).unwrap_err();
+    assert!(err.reason.contains("light-high"), "{err}");
 }
