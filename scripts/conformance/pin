@@ -1,0 +1,7 @@
+# shellcheck shell=bash
+# Закреплённый браузер съёмщика паспортов сверки с прототипом (ADR-0037). Файл целиком входит в годность паспорта:
+# его изменение без пересъёма делает паспорта устаревшими.
+CHROME_VERSION=158.0.8127.88
+CHROME_URL=https://storage.googleapis.com/chrome-for-testing-public/158.0.8127.88/mac-arm64/chrome-headless-shell-mac-arm64.zip
+CHROME_LENGTH=105060087
+CHROME_SHA256=69320f6869c4defbbdac8b8fa83aef65dc63975e83bbd06899b75dbea5c464b3

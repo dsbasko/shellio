@@ -15,6 +15,7 @@ GHOSTTY_VENDOR := scripts/ghostty/vendor.sh
 GHOSTTY_LOCK := scripts/ghostty/lock.sh
 GHOSTTY_BINDINGS := scripts/ghostty/bindings.sh
 GHOSTTY_LINK_AUDIT := scripts/ghostty/link-audit.sh
+CONFORMANCE_TOOLS := scripts/conformance/tools.sh
 BUNDLE := scripts/bundle.sh
 CHECK_BUNDLE := scripts/check-bundle.sh
 TEST_BUNDLE := scripts/test-bundle.sh
@@ -37,7 +38,7 @@ PROBE_RESOURCES := spikes/probe-resource-accounting/run.sh
 LOCKED_TARGETS := ghostty check bindings bindings-check link-audit bundle check-bundle run test-bundle e2e \
 	probe-ghostty probe-ghostty-demo probe-session-surface
 
-.PHONY: setup test-scripts probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
+.PHONY: setup test-scripts conformance-tools probe-appkit probe-appkit-demo probe-session probe-update probe-update-tcc-grant probe-diff probe-diff-demo probe-review probe-review-live probe-resources $(LOCKED_TARGETS) $(addprefix locked-,$(LOCKED_TARGETS))
 
 # Под make -j цели одного вызова иначе столкнулись бы на собственной блокировке.
 .NOTPARALLEL:
@@ -54,6 +55,10 @@ setup:
 	$(GHOSTTY_TOOLS) zig
 	$(GHOSTTY_TOOLS) metal
 	$(GHOSTTY_TOOLS) bindgen
+
+# Браузер съёмщика паспортов сверки (ADR-0037). make setup, make check и CI его не загружают.
+conformance-tools:
+	$(CONFORMANCE_TOOLS) chrome
 
 $(LOCKED_TARGETS):
 	@$(GHOSTTY_LOCK) $(MAKE) --no-print-directory locked-$@
