@@ -121,8 +121,9 @@ impl CoreLink {
                         }
                         Ok(Ok(_)) => {}
                         Ok(Err(error)) => defer(move |app| {
-                            note_receipt(tag, Ending::Refused(&error));
-                            on_refused(app, &sent, &error);
+                            if !on_refused(app, &sent, &error) {
+                                note_receipt(tag, Ending::Refused(&error));
+                            }
                         }),
                         Err(_) => defer(move |app| {
                             note_receipt(tag, Ending::NoReply);
@@ -138,8 +139,9 @@ impl CoreLink {
             }
             // Ранний отказ (`busy`) — тоже завершение квитанции.
             Err(error) => defer(move |app| {
-                note_receipt(tag, Ending::Refused(&error));
-                on_refused(app, &sent, &error);
+                if !on_refused(app, &sent, &error) {
+                    note_receipt(tag, Ending::Refused(&error));
+                }
             }),
         }
     }
@@ -236,13 +238,14 @@ fn finish_request(ticket: Ticket, name: &'static str, outcome: Result<(), Failur
 /// Отказ ядра на команду интерфейса. `split_needs_panel` деления без `open` открывает выбор
 /// «Открыть в новой части» у кнопки (ADR-0009); остальные отказы пишут причину в строку статуса и
 /// показывают раскладку модели заново: событий после отказа не будет, а вид мог остаться там, куда
-/// его увёл пользователь.
-fn on_refused(app: &App, sent: &Command, error: &CoreError) {
+/// его увёл пользователь. Ответ `true` — отказ открыл выбор: действие ещё не исполнено, его
+/// исполнит пункт выбора, поэтому записи в кольце квитанций у такого нажатия нет.
+fn on_refused(app: &App, sent: &Command, error: &CoreError) -> bool {
     owner::say_err(format_args!("shellio: {} отклонена: {error}", sent.name()));
     if let Some(panel) = scene::picker_target(sent, error)
         && with_window(|owner| owner.open_picker(panel)) == Some(true)
     {
-        return;
+        return true;
     }
     let text = MIRROR.with(|mirror| {
         let mirror = mirror.borrow();
@@ -255,6 +258,7 @@ fn on_refused(app: &App, sent: &Command, error: &CoreError) {
     });
     with_window(|owner| owner.show_status(Some(&text)));
     refresh_layout(app);
+    false
 }
 
 /// Сколько последних записей держит журнал анимаций `ui.stats`.

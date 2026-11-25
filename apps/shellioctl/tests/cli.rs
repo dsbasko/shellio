@@ -1124,15 +1124,68 @@ impl UiHandler for CellUi {
             }
             UiRequest::Inspect if gate.begin() => Ok(UiReply::Inspect(Box::new(Self::inspect()))),
             UiRequest::WindowSize { .. } if !self.explicit => Err(UiRefusal::IsolatedProfileOnly),
-            UiRequest::WindowSize { .. } if gate.begin() => Ok(UiReply::Accepted(Accepted {
-                command: request.name().to_owned(),
-                pid: std::process::id(),
-                generation: 1,
-            })),
+            UiRequest::WindowSize { .. } | UiRequest::Command(_) if gate.begin() => {
+                Ok(UiReply::Accepted(Accepted {
+                    command: request.name().to_owned(),
+                    pid: std::process::id(),
+                    generation: 1,
+                }))
+            }
             _ => Err(UiRefusal::NoUi),
         };
         std::future::ready(reply)
     }
+}
+
+/// `ui appearance cycle` и `layout toggle` отдельным процессом: запрос доходит до порта UI под
+/// именем действия keymap, квитанция называет его, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn appearance_cycle_and_layout_toggle_reach_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, CellUi::new(true)).await?;
+    let before = revision(&dir).await?;
+    for (args, name) in [
+        (
+            &["ui", "appearance", "cycle", "--json"][..],
+            "ui.appearance.cycle",
+        ),
+        (
+            &["layout", "toggle", "side", "--json"],
+            "layout.toggle.side",
+        ),
+        (
+            &["layout", "toggle", "navigator", "--json"],
+            "layout.toggle.navigator",
+        ),
+        (
+            &["layout", "toggle", "bottom", "--json"],
+            "layout.toggle.bottom",
+        ),
+        (
+            &["layout", "toggle", "plate", "--json"],
+            "layout.toggle.plate",
+        ),
+        (
+            &["layout", "toggle", "right", "--json"],
+            "layout.toggle.right",
+        ),
+    ] {
+        match dir.run(args).await?.expect(0)?.frame()? {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Accepted(accepted)),
+                ..
+            } => assert_eq!(accepted.command, name, "{args:?}"),
+            other => {
+                return Err(format!("{args:?}: ожидалась квитанция, получено {other:?}").into());
+            }
+        }
+    }
+    assert_eq!(
+        revision(&dir).await?,
+        before,
+        "UI-команды ревизию не меняют"
+    );
+    owner.stop().await
 }
 
 /// `ui cell` и `ui inspect` отдельным процессом: оси и источники доходят до владельца и обратно,
