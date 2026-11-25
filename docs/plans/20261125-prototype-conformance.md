@@ -333,7 +333,8 @@
   - `crates/shellio-conformance/tests/library.rs`, 27 тестов: среди них `canonical_json_is_stable_under_field_order`, `byte_of_prototype_makes_passports_stale`, `recipe_change_names_stale_passport` (правка только рецепта во временной копии называет устаревший паспорт), `scene_change_makes_passports_stale`, `passport_of_other_cell_is_stale`, `pin_change_makes_passports_stale`, `schema_change_makes_passports_stale`, `registry_rejects_duplicates`, `registry_rejects_rows_without_step`, `registry_rejects_incomplete_exceptions`, `key_templates_*`, `exception_globs_match_one_or_more_segments`, `field_contract_requires_and_forbids_by_kind`
 - [x] тест раздела «Сверка с прототипом» в незавершённых планах `docs/plans/*.md`
   - `tests/repo.rs`: `unfinished_plans_have_conformance_section` и `registry_passports_are_valid` (годность паспортов каждого состояния реестра; пока `conformance/registry.toml` нет, проверять нечего)
-- [ ] `make check`
+- [x] `make check`
+  - код 0: `--verify`, `cargo fmt --check`, `clippy --all-targets -D warnings`, все тесты рабочего пространства
 
 ### Task 3: Детерминированный вход прототипа, сцена и съёмщик на заголовке
 
