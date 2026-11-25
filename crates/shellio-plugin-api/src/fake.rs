@@ -43,6 +43,9 @@ pub(crate) const MANIFEST: Manifest = Manifest {
         action: "fake.bump",
         key: "b",
     }],
+    list_keys: false,
+    filter: false,
+    input: false,
     state_version: 2,
     builtin: true,
 };

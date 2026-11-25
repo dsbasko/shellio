@@ -218,9 +218,7 @@ impl Actions {
             .iter()
             .map(|plugin| PanelKeys {
                 plugin: plugin.id().as_str().to_owned(),
-                // Признак манифеста `list_keys` вводит задача намерений панели: до неё движения
-                // списка ни одному контексту не подключаются.
-                list_keys: false,
+                list_keys: plugin.manifest().list_keys,
                 defaults: plugin
                     .manifest()
                     .keymap

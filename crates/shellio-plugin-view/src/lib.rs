@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 mod body;
+mod intent;
 mod neutral;
 mod sink;
 mod work;
@@ -18,6 +19,7 @@ use shellio_plugin_api::Presentation;
 use shellio_theme::AppTheme;
 
 pub use body::Body;
+pub use intent::{Handled, ListMove, ViewIntent};
 pub use neutral::{NeutralFactory, neutral_card};
 pub use sink::{Done, PanelRequest, PanelSink};
 pub use work::{ViewWork, WorkToken};
@@ -45,6 +47,16 @@ pub trait PluginView {
     fn focus_preferred(&self);
     /// Узлы тела для `ui.inspect`: id начинаются с `prefix`, кадры уже в точках окна.
     fn inspect(&self, prefix: &str) -> Vec<InspectNode>;
+    /// Намерение панели от хоста. Вид плагина без признаков `list_keys` и `filter` намерений не
+    /// получает и метод не определяет.
+    fn intent(&mut self, _intent: &ViewIntent) -> Handled {
+        Handled::No
+    }
+    /// `args` действия манифеста `action`, вызванного клавишей без своих `args`: их знает только
+    /// вид. `None` — вид аргументов дать не может, действие не выполняется.
+    fn resolve_args(&self, _action: &str) -> Option<Value> {
+        None
+    }
     /// Снимает подписки вида. Работу по токенам [`ViewWork`] хост отменяет сам до этого вызова.
     fn close_view(&mut self);
 }

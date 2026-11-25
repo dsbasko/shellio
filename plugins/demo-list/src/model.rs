@@ -42,6 +42,9 @@ pub const MANIFEST: Manifest = Manifest {
         },
     ],
     keymap: &[],
+    list_keys: false,
+    filter: false,
+    input: false,
     state_version: 1,
     builtin: true,
 };

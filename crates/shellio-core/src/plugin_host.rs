@@ -449,6 +449,9 @@ mod support {
             min_size: MinSize::DEFAULT,
             commands: &[],
             keymap: &[],
+            list_keys: false,
+            filter: false,
+            input: false,
             state_version: 1,
             builtin: true,
         }
@@ -695,6 +698,9 @@ mod support {
                 min_size: self.min_size,
                 commands,
                 keymap: &[],
+                list_keys: false,
+                filter: false,
+                input: false,
                 state_version: self.state_version,
                 builtin: false,
             }));

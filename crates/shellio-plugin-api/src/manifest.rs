@@ -147,6 +147,14 @@ pub struct Manifest {
     pub min_size: MinSize,
     pub commands: &'static [CommandSpec],
     pub keymap: &'static [KeyDefault],
+    /// Вид обрабатывает действия `list.*`: контекст `panel.<id>` получает общий набор клавиш хоста
+    /// `LIST_KEYS`.
+    pub list_keys: bool,
+    /// Вид сужает строки по тексту строки фильтра хоста: панели доступно действие `panel.filter`.
+    pub filter: bool,
+    /// У панели есть получатель режима `Input`. `false` — панель без ввода: `mode.input` ей
+    /// недоступен.
+    pub input: bool,
     /// Версия данных панели, не меньше 1.
     pub state_version: u32,
     /// Встроенный плагин, а не подставная регистрация тестов: он обязан объявить все четыре зоны.
@@ -264,6 +272,9 @@ mod tests {
                 },
             ],
             keymap: &[],
+            list_keys: false,
+            filter: false,
+            input: false,
             state_version: 3,
             builtin: false,
         };

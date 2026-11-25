@@ -198,6 +198,25 @@ mod tests {
     }
 
     #[test]
+    fn view_without_intents_refuses_them_and_gives_no_args() {
+        use crate::{Handled, ListMove, ViewIntent};
+
+        let (mut body, _work, _closes) = body();
+        for step in ListMove::ALL {
+            assert_eq!(
+                body.view_mut().intent(&ViewIntent::List(step)),
+                Handled::No,
+                "{step:?}"
+            );
+        }
+        let filter = ViewIntent::Filter {
+            text: "аль".to_owned(),
+        };
+        assert_eq!(body.view_mut().intent(&filter), Handled::No);
+        assert_eq!(body.view().resolve_args("fake.fill"), None);
+    }
+
+    #[test]
     fn open_body_keeps_its_work_and_reaches_the_view() {
         let (mut body, work, closes) = body();
         body.view_mut().set_active(true);

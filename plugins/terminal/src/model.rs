@@ -18,6 +18,9 @@ pub const MANIFEST: Manifest = Manifest {
     min_size: MinSize::DEFAULT,
     commands: &[],
     keymap: &[],
+    list_keys: false,
+    filter: false,
+    input: false,
     state_version: 1,
     builtin: true,
 };

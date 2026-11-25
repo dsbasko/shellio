@@ -29,6 +29,9 @@ pub const MANIFEST: Manifest = Manifest {
         args: r#"{"value":"shellio"}"#,
     }],
     keymap: &[],
+    list_keys: false,
+    filter: false,
+    input: true,
     state_version: 1,
     builtin: true,
 };
