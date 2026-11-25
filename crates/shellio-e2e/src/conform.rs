@@ -18,7 +18,9 @@ use shellio_conformance::registry::{Exception, Registry, Surface};
 use shellio_conformance::scene::{BodyMode, Composition, MenuItem, PartComposition, PartRef};
 
 use crate::Error;
+use crate::css::{Rgb, Tint, blend};
 use crate::expect::Rect as ViewRect;
+use crate::underline::{ABOVE, BELOW, judge_column, line_pixel};
 
 /// Допуск кадра в точках.
 pub const FRAME_TOLERANCE: f64 = 1.0;
@@ -1219,6 +1221,59 @@ pub fn ink_color(
     })))
 }
 
+/// Отступ свободного промежутка строки вкладок от соседних узлов и краёв полосы, в точках:
+/// кольцо активной вкладки и линия под полосой лежат в точке от кадров.
+pub const STRIP_MARGIN: f64 = 2.0;
+/// Наименьшая ширина свободного промежутка строки вкладок, в точках.
+pub const STRIP_MIN: f64 = 4.0;
+
+/// Свободный промежуток строки вкладок в координатах паспорта: самый широкий участок кадра
+/// полосы, не занятый другим видимым узлом продукта, с отступом [`STRIP_MARGIN`]. Узел, чей кадр
+/// накрывает полосу целиком (предок, слой над плиткой), промежуток не занимает. Промежутка не
+/// уже [`STRIP_MIN`] нет — отказ.
+pub fn free_strip(product: &Product, strip: &Node) -> Result<Rect, String> {
+    let frame = product.frame(strip);
+    let (left, right) = (frame.x + STRIP_MARGIN, frame.x + frame.w - STRIP_MARGIN);
+    let mut taken: Vec<(f64, f64)> = product
+        .components
+        .iter()
+        .filter(|n| n.visible && n.id != strip.id)
+        .map(|n| product.frame(n))
+        .filter(|r| {
+            let covers = r.x <= frame.x
+                && r.y <= frame.y
+                && r.x + r.w >= frame.x + frame.w
+                && r.y + r.h >= frame.y + frame.h;
+            let meets = r.x < frame.x + frame.w
+                && r.x + r.w > frame.x
+                && r.y < frame.y + frame.h
+                && r.y + r.h > frame.y;
+            meets && !covers
+        })
+        .map(|r| (r.x - STRIP_MARGIN, r.x + r.w + STRIP_MARGIN))
+        .collect();
+    taken.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (mut best, mut cursor) = ((left, left), left);
+    for (from, to) in taken.into_iter().chain([(right, right)]) {
+        let from = from.min(right);
+        if from - cursor > best.1 - best.0 {
+            best = (cursor, from);
+        }
+        cursor = cursor.max(to);
+    }
+    if best.1 - best.0 < STRIP_MIN {
+        return Err(format!(
+            "в строке вкладок нет свободного промежутка шире {STRIP_MIN} точек"
+        ));
+    }
+    Ok(Rect {
+        x: best.0,
+        y: frame.y + STRIP_MARGIN,
+        w: best.1 - best.0,
+        h: frame.h - 2.0 * STRIP_MARGIN,
+    })
+}
+
 /// Непрозрачная заливка участка: медиана снимка против цвета паспорта, допуск канала. `None` — в
 /// допуске.
 pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) -> Option<Mismatch> {
@@ -1232,6 +1287,49 @@ pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) ->
         actual: rgba_text(actual),
         difference: Some(gap),
     })
+}
+
+/// Линия под активной вкладкой по правилам подкоманды `underline`: столбец пикселей через
+/// середину узла вкладки от [`ABOVE`] точек над её низом до [`BELOW`] под ним, суждение —
+/// [`judge_column`]. Ожидание — цвет и толщина псевдоэлемента паспорта, место линии не судится.
+/// `tab` — кадр узла вкладки в координатах паспорта. `None` — в допуске.
+pub fn underline_mismatch(
+    ck: &str,
+    expected: Rgb,
+    expected_points: f64,
+    tab: &Rect,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<Option<Mismatch>, String> {
+    let bottom = tab.y + tab.h;
+    let column = ((tab.x + tab.w / 2.0) * scale).floor();
+    let first = ((bottom - ABOVE) * scale).floor();
+    let last = ((bottom + BELOW) * scale).ceil() - 1.0;
+    if column < 0.0 || first < 0.0 || last < first {
+        return Err(format!(
+            "столбец {column} строк {first}…{last} за кадром снимка"
+        ));
+    }
+    // Значения проверены на знак выше, выход за снимок даёт отказ чтения пикселя.
+    let (column, first, last) = (column as u32, first as u32, last as u32);
+    let mut series = Vec::new();
+    for y in first..=last {
+        let [r, g, b] =
+            pixel(column, y).ok_or_else(|| format!("пиксель {column}×{y} за кадром снимка"))?;
+        series.push(Rgb::new(r, g, b));
+    }
+    let matches: Vec<bool> = series
+        .iter()
+        .map(|rgb| line_pixel(*rgb, 255, expected))
+        .collect();
+    let (_, reason) = judge_column(&series, &matches, expected, expected_points, scale);
+    Ok(reason.map(|actual| Mismatch {
+        ck: ck.to_owned(),
+        field: Field::Underline,
+        expected: format!("линия {expected} толщиной {expected_points}"),
+        actual,
+        difference: None,
+    }))
 }
 
 impl Tolerances {
@@ -1298,8 +1396,11 @@ pub struct Staged {
 /// Стадия снимка: судит поля [`Report::snapshot`] по снимку окна. Маска значка — против эталонной
 /// маски паспорта, подпись кнопки — чернилами, непрозрачная заливка — медианой участка: у
 /// элемента с узлом продукта по кадру узла (место судит поле кадра), у псевдоэлемента — по кадру
-/// паспорта, цвет цветного значка — медианой ядра чернил ([`ink_color`]). Остальное
-/// (полупрозрачный участок, линия под вкладкой) попадает в [`Staged::unjudged`].
+/// паспорта, цвет цветного значка — медианой ядра чернил ([`ink_color`]), линия под активной
+/// вкладкой — поперечной серией ([`underline_mismatch`]), вуаль и тон плитки — медианой
+/// свободного промежутка строки вкладок ([`free_strip`]) против заливки полосы продукта под
+/// заливкой псевдоэлемента паспорта. Поле, которому не хватило входа, попадает в
+/// [`Staged::unjudged`].
 pub fn snapshot_stage(
     passport: &Passport,
     product: &Product,
@@ -1349,8 +1450,41 @@ pub fn snapshot_stage(
                 _ => Err("нет пары подписи".to_owned()),
             },
             (SnapshotKind::Region, Field::Fill) => match element.and_then(|e| Some((e, e.fill?))) {
-                Some((_, fill)) if fill.a < 1.0 => {
-                    Err("полупрозрачный участок стадией не судится".to_owned())
+                Some((_, tint)) if tint.a < 1.0 => {
+                    // Вуаль и тон плитки лежат над всей плиткой: судятся там, где основа под
+                    // ними известна, — на свободном промежутке строки вкладок.
+                    let strip = ck
+                        .strip_suffix("::after")
+                        .and_then(|owner| product.keyed(&format!("{owner}.tabs")))
+                        .filter(|n| n.visible);
+                    let base = strip
+                        .and_then(|n| n.style.as_ref()?.fill)
+                        .filter(|fill| fill.a >= 1.0);
+                    match (strip, base) {
+                        (Some(strip), Some(base)) => free_strip(product, strip)
+                            .and_then(|gap| region_median(&gap, snapshot.scale, snapshot.pixel))
+                            .map(|median| {
+                                let over = blend(
+                                    Rgb::new(base.r, base.g, base.b),
+                                    Tint {
+                                        color: Rgb::new(tint.r, tint.g, tint.b),
+                                        alpha: tint.a,
+                                    },
+                                );
+                                let expected = Rgba {
+                                    r: over.r,
+                                    g: over.g,
+                                    b: over.b,
+                                    a: 1.0,
+                                };
+                                fill_mismatch(ck, Field::Fill, expected, median)
+                            }),
+                        _ => Err(
+                            "полупрозрачный участок судится по строке вкладок плитки: её узла \
+                             или непрозрачной заливки нет"
+                                .to_owned(),
+                        ),
+                    }
                 }
                 Some((element, fill)) => {
                     let frame = node.map_or(element.frame, |n| product.frame(n));
@@ -1378,7 +1512,46 @@ pub fn snapshot_stage(
                     }),
                 _ => Err("нет узла значка или цвета в паспорте".to_owned()),
             },
-            (SnapshotKind::Underline, _) => Err("линия под вкладкой не судится".to_owned()),
+            (SnapshotKind::Underline, _) => {
+                let tab = ck
+                    .strip_suffix("::after")
+                    .and_then(|tab| product.keyed(tab))
+                    .filter(|n| n.visible);
+                match (element.and_then(|e| Some((e, e.fill?))), tab) {
+                    (Some((_, fill)), Some(_)) if fill.a < 1.0 => {
+                        Err("полупрозрачная линия под вкладкой не судится".to_owned())
+                    }
+                    (Some((element, fill)), Some(tab)) => {
+                        // Псевдоэлемент плитки (тон или вуаль) лежит над всей плиткой и над линией.
+                        let layer = place_of(ck)
+                            .and_then(|(zone, part, _)| {
+                                let key = format!("zone.{}.part.{part}::after", zone.as_str());
+                                judge_parent(passport, &key)
+                            })
+                            .filter(|e| e.visible)
+                            .and_then(|e| e.fill);
+                        let line = Rgb::new(fill.r, fill.g, fill.b);
+                        let expected = layer.map_or(line, |over| {
+                            blend(
+                                line,
+                                Tint {
+                                    color: Rgb::new(over.r, over.g, over.b),
+                                    alpha: over.a,
+                                },
+                            )
+                        });
+                        underline_mismatch(
+                            ck,
+                            expected,
+                            element.frame.h,
+                            &product.frame(tab),
+                            snapshot.scale,
+                            snapshot.pixel,
+                        )
+                    }
+                    _ => Err("нет узла вкладки или заливки линии в паспорте".to_owned()),
+                }
+            }
         };
         match judged {
             Ok(None) => {}
@@ -1662,6 +1835,59 @@ mod tests {
         let over = fill_mismatch("k", Field::Color, want, [147, 137, 126])
             .unwrap_or_else(|| panic!("расхождение"));
         assert_eq!((over.field, over.difference), (Field::Color, Some(4.0)));
+    }
+
+    #[test]
+    fn underline_is_judged_by_thickness_and_colour_of_the_column() {
+        // Вкладка (241, 50,5, 120×26): низ 76,5, линия в 2 точки ниже него на 2 точки.
+        let tab = Rect {
+            x: 241.0,
+            y: 50.5,
+            w: 120.0,
+            h: 26.0,
+        };
+        let focus = Rgb::new(127, 155, 192);
+        // Линия занимает строки пикселей `from..to`, вокруг — фон полосы.
+        let drawn = |from: u32, to: u32, colour: [u8; 3]| {
+            move |_: u32, y: u32| {
+                Some(if (from..to).contains(&y) {
+                    colour
+                } else {
+                    [17, 16, 14]
+                })
+            }
+        };
+        let judged = |pixel: &dyn Fn(u32, u32) -> Option<[u8; 3]>| {
+            underline_mismatch("k::after", focus, 2.0, &tab, 2.0, pixel)
+                .unwrap_or_else(|e| panic!("столбец читается: {e}"))
+        };
+        assert_eq!(judged(&drawn(157, 161, [127, 155, 192])), None);
+        // Толщина: 2,5 точки — на границе допуска, 3 — за ней; 1 точка — тоньше допуска.
+        assert_eq!(judged(&drawn(157, 162, [127, 155, 192])), None);
+        for (from, to) in [(157, 163), (157, 159)] {
+            let thick = judged(&drawn(from, to, [127, 155, 192]))
+                .unwrap_or_else(|| panic!("расхождение толщины"));
+            assert_eq!(thick.field, Field::Underline);
+            assert!(thick.actual.contains("толщина"), "{}", thick.actual);
+        }
+        // Цвет: 3 единицы проходят, на 4 линия своего цвета в столбце не находится.
+        assert_eq!(judged(&drawn(157, 161, [130, 155, 192])), None);
+        let off = judged(&drawn(157, 161, [131, 155, 192]))
+            .unwrap_or_else(|| panic!("расхождение цвета"));
+        assert!(
+            off.actual.contains("нет пикселей цвета линии"),
+            "{}",
+            off.actual
+        );
+        // Линии нет; серия упирается в край столбца; столбец за снимком.
+        assert!(judged(&|_, _| Some([17, 16, 14])).is_some());
+        let flood = judged(&|_, _| Some([127, 155, 192])).unwrap_or_else(|| panic!("край"));
+        assert!(
+            flood.actual.contains("край линии не найден"),
+            "{}",
+            flood.actual
+        );
+        assert!(underline_mismatch("k::after", focus, 2.0, &tab, 2.0, |_, _| None).is_err());
     }
 
     #[test]

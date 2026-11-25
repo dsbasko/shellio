@@ -143,6 +143,64 @@ fn longest_run(matches: &[bool]) -> Option<(usize, usize)> {
     best
 }
 
+/// Найденная в столбце линия: индексы первой и последней строки серии, толщина в точках и цвет
+/// середины.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Run {
+    pub start: usize,
+    pub end: usize,
+    pub thickness_points: f64,
+    pub middle: Rgb,
+}
+
+/// Пиксель столбца цвета линии: непрозрачный и в допуске [`TOLERANCE`].
+pub fn line_pixel(rgb: Rgb, alpha: u8, expected: Rgb) -> bool {
+    alpha == 255 && rgb.max_delta(expected) <= TOLERANCE
+}
+
+/// Чистая часть поперечной серии, одна у подкоманды `underline` и у режима сверки: самая длинная
+/// серия пикселей цвета линии (`matches` — по [`line_pixel`], той же длины, что `series`), оба
+/// края внутри столбца, толщина в допуске [`THICKNESS_TOLERANCE`], цвет середины в допуске
+/// [`TOLERANCE`]. Отдаёт найденную линию и причину расхождения, если она есть.
+pub fn judge_column(
+    series: &[Rgb],
+    matches: &[bool],
+    expected: Rgb,
+    expected_points: f64,
+    scale: f64,
+) -> (Option<Run>, Option<String>) {
+    let Some((start, end)) = longest_run(matches) else {
+        return (
+            None,
+            Some(format!("в столбце нет пикселей цвета линии {expected}")),
+        );
+    };
+    let thickness = (end - start + 1) as f64 / scale;
+    let middle = series[(start + end) / 2];
+    let reason = if start == 0 || end == matches.len() - 1 {
+        Some("край линии не найден: серия цвета линии упирается в конец столбца".to_owned())
+    } else if (thickness - expected_points).abs() > THICKNESS_TOLERANCE {
+        Some(format!(
+            "толщина линии {thickness} точки, ожидалось {expected_points} ± {THICKNESS_TOLERANCE}"
+        ))
+    } else if middle.max_delta(expected) > TOLERANCE {
+        Some(format!(
+            "цвет середины линии {middle}, ожидалось {expected}"
+        ))
+    } else {
+        None
+    };
+    (
+        Some(Run {
+            start,
+            end,
+            thickness_points: thickness,
+            middle,
+        }),
+        reason,
+    )
+}
+
 /// Поперечная серия через линию под вкладкой. Ошибки исполнения — внешний `Err`.
 pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error> {
     let UnderlineInputs {
@@ -244,7 +302,7 @@ pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error>
             }
         }
         report.series.push(pixel.rgb);
-        matches.push(pixel.alpha == 255 && pixel.rgb.max_delta(expected) <= TOLERANCE);
+        matches.push(line_pixel(pixel.rgb, pixel.alpha, expected));
     }
     if let Some(previous) = previous {
         if !moved.is_empty() {
@@ -259,40 +317,15 @@ pub fn underline(inputs: &UnderlineInputs<'_>) -> Result<UnderlineReport, Error>
         }
         report.retry = Some(false);
     }
-    let fail = |report: &mut UnderlineReport, reason: String| {
+    let (run, reason) = judge_column(&report.series, &matches, expected, expected_points, scale);
+    if let Some(run) = run {
+        report.edges = Some((first + run.start as u32, first + run.end as u32));
+        report.thickness_points = Some(run.thickness_points);
+        report.middle = Some(run.middle);
+    }
+    if let Some(reason) = reason {
         report.verdict = Verdict::Mismatch;
         report.reason = Some(reason);
-    };
-    let Some((start, end)) = longest_run(&matches) else {
-        fail(
-            &mut report,
-            format!("в столбце нет пикселей цвета линии {expected}"),
-        );
-        return Ok(report);
-    };
-    let edges = (first + start as u32, first + end as u32);
-    report.edges = Some(edges);
-    let thickness = (end - start + 1) as f64 / scale;
-    report.thickness_points = Some(thickness);
-    let middle = report.series[(start + end) / 2];
-    report.middle = Some(middle);
-    if start == 0 || end == matches.len() - 1 {
-        fail(
-            &mut report,
-            "край линии не найден: серия цвета линии упирается в конец столбца".to_owned(),
-        );
-    } else if (thickness - expected_points).abs() > THICKNESS_TOLERANCE {
-        fail(
-            &mut report,
-            format!(
-                "толщина линии {thickness} точки, ожидалось {expected_points} ± {THICKNESS_TOLERANCE}"
-            ),
-        );
-    } else if middle.max_delta(expected) > TOLERANCE {
-        fail(
-            &mut report,
-            format!("цвет середины линии {middle}, ожидалось {expected}"),
-        );
     }
     Ok(report)
 }

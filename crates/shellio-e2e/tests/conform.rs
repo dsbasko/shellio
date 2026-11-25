@@ -839,22 +839,93 @@ fn snapshot_stage_judges_opaque_fill_and_names_what_it_left() {
             .iter()
             .all(|u| u.kind != SnapshotKind::IconColor)
     );
-    // Что стадия не судит, названо с причиной: линия под вкладкой, маска без эталона.
-    for (key, kind) in [
-        (
-            "zone.center.part.1.tabs.tab.1::after",
-            SnapshotKind::Underline,
-        ),
-        ("chrome.search.icon", SnapshotKind::Mask),
-    ] {
-        assert!(
-            exact
-                .unjudged
+    // Линия под активной вкладкой судится: на одноцветном снимке её нет.
+    let line = "zone.center.part.1.tabs.tab.1::after";
+    assert!(
+        exact
+            .mismatches
+            .iter()
+            .any(|m| m.ck == line && m.field == Field::Underline)
+    );
+    assert!(
+        exact
+            .unjudged
+            .iter()
+            .all(|u| u.kind != SnapshotKind::Underline)
+    );
+    // Что стадия не судит, названо с причиной: маска без эталона.
+    assert!(exact.unjudged.iter().any(|u| u.ck == "chrome.search.icon"
+        && u.kind == SnapshotKind::Mask
+        && !u.reason.is_empty()));
+}
+
+#[test]
+fn veil_and_tone_are_judged_on_the_free_tab_strip_in_every_cell() {
+    let state = "layout-all-zones";
+    for cell in CELLS {
+        let passport = passport(state, cell);
+        let tree = mirror(&passport);
+        let fill = |ck: &str| {
+            passport
+                .elements
                 .iter()
-                .any(|u| u.ck == key && u.kind == kind && !u.reason.is_empty()),
-            "{key}"
-        );
+                .find(|e| e.ck == ck)
+                .and_then(|e| e.fill)
+                .unwrap_or_else(|| panic!("{cell}: заливка {ck}"))
+        };
+        for part in ["zone.center.part.1", "zone.right.part.1"] {
+            let veil = format!("{part}::after");
+            let (base, tint) = (fill(&format!("{part}.tabs")), fill(&veil));
+            let mix = |base: u8, over: u8| {
+                (f64::from(base) + (f64::from(over) - f64::from(base)) * tint.a).round() as u8
+            };
+            let over = [
+                mix(base.r, tint.r),
+                mix(base.g, tint.g),
+                mix(base.b, tint.b),
+            ];
+            let judged = |colour: [u8; 3]| {
+                let (_, staged) = staged(&passport, &tree, colour);
+                assert!(
+                    staged.unjudged.iter().all(|u| u.ck != veil),
+                    "{cell} {veil}: {:?}",
+                    staged.unjudged
+                );
+                staged.mismatches.into_iter().find(|m| m.ck == veil)
+            };
+            assert_eq!(judged(over), None, "{cell} {veil}");
+            // Плитка без вуали: виден цвет самой полосы — расхождение в каждой ячейке.
+            let bare = judged([base.r, base.g, base.b])
+                .unwrap_or_else(|| panic!("{cell} {veil}: отсутствие слоя не поймано"));
+            assert_eq!(bare.field, Field::Fill);
+            // Допуск канала на границе и за ней.
+            let shift = |by: u8| {
+                let r = if over[0] > 127 {
+                    over[0] - by
+                } else {
+                    over[0] + by
+                };
+                [r, over[1], over[2]]
+            };
+            assert_eq!(judged(shift(3)), None, "{cell} {veil}");
+            assert_eq!(
+                judged(shift(4)).and_then(|m| m.difference),
+                Some(4.0),
+                "{cell} {veil}"
+            );
+        }
     }
+    // Полоса без свободного промежутка или без непрозрачной заливки: суждения нет, поле названо.
+    let passport = passport(state, "dark-normal");
+    let mut tree = mirror(&passport);
+    node(&mut tree, "zone.center.part.1.tabs")["style"]["fill"] = Value::Null;
+    let (_, blind) = staged(&passport, &tree, [0, 0, 0]);
+    assert!(
+        blind
+            .unjudged
+            .iter()
+            .any(|u| u.ck == "zone.center.part.1::after" && u.kind == SnapshotKind::Region)
+    );
 }
 
 fn oracle(args: &[&str]) -> (Option<i32>, Value) {
@@ -868,13 +939,18 @@ fn oracle(args: &[&str]) -> (Option<i32>, Value) {
 
 /// Вызов `conform` на зеркале паспорта состояния и белом снимке окна: код, отчёт и пути входов
 /// (паспорт, `ui.inspect`, `ui.window`, PNG).
-fn conform_on_white(dir: &Path, state: &str) -> (Option<i32>, Value, [String; 4]) {
+fn conform_on_white(
+    dir: &Path,
+    state: &str,
+    edit: impl Fn(&mut Value),
+) -> (Option<i32>, Value, [String; 4]) {
     let passport_path = root().join(format!("conformance/passports/{state}/dark-normal.json"));
     let passport = passport(state, "dark-normal");
     let (width, height) = (passport.window.width, passport.window.height);
     let mut tree = mirror(&passport);
     tree["window_number"] = json!(7);
     tree["generation"] = json!(1);
+    edit(&mut tree);
     let window = json!({"ok": {"ui": {"window": {
         "pid": 1, "mode": "normal", "window_number": 7,
         "frame": {"x": 0.0, "y": 0.0, "width": width, "height": height},
@@ -943,7 +1019,7 @@ fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is
     let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
     // Заголовок: каждое поле снимка судится, белый снимок — расхождение с названными полями.
     let (code, report, [passport_arg, inspect, window, png]) =
-        conform_on_white(dir.path(), "chrome-titlebar");
+        conform_on_white(dir.path(), "chrome-titlebar", |_| {});
     assert_eq!(code, Some(3), "{report:#}");
     assert_eq!(report["verdict"], "mismatch");
     assert_eq!(report["state"], "chrome-titlebar");
@@ -959,21 +1035,31 @@ fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is
     // Кольцо кнопки окна не сверяется строкой контракта: ни расхождения, ни поля без суждения.
     assert!(!named("chrome.window.close", "shadow"), "{report:#}");
 
-    // Раскладка: вуаль и линия под вкладкой стадией ещё не судятся — вердикта нет, код 1.
-    let (code, report, _) = conform_on_white(dir.path(), "layout-all-zones");
-    assert_eq!(code, Some(1), "{report:#}");
-    assert_eq!(report["verdict"], "error");
-    let unjudged = report["unjudged"]
-        .as_array()
-        .unwrap_or_else(|| panic!("список несуженных полей: {report:#}"));
+    // Раскладка: каждое поле снимка судится — код 3, названы линия под вкладкой и тон плитки.
+    let (code, report, _) = conform_on_white(dir.path(), "layout-all-zones", |_| {});
+    assert_eq!(code, Some(3), "{report:#}");
+    assert_eq!(report["unjudged"], json!([]), "{report:#}");
+    let named = |ck: &str, field: &str| {
+        report["mismatches"]
+            .as_array()
+            .is_some_and(|m| m.iter().any(|m| m["ck"] == ck && m["field"] == field))
+    };
     assert!(
-        unjudged
-            .iter()
-            .any(|u| u["ck"] == "zone.center.part.1.tabs.tab.1::after" && u["kind"] == "underline"),
+        named("zone.center.part.1.tabs.tab.1::after", "underline"),
         "{report:#}"
     );
+    assert!(named("zone.center.part.1::after", "fill"), "{report:#}");
+
+    // Полоса вкладок без читаемой заливки: тон плитки судить не на чем — вердикта нет, код 1.
+    let (code, report, _) = conform_on_white(dir.path(), "layout-all-zones", |tree| {
+        node(tree, "zone.center.part.1.tabs")["style"]["fill"] = Value::Null;
+    });
+    assert_eq!(code, Some(1), "{report:#}");
+    assert_eq!(report["verdict"], "error");
     assert!(
-        unjudged.iter().all(|u| u["kind"] != "icon_color"),
+        report["unjudged"].as_array().is_some_and(|u| u
+            .iter()
+            .any(|u| u["ck"] == "zone.center.part.1::after" && u["kind"] == "region")),
         "{report:#}"
     );
     // Неполный вызов и чужой флаг — код 2.
