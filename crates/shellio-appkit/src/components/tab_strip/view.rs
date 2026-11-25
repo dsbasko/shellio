@@ -366,7 +366,32 @@ impl TabStrip {
             node.facts.frame = inspect::frame_of(tab_view.convertRect_toView(shown, None));
             node.facts.visible &= shown.size.width > 0.0 && shown.size.height > 0.0;
             node.facts.selected = Some(tab_view.isAccessibilitySelected());
+            let shown = node.facts.visible;
             nodes.push(node);
+            // Части вкладки для сверки: значок, название и кнопка закрытия, пока они показаны.
+            let tab_id = format!("{id}.tab.{}", tab.id);
+            let tab_parts = tab_view.ivars();
+            let part = |suffix: &str, class: &'static str, view: &NSView| {
+                let mut node = inspect::node(
+                    &format!("{tab_id}.{suffix}"),
+                    class,
+                    Some(&tab_id),
+                    view,
+                    None,
+                    None,
+                );
+                node.facts.visible &= shown;
+                node
+            };
+            if !tab_parts.icon.isHidden() {
+                let icon: &NSView = &tab_parts.icon;
+                let size = icon.bounds().size.width;
+                nodes.push(part("icon", "TabIcon", icon).with_icon(&tab.icon, size, None));
+            }
+            nodes.push(part("label", "TabLabel", &tab_parts.title));
+            if !tab_parts.close_box.isHidden() {
+                nodes.push(part("close", "TabClose", &tab_parts.close_box));
+            }
         }
         nodes.push(inspect::node(
             &format!("{id}.payload"),

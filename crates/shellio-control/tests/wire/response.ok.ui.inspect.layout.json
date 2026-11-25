@@ -15,6 +15,7 @@
             "class": "Plate",
             "object": 105553116270000,
             "parent": "layout.split.center",
+            "ck": null,
             "frame": {
               "x": 236.0,
               "y": 32.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "part": {
                 "zone": "center",
@@ -49,6 +52,7 @@
             "class": "PanelView",
             "object": 105553116270000,
             "parent": "layout.part.center.0",
+            "ck": null,
             "frame": {
               "x": 237.0,
               "y": 33.0,
@@ -64,6 +68,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "panel": {
                 "panel": "00000000-0000-0000-0000-000000000003",

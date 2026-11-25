@@ -51,6 +51,7 @@ mod plate;
 mod runloop;
 mod split_view;
 mod status_line;
+mod style;
 mod surface;
 mod theme_cell;
 mod window;
@@ -97,7 +98,7 @@ pub use counters::{
 };
 pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
-    ViewFacts, WindowFacts,
+    ViewFacts, WindowFacts, ck,
 };
 pub use main_menu::{MainMenu, MenuAction, PanelRow, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
@@ -115,6 +116,9 @@ pub use split_view::{
     Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
 };
 pub use status_line::StatusLine;
+pub use style::{
+    FontFacts, IconFacts, Padding, Rgba, ShadowFacts, Side, Style, css_weight, seen_fill,
+};
 pub use surface::{
     DROP_LINE_WIDTH, DropPaint, FocusLayer, LINE_WIDTH, Surface, SurfaceFill, SurfacePaint,
     SurfaceRadius, SurfaceSpec,

@@ -1,0 +1,178 @@
+{
+  "id": 8,
+  "ok": {
+    "ui": {
+      "inspect": {
+        "window_number": 4242,
+        "content": {
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "generation": 7,
+        "components": [
+          {
+            "id": "chrome",
+            "class": "ChromeBar",
+            "object": 105553116266496,
+            "parent": null,
+            "ck": "chrome",
+            "frame": {
+              "x": 0.0,
+              "y": 680.0,
+              "width": 1180.0,
+              "height": 40.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": null,
+            "label": null,
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "style": {
+              "fill": {
+                "r": 30,
+                "g": 29,
+                "b": 27,
+                "a": 1.0
+              },
+              "line_color": {
+                "r": 48,
+                "g": 46,
+                "b": 43,
+                "a": 1.0
+              },
+              "line_width": 1.0,
+              "line_sides": [
+                "bottom"
+              ]
+            },
+            "truncated": null,
+            "state": null
+          },
+          {
+            "id": "chrome.search.kbd",
+            "class": "KeyBadge",
+            "object": 105553116266496,
+            "parent": "chrome",
+            "ck": "chrome.search.kbd",
+            "frame": {
+              "x": 790.0,
+              "y": 692.0,
+              "width": 23.0,
+              "height": 17.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": null,
+            "label": "⌘K",
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "style": {
+              "font": {
+                "family": "JetBrains Mono",
+                "face": "JetBrainsMono-Regular",
+                "weight": 400.0,
+                "size": 10.5,
+                "file": "file:///Applications/shellio.app/Contents/Resources/Fonts/JetBrainsMono-Regular.ttf"
+              },
+              "line_height": 14.0,
+              "letter_spacing": 0.0,
+              "color": {
+                "r": 171,
+                "g": 165,
+                "b": 154,
+                "a": 1.0
+              },
+              "fill": {
+                "r": 37,
+                "g": 36,
+                "b": 33,
+                "a": 1.0
+              },
+              "line_color": {
+                "r": 64,
+                "g": 61,
+                "b": 57,
+                "a": 1.0
+              },
+              "line_width": 1.0,
+              "line_sides": [
+                "top",
+                "right",
+                "bottom",
+                "left"
+              ],
+              "radius": 4.0,
+              "padding": {
+                "top": 0.0,
+                "right": 4.0,
+                "bottom": 0.0,
+                "left": 4.0
+              },
+              "shadow": [
+                {
+                  "color": {
+                    "r": 0,
+                    "g": 0,
+                    "b": 0,
+                    "a": 0.25
+                  },
+                  "x": 0.0,
+                  "y": 1.0,
+                  "blur": 2.0,
+                  "spread": 0.0,
+                  "inset": false
+                }
+              ]
+            },
+            "truncated": false,
+            "state": null
+          },
+          {
+            "id": "chrome.search.icon",
+            "class": "Icon",
+            "object": 105553116266496,
+            "parent": "chrome",
+            "ck": "chrome.search.icon",
+            "frame": {
+              "x": 370.0,
+              "y": 693.5,
+              "width": 14.0,
+              "height": 14.0
+            },
+            "visible": true,
+            "first_responder": false,
+            "enabled": null,
+            "role": null,
+            "label": null,
+            "help": null,
+            "selected": null,
+            "expanded": null,
+            "animation_keys": 0,
+            "style": {
+              "color": {
+                "r": 143,
+                "g": 137,
+                "b": 126,
+                "a": 1.0
+              },
+              "icon": {
+                "name": "search",
+                "size": 14.0
+              }
+            },
+            "truncated": null,
+            "state": null
+          }
+        ],
+        "materials": []
+      }
+    }
+  }
+}

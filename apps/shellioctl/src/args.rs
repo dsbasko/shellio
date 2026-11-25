@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use serde_json::Value;
 use shellio_control::{
-    CLI_TIMEOUT, Contrast, GalleryCommand, GalleryFocus, GalleryStrip, Lightness, Motion,
-    TreeMutation, UiRequest,
+    CLI_TIMEOUT, CellContrast, CellMotion, Contrast, GalleryCommand, GalleryFocus, GalleryStrip,
+    Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
     AppearanceChoice, Command, PanelId, ProjectId, Revision, TreeScope, UiCommand, WorkbenchId,
@@ -60,6 +60,7 @@ pub const USAGE: &str = "\
   ui inspect
   ui stats
   ui receipts [--after <номер>]
+  ui cell [--contrast <normal|high|system>] [--motion <full|reduce|system>]
   ui appearance <light|dark|system>
   window close
   app quit
@@ -85,6 +86,8 @@ panel open открывает панель плагина по правилу е
 Действие у panel command — полное имя из манифеста плагина, <плагин>.<имя>. --args — объект JSON.
 ui receipts — служебное чтение тестов: квитанции panel.open, поданных из окна, с номером больше
 --after.
+ui cell — служебный вход тестов: контраст и движение окна владельца с явным SHELLIO_STATE_DIR;
+system снимает переопределение оси, пропущенная ось не меняется.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -174,11 +177,13 @@ enum Flag {
     Edge,
     Args,
     After,
+    Contrast,
+    Motion,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 20] = [
+    const ALL: [Self; 22] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -198,6 +203,8 @@ impl Flag {
         Self::Edge,
         Self::Args,
         Self::After,
+        Self::Contrast,
+        Self::Motion,
         Self::Help,
     ];
 
@@ -222,6 +229,8 @@ impl Flag {
             Self::Edge => "--edge",
             Self::Args => "--args",
             Self::After => "--after",
+            Self::Contrast => "--contrast",
+            Self::Motion => "--motion",
             Self::Help => "--help",
         }
     }
@@ -242,7 +251,9 @@ impl Flag {
             | Self::To
             | Self::Edge
             | Self::Args
-            | Self::After => true,
+            | Self::After
+            | Self::Contrast
+            | Self::Motion => true,
             Self::Json | Self::All | Self::Follow | Self::Off | Self::Help => false,
         }
     }
@@ -266,7 +277,9 @@ impl Flag {
             | Self::To
             | Self::Edge
             | Self::Args
-            | Self::After => false,
+            | Self::After
+            | Self::Contrast
+            | Self::Motion => false,
         }
     }
 
@@ -955,6 +968,42 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 .transpose()?;
             Ok(Action::Ui(UiRequest::Receipts { after }))
         }
+        "ui cell" => {
+            given.only(call, &[Flag::Contrast, Flag::Motion])?;
+            operands::<0>(call, rest)?;
+            let contrast = given
+                .value(Flag::Contrast)
+                .map(|value| {
+                    name_of(
+                        "--contrast",
+                        value,
+                        &[
+                            ("normal", CellContrast::Normal),
+                            ("high", CellContrast::Increased),
+                            ("system", CellContrast::System),
+                        ],
+                    )
+                })
+                .transpose()?;
+            let motion = given
+                .value(Flag::Motion)
+                .map(|value| {
+                    name_of(
+                        "--motion",
+                        value,
+                        &[
+                            ("full", CellMotion::Normal),
+                            ("reduce", CellMotion::Reduced),
+                            ("system", CellMotion::System),
+                        ],
+                    )
+                })
+                .transpose()?;
+            if contrast.is_none() && motion.is_none() {
+                return Err(usage(format!("{call}: нужен --contrast или --motion")));
+            }
+            Ok(Action::Ui(UiRequest::Cell { contrast, motion }))
+        }
         "ui appearance" => {
             given.only(call, &[])?;
             let [value] = operands(call, rest)?;
@@ -1409,6 +1458,53 @@ mod tests {
         ] {
             let message = refused(args);
             assert!(message.contains("не применим"), "{args:?}: {message}");
+        }
+    }
+
+    #[test]
+    fn ui_cell_takes_named_axes_and_needs_one() {
+        assert_eq!(
+            action_of(&["ui", "cell", "--contrast", "high", "--motion", "reduce"]),
+            Action::Ui(UiRequest::Cell {
+                contrast: Some(CellContrast::Increased),
+                motion: Some(CellMotion::Reduced),
+            })
+        );
+        assert_eq!(
+            action_of(&["ui", "cell", "--contrast=system"]),
+            Action::Ui(UiRequest::Cell {
+                contrast: Some(CellContrast::System),
+                motion: None,
+            })
+        );
+        assert_eq!(
+            action_of(&["ui", "cell", "--motion", "full"]),
+            Action::Ui(UiRequest::Cell {
+                contrast: None,
+                motion: Some(CellMotion::Normal),
+            })
+        );
+        assert_eq!(
+            action_of(&["ui", "cell", "--contrast", "normal", "--motion", "system"]),
+            Action::Ui(UiRequest::Cell {
+                contrast: Some(CellContrast::Normal),
+                motion: Some(CellMotion::System),
+            })
+        );
+        for (args, expected) in [
+            (&["ui", "cell"][..], "нужен --contrast или --motion"),
+            (&["ui", "cell", "--contrast", "increased"], "--contrast"),
+            (&["ui", "cell", "--motion", "reduced"], "--motion"),
+            (&["ui", "cell", "--contrast"], "нужно значение"),
+            (&["ui", "cell", "high"], "операндов"),
+            (
+                &["ui", "cell", "--contrast", "high", "--all"],
+                "не применим",
+            ),
+            (&["ui", "window", "--contrast", "high"], "не применим"),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(expected), "{args:?}: {message}");
         }
     }
 

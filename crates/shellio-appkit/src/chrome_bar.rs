@@ -431,6 +431,15 @@ impl ChromeBar {
         let view = self.view.view();
         let parts = view.ivars();
         let state = self.state();
+        const SEARCH: Option<&str> = Some("chrome.search");
+        let search = parts.search.ivars();
+        let glass: &NSView = &search.icon;
+        let glass_size = glass.bounds().size.width;
+        let glass_color = search
+            .icon
+            .contentTintColor()
+            .and_then(|color| crate::style::rgba(&color));
+        // Ключи сверки — таблица `shellio-conformance`; у кнопок зон они отличаются от имён узлов.
         let mut nodes = vec![
             inspect::node(
                 "chrome",
@@ -439,7 +448,9 @@ impl ChromeBar {
                 view,
                 None,
                 Some(NodeState::Chrome(state)),
-            ),
+            )
+            .with_root_ck(inspect::ck::CHROME)
+            .with_line_layer(&parts.line, &[crate::style::Side::Bottom]),
             inspect::node(
                 "chrome.workspace",
                 "WorkspaceButton",
@@ -447,7 +458,8 @@ impl ChromeBar {
                 &parts.workspace,
                 Some(parts.workspace.isEnabled()),
                 None,
-            ),
+            )
+            .with_ck(inspect::ck::WORKSPACE),
             inspect::node(
                 "chrome.search",
                 "SearchField",
@@ -455,34 +467,86 @@ impl ChromeBar {
                 &parts.search,
                 None,
                 None,
-            ),
-            inspect::node("chrome.zones", "ZoneGroup", BAR, &parts.zones, None, None),
+            )
+            .with_ck(inspect::ck::SEARCH),
+            inspect::node("chrome.search.icon", "Icon", SEARCH, glass, None, None)
+                .with_ck(inspect::ck::SEARCH_ICON)
+                .with_icon("search", glass_size, glass_color),
+            inspect::node(
+                "chrome.search.label",
+                "Label",
+                SEARCH,
+                &search.label,
+                None,
+                None,
+            )
+            .with_ck(inspect::ck::SEARCH_LABEL),
+            inspect::node(
+                "chrome.search.kbd",
+                "KeyBadge",
+                SEARCH,
+                &search.key_box,
+                None,
+                None,
+            )
+            .with_ck(inspect::ck::SEARCH_KBD)
+            .with_text_of(&search.key),
+            inspect::node("chrome.zones", "ZoneGroup", BAR, &parts.zones, None, None)
+                .with_ck(inspect::ck::ZONES),
         ];
         let zone_ids = [
             "chrome.zone.left",
             "chrome.zone.bottom",
             "chrome.zone.right",
-        ];
+        ]
+        .into_iter()
+        .zip(inspect::ck::ZONE_BUTTONS);
         // Нажатая кнопка — значение AX-переключателя, а не выбор: факта `selected` у неё нет, как
         // и атрибута `AXSelected`, который с ним сверяет пункт `ax` E2E.
-        for (id, button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
-            nodes.push(inspect::node(
-                id,
-                "ZoneButton",
-                ZONES,
-                button,
-                Some(button.isEnabled()),
-                None,
-            ));
+        for ((id, ck), button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
+            nodes.push(
+                inspect::node(
+                    id,
+                    "ZoneButton",
+                    ZONES,
+                    button,
+                    Some(button.isEnabled()),
+                    None,
+                )
+                .with_ck(ck),
+            );
         }
-        nodes.push(inspect::node(
-            "chrome.appearance",
-            "AppearanceButton",
-            BAR,
-            &parts.appearance,
-            Some(parts.appearance.isEnabled()),
-            None,
-        ));
+        // Кнопки окна системные: сверяются место и состав, кадр и диаметр — исключение реестра.
+        if let Some(window) = view.window() {
+            let buttons = [
+                (NSWindowButton::CloseButton, inspect::ck::WINDOW_BUTTONS[0]),
+                (
+                    NSWindowButton::MiniaturizeButton,
+                    inspect::ck::WINDOW_BUTTONS[1],
+                ),
+                (NSWindowButton::ZoomButton, inspect::ck::WINDOW_BUTTONS[2]),
+            ];
+            for (kind, ck) in buttons {
+                if let Some(button) = window.standardWindowButton(kind) {
+                    let enabled = button.isEnabled();
+                    nodes.push(
+                        inspect::node(ck, "WindowButton", BAR, &button, Some(enabled), None)
+                            .with_ck(ck),
+                    );
+                }
+            }
+        }
+        nodes.push(
+            inspect::node(
+                "chrome.appearance",
+                "AppearanceButton",
+                BAR,
+                &parts.appearance,
+                Some(parts.appearance.isEnabled()),
+                None,
+            )
+            .with_ck(inspect::ck::APPEARANCE),
+        );
         nodes
     }
 

@@ -15,6 +15,7 @@
             "class": "TreeList",
             "object": 105553116270336,
             "parent": "gallery.surface.plain",
+            "ck": null,
             "frame": {
               "x": 898.0,
               "y": 240.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "tree_list": {
                 "label": "Дерево галереи",
@@ -79,6 +82,7 @@
             "class": "TreeRow",
             "object": 105553116270848,
             "parent": "gallery.tree",
+            "ck": null,
             "frame": {
               "x": 898.0,
               "y": 630.0,
@@ -94,6 +98,8 @@
             "selected": false,
             "expanded": true,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": null
           }
         ],

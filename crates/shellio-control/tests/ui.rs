@@ -218,6 +218,35 @@ async fn refusals_become_stable_codes() -> TestResult {
     fixture.stop().await
 }
 
+/// `ui.cell` у владельца без явного каталога состояния — `isolated_profile_only` без повтора.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cell_refusal_is_isolated_profile_only() -> TestResult {
+    let (ui, mut calls) = fake();
+    let fixture = Fixture::start(ui).await?;
+    let mut session = fixture.session().await?;
+    let cell = UiRequest::Cell {
+        contrast: Some(shellio_control::CellContrast::Increased),
+        motion: None,
+    };
+    let request = tokio::spawn(async move {
+        session
+            .request(shellio_control::RequestBody::Ui(cell))
+            .await
+    });
+    let call = calls.recv().await.ok_or("порт не вызван")?;
+    let _ = call.answer.send(Err(UiRefusal::IsolatedProfileOnly));
+    let response = request.await??;
+    assert_eq!(
+        control_code(&response),
+        Some(ControlErrorCode::IsolatedProfileOnly)
+    );
+    let Response::Error { error, .. } = response else {
+        unreachable!()
+    };
+    assert!(!error.retryable());
+    fixture.stop().await
+}
+
 /// Работа, не начатая к сроку, отменяется: ответ — повторяемый `ui_timeout`, а исполнитель,
 /// дошедший до неё позже, её не выполняет. Так и для чтения, и для изменяющего запроса.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

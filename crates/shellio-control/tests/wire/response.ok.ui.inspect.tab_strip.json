@@ -15,6 +15,7 @@
             "class": "TabStrip",
             "object": 105553116268800,
             "parent": "gallery.surface.focus",
+            "ck": null,
             "frame": {
               "x": 60.0,
               "y": 530.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 1,
+            "style": null,
+            "truncated": null,
             "state": {
               "tab_strip": {
                 "label": "Вкладки боковой зоны",

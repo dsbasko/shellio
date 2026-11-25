@@ -15,6 +15,7 @@
             "class": "TextField",
             "object": 105553116268032,
             "parent": "gallery",
+            "ck": null,
             "frame": {
               "x": 24.0,
               "y": 600.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "text_field": {
                 "value": "shellio",
@@ -44,6 +47,7 @@
             "class": "MenuButton",
             "object": 105553116268544,
             "parent": "gallery",
+            "ck": null,
             "frame": {
               "x": 352.0,
               "y": 604.0,
@@ -59,6 +63,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "menu": {
                 "open": true,

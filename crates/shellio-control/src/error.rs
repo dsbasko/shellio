@@ -41,11 +41,13 @@ pub enum ControlErrorCode {
     UiTimeout,
     /// Запрос `gallery.*` вне режима галереи.
     GalleryOnly,
+    /// Запрос `ui.cell` владельцу, запущенному без явного `SHELLIO_STATE_DIR`.
+    IsolatedProfileOnly,
 }
 
 impl ControlErrorCode {
     /// Все коды.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::HelloRequired,
         Self::ProtocolMismatch,
         Self::MalformedRequest,
@@ -60,6 +62,7 @@ impl ControlErrorCode {
         Self::NoUi,
         Self::UiTimeout,
         Self::GalleryOnly,
+        Self::IsolatedProfileOnly,
     ];
 
     /// Имя кода в JSON.
@@ -79,6 +82,7 @@ impl ControlErrorCode {
             Self::NoUi => "no_ui",
             Self::UiTimeout => "ui_timeout",
             Self::GalleryOnly => "gallery_only",
+            Self::IsolatedProfileOnly => "isolated_profile_only",
         }
     }
 
@@ -98,7 +102,8 @@ impl ControlErrorCode {
             | Self::ScopeUnsupported
             | Self::OutcomeUnknown
             | Self::NoUi
-            | Self::GalleryOnly => false,
+            | Self::GalleryOnly
+            | Self::IsolatedProfileOnly => false,
         }
     }
 }
@@ -280,6 +285,14 @@ impl ControlError {
         )
     }
 
+    /// Запрос `ui.cell` владельцу без явного `SHELLIO_STATE_DIR`.
+    pub fn isolated_profile_only() -> Self {
+        Self::plain(
+            ControlErrorCode::IsolatedProfileOnly,
+            "запрос доступен только владельцу с явным SHELLIO_STATE_DIR",
+        )
+    }
+
     /// Стабильный код.
     pub const fn code(&self) -> ControlErrorCode {
         self.code
@@ -330,6 +343,7 @@ mod tests {
             ("no_ui", false),
             ("ui_timeout", true),
             ("gallery_only", false),
+            ("isolated_profile_only", false),
         ];
         assert_eq!(ControlErrorCode::ALL.len(), expected.len());
         for (code, (name, retryable)) in ControlErrorCode::ALL.into_iter().zip(expected) {
@@ -403,6 +417,10 @@ mod tests {
                 ControlErrorCode::UiTimeout,
             ),
             (ControlError::gallery_only(), ControlErrorCode::GalleryOnly),
+            (
+                ControlError::isolated_profile_only(),
+                ControlErrorCode::IsolatedProfileOnly,
+            ),
         ];
         assert_eq!(cases.len(), ControlErrorCode::ALL.len());
         for (error, code) in cases {
@@ -416,7 +434,10 @@ mod tests {
     #[test]
     fn protocol_mismatch_names_supported_versions() {
         let error = ControlError::protocol_mismatch(7);
-        assert_eq!(error.detail("supported"), Some(&Value::from(vec![3])));
+        assert_eq!(
+            error.detail("supported"),
+            Some(&Value::from(vec![PROTOCOL]))
+        );
         assert!(error.message().contains('7'), "{error}");
     }
 }

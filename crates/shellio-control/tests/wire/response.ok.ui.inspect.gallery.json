@@ -15,6 +15,7 @@
             "class": "GenerationMarker",
             "object": 105553116269056,
             "parent": null,
+            "ck": null,
             "frame": {
               "x": 12.0,
               "y": 644.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": null
           },
           {
@@ -37,6 +40,7 @@
             "class": "Surface",
             "object": 105553116269568,
             "parent": null,
+            "ck": null,
             "frame": {
               "x": 48.0,
               "y": 12.0,
@@ -52,6 +56,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": null
           }
         ],

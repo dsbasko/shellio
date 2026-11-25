@@ -1,7 +1,7 @@
 {
   "id": 1,
   "hello": {
-    "protocol": 3,
+    "protocol": 4,
     "client": "shellioctl 0.1.0"
   }
 }

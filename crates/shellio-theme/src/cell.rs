@@ -67,13 +67,18 @@ impl AppearanceChoice {
 }
 
 /// Переопределения поверх системных входов. Галерея задаёт оси по отдельности и только своему
-/// окну; её переопределение старше выбора оформления, выбор старше системы.
+/// окну; её переопределение старше выбора оформления, выбор старше системы. Служебный вход
+/// `ui.cell` задаёт контраст и движение и старше остальных источников этих осей.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Overrides {
     pub choice: AppearanceChoice,
     pub gallery_appearance: Option<Appearance>,
     pub gallery_contrast: Option<Contrast>,
     pub gallery_motion: Option<Motion>,
+    /// Контраст `ui.cell`.
+    pub cell_contrast: Option<Contrast>,
+    /// Движение `ui.cell`.
+    pub cell_motion: Option<Motion>,
 }
 
 /// Откуда взято значение оси.
@@ -83,6 +88,8 @@ pub enum Source {
     /// Выбор `ui.appearance.set`.
     Choice,
     Gallery,
+    /// Служебный вход `ui.cell`.
+    Override,
 }
 
 impl Source {
@@ -91,6 +98,7 @@ impl Source {
             Source::System => "system",
             Source::Choice => "ui.appearance",
             Source::Gallery => "gallery",
+            Source::Override => "override",
         }
     }
 }
@@ -149,11 +157,13 @@ impl Cell {
             (None, Some(appearance)) => (appearance, Source::Choice),
             (None, None) => (system_appearance, Source::System),
         };
-        let (contrast, contrast_source) = match overrides.gallery_contrast {
-            Some(contrast) => (contrast, Source::Gallery),
-            None if system_increase_contrast => (Contrast::Increased, Source::System),
-            None => (Contrast::Normal, Source::System),
-        };
+        let (contrast, contrast_source) =
+            match (overrides.cell_contrast, overrides.gallery_contrast) {
+                (Some(contrast), _) => (contrast, Source::Override),
+                (None, Some(contrast)) => (contrast, Source::Gallery),
+                (None, None) if system_increase_contrast => (Contrast::Increased, Source::System),
+                (None, None) => (Contrast::Normal, Source::System),
+            };
         ResolvedCell {
             cell: Cell::new(appearance, contrast),
             appearance_source,
@@ -181,10 +191,11 @@ impl Motion {
 
     /// Движение из `accessibilityDisplayShouldReduceMotion` и переопределения галереи.
     pub fn resolve(system_reduce_motion: bool, overrides: Overrides) -> (Motion, Source) {
-        match overrides.gallery_motion {
-            Some(motion) => (motion, Source::Gallery),
-            None if system_reduce_motion => (Motion::Reduced, Source::System),
-            None => (Motion::Normal, Source::System),
+        match (overrides.cell_motion, overrides.gallery_motion) {
+            (Some(motion), _) => (motion, Source::Override),
+            (None, Some(motion)) => (motion, Source::Gallery),
+            (None, None) if system_reduce_motion => (Motion::Reduced, Source::System),
+            (None, None) => (Motion::Normal, Source::System),
         }
     }
 }
@@ -210,6 +221,8 @@ mod tests {
                             gallery_appearance,
                             gallery_contrast,
                             gallery_motion,
+                            cell_contrast: None,
+                            cell_motion: None,
                         });
                     }
                 }
@@ -327,6 +340,43 @@ mod tests {
                 assert_eq!(Motion::resolve(true, overrides).1, Source::System);
             }
         }
+    }
+
+    /// `ui.cell` старше галереи и системы по своим осям и не трогает светлоту.
+    #[test]
+    fn cell_override_wins_its_axes_only() {
+        for system_dark in [false, true] {
+            for system_more in [false, true] {
+                for base in all_overrides() {
+                    let plain = Cell::resolve(system_dark, system_more, base);
+                    for cell_contrast in options(&Contrast::ALL) {
+                        for cell_motion in options(&Motion::ALL) {
+                            let overrides = Overrides {
+                                cell_contrast,
+                                cell_motion,
+                                ..base
+                            };
+                            let resolved = Cell::resolve(system_dark, system_more, overrides);
+                            assert_eq!(resolved.cell.appearance, plain.cell.appearance);
+                            assert_eq!(resolved.appearance_source, plain.appearance_source);
+                            match cell_contrast {
+                                Some(contrast) => {
+                                    assert_eq!(resolved.cell.contrast, contrast);
+                                    assert_eq!(resolved.contrast_source, Source::Override);
+                                }
+                                None => assert_eq!(resolved, plain),
+                            }
+                            let motion = Motion::resolve(system_more, overrides);
+                            match cell_motion {
+                                Some(value) => assert_eq!(motion, (value, Source::Override)),
+                                None => assert_eq!(motion, Motion::resolve(system_more, base)),
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(Source::Override.name(), "override");
     }
 
     #[test]

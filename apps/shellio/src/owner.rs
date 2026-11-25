@@ -527,6 +527,8 @@ impl<U: Ui> LaunchHandler for Launcher<U> {
 /// Порт `ui` сервера над портом [`Ui`] владельца.
 struct UiPort<U> {
     ui: Arc<U>,
+    /// Каталог состояния владельца задан явно.
+    explicit: bool,
 }
 
 impl<U: Ui> UiHandler for UiPort<U> {
@@ -535,7 +537,30 @@ impl<U: Ui> UiHandler for UiPort<U> {
         request: UiRequest,
         gate: UiGate,
     ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
-        self.ui.ui_request(request, gate)
+        let admitted = admit_ui(request, self.explicit);
+        let work = admitted.is_ok().then(|| self.ui.ui_request(request, gate));
+        async move {
+            admitted?;
+            match work {
+                Some(work) => work.await,
+                None => Err(UiRefusal::NoUi),
+            }
+        }
+    }
+}
+
+/// Допуск запроса `ui` до главного потока: `ui.cell` принимает только владелец с явным каталогом
+/// состояния (ADR-0007, «Уточнено в `prototype-conformance`»). Отказ приходит до изменения.
+pub const fn admit_ui(request: UiRequest, explicit: bool) -> Result<(), UiRefusal> {
+    match request {
+        UiRequest::Cell { .. } if !explicit => Err(UiRefusal::IsolatedProfileOnly),
+        UiRequest::Cell { .. }
+        | UiRequest::Window
+        | UiRequest::Inspect
+        | UiRequest::Stats
+        | UiRequest::Receipts { .. }
+        | UiRequest::Command(_)
+        | UiRequest::Gallery(_) => Ok(()),
     }
 }
 
@@ -618,6 +643,7 @@ async fn serve<U: Ui>(
             return fail(format_args!("обработчики сигналов не поставлены: {error}"));
         }
     };
+    let explicit = profile.is_explicit();
     let window = ui.become_owner(mode).await;
     // Разбор незавершённого обновления встанет здесь, до открытия `state.db` (P5.2).
     let core = match load_core(profile.clone()).await {
@@ -650,6 +676,7 @@ async fn serve<U: Ui>(
         launcher.clone(),
         UiPort {
             ui: Arc::clone(&ui),
+            explicit,
         },
         TokioClock,
         ServerConfig::new(VERSION),
@@ -748,6 +775,51 @@ mod tests {
     use shellio_core::{Command, Mirror, Revision, Snapshot, UnixMillis, workspace_name};
 
     use super::*;
+
+    /// `ui.cell` принимает только владелец с явным каталогом состояния; остальные запросы `ui`
+    /// от профиля не зависят.
+    #[test]
+    fn cell_is_admitted_only_on_an_explicit_profile() {
+        use shellio_control::{CellContrast, CellMotion, GalleryCommand};
+        use shellio_core::UiCommand;
+
+        let isolated = Profile::isolated("/tmp/shellio-state");
+        assert!(isolated.is_explicit());
+        let cells = [
+            UiRequest::Cell {
+                contrast: Some(CellContrast::Increased),
+                motion: None,
+            },
+            UiRequest::Cell {
+                contrast: Some(CellContrast::System),
+                motion: Some(CellMotion::System),
+            },
+            UiRequest::Cell {
+                contrast: None,
+                motion: None,
+            },
+        ];
+        for cell in cells {
+            assert_eq!(admit_ui(cell, isolated.is_explicit()), Ok(()));
+            assert_eq!(
+                admit_ui(cell, false),
+                Err(UiRefusal::IsolatedProfileOnly),
+                "{cell:?}"
+            );
+        }
+        for other in [
+            UiRequest::Window,
+            UiRequest::Inspect,
+            UiRequest::Stats,
+            UiRequest::Receipts { after: None },
+            UiRequest::Command(UiCommand::WindowClose),
+            UiRequest::Gallery(GalleryCommand::Reset),
+        ] {
+            for explicit in [false, true] {
+                assert_eq!(admit_ui(other, explicit), Ok(()), "{other:?}");
+            }
+        }
+    }
 
     #[test]
     fn ready_line_keeps_pid_prefix_and_names_mode_and_window() {

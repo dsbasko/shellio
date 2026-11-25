@@ -5,7 +5,7 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyClass;
 use objc2::{MainThreadMarker, Message};
-use objc2_app_kit::{NSAccessibility, NSControl, NSScreen, NSView, NSWindow};
+use objc2_app_kit::{NSAccessibility, NSControl, NSScreen, NSTextField, NSView, NSWindow};
 use objc2_quartz_core::CALayer;
 
 use crate::chrome_bar::{ChromeState, Frame};
@@ -14,6 +14,54 @@ use crate::components::tab_strip::TabStripFacts;
 use crate::components::text_field::TextFieldState;
 use crate::components::tree_list::TreeListFacts;
 use crate::components::virtual_list::VirtualListFacts;
+use crate::style::{self, Style};
+
+/// Ключи сверки ADR-0037 узлов заголовка и строки статуса. Таблица шаблонов — в
+/// `shellio-conformance`; тест продукта сверяет с ней каждый ключ этого списка.
+pub mod ck {
+    pub const CHROME: &str = "chrome";
+    pub const WORKSPACE: &str = "chrome.workspace";
+    pub const SEARCH: &str = "chrome.search";
+    pub const SEARCH_ICON: &str = "chrome.search.icon";
+    pub const SEARCH_LABEL: &str = "chrome.search.label";
+    pub const SEARCH_KBD: &str = "chrome.search.kbd";
+    pub const ZONES: &str = "chrome.zones";
+    /// Кнопки зон слева направо: третья — `right`, что бы она ни переключала.
+    pub const ZONE_BUTTONS: [&str; 3] = [
+        "chrome.zones.left",
+        "chrome.zones.bottom",
+        "chrome.zones.right",
+    ];
+    /// Системные кнопки окна слева направо.
+    pub const WINDOW_BUTTONS: [&str; 3] = [
+        "chrome.window.close",
+        "chrome.window.minimize",
+        "chrome.window.zoom",
+    ];
+    pub const APPEARANCE: &str = "chrome.appearance";
+    pub const STATUS: &str = "status";
+    pub const STATUS_MESSAGE: &str = "status.message";
+
+    /// Все ключи, которые назначают заголовок и строка статуса.
+    pub const ALL: [&str; 16] = [
+        CHROME,
+        WORKSPACE,
+        SEARCH,
+        SEARCH_ICON,
+        SEARCH_LABEL,
+        SEARCH_KBD,
+        ZONES,
+        ZONE_BUTTONS[0],
+        ZONE_BUTTONS[1],
+        ZONE_BUTTONS[2],
+        APPEARANCE,
+        STATUS,
+        STATUS_MESSAGE,
+        WINDOW_BUTTONS[0],
+        WINDOW_BUTTONS[1],
+        WINDOW_BUTTONS[2],
+    ];
+}
 
 /// Факты одного вида.
 #[derive(Debug, Clone, PartialEq)]
@@ -62,8 +110,106 @@ pub struct InspectNode {
     /// Адрес объекта вида: идентичность в процессе.
     pub object: u64,
     pub parent: Option<String>,
+    /// Ключ сверки ADR-0037: его назначает компонент по месту узла в сцене.
+    pub ck: Option<String>,
     pub facts: ViewFacts,
+    /// Свойства вида, прочитанные у него и его слоя; `None` — у вида их нет.
+    pub style: Option<Style>,
+    /// Обрезан ли текст узла; `None` — текста у узла нет.
+    pub truncated: Option<bool>,
+    /// Заливка, которую видно под видом: его слой, слои предков и фон окна. `None` — непрозрачной
+    /// заливки под видом нет.
+    pub under: Option<style::Rgba>,
     pub state: Option<NodeState>,
+}
+
+impl InspectNode {
+    /// Узел с ключом сверки.
+    #[must_use]
+    pub fn with_ck(mut self, ck: impl Into<String>) -> InspectNode {
+        self.ck = Some(ck.into());
+        self
+    }
+
+    /// Ключ корня поверхности (узел без родителя с ключом): заливка такого узла — та, что видна
+    /// под видом, а не прозрачная (ADR-0037, правило фона паспорта).
+    #[must_use]
+    pub fn with_root_ck(mut self, ck: impl Into<String>) -> InspectNode {
+        self.ck = Some(ck.into());
+        if let Some(fill) = self.under {
+            self.style.get_or_insert_with(Style::default).fill = Some(fill);
+        }
+        self
+    }
+
+    /// Линия, нарисованная отдельным слоем у сторон `sides`: цвет — заливка слоя, толщина — его
+    /// меньшая сторона.
+    #[must_use]
+    pub(crate) fn with_line_layer(mut self, line: &CALayer, sides: &[style::Side]) -> InspectNode {
+        let drawn = style::layer_style(line).fill;
+        let size = line.bounds().size;
+        if let Some(color) = drawn {
+            let style = self.style.get_or_insert_with(Style::default);
+            style.line_color = Some(color);
+            style.line_width = Some(size.width.min(size.height));
+            style.line_sides = sides.to_vec();
+        }
+        self
+    }
+
+    /// Текст узла рисует вложенное поле `field`: подпись, шрифт, цвет и обрезка — его.
+    #[must_use]
+    pub(crate) fn with_text_of(mut self, field: &NSTextField) -> InspectNode {
+        let text = style::view_style(field);
+        let style = self.style.get_or_insert_with(Style::default);
+        style.font = text.font;
+        style.color = text.color;
+        self.facts.label = Some(field.stringValue().to_string());
+        self.truncated = Some(style::truncated(field));
+        self
+    }
+
+    /// Значок узла: имя в наборе и сторона в точках; цвет — оттенок вида значка.
+    #[must_use]
+    pub(crate) fn with_icon(
+        mut self,
+        name: &str,
+        size: f64,
+        color: Option<style::Rgba>,
+    ) -> InspectNode {
+        let style = self.style.get_or_insert_with(Style::default);
+        style.icon = Some(style::IconFacts {
+            name: name.to_owned(),
+            size,
+        });
+        if color.is_some() {
+            style.color = color;
+        }
+        self
+    }
+}
+
+/// Заливка, которую видно под видом: его слой, слои предков и фон окна.
+pub(crate) fn seen_fill(view: &NSView) -> Option<style::Rgba> {
+    let mut chain = Vec::new();
+    let mut current = Some(view.retain());
+    while let Some(view) = current {
+        if let Some(fill) = view
+            .layer()
+            .and_then(|layer| style::layer_style(&layer).fill)
+        {
+            chain.push(fill);
+        }
+        // SAFETY: `superview` у живого вида на главном потоке.
+        current = unsafe { view.superview() };
+    }
+    if let Some(fill) = view
+        .window()
+        .and_then(|window| style::rgba(&window.backgroundColor()))
+    {
+        chain.push(fill);
+    }
+    style::seen_fill(&chain)
 }
 
 /// Вид или слой материала с прозрачностью.
@@ -193,7 +339,11 @@ pub(crate) fn node(
         class,
         object: object_id(view),
         parent: parent.map(str::to_owned),
+        ck: None,
         facts: facts(view, enabled),
+        style: Some(style::view_style(view)).filter(|style| !style.is_empty()),
+        truncated: view.downcast_ref::<NSTextField>().map(style::truncated),
+        under: seen_fill(view),
         state,
     }
 }

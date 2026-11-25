@@ -11,7 +11,7 @@ use std::future::{Future, ready};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
@@ -19,6 +19,10 @@ use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
     OwnerState, Ownership, ReceiptView, ReceiptsView, RequestId, Response, SHUTDOWN_GRACE,
     SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply, UiRequest, WithoutUi,
+};
+use shellio_control::{
+    Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast, FontView,
+    InspectView, Lightness, Motion, Rect, Size, StyleView,
 };
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
@@ -991,6 +995,234 @@ async fn ui_receipts_reads_the_ring_from_the_cursor() -> TestResult {
         )
     );
     assert_eq!(revision(&dir).await?, before, "чтение квитанций не пишет");
+    owner.stop().await
+}
+
+/// Порт UI с ячейкой: `ui.cell` у владельца с явным каталогом состояния меняет оси, иначе —
+/// отказ; `ui.inspect` отдаёт узел с ключом сверки и свойствами вида.
+#[derive(Clone)]
+struct CellUi {
+    explicit: bool,
+    axes: Arc<Mutex<CellAxes>>,
+}
+
+/// Переопределения осей и поколение порта [`CellUi`].
+#[derive(Default)]
+struct CellAxes {
+    contrast: Option<Contrast>,
+    motion: Option<Motion>,
+    generation: u64,
+}
+
+impl CellUi {
+    fn new(explicit: bool) -> Self {
+        Self {
+            explicit,
+            axes: Arc::new(Mutex::new(CellAxes::default())),
+        }
+    }
+
+    fn cell(&self, contrast: Option<CellContrast>, motion: Option<CellMotion>) -> CellView {
+        let mut axes = self
+            .axes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(contrast) = contrast {
+            axes.contrast = contrast.value();
+        }
+        if let Some(motion) = motion {
+            axes.motion = motion.value();
+        }
+        axes.generation += 1;
+        let source = |set: bool| {
+            if set {
+                AxisSource::Override
+            } else {
+                AxisSource::System
+            }
+        };
+        CellView {
+            pid: PID,
+            lightness: Axis {
+                value: Lightness::Dark,
+                source: AxisSource::System,
+            },
+            contrast: Axis {
+                value: axes.contrast.unwrap_or(Contrast::Normal),
+                source: source(axes.contrast.is_some()),
+            },
+            motion: Axis {
+                value: axes.motion.unwrap_or(Motion::Normal),
+                source: source(axes.motion.is_some()),
+            },
+            generation: axes.generation,
+        }
+    }
+
+    fn inspect() -> InspectView {
+        InspectView {
+            window_number: 7,
+            content: Size {
+                width: 1180.0,
+                height: 720.0,
+            },
+            generation: 1,
+            components: vec![ComponentView {
+                id: "chrome.search.kbd".into(),
+                class: "KeyBadge".into(),
+                object: 1,
+                parent: Some("chrome.search".into()),
+                ck: Some("chrome.search.kbd".into()),
+                frame: Rect {
+                    x: 790.0,
+                    y: 692.0,
+                    width: 23.0,
+                    height: 17.0,
+                },
+                visible: true,
+                first_responder: false,
+                enabled: None,
+                role: None,
+                label: Some("⌘K".into()),
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                style: Some(StyleView {
+                    font: Some(FontView {
+                        family: "JetBrains Mono".into(),
+                        face: "JetBrainsMono-Regular".into(),
+                        weight: 400.0,
+                        size: 10.5,
+                        file: Some("file:///tmp/Fonts/JetBrainsMono-Regular.ttf".into()),
+                    }),
+                    radius: Some(4.0),
+                    ..StyleView::default()
+                }),
+                truncated: Some(false),
+                state: None,
+            }],
+            materials: Vec::new(),
+            gallery: None,
+        }
+    }
+}
+
+impl UiHandler for CellUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let reply = match request {
+            UiRequest::Cell { .. } if !self.explicit => Err(UiRefusal::IsolatedProfileOnly),
+            UiRequest::Cell { contrast, motion } if gate.begin() => {
+                Ok(UiReply::Cell(self.cell(contrast, motion)))
+            }
+            UiRequest::Inspect if gate.begin() => Ok(UiReply::Inspect(Box::new(Self::inspect()))),
+            _ => Err(UiRefusal::NoUi),
+        };
+        std::future::ready(reply)
+    }
+}
+
+/// `ui cell` и `ui inspect` отдельным процессом: оси и источники доходят до владельца и обратно,
+/// `system` снимает переопределение, пропущенная ось не меняется; `ui inspect` несёт ключ сверки,
+/// свойства вида и обрезку текста.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_cell_and_inspect_reach_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, CellUi::new(true)).await?;
+    let cell = async |args: &[&str]| -> TestResult<CellView> {
+        match dir.run(args).await?.expect(0)?.frame()? {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Cell(view)),
+                ..
+            } => Ok(view),
+            other => Err(format!("{args:?}: ожидалась ячейка, получено {other:?}").into()),
+        }
+    };
+    let high = cell(&[
+        "ui",
+        "cell",
+        "--contrast",
+        "high",
+        "--motion",
+        "reduce",
+        "--json",
+    ])
+    .await?;
+    assert_eq!(
+        (high.contrast.value, high.contrast.source),
+        (Contrast::Increased, AxisSource::Override)
+    );
+    assert_eq!(
+        (high.motion.value, high.motion.source),
+        (Motion::Reduced, AxisSource::Override)
+    );
+    let contrast_back = cell(&["ui", "cell", "--contrast", "system", "--json"]).await?;
+    assert_eq!(contrast_back.contrast.source, AxisSource::System);
+    assert_eq!(
+        (contrast_back.motion.value, contrast_back.motion.source),
+        (Motion::Reduced, AxisSource::Override),
+        "пропущенная ось не меняется"
+    );
+    assert!(contrast_back.generation > high.generation);
+    let text = dir
+        .run(&["ui", "cell", "--motion", "system"])
+        .await?
+        .expect(0)?;
+    assert!(text.stderr.is_empty(), "{text:?}");
+    assert_eq!(
+        text.stdout,
+        format!(
+            "ячейка: светлота тёмная (система), контраст обычный (система), движение обычное \
+             (система), PID {PID}, поколение 3\n"
+        )
+    );
+
+    match dir
+        .run(&["ui", "inspect", "--json"])
+        .await?
+        .expect(0)?
+        .frame()?
+    {
+        Response::Ok {
+            value: OkValue::Ui(UiReply::Inspect(view)),
+            ..
+        } => assert_eq!(*view, CellUi::inspect()),
+        other => return Err(format!("ожидалось дерево, получено {other:?}").into()),
+    }
+    let text = dir.run(&["ui", "inspect"]).await?.expect(0)?;
+    assert!(
+        text.stdout
+            .contains("ключ chrome.search.kbd, шрифт JetBrainsMono-Regular 10.5"),
+        "{text:?}"
+    );
+    owner.stop().await
+}
+
+/// `ui cell` у владельца без явного каталога состояния: `isolated_profile_only`, код 1, без
+/// повтора; без осей — ошибка использования, код 2, владельца никто не спрашивает.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_cell_needs_an_isolated_owner_and_an_axis() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, CellUi::new(false)).await?;
+    let refused = dir
+        .run(&["ui", "cell", "--contrast", "high", "--json"])
+        .await?
+        .expect(1)?;
+    assert_eq!(
+        refused.control_code()?,
+        ControlErrorCode::IsolatedProfileOnly
+    );
+    let text = dir
+        .run(&["ui", "cell", "--contrast", "high"])
+        .await?
+        .expect(1)?;
+    assert!(text.stderr.contains("isolated_profile_only"), "{text:?}");
+    let usage = dir.run(&["ui", "cell"]).await?.expect(2)?;
+    assert!(usage.stderr.contains("--contrast"), "{usage:?}");
     owner.stop().await
 }
 

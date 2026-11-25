@@ -326,7 +326,8 @@ const fn names_request_kind(code: ControlErrorCode) -> bool {
         | ControlErrorCode::OutcomeUnknown
         | ControlErrorCode::NoUi
         | ControlErrorCode::UiTimeout
-        | ControlErrorCode::GalleryOnly => false,
+        | ControlErrorCode::GalleryOnly
+        | ControlErrorCode::IsolatedProfileOnly => false,
     }
 }
 
@@ -464,6 +465,7 @@ impl<C: Clock, L: LaunchHandler, U: UiHandler> Connection<C, L, U> {
             Ok(Ok(reply)) => Ok(reply),
             Ok(Err(UiRefusal::NoUi)) => Err(ControlError::no_ui()),
             Ok(Err(UiRefusal::GalleryOnly)) => Err(ControlError::gallery_only()),
+            Ok(Err(UiRefusal::IsolatedProfileOnly)) => Err(ControlError::isolated_profile_only()),
             Err(Expired) if !gate.cancel() && request.is_mutation() => {
                 Err(ControlError::outcome_unknown(format_args!(
                     "{} начат на главном потоке и не закончен за {} мс",

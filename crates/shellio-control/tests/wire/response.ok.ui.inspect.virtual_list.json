@@ -15,6 +15,7 @@
             "class": "VirtualList",
             "object": 105553116269312,
             "parent": "gallery.surface.plain",
+            "ck": null,
             "frame": {
               "x": 626.0,
               "y": 240.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "virtual_list": {
                 "label": "Список галереи",
@@ -60,6 +63,7 @@
             "class": "ListRow",
             "object": 105553116269824,
             "parent": "gallery.list",
+            "ck": null,
             "frame": {
               "x": 626.0,
               "y": 630.0,
@@ -75,6 +79,8 @@
             "selected": true,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": null
           }
         ],

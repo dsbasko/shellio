@@ -364,6 +364,17 @@ fn ui_text(reply: &UiReply) -> String {
         UiReply::Inspect(inspect) => inspect_text(inspect),
         UiReply::Stats(stats) => stats_text(stats),
         UiReply::Receipts(receipts) => receipts_text(receipts),
+        UiReply::Cell(cell) => format!(
+            "ячейка: светлота {} ({}), контраст {} ({}), движение {} ({}), PID {}, поколение {}\n",
+            lightness_text(cell.lightness.value),
+            source_text(cell.lightness.source),
+            contrast_text(cell.contrast.value),
+            source_text(cell.contrast.source),
+            motion_text(cell.motion.value),
+            source_text(cell.motion.source),
+            cell.pid,
+            cell.generation
+        ),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
             accepted.command, accepted.pid, accepted.generation
@@ -415,6 +426,7 @@ fn source_text(source: AxisSource) -> &'static str {
         AxisSource::System => "система",
         AxisSource::UiAppearance => "ui.appearance",
         AxisSource::Gallery => "галерея",
+        AxisSource::Override => "ui.cell",
     }
 }
 
@@ -488,6 +500,19 @@ fn component_text(component: &ComponentView) -> String {
     }
     if let Some(label) = &component.label {
         facts.push(format!("«{label}»"));
+    }
+    if let Some(ck) = &component.ck {
+        facts.push(format!("ключ {ck}"));
+    }
+    if component.truncated == Some(true) {
+        facts.push("текст обрезан".to_owned());
+    }
+    if let Some(font) = component
+        .style
+        .as_ref()
+        .and_then(|style| style.font.as_ref())
+    {
+        facts.push(format!("шрифт {} {}", font.face, font.size));
     }
     if let Some(enabled) = component.enabled {
         facts.push(format!("доступен — {}", yes_no(enabled)));

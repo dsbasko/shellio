@@ -731,7 +731,18 @@ impl ExpandStub {
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let view = self.view.view();
         let button = &view.ivars().button;
+        let text = &view.ivars().text;
         let mut nodes = vec![inspect::node(id, "ExpandStub", parent, view, None, None)];
+        if !text.isHidden() {
+            nodes.push(inspect::node(
+                &format!("{id}.label"),
+                "StubLabel",
+                Some(id),
+                text,
+                None,
+                None,
+            ));
+        }
         if !button.isHidden() {
             nodes.push(inspect::node(
                 &format!("{id}.expand"),

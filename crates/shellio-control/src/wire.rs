@@ -20,7 +20,7 @@ use crate::ui::{UiReply, UiRequest};
 /// панели и раскладки (ADR-0007, «Уточнено в P1.4 (планирование)»), версия 3 — данные и статус
 /// панелей, вызывающую панель и их дельты (ADR-0007, «Уточнено в P1.5 (планирование)»): смешанные
 /// версии расходятся на `hello`.
-pub const PROTOCOL: u32 = 3;
+pub const PROTOCOL: u32 = 4;
 
 /// Номер запроса. Ответ несёт номер своего запроса, кадры подписки — номер `subscribe`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

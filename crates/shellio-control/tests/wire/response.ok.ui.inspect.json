@@ -15,6 +15,7 @@
             "class": "ChromeBar",
             "object": 105553116266496,
             "parent": null,
+            "ck": null,
             "frame": {
               "x": 0.0,
               "y": 680.0,
@@ -30,6 +31,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": {
               "chrome": {
                 "workspace": "Работа",
@@ -45,6 +48,7 @@
             "class": "WorkspaceButton",
             "object": 105553116267008,
             "parent": "chrome",
+            "ck": null,
             "frame": {
               "x": 84.0,
               "y": 689.0,
@@ -60,6 +64,8 @@
             "selected": null,
             "expanded": null,
             "animation_keys": 0,
+            "style": null,
+            "truncated": null,
             "state": null
           }
         ],

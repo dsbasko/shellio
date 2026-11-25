@@ -1,0 +1,6 @@
+{
+  "code": "isolated_profile_only",
+  "message": "запрос доступен только владельцу с явным SHELLIO_STATE_DIR",
+  "retryable": false,
+  "details": {}
+}

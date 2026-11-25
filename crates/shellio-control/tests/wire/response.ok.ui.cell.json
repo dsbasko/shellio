@@ -1,0 +1,23 @@
+{
+  "id": 43,
+  "ok": {
+    "ui": {
+      "cell": {
+        "pid": 4242,
+        "lightness": {
+          "value": "dark",
+          "source": "ui.appearance"
+        },
+        "contrast": {
+          "value": "increased",
+          "source": "override"
+        },
+        "motion": {
+          "value": "normal",
+          "source": "system"
+        },
+        "generation": 9
+      }
+    }
+  }
+}

@@ -1143,6 +1143,7 @@ dependencies = [
  "rustix",
  "serde_json",
  "shellio-appkit",
+ "shellio-conformance",
  "shellio-control",
  "shellio-core",
  "shellio-ghostty",

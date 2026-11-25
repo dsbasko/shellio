@@ -403,12 +403,19 @@ impl LayoutUi {
         let push = |nodes: &mut Vec<ComponentView>, list: Vec<shellio_appkit::InspectNode>| {
             nodes.extend(list.into_iter().map(window_ui::component));
         };
+        let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
+        // Под развёрнутой панелью плитки частей скрыты: ключи сверки несёт только она.
+        let zoomed = bench.is_some_and(|bench| bench.zoomed.is_some());
         push(&mut nodes, self.root.inspect(ROOT_SPLIT_ID, Some(ROOT_ID)));
         push(
             &mut nodes,
             self.root
                 .with_pane(0, |pane| {
-                    vec![pane.inspect(NAVIGATOR_ID, "NavigatorColumn", Some(ROOT_SPLIT_ID))]
+                    let node = pane.inspect(NAVIGATOR_ID, "NavigatorColumn", Some(ROOT_SPLIT_ID));
+                    vec![match host_ck(Host::Navigator, zoomed) {
+                        Some(ck) if node.facts.visible => node.with_root_ck(ck),
+                        _ => node,
+                    }]
                 })
                 .unwrap_or_default(),
         );
@@ -421,19 +428,35 @@ impl LayoutUi {
                 Zone::Left | Zone::Right => ROOT_SPLIT_ID,
                 Zone::Center | Zone::Bottom => COLUMN_SPLIT_ID,
             };
+            let id = split_id(zone);
+            let shown = !zoomed
+                && bench.is_some_and(|bench| bench.plates.keys().any(|key| key.zone == zone));
+            let list = self.zones.get(zone).inspect(&id, Some(parent));
             push(
                 &mut nodes,
-                self.zones.get(zone).inspect(&split_id(zone), Some(parent)),
+                list.into_iter()
+                    .map(|node| {
+                        if shown && node.id == id {
+                            node.with_root_ck(zone_ck(zone))
+                        } else {
+                            node
+                        }
+                    })
+                    .collect(),
             );
         }
-        let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
         if let Some(bench) = bench {
             for (key, plate) in &self.plates {
                 let Some(slot) = bench.plates.get(key) else {
                     continue;
                 };
                 let id = part_id(*key);
-                let mut list = plate.inspect(&id, Some(&split_id(key.zone)));
+                let base = host_ck(Host::Part(*key), zoomed);
+                let mut list = keyed(
+                    plate.inspect(&id, Some(&split_id(key.zone))),
+                    &id,
+                    base.as_deref(),
+                );
                 if let Some(first) = list.first_mut() {
                     let view = part_view(key.zone, key.index, slot, false);
                     let mut component = window_ui::component(first.clone());
@@ -444,7 +467,12 @@ impl LayoutUi {
                 nodes.extend(list.into_iter().map(window_ui::component));
             }
             if let (Some(zoom), Some(zoomed)) = (&self.zoom, &bench.zoomed) {
-                let mut list = zoom.inspect(ZOOM_ID, Some(ROOT_ID));
+                let base = host_ck(Host::Zoom, true);
+                let mut list = keyed(
+                    zoom.inspect(ZOOM_ID, Some(ROOT_ID)),
+                    ZOOM_ID,
+                    base.as_deref(),
+                );
                 if !list.is_empty() {
                     let mut component = window_ui::component(list.remove(0));
                     let slot = PlateSlot {
@@ -470,6 +498,9 @@ impl LayoutUi {
                 let parent = host_id(slot.host);
                 let mut component =
                     window_ui::component(view.inspect(&panel_id(*panel), Some(&parent)));
+                if slot.shown() {
+                    component.ck = host_ck(slot.host, zoomed).map(|host| format!("{host}.body"));
+                }
                 component.state = Some(ComponentState::Panel(Box::new(PanelNodeView {
                     panel: *panel,
                     component: view.id().get(),
@@ -491,20 +522,38 @@ impl LayoutUi {
             for host in bench.stubs().keys() {
                 if let Some(stub) = self.stubs.get(host) {
                     let parent = host_id(*host);
-                    let list = stub.inspect(&format!("{parent}.stub"), Some(&parent));
-                    nodes.extend(list.into_iter().map(window_ui::component));
+                    let id = format!("{parent}.stub");
+                    let base = host_ck(*host, zoomed).map(|host| format!("{host}.body.stub"));
+                    let list = stub.inspect(&id, Some(&parent));
+                    nodes.extend(list.into_iter().map(|node| {
+                        let ck = base
+                            .as_deref()
+                            .and_then(|base| stub_ck(base, &node.id[id.len()..]));
+                        let mut component = window_ui::component(node);
+                        component.ck = ck;
+                        component
+                    }));
                 }
             }
         }
         if self.scene.as_ref().and_then(Scene::note).is_some() {
+            // Сообщение стоит над областью зон, а не в части зоны: ключ `workbench.empty`.
             nodes.push(window_ui::component(
-                self.note.inspect(NOTE_ID, Some(ROOT_ID)),
+                self.note
+                    .inspect(NOTE_ID, Some(ROOT_ID))
+                    .with_root_ck(NOTE_CK),
             ));
         }
         if let Some(picker) = &self.picker {
             let node = match self.picker_plate() {
                 Some(plate) => picker.inspect_at(PICKER_ID, Some(ROOT_ID), plate.strip()),
                 None => picker.inspect_at(PICKER_ID, Some(ROOT_ID), &self.container),
+            };
+            // Выбор — меню AppKit: ключ несёт узел его состояния, кадр — место привязки.
+            let node = if node.facts.visible {
+                node.with_ck(PICKER_CK)
+            } else {
+                node
             };
             nodes.push(window_ui::component(node));
         }
@@ -896,6 +945,86 @@ fn host_id(host: Host) -> String {
     }
 }
 
+/// Ключ сверки сообщения пустой рабочей области (таблица `shellio-conformance`).
+const NOTE_CK: &str = "workbench.empty";
+
+/// Ключ сверки выбора «Открыть в новой части».
+const PICKER_CK: &str = "picker";
+
+/// Ключ сверки контейнера зоны.
+fn zone_ck(zone: Zone) -> String {
+    format!("zone.{}", zone_name(zone))
+}
+
+/// Номер части на экране с единицы: колонка навигатора — первая часть левой зоны, плитки левой
+/// зоны идут со второй.
+fn part_number(key: PartKey) -> usize {
+    let column = usize::from(key.zone == Zone::Left);
+    key.index + 1 + column
+}
+
+/// Ключ сверки места тела; `None` — место скрыто развёрнутой панелью. Развёрнутая панель —
+/// первая часть центра, как в паспорте.
+fn host_ck(host: Host, zoomed: bool) -> Option<String> {
+    match host {
+        Host::Zoom => Some("zone.center.part.1".to_owned()),
+        Host::Navigator | Host::Part(_) if zoomed => None,
+        Host::Navigator => Some("zone.left.part.1".to_owned()),
+        Host::Part(key) => Some(format!("{}.part.{}", zone_ck(key.zone), part_number(key))),
+    }
+}
+
+/// Ключ сверки узла плитки: `suffix` — остаток имени узла после имени плитки, `class` — класс
+/// узла, `tab` — номер вкладки на экране с единицы. Узлы вне таблицы ключей (нагрузка строки,
+/// пункты меню) ключа не получают.
+fn plate_ck(base: &str, suffix: &str, class: &str, tab: u32) -> Option<String> {
+    match (suffix, class) {
+        ("", _) => Some(base.to_owned()),
+        (".tabs", _) => Some(format!("{base}.tabs")),
+        (".tabs.split" | ".tabs.zoom" | ".tabs.restore" | ".tabs.menu", _) => {
+            Some(format!("{base}{suffix}"))
+        }
+        (_, "Tab") => Some(format!("{base}.tabs.tab.{tab}")),
+        (_, "TabIcon") => Some(format!("{base}.tabs.tab.{tab}.icon")),
+        (_, "TabLabel") => Some(format!("{base}.tabs.tab.{tab}.label")),
+        (_, "TabClose") => Some(format!("{base}.tabs.tab.{tab}.close")),
+        _ => None,
+    }
+}
+
+/// Ключ сверки узла заглушки «Развернуть».
+fn stub_ck(base: &str, suffix: &str) -> Option<String> {
+    match suffix {
+        "" => Some(base.to_owned()),
+        ".label" | ".expand" => Some(format!("{base}{suffix}")),
+        _ => None,
+    }
+}
+
+/// Узлы плитки с ключами сверки по месту `base`; без него узлы остаются без ключей.
+fn keyed(
+    list: Vec<shellio_appkit::InspectNode>,
+    id: &str,
+    base: Option<&str>,
+) -> Vec<shellio_appkit::InspectNode> {
+    let Some(base) = base else {
+        return list;
+    };
+    let mut tab = 0;
+    list.into_iter()
+        .map(|node| {
+            let suffix = node.id.get(id.len()..).unwrap_or_default().to_owned();
+            if node.class == "Tab" {
+                tab += 1;
+            }
+            match plate_ck(base, &suffix, node.class, tab) {
+                Some(ck) if node.facts.visible => node.with_ck(ck),
+                _ => node,
+            }
+        })
+        .collect()
+}
+
 fn panel_id(panel: PanelId) -> String {
     format!("layout.panel.{panel}")
 }
@@ -1062,6 +1191,181 @@ mod tests {
 
     use super::*;
 
+    /// Каждый ключ сверки, который назначают заголовок, строка статуса и раскладка, есть в
+    /// таблице шаблонов `shellio-conformance`.
+    #[test]
+    fn every_assigned_key_is_in_the_template_table() {
+        use shellio_conformance::keys::{check_key, check_unique};
+
+        let mut keys: Vec<String> = shellio_appkit::ck::ALL
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        keys.push(NOTE_CK.to_owned());
+        keys.push(PICKER_CK.to_owned());
+        let mut hosts = vec![Host::Navigator];
+        for zone in Zone::ALL {
+            keys.push(zone_ck(zone));
+            for index in 0..3 {
+                hosts.push(Host::Part(PartKey { zone, index }));
+            }
+        }
+        for host in hosts {
+            let base = host_ck(host, false).unwrap();
+            assert_eq!(
+                host_ck(host, true),
+                None,
+                "под развёрнутой панелью ключа нет"
+            );
+            keys.push(format!("{base}.body"));
+            for suffix in ["", ".label", ".expand"] {
+                keys.push(stub_ck(&format!("{base}.body.stub"), suffix).unwrap());
+            }
+            for (suffix, class, tab) in [
+                ("", "Plate", 0),
+                (".tabs", "TabStrip", 0),
+                (".tabs.tab.a", "Tab", 1),
+                (".tabs.tab.a.icon", "TabIcon", 1),
+                (".tabs.tab.a.label", "TabLabel", 1),
+                (".tabs.tab.a.close", "TabClose", 1),
+                (".tabs.tab.b", "Tab", 2),
+                (".tabs.tab.b.label", "TabLabel", 2),
+                (".tabs.split", "StripButton", 2),
+                (".tabs.zoom", "StripButton", 2),
+                (".tabs.restore", "StripButton", 2),
+                (".tabs.menu", "MenuButton", 2),
+            ] {
+                keys.push(plate_ck(&base, suffix, class, tab).unwrap());
+            }
+            assert_eq!(plate_ck(&base, ".tabs.payload", "Payload", 0), None);
+            assert_eq!(plate_ck(&base, ".tabs.menu.item", "Menu", 0), None);
+            assert_eq!(stub_ck(&base, ".text"), None);
+        }
+        for key in &keys {
+            check_key(key).unwrap();
+        }
+        check_unique(keys.iter().map(String::as_str)).unwrap();
+        assert_eq!(
+            host_ck(Host::Zoom, true).as_deref(),
+            Some("zone.center.part.1")
+        );
+    }
+
+    /// Номер части — порядок на экране: колонка навигатора — первая часть левой зоны.
+    #[test]
+    fn part_numbers_follow_the_screen_order() {
+        let key = |zone, index| PartKey { zone, index };
+        assert_eq!(
+            host_ck(Host::Navigator, false).as_deref(),
+            Some("zone.left.part.1")
+        );
+        assert_eq!(
+            host_ck(Host::Part(key(Zone::Left, 0)), false).as_deref(),
+            Some("zone.left.part.2")
+        );
+        assert_eq!(
+            host_ck(Host::Part(key(Zone::Center, 0)), false).as_deref(),
+            Some("zone.center.part.1")
+        );
+        assert_eq!(
+            host_ck(Host::Part(key(Zone::Right, 1)), false).as_deref(),
+            Some("zone.right.part.2")
+        );
+    }
+
+    /// Корень поверхности отдаёт заливку, которую видно под ним; у остальных узлов заливка своя.
+    #[test]
+    fn root_key_takes_the_fill_seen_under_the_view() {
+        let under = shellio_appkit::Rgba {
+            r: 30,
+            g: 29,
+            b: 27,
+            a: 1.0,
+        };
+        let plain = InspectNode {
+            under: Some(under),
+            ..node(
+                "layout.split.center",
+                "layout",
+                Frame::new(0.0, 0.0, 1.0, 1.0),
+            )
+        };
+        let child = plain.clone().with_ck("zone.center.part.1");
+        assert_eq!(child.ck.as_deref(), Some("zone.center.part.1"));
+        assert_eq!(
+            child.style, None,
+            "узел с родителем заливку предков не берёт"
+        );
+        let root = plain.clone().with_root_ck("zone.center");
+        assert_eq!(root.ck.as_deref(), Some("zone.center"));
+        assert_eq!(root.style.and_then(|style| style.fill), Some(under));
+        let bare = InspectNode {
+            under: None,
+            ..plain
+        }
+        .with_root_ck("zone.center");
+        assert_eq!(
+            bare.style, None,
+            "без непрозрачной заливки под видом поля нет"
+        );
+    }
+
+    fn classed(class: &'static str, mut node: InspectNode) -> InspectNode {
+        node.class = class;
+        node
+    }
+
+    /// Вкладки получают номера по порядку узлов, нагрузка и скрытые узлы — без ключа.
+    #[test]
+    fn plate_nodes_are_keyed_by_place() {
+        let list = vec![
+            node("p", "x", Frame::new(0.0, 0.0, 1.0, 1.0)),
+            node("p.tabs", "p", Frame::new(0.0, 0.0, 1.0, 1.0)),
+            classed(
+                "Tab",
+                node("p.tabs.tab.7f", "p.tabs", Frame::new(0.0, 0.0, 1.0, 1.0)),
+            ),
+            classed(
+                "TabLabel",
+                node(
+                    "p.tabs.tab.7f.label",
+                    "p.tabs.tab.7f",
+                    Frame::new(0.0, 0.0, 1.0, 1.0),
+                ),
+            ),
+            classed(
+                "Tab",
+                node("p.tabs.tab.1c", "p.tabs", Frame::new(0.0, 0.0, 1.0, 1.0)),
+            ),
+            classed(
+                "TabClose",
+                node(
+                    "p.tabs.tab.1c.close",
+                    "p.tabs.tab.1c",
+                    Frame::new(0.0, 0.0, 1.0, 1.0),
+                ),
+            ),
+            node("p.tabs.payload", "p.tabs", Frame::new(0.0, 0.0, 1.0, 1.0)),
+            node("p.tabs.zoom", "p.tabs", Frame::new(0.0, 0.0, 1.0, 1.0)),
+        ];
+        let keys: Vec<Option<String>> = keyed(list.clone(), "p", Some("zone.right.part.1"))
+            .into_iter()
+            .map(|node| node.ck)
+            .collect();
+        let expected = [
+            Some("zone.right.part.1"),
+            Some("zone.right.part.1.tabs"),
+            Some("zone.right.part.1.tabs.tab.1"),
+            Some("zone.right.part.1.tabs.tab.1.label"),
+            Some("zone.right.part.1.tabs.tab.2"),
+            Some("zone.right.part.1.tabs.tab.2.close"),
+            None,
+            Some("zone.right.part.1.tabs.zoom"),
+        ];
+        assert_eq!(keys, expected.map(|key| key.map(str::to_owned)).to_vec());
+        assert!(keyed(list, "p", None).iter().all(|node| node.ck.is_none()));
+    }
+
     /// Тело без AppKit: узел тела с кадром `frame` в точках окна и вложенный узел со смещением
     /// `offset` от него.
     struct FakeBody {
@@ -1075,6 +1379,10 @@ mod tests {
             class: "Surface",
             object: 1,
             parent: Some(parent.to_owned()),
+            ck: None,
+            style: None,
+            truncated: None,
+            under: None,
             facts: ViewFacts {
                 frame,
                 visible: true,

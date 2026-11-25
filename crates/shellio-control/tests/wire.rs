@@ -27,6 +27,10 @@ use shellio_control::{
     TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView,
     UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
+use shellio_control::{
+    CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
+    StyleView,
+};
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, registry,
 };
@@ -192,6 +196,7 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(_))) => {
             "request.ui.appearance_set"
         }
+        RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
             GalleryCommand::Cell { .. } => "request.ui.gallery_cell",
             GalleryCommand::Motion(_) => "request.ui.gallery_motion",
@@ -280,6 +285,14 @@ fn requests() -> Vec<Request> {
             RequestBody::Ui(UiRequest::Command(UiCommand::AppearanceSet(
                 AppearanceChoice::Light,
             ))),
+        ),
+        // `prototype-conformance`, задача 7: ячейка обычного окна.
+        request(
+            43,
+            RequestBody::Ui(UiRequest::Cell {
+                contrast: Some(CellContrast::Increased),
+                motion: Some(CellMotion::System),
+            }),
         ),
         // P1.3, задача 8: служебные команды галереи.
         request(
@@ -522,6 +535,15 @@ fn response_golden(response: &Response) -> &'static str {
             ..
         } => match reply {
             UiReply::Window(_) => "response.ok.ui.window",
+            UiReply::Cell(_) => "response.ok.ui.cell",
+            UiReply::Inspect(inspect)
+                if inspect
+                    .components
+                    .iter()
+                    .any(|component| component.style.is_some()) =>
+            {
+                "response.ok.ui.inspect.style"
+            }
             UiReply::Inspect(inspect) if inspect.gallery.is_some() => {
                 "response.ok.ui.inspect.gallery"
             }
@@ -650,6 +672,13 @@ fn responses() -> Result<Vec<Response>, String> {
         ),
         ok(7, OkValue::Ui(UiReply::Window(Box::new(window_view())))),
         ok(8, OkValue::Ui(UiReply::Inspect(Box::new(inspect_view())))),
+        // `prototype-conformance`, задача 7: ключ сверки, свойства вида и обрезка текста; прежние
+        // эталоны `ui.inspect` несут эти ключи пустыми.
+        ok(
+            8,
+            OkValue::Ui(UiReply::Inspect(Box::new(inspect_style_view()))),
+        ),
+        ok(43, OkValue::Ui(UiReply::Cell(cell_view()))),
         // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
         // не меняется.
         ok(
@@ -953,6 +982,7 @@ fn inspect_view() -> InspectView {
                 class: "ChromeBar".into(),
                 object: 105_553_116_266_496,
                 parent: None,
+                ck: None,
                 frame: rect(0.0, 680.0, 1180.0, 40.0),
                 visible: true,
                 first_responder: false,
@@ -963,6 +993,8 @@ fn inspect_view() -> InspectView {
                 selected: None,
                 expanded: None,
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: Some(ComponentState::Chrome(ChromeView {
                     workspace: Some("Работа".into()),
                     workspace_text: "Работа".into(),
@@ -976,6 +1008,7 @@ fn inspect_view() -> InspectView {
                 class: "WorkspaceButton".into(),
                 object: 105_553_116_267_008,
                 parent: Some("chrome".into()),
+                ck: None,
                 frame: rect(84.0, 689.0, 96.0, 22.0),
                 visible: true,
                 first_responder: false,
@@ -986,6 +1019,8 @@ fn inspect_view() -> InspectView {
                 selected: None,
                 expanded: None,
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: None,
             },
         ],
@@ -998,12 +1033,149 @@ fn inspect_view() -> InspectView {
     }
 }
 
+fn cell_view() -> CellView {
+    CellView {
+        pid: 4242,
+        lightness: Axis {
+            value: Lightness::Dark,
+            source: AxisSource::UiAppearance,
+        },
+        contrast: Axis {
+            value: Contrast::Increased,
+            source: AxisSource::Override,
+        },
+        motion: Axis {
+            value: Motion::Normal,
+            source: AxisSource::System,
+        },
+        generation: 9,
+    }
+}
+
+fn rgba(r: u8, g: u8, b: u8) -> Rgba {
+    Rgba { r, g, b, a: 1.0 }
+}
+
+/// Заголовок и плашка `⌘K` со свойствами вида: каждое поле `style` хотя бы раз задано.
+fn inspect_style_view() -> InspectView {
+    let node =
+        |id: &str, class: &str, parent: Option<&str>, frame, style, truncated| ComponentView {
+            id: id.into(),
+            class: class.into(),
+            object: 105_553_116_266_496,
+            parent: parent.map(str::to_owned),
+            ck: Some(id.into()),
+            frame,
+            visible: true,
+            first_responder: false,
+            enabled: None,
+            role: None,
+            label: (truncated == Some(false)).then(|| "⌘K".into()),
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 0,
+            style: Some(style),
+            truncated,
+            state: None,
+        };
+    InspectView {
+        window_number: 4242,
+        content: Size {
+            width: 1180.0,
+            height: 720.0,
+        },
+        generation: 7,
+        components: vec![
+            node(
+                "chrome",
+                "ChromeBar",
+                None,
+                rect(0.0, 680.0, 1180.0, 40.0),
+                StyleView {
+                    fill: Some(rgba(30, 29, 27)),
+                    line_color: Some(rgba(48, 46, 43)),
+                    line_width: Some(1.0),
+                    line_sides: vec![LineSide::Bottom],
+                    ..StyleView::default()
+                },
+                None,
+            ),
+            node(
+                "chrome.search.kbd",
+                "KeyBadge",
+                Some("chrome"),
+                rect(790.0, 692.0, 23.0, 17.0),
+                StyleView {
+                    font: Some(FontView {
+                        family: "JetBrains Mono".into(),
+                        face: "JetBrainsMono-Regular".into(),
+                        weight: 400.0,
+                        size: 10.5,
+                        file: Some(
+                            "file:///Applications/shellio.app/Contents/Resources/Fonts/JetBrainsMono-Regular.ttf"
+                                .into(),
+                        ),
+                    }),
+                    line_height: Some(14.0),
+                    letter_spacing: Some(0.0),
+                    color: Some(rgba(171, 165, 154)),
+                    fill: Some(rgba(37, 36, 33)),
+                    line_color: Some(rgba(64, 61, 57)),
+                    line_width: Some(1.0),
+                    line_sides: LineSide::ALL.to_vec(),
+                    radius: Some(4.0),
+                    padding: Some(InsetsView {
+                        top: 0.0,
+                        right: 4.0,
+                        bottom: 0.0,
+                        left: 4.0,
+                    }),
+                    shadow: vec![ShadowView {
+                        color: Rgba {
+                            r: 0,
+                            g: 0,
+                            b: 0,
+                            a: 0.25,
+                        },
+                        x: 0.0,
+                        y: 1.0,
+                        blur: 2.0,
+                        spread: 0.0,
+                        inset: false,
+                    }],
+                    icon: None,
+                },
+                Some(false),
+            ),
+            node(
+                "chrome.search.icon",
+                "Icon",
+                Some("chrome"),
+                rect(370.0, 693.5, 14.0, 14.0),
+                StyleView {
+                    color: Some(rgba(143, 137, 126)),
+                    icon: Some(IconView {
+                        name: "search".into(),
+                        size: 14.0,
+                    }),
+                    ..StyleView::default()
+                },
+                None,
+            ),
+        ],
+        materials: Vec::new(),
+        gallery: None,
+    }
+}
+
 fn inspect_gallery_view() -> InspectView {
     let node = |id: &str, class: &str, object, parent: Option<&str>, frame| ComponentView {
         id: id.into(),
         class: class.into(),
         object,
         parent: parent.map(str::to_owned),
+        ck: None,
         frame,
         visible: true,
         first_responder: false,
@@ -1014,6 +1186,8 @@ fn inspect_gallery_view() -> InspectView {
         selected: None,
         expanded: None,
         animation_keys: 0,
+        style: None,
+        truncated: None,
         state: None,
     };
     InspectView {
@@ -1079,6 +1253,7 @@ fn inspect_layout_view() -> InspectView {
         class: class.into(),
         object: 105_553_116_270_000,
         parent: Some(parent.into()),
+        ck: None,
         frame,
         visible: true,
         first_responder: false,
@@ -1089,6 +1264,8 @@ fn inspect_layout_view() -> InspectView {
         selected: None,
         expanded: None,
         animation_keys: 0,
+        style: None,
+        truncated: None,
         state: Some(state),
     };
     InspectView {
@@ -1170,6 +1347,7 @@ fn inspect_tab_strip_view() -> InspectView {
             class: "TabStrip".into(),
             object: 105_553_116_268_800,
             parent: Some("gallery.surface.focus".into()),
+            ck: None,
             frame: rect(60.0, 530.0, 372.0, 34.0),
             visible: true,
             first_responder: true,
@@ -1180,6 +1358,8 @@ fn inspect_tab_strip_view() -> InspectView {
             selected: None,
             expanded: None,
             animation_keys: 1,
+            style: None,
+            truncated: None,
             state: Some(ComponentState::TabStrip(Box::new(TabStripView {
                 label: "Вкладки боковой зоны".into(),
                 zone: TabZone::Side,
@@ -1229,6 +1409,7 @@ fn inspect_virtual_list_view() -> InspectView {
                 class: "VirtualList".into(),
                 object: 105_553_116_269_312,
                 parent: Some("gallery.surface.plain".into()),
+                ck: None,
                 frame: rect(626.0, 240.0, 260.0, 416.0),
                 visible: true,
                 first_responder: true,
@@ -1239,6 +1420,8 @@ fn inspect_virtual_list_view() -> InspectView {
                 selected: None,
                 expanded: None,
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: Some(ComponentState::VirtualList(Box::new(VirtualListView {
                     label: "Список галереи".into(),
                     count: 10_000,
@@ -1259,6 +1442,7 @@ fn inspect_virtual_list_view() -> InspectView {
                 class: "ListRow".into(),
                 object: 105_553_116_269_824,
                 parent: Some("gallery.list".into()),
+                ck: None,
                 frame: rect(626.0, 630.0, 260.0, 26.0),
                 visible: true,
                 first_responder: false,
@@ -1269,6 +1453,8 @@ fn inspect_virtual_list_view() -> InspectView {
                 selected: Some(true),
                 expanded: None,
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: None,
             },
         ],
@@ -1299,6 +1485,7 @@ fn inspect_tree_list_view() -> InspectView {
                 class: "TreeList".into(),
                 object: 105_553_116_270_336,
                 parent: Some("gallery.surface.plain".into()),
+                ck: None,
                 frame: rect(898.0, 240.0, 258.0, 416.0),
                 visible: true,
                 first_responder: false,
@@ -1309,6 +1496,8 @@ fn inspect_tree_list_view() -> InspectView {
                 selected: None,
                 expanded: None,
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: Some(ComponentState::TreeList(Box::new(TreeListView {
                     label: "Дерево галереи".into(),
                     count: 119,
@@ -1332,6 +1521,7 @@ fn inspect_tree_list_view() -> InspectView {
                 class: "TreeRow".into(),
                 object: 105_553_116_270_848,
                 parent: Some("gallery.tree".into()),
+                ck: None,
                 frame: rect(898.0, 630.0, 258.0, 26.0),
                 visible: true,
                 first_responder: false,
@@ -1342,6 +1532,8 @@ fn inspect_tree_list_view() -> InspectView {
                 selected: Some(false),
                 expanded: Some(true),
                 animation_keys: 0,
+                style: None,
+                truncated: None,
                 state: None,
             },
         ],
@@ -1357,6 +1549,7 @@ fn inspect_components_view() -> InspectView {
             class: class.into(),
             object,
             parent: Some("gallery".into()),
+            ck: None,
             frame,
             visible: true,
             first_responder: false,
@@ -1367,6 +1560,8 @@ fn inspect_components_view() -> InspectView {
             selected: None,
             expanded: None,
             animation_keys: 0,
+            style: None,
+            truncated: None,
             state: Some(state),
         };
     let item = |id: &str, title: &str| MenuItemView {
@@ -1516,6 +1711,7 @@ fn error_sample(code: ControlErrorCode) -> ControlError {
         ControlErrorCode::NoUi => ControlError::no_ui(),
         ControlErrorCode::UiTimeout => ControlError::ui_timeout(UI_TIMEOUT),
         ControlErrorCode::GalleryOnly => ControlError::gallery_only(),
+        ControlErrorCode::IsolatedProfileOnly => ControlError::isolated_profile_only(),
     }
 }
 
@@ -1692,7 +1888,7 @@ fn assert_malformed(line: &str, id: Option<u64>, reason: &str) {
     assert_rejected(line, ControlErrorCode::MalformedRequest, id, reason);
 }
 
-const HELLO: &str = r#"{"protocol":3,"client":"test"}"#;
+const HELLO: &str = r#"{"protocol":4,"client":"test"}"#;
 const ID: &str = "00000000-0000-0000-0000-000000000001";
 
 #[test]
@@ -1703,7 +1899,7 @@ fn extra_field_is_malformed_and_keeps_id() {
         "unknown field `extra`",
     );
     assert_malformed(
-        r#"{"id":1,"hello":{"protocol":3,"client":"test","extra":1}}"#,
+        r#"{"id":1,"hello":{"protocol":4,"client":"test","extra":1}}"#,
         Some(1),
         "unknown field `extra`",
     );
@@ -1812,6 +2008,7 @@ fn ui_replies_answer_only_their_request() {
         ("inspect", UiReply::Inspect(Box::new(inspect_view()))),
         ("stats", UiReply::Stats(Box::new(stats_view()))),
         ("receipts", UiReply::Receipts(receipts_view())),
+        ("cell", UiReply::Cell(cell_view())),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -1827,6 +2024,13 @@ fn ui_replies_answer_only_their_request() {
         (UiRequest::Stats, "stats"),
         (UiRequest::Receipts { after: None }, "receipts"),
         (UiRequest::Receipts { after: Some(16) }, "receipts"),
+        (
+            UiRequest::Cell {
+                contrast: None,
+                motion: Some(CellMotion::Reduced),
+            },
+            "cell",
+        ),
         (UiRequest::Command(UiCommand::WindowClose), "accepted"),
         (UiRequest::Command(UiCommand::AppQuit), "accepted"),
         (UiRequest::Gallery(GalleryCommand::Reset), "accepted"),
@@ -2330,7 +2534,7 @@ fn assert_response_rejected(line: &str, reason: &str) {
     }
 }
 
-const HELLO_REPLY: &str = r#"{"protocol":3,"server":"0.1.0","pid":1,"owner":"ready"}"#;
+const HELLO_REPLY: &str = r#"{"protocol":4,"server":"0.1.0","pid":1,"owner":"ready"}"#;
 const LEAVING: &str = r#"{"code":"owner_leaving","message":"","retryable":true,"details":{}}"#;
 
 #[test]
@@ -2365,8 +2569,8 @@ fn ok_value_is_strict() {
     for ok in [
         r#"{"status":{}}"#.to_owned(),
         format!(r#"{{"hello":{HELLO_REPLY},"extra":1}}"#),
-        r#"{"hello":{"protocol":3,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
-        r#"{"hello":{"protocol":3,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
+        r#"{"hello":{"protocol":4,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
+        r#"{"hello":{"protocol":4,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
         r#"{"launch":{"activation":"requested","refused":[{"arg":"x","reason":"busy"}]}}"#
             .to_owned(),
         r#"{"launch":{"activation":"done","refused":[]}}"#.to_owned(),

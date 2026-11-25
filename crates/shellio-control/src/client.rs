@@ -79,7 +79,8 @@ impl Exit {
             | ControlErrorCode::ScopeRequired
             | ControlErrorCode::ScopeUnsupported
             | ControlErrorCode::NoUi
-            | ControlErrorCode::GalleryOnly => Self::Failure,
+            | ControlErrorCode::GalleryOnly
+            | ControlErrorCode::IsolatedProfileOnly => Self::Failure,
         }
     }
 
@@ -695,6 +696,7 @@ mod tests {
             (ControlErrorCode::NoUi, 1),
             (ControlErrorCode::UiTimeout, 75),
             (ControlErrorCode::GalleryOnly, 1),
+            (ControlErrorCode::IsolatedProfileOnly, 1),
         ];
         assert_eq!(expected.len(), ControlErrorCode::ALL.len());
         for (code, exit) in expected {

@@ -1,9 +1,10 @@
-//! Запрос `ui` протокола v2 (ADR-0007, «Уточнено в P1.3»): чтения окна владельца, действия
-//! интерфейса [`UiCommand`] и отметка начала выполнения на главном потоке.
+//! Запрос `ui` протокола (ADR-0007, «Уточнено в P1.3» и «Уточнено в `prototype-conformance`»):
+//! чтения окна владельца, действия интерфейса [`UiCommand`] и отметка начала выполнения на главном
+//! потоке.
 //!
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
-//! и тоже несёт один ключ: `window`, `inspect`, `stats` или `accepted`.
+//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell` или `accepted`.
 //!
 //! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
 //! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
@@ -39,6 +40,58 @@ pub enum UiRequest {
     Command(UiCommand),
     /// Служебная команда галереи.
     Gallery(GalleryCommand),
+    /// `ui.cell`: переопределение контраста и движения в окне владельца с явным
+    /// `SHELLIO_STATE_DIR`. `None` — ось не меняется, `System` снимает её переопределение.
+    Cell {
+        contrast: Option<CellContrast>,
+        motion: Option<CellMotion>,
+    },
+}
+
+/// Контраст в запросе `ui.cell`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CellContrast {
+    /// Снять переопределение: контраст даёт система.
+    System,
+    Normal,
+    Increased,
+}
+
+impl CellContrast {
+    pub const ALL: [Self; 3] = [Self::System, Self::Normal, Self::Increased];
+
+    /// Переопределение оси; `None` — ось следует системе.
+    pub const fn value(self) -> Option<Contrast> {
+        match self {
+            Self::System => None,
+            Self::Normal => Some(Contrast::Normal),
+            Self::Increased => Some(Contrast::Increased),
+        }
+    }
+}
+
+/// Движение в запросе `ui.cell`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CellMotion {
+    /// Снять переопределение: движение даёт система.
+    System,
+    Normal,
+    Reduced,
+}
+
+impl CellMotion {
+    pub const ALL: [Self; 3] = [Self::System, Self::Normal, Self::Reduced];
+
+    /// Переопределение оси; `None` — ось следует системе.
+    pub const fn value(self) -> Option<Motion> {
+        match self {
+            Self::System => None,
+            Self::Normal => Some(Motion::Normal),
+            Self::Reduced => Some(Motion::Reduced),
+        }
+    }
 }
 
 /// Служебная команда галереи (`gallery.*`): вход тестов без keymap, только в режиме галереи.
@@ -197,6 +250,7 @@ impl UiRequest {
             Self::Receipts { .. } => "ui.receipts",
             Self::Command(command) => command.name(),
             Self::Gallery(command) => command.name(),
+            Self::Cell { .. } => "ui.cell",
         }
     }
 
@@ -204,7 +258,7 @@ impl UiRequest {
     pub const fn is_mutation(self) -> bool {
         match self {
             Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } => false,
-            Self::Command(_) | Self::Gallery(_) => true,
+            Self::Command(_) | Self::Gallery(_) | Self::Cell { .. } => true,
         }
     }
 
@@ -217,6 +271,7 @@ impl UiRequest {
                 | (Self::Stats, UiReply::Stats(_))
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
                 | (Self::Command(_) | Self::Gallery(_), UiReply::Accepted(_))
+                | (Self::Cell { .. }, UiReply::Cell(_))
         )
     }
 }
@@ -246,6 +301,15 @@ struct CellArgs {
     appearance: Option<Lightness>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     contrast: Option<Contrast>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UiCellArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    contrast: Option<CellContrast>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    motion: Option<CellMotion>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -313,6 +377,8 @@ enum WireUiRequest {
     AppQuit(NoArgs),
     #[serde(rename = "ui.appearance.set")]
     AppearanceSet(AppearanceArgs),
+    #[serde(rename = "ui.cell")]
+    Cell(UiCellArgs),
     #[serde(rename = "gallery.cell")]
     GalleryCell(CellArgs),
     #[serde(rename = "gallery.motion")]
@@ -353,6 +419,7 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::AppearanceSet(AppearanceArgs { appearance }) => {
                 Self::Command(UiCommand::AppearanceSet(appearance))
             }
+            WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::GalleryCell(CellArgs {
                 appearance,
                 contrast,
@@ -406,6 +473,7 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::Command(UiCommand::AppearanceSet(appearance)) => {
                 Self::AppearanceSet(AppearanceArgs { appearance })
             }
+            UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::Gallery(command) => match command {
                 GalleryCommand::Cell {
                     appearance,
@@ -447,8 +515,23 @@ pub enum UiReply {
     Inspect(Box<InspectView>),
     Stats(Box<StatsView>),
     Receipts(ReceiptsView),
+    /// Оси окна после `ui.cell`.
+    Cell(CellView),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
+}
+
+/// Ответ `ui.cell`: оси окна с источниками, как в `ui.window`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CellView {
+    /// PID владельца.
+    pub pid: u32,
+    pub lightness: Axis<Lightness>,
+    pub contrast: Axis<Contrast>,
+    pub motion: Axis<Motion>,
+    /// Поколение отрисовки после запроса.
+    pub generation: u64,
 }
 
 /// Квитанции `panel.open` главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI»).
@@ -557,6 +640,9 @@ pub enum AxisSource {
     /// Переопределение галереи в её окне.
     #[serde(rename = "gallery")]
     Gallery,
+    /// Переопределение `ui.cell`.
+    #[serde(rename = "override")]
+    Override,
 }
 
 /// Значение оси и его источник.
@@ -707,6 +793,8 @@ pub struct ComponentView {
     pub object: u64,
     /// Имя компонента-родителя.
     pub parent: Option<String>,
+    /// Ключ сверки ADR-0037 из таблицы шаблонов `shellio-conformance`; `None` — узел не сверяется.
+    pub ck: Option<String>,
     /// Кадр в точках окна, начало внизу слева.
     pub frame: Rect,
     pub visible: bool,
@@ -722,8 +810,119 @@ pub struct ComponentView {
     pub expanded: Option<bool>,
     /// Ключи анимаций у слоёв вида и его подвидов.
     pub animation_keys: u32,
+    /// Свойства вида для полей паспорта, прочитанные у вида и его слоёв; `None` — не читаются.
+    pub style: Option<StyleView>,
+    /// Обрезан ли текст узла; `None` — текста у узла нет. Полный текст — в `label`.
+    pub truncated: Option<bool>,
     /// Состояние компонента; у частей компонента его нет.
     pub state: Option<ComponentState>,
+}
+
+/// Цвет sRGB с непрозрачностью 0–1.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Rgba {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: f64,
+}
+
+/// Внутренние отступы в точках.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InsetsView {
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+    pub left: f64,
+}
+
+/// Шрифт текста узла.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FontView {
+    /// Семейство шрифта (`familyName`).
+    pub family: String,
+    /// Имя PostScript начертания, например `JetBrainsMono-Regular`.
+    pub face: String,
+    /// Начертание по шкале CSS: 100–900.
+    pub weight: f64,
+    /// Кегль в точках.
+    pub size: f64,
+    /// URL файла фактически выбранного шрифта (`kCTFontURLAttribute`); `None` — файла у шрифта нет.
+    pub file: Option<String>,
+}
+
+/// Тень слоя.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShadowView {
+    pub color: Rgba,
+    pub x: f64,
+    pub y: f64,
+    pub blur: f64,
+    pub spread: f64,
+    pub inset: bool,
+}
+
+/// Сторона, у которой нарисована линия.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LineSide {
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+impl LineSide {
+    /// Стороны по часовой стрелке сверху.
+    pub const ALL: [Self; 4] = [Self::Top, Self::Right, Self::Bottom, Self::Left];
+}
+
+/// Значок набора.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IconView {
+    /// Имя значка в наборе `P`; у символа SF — имя символа.
+    pub name: String,
+    /// Сторона значка в точках.
+    pub size: f64,
+}
+
+/// Свойства вида узла `ui.inspect` (ADR-0037, «Контракт полей»). Имена полей — как у элемента
+/// паспорта. Отсутствующий ключ — свойства у вида нет.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StyleView {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font: Option<FontView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_height: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<f64>,
+    /// Цвет текста или значка.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<Rgba>,
+    /// Заливка; у корня поверхности — заливка, которую видно под ним.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Rgba>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_color: Option<Rgba>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_width: Option<f64>,
+    /// Стороны с линией по часовой стрелке сверху.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub line_sides: Vec<LineSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<InsetsView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shadow: Vec<ShadowView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<IconView>,
 }
 
 /// Состояние компонента по классу.
@@ -1200,6 +1399,8 @@ pub enum UiRefusal {
     NoUi,
     /// Запрос `gallery.*` вне режима галереи.
     GalleryOnly,
+    /// Запрос `ui.cell` владельцу без явного `SHELLIO_STATE_DIR`.
+    IsolatedProfileOnly,
 }
 
 const QUEUED: u8 = 0;
@@ -1266,6 +1467,14 @@ mod tests {
             (
                 UiRequest::Command(UiCommand::AppearanceSet(AppearanceChoice::Dark)),
                 "ui.appearance.set",
+                true,
+            ),
+            (
+                UiRequest::Cell {
+                    contrast: Some(CellContrast::Increased),
+                    motion: None,
+                },
+                "ui.cell",
                 true,
             ),
             (
@@ -1391,6 +1600,10 @@ mod tests {
             json!({"ui.receipts": {"extra": 1}}),
             json!({"ui.receipts": null}),
             json!({"ui.receipts": {"after": "x"}}),
+            json!({"ui.cell": {"contrast": "high"}}),
+            json!({"ui.cell": {"motion": "reduce"}}),
+            json!({"ui.cell": {"appearance": "dark"}}),
+            json!({"ui.cell": null}),
             json!({"gallery.cell": {"appearance": "sepia"}}),
             json!({"gallery.cell": {"extra": 1}}),
             json!({"gallery.motion": {}}),
@@ -1454,6 +1667,80 @@ mod tests {
     }
 
     #[test]
+    fn ui_cell_axes_are_tristate_and_omitted_when_absent() {
+        let both = UiRequest::Cell {
+            contrast: Some(CellContrast::Increased),
+            motion: Some(CellMotion::Reduced),
+        };
+        assert_eq!(
+            serde_json::to_value(both).unwrap(),
+            json!({"ui.cell": {"contrast": "increased", "motion": "reduced"}})
+        );
+        let back: UiRequest =
+            serde_json::from_value(json!({"ui.cell": {"contrast": "system"}})).unwrap();
+        assert_eq!(
+            back,
+            UiRequest::Cell {
+                contrast: Some(CellContrast::System),
+                motion: None,
+            }
+        );
+        assert_eq!(
+            serde_json::to_value(back).unwrap(),
+            json!({"ui.cell": {"contrast": "system"}})
+        );
+        assert_eq!(CellContrast::System.value(), None);
+        assert_eq!(CellContrast::Normal.value(), Some(Contrast::Normal));
+        assert_eq!(CellContrast::Increased.value(), Some(Contrast::Increased));
+        assert_eq!(CellMotion::System.value(), None);
+        assert_eq!(CellMotion::Normal.value(), Some(Motion::Normal));
+        assert_eq!(CellMotion::Reduced.value(), Some(Motion::Reduced));
+        let reply = UiReply::Cell(CellView {
+            pid: 1,
+            lightness: Axis {
+                value: Lightness::Dark,
+                source: AxisSource::UiAppearance,
+            },
+            contrast: Axis {
+                value: Contrast::Increased,
+                source: AxisSource::Override,
+            },
+            motion: Axis {
+                value: Motion::Normal,
+                source: AxisSource::System,
+            },
+            generation: 2,
+        });
+        assert!(both.answered_by(&reply));
+        assert!(!UiRequest::Window.answered_by(&reply));
+    }
+
+    #[test]
+    fn style_omits_absent_properties() {
+        assert_eq!(
+            serde_json::to_value(StyleView::default()).unwrap(),
+            json!({})
+        );
+        let style = StyleView {
+            fill: Some(Rgba {
+                r: 30,
+                g: 29,
+                b: 27,
+                a: 1.0,
+            }),
+            line_sides: vec![LineSide::Bottom],
+            ..StyleView::default()
+        };
+        let json = serde_json::to_value(&style).unwrap();
+        assert_eq!(
+            json,
+            json!({"fill": {"r": 30, "g": 29, "b": 27, "a": 1.0}, "line_sides": ["bottom"]})
+        );
+        assert_eq!(serde_json::from_value::<StyleView>(json).unwrap(), style);
+        assert!(serde_json::from_value::<StyleView>(json!({"colour": null})).is_err());
+    }
+
+    #[test]
     fn receipts_cursor_is_optional_and_omitted_when_absent() {
         let all: UiRequest = serde_json::from_value(json!({"ui.receipts": {}})).unwrap();
         assert_eq!(all, UiRequest::Receipts { after: None });
@@ -1502,6 +1789,7 @@ mod tests {
             (AxisSource::System, "system"),
             (AxisSource::UiAppearance, "ui.appearance"),
             (AxisSource::Gallery, "gallery"),
+            (AxisSource::Override, "override"),
         ] {
             assert_eq!(serde_json::to_value(source).unwrap(), Value::from(name));
         }

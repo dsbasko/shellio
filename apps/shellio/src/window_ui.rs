@@ -35,12 +35,13 @@ use shellio_appkit::{
     ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
-    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, ChromeView,
-    ColorSpaceView, ComponentState, ComponentView, GalleryCommand, GalleryView, InspectView,
-    InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView,
-    MenuView, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
-    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
-    TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
+    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
+    CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
+    GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView, LateCallbackView,
+    ListRowView, MaterialView, MenuItemView, MenuView, Rect, RunLoopView, ScreenView, Size,
+    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
+    VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, Mirror, MirrorStep, Reply,
@@ -262,6 +263,9 @@ struct OwnerWindow {
     menu: MainMenu,
     monitor: Option<LoopMonitor>,
     choice: AppearanceChoice,
+    /// Контраст и движение `ui.cell`; `None` — ось без переопределения.
+    cell_contrast: Option<Contrast>,
+    cell_motion: Option<Motion>,
     /// Поколение отрисовки: растёт с каждой видимой сменой состояния окна.
     generation: Generation,
     /// Поколение первой проекции снимка зеркала: старт процесса считается до отрисовки с ним.
@@ -409,6 +413,8 @@ impl OwnerWindow {
     fn overrides(&self) -> Overrides {
         let mut overrides = Overrides {
             choice: theme_choice(self.choice),
+            cell_contrast: self.cell_contrast,
+            cell_motion: self.cell_motion,
             ..Overrides::default()
         };
         if let Some(gallery) = &self.gallery {
@@ -428,6 +434,69 @@ impl OwnerWindow {
         self.menu.set_appearance(theme);
         self.sync_theme();
         self.bump();
+    }
+
+    /// `ui.cell`: названная ось получает переопределение или теряет его, пропущенная не меняется.
+    /// Поколение растёт на каждом запросе: сценарий ждёт его по `ui.window`.
+    fn set_cell(&mut self, contrast: Option<CellContrast>, motion: Option<CellMotion>) -> UiReply {
+        if let Some(contrast) = contrast {
+            self.cell_contrast = contrast.value().map(|value| match value {
+                shellio_control::Contrast::Normal => Contrast::Normal,
+                shellio_control::Contrast::Increased => Contrast::Increased,
+            });
+        }
+        if let Some(motion) = motion {
+            self.cell_motion = motion.value().map(|value| match value {
+                shellio_control::Motion::Normal => Motion::Normal,
+                shellio_control::Motion::Reduced => Motion::Reduced,
+            });
+        }
+        self.window.set_overrides(self.overrides());
+        self.sync_theme();
+        self.bump();
+        let (lightness, contrast, motion) = self.axes();
+        UiReply::Cell(CellView {
+            pid: std::process::id(),
+            lightness,
+            contrast,
+            motion,
+            generation: self.generation.get(),
+        })
+    }
+
+    /// Оси окна с источниками.
+    fn axes(
+        &self,
+    ) -> (
+        Axis<shellio_control::Lightness>,
+        Axis<shellio_control::Contrast>,
+        Axis<shellio_control::Motion>,
+    ) {
+        let selection = self.window.selection();
+        let cell = selection.cell;
+        (
+            Axis {
+                value: match cell.cell.appearance {
+                    Appearance::Light => shellio_control::Lightness::Light,
+                    Appearance::Dark => shellio_control::Lightness::Dark,
+                },
+                source: source(cell.appearance_source),
+            },
+            Axis {
+                value: match cell.cell.contrast {
+                    Contrast::Normal => shellio_control::Contrast::Normal,
+                    Contrast::Increased => shellio_control::Contrast::Increased,
+                },
+                source: source(cell.contrast_source),
+            },
+            Axis {
+                value: match selection.motion {
+                    Motion::Normal => shellio_control::Motion::Normal,
+                    Motion::Reduced => shellio_control::Motion::Reduced,
+                },
+                source: source(selection.motion_source),
+            },
+        )
     }
 
     /// Проекции зеркала: имя воркспейса в заголовке и системный заголовок окна.
@@ -566,8 +635,7 @@ impl OwnerWindow {
 
     fn window_view(&self, app: &App, mirror_revision: Option<u64>) -> WindowView {
         let facts = self.window.facts(app);
-        let selection = self.window.selection();
-        let cell = selection.cell;
+        let (lightness, contrast, motion) = self.axes();
         let screen = facts.screen;
         WindowView {
             pid: std::process::id(),
@@ -583,27 +651,9 @@ impl OwnerWindow {
             },
             title: facts.title,
             appearance_choice: self.choice,
-            lightness: Axis {
-                value: match cell.cell.appearance {
-                    Appearance::Light => shellio_control::Lightness::Light,
-                    Appearance::Dark => shellio_control::Lightness::Dark,
-                },
-                source: source(cell.appearance_source),
-            },
-            contrast: Axis {
-                value: match cell.cell.contrast {
-                    Contrast::Normal => shellio_control::Contrast::Normal,
-                    Contrast::Increased => shellio_control::Contrast::Increased,
-                },
-                source: source(cell.contrast_source),
-            },
-            motion: Axis {
-                value: match selection.motion {
-                    Motion::Normal => shellio_control::Motion::Normal,
-                    Motion::Reduced => shellio_control::Motion::Reduced,
-                },
-                source: source(selection.motion_source),
-            },
+            lightness,
+            contrast,
+            motion,
             screen: screen.and_then(|index| u32::try_from(index).ok()),
             maximum_frames_per_second: screen
                 .and_then(|index| facts.screens.get(index))
@@ -764,6 +814,7 @@ fn source(source: Source) -> AxisSource {
         Source::System => AxisSource::System,
         Source::Choice => AxisSource::UiAppearance,
         Source::Gallery => AxisSource::Gallery,
+        Source::Override => AxisSource::Override,
     }
 }
 
@@ -955,6 +1006,67 @@ fn tab_strip_view(facts: TabStripFacts) -> TabStripView {
     }
 }
 
+fn wire_rgba(color: shellio_appkit::Rgba) -> shellio_control::Rgba {
+    shellio_control::Rgba {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    }
+}
+
+/// Свойства вида в кадре `ui.inspect`: поля названы как у элемента паспорта.
+fn style_view(style: shellio_appkit::Style) -> shellio_control::StyleView {
+    shellio_control::StyleView {
+        font: style.font.map(|font| shellio_control::FontView {
+            family: font.family,
+            face: font.face,
+            weight: font.weight,
+            size: font.size,
+            file: font.file,
+        }),
+        line_height: style.line_height,
+        letter_spacing: style.letter_spacing,
+        color: style.color.map(wire_rgba),
+        fill: style.fill.map(wire_rgba),
+        line_color: style.line_color.map(wire_rgba),
+        line_width: style.line_width,
+        line_sides: style
+            .line_sides
+            .into_iter()
+            .map(|side| match side {
+                shellio_appkit::Side::Top => shellio_control::LineSide::Top,
+                shellio_appkit::Side::Right => shellio_control::LineSide::Right,
+                shellio_appkit::Side::Bottom => shellio_control::LineSide::Bottom,
+                shellio_appkit::Side::Left => shellio_control::LineSide::Left,
+            })
+            .collect(),
+        radius: style.radius,
+        padding: style.padding.map(|padding| shellio_control::InsetsView {
+            top: padding.top,
+            right: padding.right,
+            bottom: padding.bottom,
+            left: padding.left,
+        }),
+        shadow: style
+            .shadow
+            .into_iter()
+            .map(|shadow| shellio_control::ShadowView {
+                color: wire_rgba(shadow.color),
+                x: shadow.x,
+                y: shadow.y,
+                blur: shadow.blur,
+                spread: shadow.spread,
+                inset: shadow.inset,
+            })
+            .collect(),
+        icon: style.icon.map(|icon| shellio_control::IconView {
+            name: icon.name,
+            size: icon.size,
+        }),
+    }
+}
+
 pub(crate) fn component(node: InspectNode) -> ComponentView {
     let facts = node.facts;
     ComponentView {
@@ -962,6 +1074,7 @@ pub(crate) fn component(node: InspectNode) -> ComponentView {
         class: node.class.to_owned(),
         object: node.object,
         parent: node.parent,
+        ck: node.ck,
         frame: rect(facts.frame),
         visible: facts.visible,
         first_responder: facts.first_responder,
@@ -972,6 +1085,8 @@ pub(crate) fn component(node: InspectNode) -> ComponentView {
         selected: facts.selected,
         expanded: facts.expanded,
         animation_keys: facts.animation_keys,
+        style: node.style.map(style_view),
+        truncated: node.truncated,
         state: node.state.map(component_state),
     }
 }
@@ -1078,6 +1193,8 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             menu,
             monitor,
             choice: AppearanceChoice::System,
+            cell_contrast: None,
+            cell_motion: None,
             generation: Generation::default(),
             first_snapshot: None,
             startup: None,
@@ -1360,6 +1477,9 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
                 handle(app, command);
                 with_window(|owner| owner.accepted(command))
             })
+        }
+        UiRequest::Cell { contrast, motion } => {
+            with_window(|owner| owner.set_cell(contrast, motion))
         }
         UiRequest::Gallery(_) => None,
     };

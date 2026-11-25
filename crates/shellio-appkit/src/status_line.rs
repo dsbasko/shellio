@@ -91,7 +91,8 @@ impl StatusLine {
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let view = self.view.view();
         vec![
-            inspect::node(id, "StatusLine", parent, view, None, None),
+            inspect::node(id, "StatusLine", parent, view, None, None)
+                .with_root_ck(inspect::ck::STATUS),
             inspect::node(
                 &format!("{id}.message"),
                 "StatusMessage",
@@ -99,7 +100,8 @@ impl StatusLine {
                 &view.ivars().text,
                 None,
                 None,
-            ),
+            )
+            .with_ck(inspect::ck::STATUS_MESSAGE),
         ]
     }
 

@@ -26,13 +26,14 @@ pub use instance::{
 };
 pub use server::{LaunchHandler, SHUTDOWN_GRACE, Server, ServerConfig, UiHandler, WithoutUi};
 pub use ui::{
-    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, ChromeView,
-    ClassAliveView, ColorSpaceView, ComponentState, ComponentView, Contrast, GalleryCommand,
-    GalleryFocus, GalleryStrip, GalleryTreeView, GalleryView, InspectView, InstanceKind,
-    InstanceView, IntentKind, IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView,
-    Lightness, ListRowView, MaterialView, MenuItemView, MenuView, Motion, PanelNodeView,
-    PartNodeView, ReceiptView, ReceiptsView, Rect, RowViewsView, RunLoopView, ScreenView, Size,
-    StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
+    CellMotion, CellView, ChromeView, ClassAliveView, ColorSpaceView, ComponentState,
+    ComponentView, Contrast, FontView, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView,
+    GalleryView, IconView, InsetsView, InspectView, InstanceKind, InstanceView, IntentKind,
+    IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Lightness, LineSide, ListRowView,
+    MaterialView, MenuItemView, MenuView, Motion, PanelNodeView, PartNodeView, ReceiptView,
+    ReceiptsView, Rect, Rgba, RowViewsView, RunLoopView, ScreenView, ShadowView, Size, StartupView,
+    StatsView, StripButtonView, StyleView, TabAxis, TabItemView, TabRegime, TabStatusView,
     TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT,
     UiGate, UiRefusal, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };

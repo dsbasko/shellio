@@ -1,0 +1,9 @@
+{
+  "id": 43,
+  "ui": {
+    "ui.cell": {
+      "contrast": "increased",
+      "motion": "system"
+    }
+  }
+}
