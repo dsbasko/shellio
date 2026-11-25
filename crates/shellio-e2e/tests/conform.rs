@@ -37,6 +37,18 @@ fn registry() -> Registry {
     Registry::parse("registry.toml", &text).unwrap_or_else(|e| panic!("реестр разбирается: {e}"))
 }
 
+/// Реестр без исключения заливки системных кнопок окна: на их заливке проверяется суждение
+/// непрозрачного участка снимка, другого такого участка в паспортах нет.
+fn registry_judging_window_fill() -> Registry {
+    let mut registry = registry();
+    for exception in &mut registry.exceptions {
+        if exception.scope.keys.iter().any(|k| k == "chrome.window.*") {
+            exception.fields.retain(|field| *field != Field::Fill);
+        }
+    }
+    registry
+}
+
 fn hidden(passport: &Passport, element: &Element) -> bool {
     let mut current = Some(element);
     while let Some(e) = current {
@@ -202,10 +214,13 @@ fn remove(tree: &mut Value, ck: &str) {
 }
 
 fn run(state: &str, passport: &Passport, tree: &Value) -> Report {
+    run_by(&registry(), state, passport, tree)
+}
+
+fn run_by(registry: &Registry, state: &str, passport: &Passport, tree: &Value) -> Report {
     let product =
         Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
-    judge(passport, &product, &registry(), state, TOLERANCES)
-        .unwrap_or_else(|e| panic!("сверка: {e}"))
+    judge(passport, &product, registry, state, TOLERANCES).unwrap_or_else(|e| panic!("сверка: {e}"))
 }
 
 fn fields(report: &Report, ck: &str) -> Vec<Field> {
@@ -272,10 +287,8 @@ fn snapshot_stage_gets_pseudo_masks_and_system_buttons() {
         kind("chrome.search.icon", Field::IconMask),
         Some(SnapshotKind::Mask)
     );
-    assert_eq!(
-        kind("chrome.window.close", Field::Fill),
-        Some(SnapshotKind::Region)
-    );
+    // Заливку системных кнопок окна покрывает исключение реестра: участок не судится.
+    assert_eq!(kind("chrome.window.close", Field::Fill), None);
     assert_eq!(
         kind("chrome.workspace.chevron", Field::Color),
         Some(SnapshotKind::IconColor)
@@ -766,7 +779,17 @@ fn staged(passport: &Passport, tree: &Value, color: [u8; 3]) -> (Report, Staged)
 }
 
 fn staged_in(state: &str, passport: &Passport, tree: &Value, color: [u8; 3]) -> (Report, Staged) {
-    let report = run(state, passport, tree);
+    staged_by(&registry(), state, passport, tree, color)
+}
+
+fn staged_by(
+    registry: &Registry,
+    state: &str,
+    passport: &Passport,
+    tree: &Value,
+    color: [u8; 3],
+) -> (Report, Staged) {
+    let report = run_by(registry, state, passport, tree);
     let product =
         Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("дерево продукта: {e}"));
     let pixel = move |_: u32, _: u32| Some(color);
@@ -774,7 +797,7 @@ fn staged_in(state: &str, passport: &Passport, tree: &Value, color: [u8; 3]) -> 
     let staged = snapshot_stage(
         passport,
         &product,
-        &registry(),
+        registry,
         state,
         &report,
         TOLERANCES,
@@ -791,7 +814,9 @@ fn staged_in(state: &str, passport: &Passport, tree: &Value, color: [u8; 3]) -> 
 fn snapshot_stage_judges_opaque_fill_and_names_what_it_left() {
     let passport = passport("layout-all-zones", "dark-normal");
     let tree = mirror(&passport);
-    let report = run("layout-all-zones", &passport, &tree);
+    let registry = registry_judging_window_fill();
+    let staged = |color| staged_by(&registry, "layout-all-zones", &passport, &tree, color);
+    let report = run_by(&registry, "layout-all-zones", &passport, &tree);
     // Непрозрачная заливка участка, который кадр покрывает хотя бы одним целым пикселем.
     let (ck, fill) = report
         .snapshot
@@ -812,12 +837,12 @@ fn snapshot_stage_judges_opaque_fill_and_names_what_it_left() {
                 .any(|u| u.ck == ck && u.field == Field::Fill),
         )
     };
-    let (_, exact) = staged(&passport, &tree, [fill.r, fill.g, fill.b]);
+    let (_, exact) = staged([fill.r, fill.g, fill.b]);
     assert_eq!(touches(&exact), (false, false), "{ck}");
     let within = [fill.r.saturating_add(3), fill.g, fill.b];
-    assert_eq!(touches(&staged(&passport, &tree, within).1), (false, false));
+    assert_eq!(touches(&staged(within).1), (false, false));
     let off = if fill.r > 127 { fill.r - 4 } else { fill.r + 4 };
-    let (_, wrong) = staged(&passport, &tree, [off, fill.g, fill.b]);
+    let (_, wrong) = staged([off, fill.g, fill.b]);
     assert_eq!(touches(&wrong), (true, false), "{ck}");
     let mismatch = wrong
         .mismatches
@@ -1352,8 +1377,9 @@ fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is
     };
     assert!(named("chrome.search.icon", "icon_mask"), "{report:#}");
     assert!(named("chrome.workspace.chevron", "color"), "{report:#}");
-    assert!(named("chrome.window.close", "fill"), "{report:#}");
-    // Кольцо кнопки окна не сверяется строкой контракта: ни расхождения, ни поля без суждения.
+    // Заливку кнопки окна покрывает исключение реестра, кольцо не сверяется строкой контракта:
+    // ни расхождения, ни поля без суждения.
+    assert!(!named("chrome.window.close", "fill"), "{report:#}");
     assert!(!named("chrome.window.close", "shadow"), "{report:#}");
 
     // Раскладка: каждое поле снимка судится — код 3, названы линия под вкладкой и тон плитки.
