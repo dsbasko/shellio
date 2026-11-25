@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bodies;
+pub mod calibration;
 pub mod gallery;
 pub mod launch;
 pub mod owner;

@@ -244,6 +244,14 @@ pub(crate) fn font_facts(font: &NSFont) -> FontFacts {
     }
 }
 
+/// Вес AppKit для начертания по шкале CSS: ближайшая названная ступень.
+pub(crate) fn appkit_weight_of(css: f64) -> f64 {
+    WEIGHTS
+        .iter()
+        .min_by(|a, b| (a.1 - css).abs().total_cmp(&(b.1 - css).abs()))
+        .map_or(0.0, |(appkit, _)| *appkit)
+}
+
 /// Вес шрифта по `NSFontWeightTrait`; у шрифта без признака — обычный.
 fn appkit_weight(font: &NSFont) -> f64 {
     // SAFETY: имена признаков — неизменяемые константы AppKit.

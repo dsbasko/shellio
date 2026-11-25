@@ -32,6 +32,18 @@ pub(crate) fn mono(size: f64) -> Retained<NSFont> {
         .unwrap_or_else(|| installed(size))
 }
 
+/// Моноширинный шрифт начертания `weight` по шкале CSS из файлов бандла. Вне бандла файла нет, и
+/// шрифт берётся по стеку прототипа обычным начертанием.
+pub(crate) fn mono_weight(size: f64, weight: u16) -> Retained<NSFont> {
+    if weight == REGULAR {
+        return mono(size);
+    }
+    bundle_fonts()
+        .and_then(|fonts| face_in(&fonts, weight))
+        .and_then(|face| NSFont::fontWithDescriptor_size(&face, size))
+        .unwrap_or_else(|| installed(size))
+}
+
 fn bundle_fonts() -> Option<PathBuf> {
     let resources = NSBundle::mainBundle().resourcePath()?;
     Some(PathBuf::from(resources.to_string()).join(BUNDLE_FONTS))

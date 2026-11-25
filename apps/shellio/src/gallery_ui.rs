@@ -7,16 +7,18 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
+use shellio::calibration;
 use shellio::gallery::{
     self, Gallery, GalleryState, Intent, ListAction, MenuFixtureItem, Page, StripHost, StripStatus,
     StripZone, TabAction, TreeAction, TreeFixture, ids,
 };
 use shellio_appkit::{
-    App, FocusLayer, Frame, GenerationMarker, InspectNode, ListIntent, ListKey, ListState,
-    LoopMonitor, MainWindow, MenuButton, MenuEntry, MenuIntent, MenuItem, MenuKey, Piece,
-    Presentation, Row, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec, Tab, TabIntent, TabStatus,
-    TabStrip, TabStripState, TextField, TextFieldIntent, TextFieldState, Transition, TreeList,
-    TreeListIntent, TreeListState, TreeNode, ViewWatch, VirtualList, ZoneSide, text_field_height,
+    App, CalibrationSheet, FocusLayer, Frame, GenerationMarker, InspectNode, ListIntent, ListKey,
+    ListState, LoopMonitor, MainWindow, MenuButton, MenuEntry, MenuIntent, MenuItem, MenuKey,
+    Piece, Presentation, Row, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec, Tab, TabIntent,
+    TabStatus, TabStrip, TabStripState, TextField, TextFieldIntent, TextFieldState, Transition,
+    TreeList, TreeListIntent, TreeListState, TreeNode, ViewWatch, VirtualList, ZoneSide,
+    text_field_height,
 };
 use shellio_control::{
     ClassAliveView, GalleryFocus, GalleryStrip, GalleryTreeView, KeyLatencyView, KeyPressView,
@@ -43,9 +45,11 @@ struct Tree {
     watch: ViewWatch,
 }
 
-/// Дерево страницы «Калибровка»: лист материалов калибровки и маркер поколения.
+/// Дерево страницы «Калибровка»: лист материалов калибровки на подложке и маркер поколения.
 struct Calibration {
     number: u64,
+    // Порядок полей — порядок освобождения: сначала содержимое подложки.
+    content: CalibrationSheet,
     sheet: Surface,
     marker: GenerationMarker,
     watch: ViewWatch,
@@ -136,19 +140,25 @@ impl GalleryUi {
                 let marker_frame =
                     gallery::layout(width, height, theme.metrics.titlebar, 0.0, 0.0, 0.0);
                 window.place(&marker, frame(marker_frame.marker));
-                window.place(
-                    &sheet,
-                    frame(gallery::calibration_sheet(
-                        width,
-                        height,
-                        theme.metrics.titlebar,
-                    )),
+                let area = gallery::calibration_sheet(width, height, theme.metrics.titlebar);
+                window.place(&sheet, frame(area));
+                // Материалы вложены в бинарь и проверены тестами разбора: лист без них пуст.
+                let content = CalibrationSheet::new(
+                    app,
+                    &theme,
+                    calibration::sheet(area.width).unwrap_or_default(),
+                );
+                sheet.place(
+                    &content,
+                    frame(gallery::Rect::new(0.0, 0.0, area.width, area.height)),
                 );
                 let mut watch = ViewWatch::new();
                 watch.watch(Piece::from(&marker));
                 watch.watch(Piece::from(&sheet));
+                watch.watch(Piece::from(&content));
                 self.calibration = Some(Calibration {
                     number: self.model.tree(),
+                    content,
                     sheet,
                     marker,
                     watch,
@@ -346,6 +356,7 @@ impl GalleryUi {
     pub fn set_theme(&self, theme: &AppTheme, motion: Motion) -> Vec<(&'static str, Transition)> {
         if let Some(page) = &self.calibration {
             page.sheet.set_theme(theme);
+            page.content.set_theme(theme);
         }
         let Some(tree) = &self.tree else {
             return Vec::new();
@@ -631,6 +642,10 @@ impl GalleryUi {
         if let Some(page) = &self.calibration {
             let mut nodes = page.marker.inspect(ids::MARKER, None);
             nodes.extend(page.sheet.inspect(ids::CALIBRATION, None));
+            nodes.extend(
+                page.content
+                    .inspect(ids::CALIBRATION, Some(ids::CALIBRATION)),
+            );
             return nodes;
         }
         let Some(tree) = &self.tree else {

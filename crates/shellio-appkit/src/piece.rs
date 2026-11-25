@@ -7,6 +7,7 @@ use objc2::rc;
 use objc2_app_kit::{NSView, NSWindowOrderingMode};
 use objc2_foundation::{NSObject, NSPoint, NSRect, NSSize};
 
+use crate::calibration::CalibrationSheet;
 use crate::chrome_bar::Frame;
 use crate::components::menu::MenuButton;
 use crate::components::tab_strip::TabStrip;
@@ -39,6 +40,7 @@ pub enum Piece<'a> {
     Stub(&'a ExpandStub),
     Note(&'a EmptyNote),
     Status(&'a StatusLine),
+    Calibration(&'a CalibrationSheet),
 }
 
 impl Piece<'_> {
@@ -51,6 +53,7 @@ impl Piece<'_> {
             Piece::VirtualList(list) => list.ns_view(),
             Piece::TreeList(tree) => tree.ns_view(),
             Piece::Marker(marker) => marker.ns_view(),
+            Piece::Calibration(sheet) => sheet.ns_view(),
             Piece::SplitView(split) => split.ns_view(),
             Piece::Pane(pane) => pane.ns_view(),
             Piece::Plate(plate) => plate.ns_view(),
@@ -66,6 +69,12 @@ impl Piece<'_> {
 impl<'a> From<&'a StatusLine> for Piece<'a> {
     fn from(line: &'a StatusLine) -> Self {
         Piece::Status(line)
+    }
+}
+
+impl<'a> From<&'a CalibrationSheet> for Piece<'a> {
+    fn from(sheet: &'a CalibrationSheet) -> Self {
+        Piece::Calibration(sheet)
     }
 }
 

@@ -34,6 +34,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 mod app;
+mod calibration;
 mod chrome_bar;
 mod components;
 mod counters;
@@ -57,6 +58,10 @@ mod theme_cell;
 mod window;
 
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
+pub use calibration::{
+    CalibrationFigure, CalibrationIcon, CalibrationOp, CalibrationShape, CalibrationSheet,
+    CalibrationSpec, CalibrationText,
+};
 pub use chrome_bar::{
     ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, ZoneButton, shorten,
     zone_button, zone_pressed,
