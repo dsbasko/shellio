@@ -40,8 +40,8 @@ pub const BUTTON_TITLE: &str = "ButtonTitle";
 pub struct Tolerances {
     /// Допуск ширины, заданной текстом, в точках.
     pub text_width: f64,
-    /// Порог пересечения к объединению масок значков.
-    pub mask_iou: f64,
+    /// Порог покрытия масок значков с допуском в пиксель.
+    pub mask_coverage: f64,
 }
 
 /// Шрифт узла продукта.
@@ -1005,15 +1005,16 @@ pub fn over(gap: f64, tolerance: f64) -> bool {
 }
 
 /// Силуэт в допуске: мера, равная порогу, проходит. Одно правило у судьи и у калибровки.
-pub fn mask_within(iou: f64, threshold: f64) -> bool {
-    iou >= threshold
+pub fn mask_within(coverage: f64, threshold: f64) -> bool {
+    coverage >= threshold
 }
 
-/// Пересечение к объединению масок значка с выравниванием: кадр паспорта с дробным началом даёт
-/// маску на пиксель шире маски продукта. Обе маски кладутся на общий холст наибольшего размера,
-/// берётся наибольшее значение по целым сдвигам в пределах разницы размеров. Разница больше
-/// одного пикселя по оси — ошибка: место значка судит кадр, а не маска.
-pub fn aligned_iou(reference: &Mask, product: &Mask) -> Result<f64, String> {
+/// Покрытие масок значка с допуском в пиксель ([`Mask::coverage`]) и с выравниванием: кадр
+/// паспорта с дробным началом даёт маску на пиксель шире маски продукта. Обе маски кладутся на
+/// общий холст наибольшего размера, берётся наибольшее значение по целым сдвигам в пределах
+/// разницы размеров. Разница больше одного пикселя по оси — ошибка: место значка судит кадр, а
+/// не маска.
+pub fn aligned_coverage(reference: &Mask, product: &Mask) -> Result<f64, String> {
     if reference.width.abs_diff(product.width) > 1 || reference.height.abs_diff(product.height) > 1
     {
         return Err(format!(
@@ -1038,7 +1039,7 @@ pub fn aligned_iou(reference: &Mask, product: &Mask) -> Result<f64, String> {
     for (rx, ry) in shifts(width - reference.width, height - reference.height) {
         let a = placed(reference, rx, ry);
         for (px, py) in shifts(width - product.width, height - product.height) {
-            best = best.max(a.iou(&placed(product, px, py))?);
+            best = best.max(a.coverage(&placed(product, px, py))?);
         }
     }
     Ok(best)
@@ -1124,7 +1125,7 @@ pub fn mask_at(
     })
 }
 
-/// Силуэт значка: маска продукта против эталонной маски паспорта, мера — [`aligned_iou`], порог —
+/// Силуэт значка: маска продукта против эталонной маски паспорта, мера — [`aligned_coverage`], порог —
 /// из калибровки. `None` — в допуске.
 pub fn mask_mismatch(
     ck: &str,
@@ -1132,15 +1133,15 @@ pub fn mask_mismatch(
     product: &Mask,
     threshold: f64,
 ) -> Option<Mismatch> {
-    let expected = format!("пересечение к объединению не меньше {threshold}");
-    match aligned_iou(reference, product) {
-        Ok(iou) if mask_within(iou, threshold) => None,
-        Ok(iou) => Some(Mismatch {
+    let expected = format!("покрытие с допуском в пиксель не меньше {threshold}");
+    match aligned_coverage(reference, product) {
+        Ok(coverage) if mask_within(coverage, threshold) => None,
+        Ok(coverage) => Some(Mismatch {
             ck: ck.to_owned(),
             field: Field::IconMask,
             expected,
-            actual: iou.to_string(),
-            difference: Some(threshold - iou),
+            actual: coverage.to_string(),
+            difference: Some(threshold - coverage),
         }),
         Err(reason) => Some(Mismatch {
             ck: ck.to_owned(),
@@ -1428,15 +1429,15 @@ impl Tolerances {
         if value.pointer("/schema").and_then(serde_json::Value::as_u64) != Some(1) {
             return Err(Error::new("калибровка: схема не 1"));
         }
-        let mask_iou = number("/icons/threshold")?;
-        if mask_iou > 1.0 {
+        let mask_coverage = number("/icons/threshold")?;
+        if mask_coverage > 1.0 {
             return Err(Error::new(format!(
-                "калибровка: порог маски {mask_iou} больше 1"
+                "калибровка: порог маски {mask_coverage} больше 1"
             )));
         }
         Ok(Tolerances {
             text_width: number("/text/tolerance_pt")?,
-            mask_iou,
+            mask_coverage,
         })
     }
 }
@@ -1497,7 +1498,12 @@ pub fn snapshot_stage(
                     .and_then(|node| {
                         let reference = (snapshot.mask)(ck)?;
                         let mask = product_mask(product, node, snapshot.scale, snapshot.pixel)?;
-                        Ok(mask_mismatch(ck, &reference, &mask, tolerances.mask_iou))
+                        Ok(mask_mismatch(
+                            ck,
+                            &reference,
+                            &mask,
+                            tolerances.mask_coverage,
+                        ))
                     })
             }
             (SnapshotKind::ButtonTitleInk, _) => match (element, node) {
@@ -1681,28 +1687,54 @@ mod tests {
 
     #[test]
     fn masks_of_one_size_compare_in_place() {
-        let a = mask(2, 2, &[1, 1, 0, 0]);
-        let b = mask(2, 2, &[1, 0, 0, 0]);
-        assert_eq!(aligned_iou(&a, &a), Ok(1.0));
-        assert_eq!(aligned_iou(&a, &b), Ok(0.5));
+        let a = mask(5, 1, &[1, 0, 0, 0, 1]);
+        let b = mask(5, 1, &[1, 0, 0, 0, 0]);
+        assert_eq!(aligned_coverage(&a, &a), Ok(1.0));
+        // Правый пиксель эталона без пары в пределах пикселя: покрыта половина эталона.
+        assert_eq!(aligned_coverage(&a, &b), Ok(0.5));
+        // Лишний пиксель продукта судится так же, как потерянный.
+        assert_eq!(aligned_coverage(&b, &a), Ok(0.5));
+    }
+
+    #[test]
+    fn edge_shifted_by_a_pixel_is_covered_and_by_two_is_not() {
+        let reference = mask(6, 1, &[0, 1, 1, 0, 0, 0]);
+        let by_one = mask(6, 1, &[0, 0, 1, 1, 0, 0]);
+        let by_two = mask(6, 1, &[0, 0, 0, 1, 1, 0]);
+        assert_eq!(aligned_coverage(&reference, &by_one), Ok(1.0));
+        assert_eq!(aligned_coverage(&reference, &by_two), Ok(0.5));
+    }
+
+    #[test]
+    fn empty_masks_match_and_empty_against_drawn_does_not() {
+        let empty = mask(3, 1, &[0, 0, 0]);
+        let drawn = mask(3, 1, &[0, 1, 0]);
+        assert_eq!(aligned_coverage(&empty, &empty), Ok(1.0));
+        assert_eq!(aligned_coverage(&empty, &drawn), Ok(0.0));
+        assert_eq!(aligned_coverage(&drawn, &empty), Ok(0.0));
     }
 
     #[test]
     fn mask_one_pixel_wider_is_aligned_by_the_best_shift() {
-        // Тот же силуэт, сдвинутый на пиксель в более широкой маске.
-        let wide = mask(3, 2, &[0, 1, 1, 0, 1, 0]);
-        let narrow = mask(2, 2, &[1, 1, 1, 0]);
-        assert_eq!(aligned_iou(&wide, &narrow), Ok(1.0));
+        // Тот же силуэт, сдвинутый на два пикселя в более широкой маске: без выравнивания
+        // левый столбец эталона остался бы без пары.
+        let wide = mask(6, 1, &[0, 0, 1, 1, 1, 0]);
+        let narrow = mask(5, 1, &[1, 1, 1, 0, 0]);
+        assert_eq!(
+            wide.coverage(&mask(6, 1, &[1, 1, 1, 0, 0, 0])),
+            Ok(2.0 / 3.0)
+        );
+        assert_eq!(aligned_coverage(&wide, &narrow), Ok(1.0));
         // Другой силуэт сдвигом не сходится.
-        let other = mask(2, 2, &[0, 0, 1, 1]);
-        assert!(aligned_iou(&wide, &other).is_ok_and(|iou| iou < 0.5));
+        let other = mask(5, 1, &[1, 0, 0, 0, 0]);
+        assert!(aligned_coverage(&wide, &other).is_ok_and(|coverage| coverage < 0.5));
     }
 
     #[test]
     fn masks_differing_by_more_than_a_pixel_are_refused() {
         let a = mask(4, 2, &[0; 8]);
         let b = mask(2, 2, &[0; 4]);
-        assert!(aligned_iou(&a, &b).is_err());
+        assert!(aligned_coverage(&a, &b).is_err());
     }
 
     /// Дерево: полоса с заливкой и значок 10×10 точек в (5, 5) от верхнего левого угла.
@@ -1808,18 +1840,19 @@ mod tests {
 
     #[test]
     fn mask_threshold_holds_at_the_boundary() {
-        let reference = mask(2, 2, &[1, 1, 1, 1]);
-        let three = mask(2, 2, &[1, 1, 1, 0]);
+        // Правый пиксель эталона дальше пикселя от продукта: покрыто три четверти эталона.
+        let reference = mask(6, 1, &[1, 1, 1, 0, 0, 1]);
+        let three = mask(6, 1, &[1, 1, 1, 0, 0, 0]);
         assert_eq!(mask_mismatch("k", &reference, &three, 0.75), None);
         let over =
             mask_mismatch("k", &reference, &three, 0.76).unwrap_or_else(|| panic!("расхождение"));
         assert_eq!(over.field, Field::IconMask);
         assert!(over.difference.is_some_and(|d| (d - 0.01).abs() < 1e-9));
         // Пустая маска продукта против непустой эталонной — расхождение.
-        let empty = mask(2, 2, &[0, 0, 0, 0]);
+        let empty = mask(6, 1, &[0; 6]);
         assert!(mask_mismatch("k", &reference, &empty, 0.5).is_some());
         // Маски, расходящиеся больше чем на пиксель, — расхождение с причиной.
-        let big = mask(4, 2, &[1; 8]);
+        let big = mask(8, 1, &[1; 8]);
         assert!(mask_mismatch("k", &big, &three, 0.1).is_some_and(|m| m.difference.is_none()));
     }
 
@@ -1845,7 +1878,7 @@ mod tests {
 
     const TEXT: Tolerances = Tolerances {
         text_width: 1.25,
-        mask_iou: 0.9,
+        mask_coverage: 0.9,
     };
 
     #[test]

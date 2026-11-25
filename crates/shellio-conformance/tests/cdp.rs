@@ -198,7 +198,7 @@ fn icon_masks_follow_the_foreground_rule() {
         .unwrap();
     let again = Mask::from_png(&shot, search.fill.unwrap()).unwrap();
     assert_eq!(again, mask);
-    assert_eq!(again.iou(&mask).unwrap(), 1.0);
+    assert_eq!(again.coverage(&mask).unwrap(), 1.0);
 }
 
 #[test]

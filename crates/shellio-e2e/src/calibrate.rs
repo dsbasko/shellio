@@ -17,8 +17,8 @@ use shellio_conformance::passport::Rgba;
 
 use crate::Error;
 use crate::conform::{
-    BUNDLED_FONTS, CHANNEL_TOLERANCE, Node, Product, Tolerances, aligned_iou, color_gap, mask_at,
-    mask_within, over, region_median,
+    BUNDLED_FONTS, CHANNEL_TOLERANCE, Node, Product, Tolerances, aligned_coverage, color_gap,
+    mask_at, mask_within, over, region_median,
 };
 
 /// Половина корпуса.
@@ -187,9 +187,9 @@ impl Width {
 pub struct Measured {
     pub text: BTreeMap<String, BTreeMap<String, Width>>,
     pub text_controls: BTreeMap<String, BTreeMap<String, Width>>,
-    /// Пересечение к объединению маски Chrome и маски продукта одной ячейки листа.
+    /// Покрытие с допуском в пиксель маски Chrome и маски продукта одной ячейки листа.
     pub positives: BTreeMap<String, BTreeMap<String, f64>>,
-    /// Пересечение к объединению эталона контроля и ячейки продукта контроля.
+    /// Покрытие с допуском в пиксель эталона контроля и ячейки продукта контроля.
     pub icon_controls: BTreeMap<String, BTreeMap<String, f64>>,
     /// Условие двух тонов ячейки.
     pub two_tone: BTreeMap<String, bool>,
@@ -242,9 +242,9 @@ fn widths(what: &str, table: &BTreeMap<String, BTreeMap<String, Width>>) -> Resu
 }
 
 fn ratios(what: &str, table: &BTreeMap<String, BTreeMap<String, f64>>) -> Result<(), Error> {
-    match flat(table).find(|(_, _, iou)| !(0.0..=1.0).contains(iou)) {
-        Some((cell, id, iou)) => Err(Error::new(format!(
-            "{what}: {cell} {id}: мера {iou} вне отрезка от 0 до 1"
+    match flat(table).find(|(_, _, measure)| !(0.0..=1.0).contains(measure)) {
+        Some((cell, id, measure)) => Err(Error::new(format!(
+            "{what}: {cell} {id}: мера {measure} вне отрезка от 0 до 1"
         ))),
         None => Ok(()),
     }
@@ -324,7 +324,7 @@ pub fn derive(plan: &Plan, measured: &Measured) -> Result<String, Error> {
         .map(|(_, _, w)| w.gap())
         .ok_or_else(|| Error::new("ширина текста: половина fit пуста"))?;
     let positive_min = flat(&measured.positives)
-        .map(|(_, _, iou)| iou)
+        .map(|(_, _, measure)| measure)
         .min_by(f64::total_cmp)
         .ok_or_else(|| Error::new("маска: положительных пар нет"))?;
     let (tolerance, threshold) = (fit_max + plan.text_margin, positive_min - plan.mask_margin);
@@ -349,8 +349,8 @@ pub fn derive(plan: &Plan, measured: &Measured) -> Result<String, Error> {
             "threshold": threshold,
             "margin": plan.mask_margin,
             "positive_min": positive_min,
-            "positive": nested(&measured.positives, |_, iou: f64| iou),
-            "controls": nested(&measured.icon_controls, |_, iou: f64| iou),
+            "positive": nested(&measured.positives, |_, measure: f64| measure),
+            "controls": nested(&measured.icon_controls, |_, measure: f64| measure),
             "two_tone": measured.two_tone,
         },
     });
@@ -378,14 +378,14 @@ pub fn derive(plan: &Plan, measured: &Measured) -> Result<String, Error> {
             ));
         }
     }
-    for (cell, id, iou) in flat(&measured.positives) {
-        if !mask_within(iou, read.mask_iou) {
-            broken.push(format!("пара {cell} {id} ниже порога: мера {iou}"));
+    for (cell, id, measure) in flat(&measured.positives) {
+        if !mask_within(measure, read.mask_coverage) {
+            broken.push(format!("пара {cell} {id} ниже порога: мера {measure}"));
         }
     }
-    for (cell, id, iou) in flat(&measured.icon_controls) {
-        if mask_within(iou, read.mask_iou) {
-            broken.push(format!("контроль маски {cell} {id} прошёл: мера {iou}"));
+    for (cell, id, measure) in flat(&measured.icon_controls) {
+        if mask_within(measure, read.mask_coverage) {
+            broken.push(format!("контроль маски {cell} {id} прошёл: мера {measure}"));
         }
     }
     if broken.is_empty() {
@@ -400,7 +400,7 @@ pub fn derive(plan: &Plan, measured: &Measured) -> Result<String, Error> {
         "контроли калибровки не разделены: допуск ширины {}, порог маски {}; {}; худшие случаи \
          половины fit: {}",
         read.text_width,
-        read.mask_iou,
+        read.mask_coverage,
         broken.join("; "),
         worst.join(", ")
     )))
@@ -610,15 +610,15 @@ pub fn measure_cell(
         }
         mask_at(&frame, fill, scale, pixel).map_err(|e| Error::new(format!("{}: {e}", found.id)))
     };
-    let iou = |what: &str, reference: &Mask, product: &Mask| {
-        aligned_iou(reference, product).map_err(|e| Error::new(format!("{what}: {e}")))
+    let coverage = |what: &str, reference: &Mask, product: &Mask| {
+        aligned_coverage(reference, product).map_err(|e| Error::new(format!("{what}: {e}")))
     };
     for id in &plan.primitives {
-        let value = iou(id, reference(id)?, &drawn(id)?)?;
+        let value = coverage(id, reference(id)?, &drawn(id)?)?;
         measure.positives.insert(id.clone(), value);
     }
     for control in &plan.icon_controls {
-        let value = iou(
+        let value = coverage(
             &control.id,
             reference(&control.reference)?,
             &drawn(&control.product)?,
@@ -647,8 +647,8 @@ impl Measured {
             "schema": 1,
             "text": nested(&self.text, widths),
             "text_controls": nested(&self.text_controls, widths),
-            "positive": nested(&self.positives, |_, iou: f64| iou),
-            "icon_controls": nested(&self.icon_controls, |_, iou: f64| iou),
+            "positive": nested(&self.positives, |_, measure: f64| measure),
+            "icon_controls": nested(&self.icon_controls, |_, measure: f64| measure),
             "two_tone": self.two_tone,
         })
     }

@@ -734,7 +734,7 @@ fn calibrate_command(args: &Args) -> u8 {
             eprintln!(
                 "shellio-e2e-oracle: калибровка состоялась: допуск ширины текста {} точки, порог \
                  маски {}",
-                tolerances.text_width, tolerances.mask_iou
+                tolerances.text_width, tolerances.mask_coverage
             );
             0
         }

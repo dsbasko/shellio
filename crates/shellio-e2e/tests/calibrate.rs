@@ -64,10 +64,10 @@ fn measured(n: &Numbers) -> Measured {
             .map(|c| ((*c).to_owned(), value.clone()))
             .collect()
     };
-    let ratio = |id: &str, iou: f64| -> BTreeMap<String, BTreeMap<String, f64>> {
+    let ratio = |id: &str, measure: f64| -> BTreeMap<String, BTreeMap<String, f64>> {
         CELLS
             .iter()
-            .map(|c| ((*c).to_owned(), BTreeMap::from([(id.to_owned(), iou)])))
+            .map(|c| ((*c).to_owned(), BTreeMap::from([(id.to_owned(), measure)])))
             .collect()
     };
     Measured {
@@ -94,7 +94,7 @@ fn record_carries_the_worst_fit_gap_plus_margin_and_the_least_pair_minus_margin(
     let record = derive(&plan(), &measured(&GOOD)).expect("годный замер");
     let read = Tolerances::from_calibration(&record).expect("запись читается судьёй");
     assert_eq!(read.text_width, 0.25 + 0.5);
-    assert_eq!(read.mask_iou, 0.9 - 0.02);
+    assert_eq!(read.mask_coverage, 0.9 - 0.02);
     let value: serde_json::Value = serde_json::from_str(&record).expect("JSON");
     assert_eq!(value["text"]["fit_max_pt"], 0.25);
     assert_eq!(
@@ -122,7 +122,7 @@ fn the_worst_case_is_taken_over_every_cell() {
     let read = Tolerances::from_calibration(&derive(&plan(), &m).expect("годный замер"))
         .expect("запись читается судьёй");
     assert_eq!(read.text_width, 0.375 + 0.5);
-    assert_eq!(read.mask_iou, 0.75 - 0.02);
+    assert_eq!(read.mask_coverage, 0.75 - 0.02);
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn padding_control_must_fail_what_the_judge_applies() {
 
 #[test]
 fn mask_control_passes_at_the_threshold_and_that_refuses_the_calibration() {
-    let threshold = outcome(&GOOD).expect("калибровка состоялась").mask_iou;
+    let threshold = outcome(&GOOD).expect("калибровка состоялась").mask_coverage;
     let at = outcome(&Numbers {
         control: threshold,
         ..GOOD

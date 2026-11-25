@@ -2,6 +2,7 @@
 //! снимка продукта. Пиксель — передний план, если наибольшая по каналам разница в sRGB с известным
 //! цветом фона под значком не меньше [`ICON_FG`]. Фон — заливка ближайшего предка с ключом
 //! ([`backdrop`]). Кадр значка привязывается к пиксельной сетке при DPR снимка ([`PixelClip`]).
+//! Силуэты сравнивает покрытие с допуском в пиксель ([`Mask::coverage`]).
 
 use std::io::Cursor;
 
@@ -195,24 +196,48 @@ impl Mask {
         })
     }
 
-    /// Пересечение к объединению; две пустые маски совпадают полностью.
-    pub fn iou(&self, other: &Mask) -> Result<f64, String> {
+    /// Покрытие с допуском в пиксель (ADR-0037, «Уточнено в `conformance-closure`»): меньшая из
+    /// двух долей — пикселей этой маски, у которых в квадрате 3×3 маски `other` есть передний
+    /// план, и пикселей `other` с тем же условием против этой. Сглаженный край сдвигает границу
+    /// силуэта не больше чем на пиксель и меру не меняет, потерянный или лишний штрих остаётся
+    /// без пары. Две пустые маски совпадают полностью, пустая против непустой даёт 0.
+    pub fn coverage(&self, other: &Mask) -> Result<f64, String> {
         if (self.width, self.height) != (other.width, other.height) {
             return Err(format!(
                 "маски {}×{} и {}×{} разного размера",
                 self.width, self.height, other.width, other.height
             ));
         }
-        let (mut inter, mut union) = (0u64, 0u64);
-        for (a, b) in self.on.iter().zip(&other.on) {
-            inter += u64::from(*a && *b);
-            union += u64::from(*a || *b);
-        }
-        Ok(if union == 0 {
-            1.0
-        } else {
-            inter as f64 / union as f64
+        let count = |mask: &Mask| mask.on.iter().filter(|on| **on).count();
+        Ok(match (count(self), count(other)) {
+            (0, 0) => 1.0,
+            (0, _) | (_, 0) => 0.0,
+            (own, theirs) => {
+                let share = |near: usize, all: usize| near as f64 / all as f64;
+                share(self.near(other), own).min(share(other.near(self), theirs))
+            }
         })
+    }
+
+    /// Число пикселей переднего плана, у которых в квадрате 3×3 маски `other` того же размера
+    /// есть передний план.
+    fn near(&self, other: &Mask) -> usize {
+        let (width, height) = (self.width as usize, self.height as usize);
+        let mut found = 0;
+        for y in 0..height {
+            for x in 0..width {
+                if !self.on[y * width + x] {
+                    continue;
+                }
+                let rows = y.saturating_sub(1)..=(y + 1).min(height - 1);
+                let hit = rows.into_iter().any(|row| {
+                    (x.saturating_sub(1)..=(x + 1).min(width - 1))
+                        .any(|column| other.on[row * width + column])
+                });
+                found += usize::from(hit);
+            }
+        }
+        found
     }
 }
 

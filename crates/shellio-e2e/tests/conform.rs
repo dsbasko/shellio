@@ -15,7 +15,7 @@ use shellio_e2e::conform::{
 
 const TOLERANCES: Tolerances = Tolerances {
     text_width: 1.25,
-    mask_iou: 0.9,
+    mask_coverage: 0.9,
 };
 
 const CELLS: [&str; 4] = ["light-normal", "light-high", "dark-normal", "dark-high"];
@@ -745,7 +745,7 @@ fn calibration_gives_tolerances_and_rejects_bad_numbers() {
         Tolerances::from_calibration(&good.to_string()).unwrap_or_else(|e| panic!("{e}")),
         Tolerances {
             text_width: 0.75,
-            mask_iou: 0.81
+            mask_coverage: 0.81
         }
     );
     for bad in [
