@@ -12,8 +12,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::{Value, json};
 use shellio_conformance::calibration::{Corpus, case_id, cells};
 
+use shellio_conformance::mask::Mask;
+use shellio_conformance::passport::Rgba;
+
 use crate::Error;
-use crate::conform::{Tolerances, mask_within, over};
+use crate::conform::{
+    BUNDLED_FONTS, CHANNEL_TOLERANCE, Node, Product, Tolerances, aligned_iou, color_gap, mask_at,
+    mask_within, over, region_median,
+};
 
 /// Половина корпуса.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -398,4 +404,252 @@ pub fn derive(plan: &Plan, measured: &Measured) -> Result<String, Error> {
         broken.join("; "),
         worst.join(", ")
     )))
+}
+
+/// Узел листа страницы «Калибровка» в `ui.inspect`; узлы случаев — `<лист>.text.<случай>`,
+/// `<лист>.control.<контроль>.<случай>` и `<лист>.icon.<ячейка листа>`.
+pub const SHEET: &str = "gallery.calibration";
+
+/// Ячейки листа `icons.svg` с ролью `primitive`: из закреплённого листа, а не из замера — ячейка,
+/// пропавшая у одной стороны, остаётся в плане и даёт отказ «нет замера».
+pub fn primitives(sheet: &str) -> Result<Vec<String>, Error> {
+    let attr = |tag: &str, name: &str| {
+        let start = tag.find(&format!(" {name}=\""))? + name.len() + 3;
+        let end = tag[start..].find('"')?;
+        Some(tag[start..start + end].to_owned())
+    };
+    let mut found = Vec::new();
+    for tag in sheet.split("<svg").skip(1) {
+        let tag = tag.split('>').next().unwrap_or_default();
+        if attr(tag, "data-role").as_deref() == Some("primitive") {
+            found.push(
+                attr(tag, "id").ok_or_else(|| Error::new("icons.svg: ячейка primitive без id"))?,
+            );
+        }
+    }
+    if found.is_empty() {
+        return Err(Error::new("icons.svg: нет ячеек с ролью primitive"));
+    }
+    Ok(found)
+}
+
+/// Замер стороны прототипа в одной ячейке: запись `chrome.json` и маски ячеек листа.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChromeCell {
+    pub text: BTreeMap<String, f64>,
+    pub two_tone: bool,
+    pub background: Rgba,
+    pub primary: Rgba,
+    pub masks: BTreeMap<String, Mask>,
+}
+
+impl ChromeCell {
+    /// Ячейка `cell` записи `chrome.json`; `mask` читает маску ячейки листа по её id.
+    pub fn parse(
+        record: &Value,
+        cell: &str,
+        mask: impl Fn(&str) -> Result<Mask, String>,
+    ) -> Result<ChromeCell, Error> {
+        let place = format!("chrome.json, {cell}");
+        let body = field(&place, record, &format!("/cells/{cell}"))?;
+        let tone = |name: &str| -> Result<Rgba, Error> {
+            serde_json::from_value(field(&place, body, &format!("/tones/{name}"))?.clone())
+                .map_err(|e| Error::new(format!("{place}: тон {name}: {e}")))
+        };
+        let table = |pointer: &str| {
+            field(&place, body, pointer)?
+                .as_object()
+                .ok_or_else(|| Error::new(format!("{place}: поле {pointer} не таблица")))
+        };
+        let mut text = BTreeMap::new();
+        for (case, width) in table("/text")? {
+            let width = width
+                .as_f64()
+                .ok_or_else(|| Error::new(format!("{place}: ширина {case} не число")))?;
+            text.insert(case.clone(), width);
+        }
+        let mut masks = BTreeMap::new();
+        for id in table("/icons")?.keys() {
+            let read = mask(id).map_err(|e| Error::new(format!("{place}: маска {id}: {e}")))?;
+            masks.insert(id.clone(), read);
+        }
+        Ok(ChromeCell {
+            text,
+            two_tone: field(&place, body, "/two_tone")?
+                .as_bool()
+                .ok_or_else(|| Error::new(format!("{place}: two_tone не логическое")))?,
+            background: tone("background")?,
+            primary: tone("primary")?,
+            masks,
+        })
+    }
+}
+
+/// Замер двух сторон в одной ячейке.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CellMeasure {
+    pub text: BTreeMap<String, Width>,
+    pub text_controls: BTreeMap<String, Width>,
+    pub positives: BTreeMap<String, f64>,
+    pub icon_controls: BTreeMap<String, f64>,
+    pub two_tone: bool,
+}
+
+fn opaque_gap(a: Rgba, b: Rgba) -> f64 {
+    color_gap(Rgba { a: 1.0, ..a }, Rgba { a: 1.0, ..b })
+}
+
+/// Замер ячейки: ширины случаев и контролей — кадры узлов подписей страницы «Калибровка»
+/// (неокруглённая ширина набора) против ширин Chrome, меры — маски узлов ячеек листа со снимка
+/// окна против масок Chrome. Замер не состоялся (ошибка, а не число): нет узла, подпись вне
+/// листа у ячейки значка, моноширинная подпись не из бандла, тон листа или подписи расходится с
+/// тоном Chrome, фон листа на снимке вне допуска цвета, маски разного размера.
+pub fn measure_cell(
+    plan: &Plan,
+    chrome: &ChromeCell,
+    product: &Product,
+    scale: f64,
+    pixel: &dyn Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<CellMeasure, Error> {
+    let tolerance = f64::from(CHANNEL_TOLERANCE);
+    let node = |tail: &str| -> Result<&Node, Error> {
+        product
+            .node(&format!("{SHEET}.{tail}"))
+            .ok_or_else(|| Error::new(format!("ui.inspect: нет узла {SHEET}.{tail}")))
+    };
+    let sheet = product
+        .node(SHEET)
+        .ok_or_else(|| Error::new(format!("ui.inspect: нет узла {SHEET}: страница не открыта")))?;
+    let fill = sheet
+        .style
+        .as_ref()
+        .and_then(|style| style.fill)
+        .filter(|fill| fill.a == 1.0)
+        .ok_or_else(|| Error::new(format!("{SHEET}: нет непрозрачной заливки листа")))?;
+    if opaque_gap(fill, chrome.background) > tolerance {
+        return Err(Error::new(format!(
+            "тон листа продукта {fill:?} расходится с тоном Chrome {:?}",
+            chrome.background
+        )));
+    }
+    let width = |tail: &str, case: &str| -> Result<Width, Error> {
+        let found = node(tail)?;
+        let style = found.style.as_ref();
+        let font = style
+            .and_then(|style| style.font.as_ref())
+            .ok_or_else(|| Error::new(format!("{}: узел без шрифта", found.id)))?;
+        let bundled = font
+            .file
+            .as_deref()
+            .is_some_and(|file| file.contains(BUNDLED_FONTS));
+        if case.starts_with("mono-") != bundled {
+            return Err(Error::new(format!(
+                "{}: шрифт {} из файла {:?}: моноширинный случай набирается вложенным шрифтом \
+                 бандла, остальные — системным",
+                found.id, font.face, font.file
+            )));
+        }
+        let color = style.and_then(|style| style.color);
+        if !color.is_some_and(|color| opaque_gap(color, chrome.primary) <= tolerance) {
+            return Err(Error::new(format!(
+                "{}: тон подписи {color:?} расходится с тоном Chrome {:?}",
+                found.id, chrome.primary
+            )));
+        }
+        let prototype = chrome
+            .text
+            .get(case)
+            .copied()
+            .ok_or_else(|| Error::new(format!("chrome.json: нет ширины случая {case}")))?;
+        Ok(Width {
+            prototype,
+            product: found.frame.width,
+        })
+    };
+    let mut measure = CellMeasure {
+        two_tone: chrome.two_tone,
+        ..CellMeasure::default()
+    };
+    for case in plan.cases.keys() {
+        measure
+            .text
+            .insert(case.clone(), width(&format!("text.{case}"), case)?);
+    }
+    for control in &plan.text_controls {
+        let (_, case) = control
+            .split_once('.')
+            .ok_or_else(|| Error::new(format!("контроль ширины {control} без случая")))?;
+        measure
+            .text_controls
+            .insert(control.clone(), width(&format!("control.{control}"), case)?);
+    }
+
+    let reference = |id: &str| -> Result<&Mask, Error> {
+        chrome
+            .masks
+            .get(id)
+            .ok_or_else(|| Error::new(format!("chrome.json: нет маски ячейки листа {id}")))
+    };
+    let drawn = |id: &str| -> Result<Mask, Error> {
+        let found = node(&format!("icon.{id}"))?;
+        if !found.visible {
+            return Err(Error::new(format!("{}: ячейка листа вне окна", found.id)));
+        }
+        let frame = product.frame(found);
+        // Пустая у Chrome ячейка показывает фон листа: по ней сверяется экран.
+        if !reference(id)?.on.contains(&true) {
+            let [r, g, b] = region_median(&frame, scale, pixel)
+                .map_err(|e| Error::new(format!("{}: {e}", found.id)))?;
+            let seen = Rgba { r, g, b, a: 1.0 };
+            if opaque_gap(seen, fill) > tolerance {
+                return Err(Error::new(format!(
+                    "предусловие: фон листа на снимке {seen:?} расходится с заливкой {fill:?} \
+                     больше допуска {CHANNEL_TOLERANCE}: экран вне допуска цвета"
+                )));
+            }
+        }
+        mask_at(&frame, fill, scale, pixel).map_err(|e| Error::new(format!("{}: {e}", found.id)))
+    };
+    let iou = |what: &str, reference: &Mask, product: &Mask| {
+        aligned_iou(reference, product).map_err(|e| Error::new(format!("{what}: {e}")))
+    };
+    for id in &plan.primitives {
+        let value = iou(id, reference(id)?, &drawn(id)?)?;
+        measure.positives.insert(id.clone(), value);
+    }
+    for control in &plan.icon_controls {
+        let value = iou(
+            &control.id,
+            reference(&control.reference)?,
+            &drawn(&control.product)?,
+        )?;
+        measure.icon_controls.insert(control.id.clone(), value);
+    }
+    Ok(measure)
+}
+
+impl Measured {
+    /// Замер ячейки `cell` входит в общий замер.
+    pub fn insert(&mut self, cell: &str, measure: CellMeasure) {
+        self.text.insert(cell.to_owned(), measure.text);
+        self.text_controls
+            .insert(cell.to_owned(), measure.text_controls);
+        self.positives.insert(cell.to_owned(), measure.positives);
+        self.icon_controls
+            .insert(cell.to_owned(), measure.icon_controls);
+        self.two_tone.insert(cell.to_owned(), measure.two_tone);
+    }
+
+    /// Сырые числа обеих сторон: пишутся при любом исходе вывода допусков.
+    pub fn raw(&self) -> Value {
+        let widths = |_: &str, w: Width| json!({"prototype": w.prototype, "product": w.product});
+        json!({
+            "schema": 1,
+            "text": nested(&self.text, widths),
+            "text_controls": nested(&self.text_controls, widths),
+            "positive": nested(&self.positives, |_, iou: f64| iou),
+            "icon_controls": nested(&self.icon_controls, |_, iou: f64| iou),
+            "two_tone": self.two_tone,
+        })
+    }
 }

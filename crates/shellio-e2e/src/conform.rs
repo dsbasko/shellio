@@ -185,7 +185,8 @@ impl Product {
         serde_json::from_value(body).map_err(|e| Error::new(format!("ui.inspect: {e}")))
     }
 
-    fn node(&self, id: &str) -> Option<&Node> {
+    /// Узел по id компонента.
+    pub fn node(&self, id: &str) -> Option<&Node> {
         self.components.iter().find(|n| n.id == id)
     }
 
@@ -446,7 +447,7 @@ fn rect_text(r: Rect) -> String {
 }
 
 /// Наибольшая разница цвета по каналам, альфа — в тех же единицах.
-fn color_gap(a: Rgba, b: Rgba) -> f64 {
+pub(crate) fn color_gap(a: Rgba, b: Rgba) -> f64 {
     [
         f64::from(a.r.abs_diff(b.r)),
         f64::from(a.g.abs_diff(b.g)),
@@ -1012,8 +1013,19 @@ pub fn product_mask(
     scale: f64,
     pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
 ) -> Result<Mask, String> {
-    let clip = PixelClip::of(&product.frame(node), scale)?;
     let background = product_backdrop(product, node)?;
+    mask_at(&product.frame(node), background, scale, pixel)
+}
+
+/// Маска участка снимка по кадру в координатах паспорта и известному фону: та же сетка пикселей
+/// (`PixelClip`) и то же правило переднего плана `ICON_FG`, что у маски значка паспорта.
+pub fn mask_at(
+    frame: &Rect,
+    background: Rgba,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<Mask, String> {
+    let clip = PixelClip::of(frame, scale)?;
     let mut rgba = Vec::with_capacity(clip.width as usize * clip.height as usize * 4);
     for y in 0..clip.height {
         for x in 0..clip.width {

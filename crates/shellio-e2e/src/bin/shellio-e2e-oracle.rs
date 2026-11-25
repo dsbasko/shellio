@@ -17,11 +17,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use shellio_conformance::calibration::cells;
 use shellio_conformance::mask::Mask;
 use shellio_conformance::passport::Passport;
 use shellio_conformance::registry::Registry;
+use shellio_e2e::calibrate::{self, ChromeCell, Measured, Plan};
 use shellio_e2e::conform::{self, Mismatch, Product, Snapshot, Tolerances, Unjudged};
-use shellio_e2e::css::{Layer, Palette};
+use shellio_e2e::css::{Appearance, Contrast, Layer, Palette};
 use shellio_e2e::expect::{self, Geometry};
 use shellio_e2e::underline::{UnderlineInputs, UnderlineReport, underline};
 use shellio_e2e::{Error, Inputs, Previous, Report, Verdict, compare, png, read_marker};
@@ -39,6 +41,9 @@ const USAGE: &str = "\
   shellio-e2e-oracle conform --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
                              --window <ui.window.json> --png <снимок sRGB>
                              --registry <registry.toml> --calibration <calibration.json>
+  shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
+                               --materials <conformance/calibration> --raw <замер.json>
+                               --out <calibration.json>
 
 compare и underline печатают отчёт JSON в stdout. Ожидаемое поколение — --generation или
 поколение ui.window. underline меряет поперечной серией линию под вкладкой (слой по умолчанию
@@ -48,6 +53,10 @@ none). marker печатает поколение из маркера снимк
 conform сверяет паспорт прототипа с продуктом: состав, элементы по ключу, поля контракта и
 стадию снимка; состояние — имя каталога паспорта, маски значков — <ячейка>.icons/ рядом с ним.
 Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1.
+calibrate выводит допуск ширины текста и порог маски из замеров двух сторон: chrome.json с
+масками <ячейка>.icons/ и чтения страницы «Калибровка» <ячейка>.{inspect.json,window.json,png}
+каждой ячейки controls.json. Сырые числа пишутся в --raw при любом исходе вывода, --out — только
+если контроли разделены; иначе код 1.
 коды: 0 — совпадение, линия в допуске или маркер прочитан, 1 — ошибка исполнения, 2 — неверный
 вызов, 3 — участок или линия вне допуска, 4 — отрисовка ожидаемого поколения не наблюдалась
 ";
@@ -72,6 +81,11 @@ struct Args {
     passport: Option<PathBuf>,
     registry: Option<PathBuf>,
     calibration: Option<PathBuf>,
+    chrome: Option<PathBuf>,
+    product: Option<PathBuf>,
+    materials: Option<PathBuf>,
+    raw: Option<PathBuf>,
+    out: Option<PathBuf>,
 }
 
 enum Command {
@@ -79,6 +93,7 @@ enum Command {
     Underline(Args),
     Marker(Args),
     Conform(Args),
+    Calibrate(Args),
     Help,
 }
 
@@ -111,6 +126,11 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "--passport" => parsed.passport = Some(value()?.into()),
             "--registry" => parsed.registry = Some(value()?.into()),
             "--calibration" => parsed.calibration = Some(value()?.into()),
+            "--chrome" => parsed.chrome = Some(value()?.into()),
+            "--product" => parsed.product = Some(value()?.into()),
+            "--materials" => parsed.materials = Some(value()?.into()),
+            "--raw" => parsed.raw = Some(value()?.into()),
+            "--out" => parsed.out = Some(value()?.into()),
             "--tab" => parsed.tab = Some(value()?),
             "--layer" => {
                 let text = value()?;
@@ -152,7 +172,35 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "{command}: --passport, --registry и --calibration принимает только conform"
         ));
     }
+    let calibrate_flags = [
+        parsed.chrome.is_some(),
+        parsed.product.is_some(),
+        parsed.materials.is_some(),
+        parsed.raw.is_some(),
+        parsed.out.is_some(),
+    ];
+    if calibrate_flags.contains(&true) && command != "calibrate" {
+        return Err(format!(
+            "{command}: --chrome, --product, --materials, --raw и --out принимает только calibrate"
+        ));
+    }
     match command.as_str() {
+        "calibrate" => {
+            let foreign = parsed.expect.is_some()
+                || parsed.inspect.is_some()
+                || parsed.window.is_some()
+                || parsed.png.is_some()
+                || parsed.generation.is_some()
+                || underline_only
+                || stable[0];
+            if foreign || calibrate_flags.contains(&false) {
+                return Err(
+                    "calibrate: нужны ровно --chrome, --product, --materials, --raw и --out"
+                        .to_owned(),
+                );
+            }
+            Ok(Command::Calibrate(parsed))
+        }
         "conform" => {
             if parsed.expect.is_some() || parsed.generation.is_some() || underline_only || stable[0]
             {
@@ -508,12 +556,116 @@ fn conform_command(args: &Args) -> u8 {
     }
 }
 
+/// Замер двух сторон по ячейкам плана и вывод допусков. Сырые числа пишутся до вывода.
+fn run_calibrate(args: &Args) -> Result<String, Error> {
+    let dir = |path: &Option<PathBuf>, what: &str| {
+        path.clone()
+            .ok_or_else(|| Error::new(format!("нет каталога {what}")))
+    };
+    let (chrome, product, materials) = (
+        dir(&args.chrome, "замера Chrome")?,
+        dir(&args.product, "чтений продукта")?,
+        dir(&args.materials, "материалов")?,
+    );
+    let material = |name: &str| read_text(Some(&materials.join(name)), name);
+    let controls = material("controls.json")?;
+    let sheet = calibrate::primitives(&material("icons.svg")?)?;
+    let plan = Plan::parse(&material("text.json")?, &controls, &sheet)?;
+    let dpr = serde_json::from_str::<serde_json::Value>(&controls)
+        .ok()
+        .and_then(|v| v["dpr"].as_f64())
+        .ok_or_else(|| Error::new("controls.json: нет dpr"))?;
+    let record: serde_json::Value = serde_json::from_str(&read_text(
+        Some(&chrome.join("chrome.json")),
+        "chrome.json",
+    )?)
+    .map_err(|e| Error::new(format!("chrome.json: {e}")))?;
+    if record["dpr"].as_f64() != Some(dpr) {
+        return Err(Error::new(format!(
+            "chrome.json: масштаб {}, а не {dpr}",
+            record["dpr"]
+        )));
+    }
+    let mut measured = Measured::default();
+    for cell in cells("controls.json", &controls).map_err(|e| Error::new(e.to_string()))? {
+        let cell = cell.name();
+        let masks = chrome.join(format!("{cell}.icons"));
+        let side = ChromeCell::parse(&record, cell, |id| {
+            let file = masks.join(format!("{id}.png"));
+            let bytes = std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))?;
+            Mask::read_png(&bytes)
+        })?;
+        let file = |tail: &str| product.join(format!("{cell}.{tail}"));
+        let inspect_text = read_text(Some(&file("inspect.json")), "ui.inspect")?;
+        let window = expect::parse_window(&read_text(Some(&file("window.json")), "ui.window")?)?;
+        // Имена осей ячейки окна против имени ячейки паспорта.
+        let shown = window.cell();
+        let named = format!(
+            "{}-{}",
+            match shown.appearance {
+                Appearance::Light => "light",
+                Appearance::Dark => "dark",
+            },
+            match shown.contrast {
+                Contrast::Normal => "normal",
+                Contrast::Increased => "high",
+            }
+        );
+        if named != cell {
+            return Err(Error::new(format!("{cell}: ui.window ячейки {named}")));
+        }
+        let inspect = expect::parse_inspect(&inspect_text)?;
+        let image = read_image(Some(&file("png")))?;
+        let geometry = Geometry::new(&window, &inspect, (image.width, image.height))?;
+        if geometry.scale != dpr {
+            return Err(Error::new(format!(
+                "предусловие: {cell}: масштаб окна {}, а не {dpr}",
+                geometry.scale
+            )));
+        }
+        let tree = Product::parse(&inspect_text)?;
+        let pixel = |x: u32, y: u32| image.pixel(x, y).map(|p| [p.rgb.r, p.rgb.g, p.rgb.b]);
+        let measure = calibrate::measure_cell(&plan, &side, &tree, dpr, &pixel)
+            .map_err(|e| Error::new(format!("{cell}: {e}")))?;
+        measured.insert(cell, measure);
+    }
+    let write = |path: &Option<PathBuf>, text: &str| {
+        let path = path.as_ref().ok_or_else(|| Error::new("нет пути записи"))?;
+        std::fs::write(path, text)
+            .map_err(|e| Error::new(format!("{} не записан: {e}", path.display())))
+    };
+    let raw = serde_json::to_string_pretty(&measured.raw())
+        .map_err(|e| Error::new(format!("замер не сериализуется: {e}")))?;
+    write(&args.raw, &(raw + "\n"))?;
+    let text = calibrate::derive(&plan, &measured)?;
+    write(&args.out, &text)?;
+    Ok(text)
+}
+
+fn calibrate_command(args: &Args) -> u8 {
+    match run_calibrate(args).and_then(|text| Tolerances::from_calibration(&text)) {
+        Ok(tolerances) => {
+            eprintln!(
+                "shellio-e2e-oracle: калибровка состоялась: допуск ширины текста {} точки, порог \
+                 маски {}",
+                tolerances.text_width, tolerances.mask_iou
+            );
+            0
+        }
+        Err(error) => {
+            eprintln!("shellio-e2e-oracle: ошибка исполнения — {error}");
+            EXIT_ERROR
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let code = match parse(std::env::args().skip(1)) {
         Ok(Command::Compare(args)) => compare_command(&args),
         Ok(Command::Underline(args)) => underline_command(&args),
         Ok(Command::Marker(args)) => marker_command(&args),
         Ok(Command::Conform(args)) => conform_command(&args),
+        Ok(Command::Calibrate(args)) => calibrate_command(&args),
         Ok(Command::Help) => {
             print!("{USAGE}");
             0
