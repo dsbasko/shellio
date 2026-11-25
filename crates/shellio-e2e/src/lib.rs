@@ -14,6 +14,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod conform;
 pub mod css;
 pub mod expect;
 pub mod png;

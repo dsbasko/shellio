@@ -1222,6 +1222,7 @@ dependencies = [
  "png",
  "serde",
  "serde_json",
+ "shellio-conformance",
  "tempfile",
 ]
 
