@@ -5,6 +5,7 @@
 - Дополнено [ADR-0024](0024-main-screen-design.md): `Ctrl-\` переключает режимы в обе стороны.
 - Дополнено [ADR-0025](0025-workspaces-and-project-catalog.md).
 - Уточнено [ADR-0031](0031-zone-splits.md): действие `Ctrl-w v` и `Ctrl-w s`.
+- Заменено [ADR-0038](0038-shipped-nvim-config.md): для управляемого nvim правило «Клавиши nvim, включая `Ctrl-o`, не перехватываются».
 
 ## Контекст
 
