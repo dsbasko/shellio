@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use shellio_conformance::Zone;
 use shellio_conformance::fields::{self, Applicability, ElementKind, Field, Judgement};
 use shellio_conformance::keys::glob_matches;
-use shellio_conformance::mask::Mask;
+use shellio_conformance::mask::{ICON_FG, Mask, PixelClip, backdrop, foreground};
 use shellio_conformance::passport::{Element, Passport, Rect, Rgba, Shadow, Side};
 use shellio_conformance::registry::{Exception, Registry, Surface};
 use shellio_conformance::scene::{BodyMode, Composition, MenuItem, PartComposition, PartRef};
@@ -920,6 +920,99 @@ fn shifts(dx: u32, dy: u32) -> impl Iterator<Item = (u32, u32)> {
     (0..=dx).flat_map(move |x| (0..=dy).map(move |y| (x, y)))
 }
 
+/// Фон под значком у продукта — то же правило, что у паспорта
+/// (`shellio_conformance::mask::backdrop`): заливка ближайшего предка с ключом из `style`,
+/// полупрозрачная или отсутствие заливки у всей цепочки — отказ. Узлы с ключом переводятся в
+/// элементы с родителем по ключу, правило не повторяется.
+pub fn product_backdrop(product: &Product, node: &Node) -> Result<Rgba, String> {
+    let ck = node
+        .ck
+        .as_deref()
+        .ok_or_else(|| format!("{}: значок без ключа", node.id))?;
+    let elements: Vec<Element> = product
+        .components
+        .iter()
+        .filter_map(|n| {
+            Some(Element {
+                ck: n.ck.clone()?,
+                kind: ElementKind::Container,
+                parent: product.parent_key(n).map(str::to_owned),
+                frame: product.frame(n),
+                visible: n.visible,
+                text: None,
+                truncated: None,
+                font: None,
+                line_height: None,
+                letter_spacing: None,
+                color: None,
+                fill: n.style.as_ref().and_then(|style| style.fill),
+                line_color: None,
+                line_width: None,
+                line_sides: Vec::new(),
+                radius: None,
+                padding: None,
+                shadow: Vec::new(),
+                icon: None,
+            })
+        })
+        .collect();
+    backdrop(&elements, ck)
+}
+
+/// Маска значка продукта по снимку окна: кадр узла на сетке пикселей при масштабе `scale`
+/// (`PixelClip`), передний план — правило `ICON_FG` против фона [`product_backdrop`]. `pixel`
+/// отдаёт цвет пикселя снимка в sRGB по столбцу и строке от верхнего левого угла.
+pub fn product_mask(
+    product: &Product,
+    node: &Node,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<Mask, String> {
+    let clip = PixelClip::of(&product.frame(node), scale)?;
+    let background = product_backdrop(product, node)?;
+    let mut rgba = Vec::with_capacity(clip.width as usize * clip.height as usize * 4);
+    for y in 0..clip.height {
+        for x in 0..clip.width {
+            let [r, g, b] = pixel(clip.x + x, clip.y + y)
+                .ok_or_else(|| format!("значок за кадром снимка: пиксель {x}×{y} области"))?;
+            rgba.extend([r, g, b, 255]);
+        }
+    }
+    Ok(Mask {
+        width: clip.width,
+        height: clip.height,
+        on: foreground(&rgba, background, ICON_FG),
+    })
+}
+
+/// Силуэт значка: маска продукта против эталонной маски паспорта, мера — [`aligned_iou`], порог —
+/// из калибровки. `None` — в допуске.
+pub fn mask_mismatch(
+    ck: &str,
+    reference: &Mask,
+    product: &Mask,
+    threshold: f64,
+) -> Option<Mismatch> {
+    let expected = format!("пересечение к объединению не меньше {threshold}");
+    match aligned_iou(reference, product) {
+        Ok(iou) if iou >= threshold => None,
+        Ok(iou) => Some(Mismatch {
+            ck: ck.to_owned(),
+            field: Field::IconMask,
+            expected,
+            actual: iou.to_string(),
+            difference: Some(threshold - iou),
+        }),
+        Err(reason) => Some(Mismatch {
+            ck: ck.to_owned(),
+            field: Field::IconMask,
+            expected,
+            actual: reason,
+            difference: None,
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -956,5 +1049,88 @@ mod tests {
         let a = mask(4, 2, &[0; 8]);
         let b = mask(2, 2, &[0; 4]);
         assert!(aligned_iou(&a, &b).is_err());
+    }
+
+    /// Дерево: полоса с заливкой и значок 10×10 точек в (5, 5) от верхнего левого угла.
+    fn product(fill_alpha: f64) -> Product {
+        let tree = serde_json::json!({
+            "content": {"width": 40.0, "height": 20.0},
+            "components": [
+                {"id": "bar", "ck": "chrome", "frame": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 20.0},
+                 "visible": true, "style": {"fill": {"r": 30, "g": 29, "b": 27, "a": fill_alpha}}},
+                {"id": "group", "parent": "bar", "frame": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 20.0},
+                 "visible": true, "style": {"fill": {"r": 200, "g": 0, "b": 0, "a": 0.5}}},
+                {"id": "icon", "parent": "group", "ck": "chrome.search.icon",
+                 "frame": {"x": 5.0, "y": 5.0, "width": 10.0, "height": 10.0}, "visible": true}
+            ]
+        });
+        Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// Снимок при масштабе 2: фон полосы и диагональ значка, на границе порога и за ней.
+    fn pixel(x: u32, y: u32) -> Option<[u8; 3]> {
+        if x >= 80 || y >= 40 {
+            return None;
+        }
+        let inside = (10..30).contains(&x) && (10..30).contains(&y);
+        Some(match (inside, x == y, x == y + 1) {
+            (true, true, _) => [30 + ICON_FG, 29, 27],
+            (true, _, true) => [30 + ICON_FG - 1, 29, 27],
+            _ => [30, 29, 27],
+        })
+    }
+
+    #[test]
+    fn product_mask_is_cut_by_the_node_frame_against_the_keyed_backdrop() {
+        let product = product(1.0);
+        let icon = product
+            .keyed("chrome.search.icon")
+            .unwrap_or_else(|| panic!("значок"));
+        // Узел без ключа между значком и полосой фоном не считается.
+        assert_eq!(
+            product_backdrop(&product, icon),
+            Ok(Rgba {
+                r: 30,
+                g: 29,
+                b: 27,
+                a: 1.0
+            })
+        );
+        let mask = product_mask(&product, icon, 2.0, pixel).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!((mask.width, mask.height), (20, 20));
+        // Передний план — только пиксели с разницей не меньше порога: диагональ.
+        assert_eq!(mask.on.iter().filter(|on| **on).count(), 20);
+        assert!(mask.on[0] && !mask.on[1]);
+    }
+
+    #[test]
+    fn translucent_backdrop_and_icon_outside_the_snapshot_are_refused() {
+        let translucent = product(0.5);
+        let icon = translucent
+            .keyed("chrome.search.icon")
+            .unwrap_or_else(|| panic!("значок"));
+        assert!(product_mask(&translucent, icon, 2.0, pixel).is_err());
+        let product = product(1.0);
+        let icon = product
+            .keyed("chrome.search.icon")
+            .unwrap_or_else(|| panic!("значок"));
+        assert!(product_mask(&product, icon, 2.0, |_, _| None).is_err());
+    }
+
+    #[test]
+    fn mask_threshold_holds_at_the_boundary() {
+        let reference = mask(2, 2, &[1, 1, 1, 1]);
+        let three = mask(2, 2, &[1, 1, 1, 0]);
+        assert_eq!(mask_mismatch("k", &reference, &three, 0.75), None);
+        let over =
+            mask_mismatch("k", &reference, &three, 0.76).unwrap_or_else(|| panic!("расхождение"));
+        assert_eq!(over.field, Field::IconMask);
+        assert!(over.difference.is_some_and(|d| (d - 0.01).abs() < 1e-9));
+        // Пустая маска продукта против непустой эталонной — расхождение.
+        let empty = mask(2, 2, &[0, 0, 0, 0]);
+        assert!(mask_mismatch("k", &reference, &empty, 0.5).is_some());
+        // Маски, расходящиеся больше чем на пиксель, — расхождение с причиной.
+        let big = mask(4, 2, &[1; 8]);
+        assert!(mask_mismatch("k", &big, &three, 0.1).is_some_and(|m| m.difference.is_none()));
     }
 }
