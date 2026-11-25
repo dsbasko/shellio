@@ -11,6 +11,16 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 toml = "0.9"
+tungstenite = { version = "0.28", optional = true }
+
+[features]
+default = ["snap"]
+# Съёмщик паспортов: транспорт CDP. Библиотека без него чистая.
+snap = ["dep:tungstenite"]
+
+[[bin]]
+name = "shellio-snap"
+required-features = ["snap"]
 
 [dev-dependencies]
 tempfile = "3.27.0"
