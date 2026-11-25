@@ -6,6 +6,7 @@
 //! --out <файл> [--record <файл>] [--surface <поверхность>]`. Без `--surface` в паспорт идут элементы
 //! всего окна, с ним — только ключи поверхности состояния. Маски значков ложатся рядом: `<файл без .json>.icons/`.
 //! `--record` записывает все ответы браузера ([`cdp::Capture`]) для тестов на записанных ответах.
+//! `calibrate --chrome <c> --root <р> --out <каталог>` — сторона прототипа калибровки допусков.
 //! Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
 
 #![forbid(unsafe_code)]
@@ -18,10 +19,13 @@ use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
+use shellio_conformance::calibration;
 use shellio_conformance::cdp;
 use shellio_conformance::fields::ElementKind;
-use shellio_conformance::mask::PixelClip;
-use shellio_conformance::passport::{Cell, Passport, Window, canonical_json};
+use shellio_conformance::mask::{ICON_FG, Mask, PixelClip};
+use shellio_conformance::passport::{
+    Cell, Contrast, Passport, Rect, Rgba, Theme, Window, canonical_json,
+};
 use shellio_conformance::recipe::Recipe;
 use shellio_conformance::registry::Inventory;
 use shellio_conformance::registry::Registry;
@@ -469,6 +473,208 @@ fn inventory(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
     fs::write(out, canonical).map_err(|e| format!("{}: {e}", out.display()))
 }
 
+/// Замер страницы калибровки в текущей ячейке: цвета тонов, ширина `Range` по тексту каждого
+/// случая и кадры ячеек листа по их местам на листе (пустая ячейка контроля рисованного
+/// прямоугольника не имеет). Все вложенные начертания загружены до замера.
+const CALIBRATION_FACTS: &str = r#"(async () => {
+  await Promise.all([...document.fonts].map((face) => face.load()));
+  await document.fonts.ready;
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const body = getComputedStyle(document.body);
+  const tone = document.querySelector('#icons [data-tone="secondary"]');
+  const text = {};
+  for (const span of document.querySelectorAll('#text span[data-case]')) {
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    text[span.dataset.case] = range.getBoundingClientRect().width;
+  }
+  const icons = {};
+  const sheet = document.querySelector('#icons > svg').getBoundingClientRect();
+  for (const cell of document.querySelectorAll('#icons > svg > svg[id]')) {
+    icons[cell.id] = { x: sheet.x + cell.x.baseVal.value, y: sheet.y + cell.y.baseVal.value,
+                       w: cell.width.baseVal.value, h: cell.height.baseVal.value,
+                       role: cell.dataset.role, size: Number(cell.dataset.size) };
+  }
+  return { background: body.backgroundColor, primary: body.color,
+           secondary: getComputedStyle(tone).stroke, text, icons };
+})()"#;
+
+/// Узлы `span` случаев корпуса: имя случая → `nodeId`.
+fn case_nodes(node: &Value, out: &mut BTreeMap<String, u64>) {
+    let attrs: Vec<&str> = node["attributes"]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    let case = attrs
+        .chunks(2)
+        .find(|pair| pair.first() == Some(&"data-case"))
+        .and_then(|pair| pair.get(1).copied());
+    if let (Some(case), Some(id)) = (case, node["nodeId"].as_u64()) {
+        out.insert(case.to_owned(), id);
+    }
+    for child in node["children"].as_array().into_iter().flatten() {
+        case_nodes(child, out);
+    }
+}
+
+fn tone(facts: &Value, name: &str) -> Result<Rgba, String> {
+    facts[name]
+        .as_str()
+        .and_then(cdp::parse_color)
+        .filter(|c| c.a == 1.0)
+        .ok_or_else(|| format!("тон {name}: {} — не непрозрачный цвет", facts[name]))
+}
+
+/// `calibrate --chrome <c> --root <р> --out <каталог>`: сторона прототипа калибровки. Страница
+/// `<каталог>/page.html` с листом `icons.svg` и корпусом `text.json` на `tokens.css` прототипа,
+/// DPR 2, в каждой ячейке `controls.json`: ширины случаев, тона и маски ячеек листа
+/// (`<каталог>/<ячейка>.icons/<id>.png`) тем же правилом переднего плана, что у паспортов.
+/// Итог — `<каталог>/chrome.json` канонической записью.
+fn calibrate(chrome: &Path, root: &Path, out: &Path) -> Result<(), String> {
+    let dir = root.join("conformance/calibration");
+    let read = |name: &str| {
+        let path = dir.join(name);
+        fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))
+    };
+    let corpus =
+        calibration::Corpus::parse("text.json", &read("text.json")?).map_err(|e| e.to_string())?;
+    let controls = read("controls.json")?;
+    let cells = calibration::cells("controls.json", &controls).map_err(|e| e.to_string())?;
+    let controls: Value = serde_json::from_str(&controls).map_err(|e| e.to_string())?;
+    let dpr = controls["dpr"].as_f64().ok_or("controls.json: нет dpr")?;
+    if controls["icon_fg"].as_u64() != Some(u64::from(ICON_FG)) {
+        return Err("controls.json: icon_fg расходится с ICON_FG".to_owned());
+    }
+    let tokens =
+        fs::canonicalize(root.join("prototype/css/tokens.css")).map_err(|e| e.to_string())?;
+    fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
+    let out = fs::canonicalize(out).map_err(|e| e.to_string())?;
+    let page = out.join("page.html");
+    let html = calibration::page(
+        &format!("file://{}", tokens.display()),
+        &read("icons.svg")?,
+        &corpus,
+    );
+    fs::write(&page, html).map_err(|e| format!("{}: {e}", page.display()))?;
+
+    let (_browser, mut cdp) = open_page(chrome)?;
+    cdp.call("Network.enable", json!({}))?;
+    cdp.call(
+        "Network.setBlockedURLs",
+        json!({"urls": ["http://*", "https://*"]}),
+    )?;
+    cdp.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width": 1180, "height": 720, "deviceScaleFactor": dpr, "mobile": false}),
+    )?;
+    cdp.call("Page.enable", json!({}))?;
+    cdp.call(
+        "Page.navigate",
+        json!({"url": format!("file://{}", page.display())}),
+    )?;
+    cdp.wait_event("Page.loadEventFired")?;
+
+    let mut record = json!({
+        "schema": 1,
+        "dpr": dpr,
+        "prototype": Inputs::from_root(root).map_err(|e| e.to_string())?.prototype,
+        "cells": {},
+    });
+    for cell in &cells {
+        let theme = match cell.theme {
+            Theme::Light => "light",
+            Theme::Dark => "dark",
+        };
+        let contrast = match cell.contrast {
+            Contrast::Normal => "delete d.contrast",
+            Contrast::High => "d.contrast = 'more'",
+        };
+        cdp.eval(&format!(
+            "(() => {{ const d = document.documentElement.dataset; d.theme = '{theme}'; {contrast}; }})()"
+        ))?;
+        let facts = cdp.eval(CALIBRATION_FACTS)?;
+        let background = tone(&facts, "background")?;
+        let (primary, secondary) = (tone(&facts, "primary")?, tone(&facts, "secondary")?);
+        let widths = facts["text"].as_object().ok_or("замер без ширин")?;
+        if let Some((style, line)) = corpus
+            .cases()
+            .find(|(s, l)| !widths.contains_key(&calibration::case_id(s, l)))
+        {
+            return Err(format!(
+                "{cell}: случай {} не измерен",
+                calibration::case_id(style, line)
+            ));
+        }
+        let masks = out.join(format!("{cell}.icons"));
+        if masks.exists() {
+            fs::remove_dir_all(&masks).map_err(|e| format!("{}: {e}", masks.display()))?;
+        }
+        fs::create_dir_all(&masks).map_err(|e| format!("{}: {e}", masks.display()))?;
+        let mut icons = serde_json::Map::new();
+        for (id, icon) in facts["icons"].as_object().ok_or("замер без листа")? {
+            let side = |key: &str| icon[key].as_f64().ok_or_else(|| format!("{id}: нет {key}"));
+            let frame = Rect {
+                x: side("x")?,
+                y: side("y")?,
+                w: side("w")?,
+                h: side("h")?,
+            };
+            let clip = PixelClip::of(&frame, dpr)?;
+            let area = clip.in_points(dpr);
+            let shot = cdp.call(
+                "Page.captureScreenshot",
+                json!({"format": "png", "captureBeyondViewport": false, "fromSurface": true,
+                       "clip": {"x": area.x, "y": area.y, "width": area.w, "height": area.h,
+                                "scale": 1}}),
+            )?;
+            let png = calibration::shot(shot["data"].as_str().ok_or("снимок без данных")?)?;
+            let mask = Mask::from_png(&png, background)?;
+            if (mask.width, mask.height) != (clip.width, clip.height) {
+                return Err(format!(
+                    "{cell}: {id}: снимок {}×{}, кадр {}×{}",
+                    mask.width, mask.height, clip.width, clip.height
+                ));
+            }
+            let path = masks.join(format!("{id}.png"));
+            fs::write(&path, mask.to_png()?).map_err(|e| format!("{}: {e}", path.display()))?;
+            icons.insert(
+                id.clone(),
+                json!({"frame": frame, "role": icon["role"], "size": icon["size"],
+                       "pixels": mask.on.iter().filter(|on| **on).count()}),
+            );
+        }
+        record["cells"][cell.name()] = json!({
+            "tones": {"background": background, "primary": primary, "secondary": secondary},
+            "two_tone": calibration::two_tone(background, primary, secondary, ICON_FG),
+            "text": facts["text"],
+            "icons": icons,
+        });
+    }
+
+    cdp.call("DOM.enable", json!({}))?;
+    cdp.call("CSS.enable", json!({}))?;
+    let doc = cdp.call("DOM.getDocument", json!({"depth": -1, "pierce": true}))?;
+    let mut nodes = BTreeMap::new();
+    case_nodes(&doc["root"], &mut nodes);
+    let mut fonts = serde_json::Map::new();
+    for (style, line) in corpus.cases() {
+        let case = calibration::case_id(style, line);
+        let node = nodes
+            .get(&case)
+            .ok_or_else(|| format!("{case}: узла нет в документе"))?;
+        let reply = cdp.call("CSS.getPlatformFontsForNode", json!({"nodeId": node}))?;
+        let faces = cdp::font_faces(&reply)?;
+        if style.family == calibration::Family::Mono {
+            calibration::mono_faces(&case, &faces)?;
+        }
+        fonts.insert(case, json!(faces));
+    }
+    record["fonts"] = Value::Object(fonts);
+    let text = canonical_json(&record).map_err(|e| e.to_string())?;
+    let path = out.join("chrome.json");
+    fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 fn read_registry(root: &Path) -> Result<Registry, String> {
     let path = root.join("conformance/registry.toml");
     let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -542,6 +748,25 @@ fn main() -> ExitCode {
             }
             _ => {
                 eprintln!("shellio-snap: world --chrome <c> --index <index.html> --out <каталог>");
+                ExitCode::from(2)
+            }
+        };
+    }
+    if all.first().map(String::as_str) == Some("calibrate") {
+        return match all.get(1..).unwrap_or_default() {
+            [c, chrome, r, root, o, out] if c == "--chrome" && r == "--root" && o == "--out" => {
+                match calibrate(Path::new(chrome), Path::new(root), Path::new(out)) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("shellio-snap: {e}");
+                        ExitCode::from(1)
+                    }
+                }
+            }
+            _ => {
+                eprintln!(
+                    "shellio-snap: calibrate --chrome <c> --root <репозиторий> --out <каталог>"
+                );
                 ExitCode::from(2)
             }
         };
