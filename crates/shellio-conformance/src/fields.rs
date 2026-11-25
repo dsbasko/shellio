@@ -315,3 +315,76 @@ pub fn check_element(element: &Element) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Как судится поле у конкретного элемента паспорта. Строки контракта для полей, которые вид
+/// AppKit свойством не несёт: применимость и сбор паспорта они не меняют.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Judgement {
+    /// По источнику и допуску [`rule`].
+    ByRule,
+    /// Значение проявляется только в кадрах элемента и его детей с парой: судит поле «кадр».
+    ByFrames,
+    /// Унаследованное значение: судится у детей с парой (подпись, значок).
+    ByChildren,
+    /// Свойство ничего не рисует и не сверяется.
+    NotDrawn,
+    /// Тень-кольцо сверяется как линия по четырём сторонам: цвет тени — цвет линии, растяжение —
+    /// толщина.
+    RingAsLine,
+    /// Вид рисует система без слоя: судит участок снимка.
+    BySnapshot,
+}
+
+/// Системные кнопки окна: AppKit рисует их без слоя вида.
+const SYSTEM_DRAWN: &str = "chrome.window.";
+
+/// Значки, которые несут цвет в самой картинке, а не оттенком вида: цвет судит участок снимка.
+const SELF_COLORED: [&str; 1] = ["chrome.workspace.chevron"];
+
+/// Тень-кольцо: `box-shadow` без смещения и размытия с растяжением.
+pub fn is_ring(shadow: &crate::passport::Shadow) -> bool {
+    shadow.x == 0.0 && shadow.y == 0.0 && shadow.blur == 0.0 && shadow.spread > 0.0
+}
+
+/// Однострочный ли текст элемента: высота кадра меньше двух межстрочных интервалов.
+fn single_line(element: &Element) -> bool {
+    element
+        .line_height
+        .is_none_or(|line| element.frame.h < 2.0 * line)
+}
+
+/// Рисует ли элемент что-нибудь своим краем: заливку, линию или тень.
+fn draws_edge(element: &Element) -> bool {
+    element.fill.is_some()
+        || element.line_width.is_some_and(|width| width > 0.0)
+        || !element.shadow.is_empty()
+}
+
+/// Правило суждения поля у элемента паспорта.
+pub fn judgement(element: &Element, field: Field) -> Judgement {
+    let system = element.ck.starts_with(SYSTEM_DRAWN);
+    match field {
+        Field::Padding => Judgement::ByFrames,
+        Field::LineHeight if single_line(element) => Judgement::ByFrames,
+        Field::Color
+            if matches!(element.kind, ElementKind::Control | ElementKind::Tab)
+                && element.text.is_none() =>
+        {
+            Judgement::ByChildren
+        }
+        Field::Color if SELF_COLORED.contains(&element.ck.as_str()) => Judgement::BySnapshot,
+        Field::Fill if system => Judgement::BySnapshot,
+        Field::Shadow if system => Judgement::BySnapshot,
+        Field::Shadow if !element.shadow.is_empty() && element.shadow.iter().all(is_ring) => {
+            Judgement::RingAsLine
+        }
+        Field::Radius if !draws_edge(element) => Judgement::NotDrawn,
+        _ => Judgement::ByRule,
+    }
+}
+
+/// Значение, которым читается отсутствие поля у продукта: вид без линии слоя и без скругления
+/// отдаёт толщину и радиус пропуском, паспорт пишет ноль.
+pub fn absent_value(field: Field) -> Option<f64> {
+    matches!(field, Field::LineWidth | Field::Radius).then_some(0.0)
+}

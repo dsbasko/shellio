@@ -732,3 +732,77 @@ fn state_cells_must_fit_recipe_axes() {
     let err = check_registry(&inputs, &registry).unwrap_err();
     assert!(err.reason.contains("light-high"), "{err}");
 }
+
+#[test]
+fn judgement_rows_cover_fields_appkit_does_not_carry() {
+    use shellio_conformance::fields::{Field, Judgement, absent_value, judgement};
+    use shellio_conformance::passport::{Rgba, Shadow};
+
+    let ink = Rgba {
+        r: 1,
+        g: 2,
+        b: 3,
+        a: 1.0,
+    };
+    let shadow = |spread: f64, blur: f64, inset: bool| Shadow {
+        color: ink,
+        x: 0.0,
+        y: 0.0,
+        blur,
+        spread,
+        inset,
+    };
+
+    let mut button = element("chrome.appearance", ElementKind::Control);
+    button.color = Some(ink);
+    button.radius = Some(5.0);
+    button.line_width = Some(0.0);
+    assert_eq!(judgement(&button, Field::Padding), Judgement::ByFrames);
+    assert_eq!(judgement(&button, Field::Color), Judgement::ByChildren);
+    assert_eq!(judgement(&button, Field::Radius), Judgement::NotDrawn);
+    button.fill = Some(ink);
+    assert_eq!(judgement(&button, Field::Radius), Judgement::ByRule);
+    assert_eq!(judgement(&button, Field::Fill), Judgement::ByRule);
+    button.text = Some("Развернуть".to_owned());
+    assert_eq!(judgement(&button, Field::Color), Judgement::ByRule);
+
+    let mut label = element("chrome.search.label", ElementKind::Text);
+    label.color = Some(ink);
+    label.line_height = Some(18.0);
+    label.frame.h = 18.0;
+    assert_eq!(judgement(&label, Field::LineHeight), Judgement::ByFrames);
+    assert_eq!(judgement(&label, Field::Color), Judgement::ByRule);
+    label.frame.h = 35.9;
+    assert_eq!(judgement(&label, Field::LineHeight), Judgement::ByFrames);
+    label.frame.h = 36.0;
+    assert_eq!(judgement(&label, Field::LineHeight), Judgement::ByRule);
+
+    let mut tab = element("zone.center.part.1.tabs.tab.1", ElementKind::Tab);
+    tab.shadow = vec![shadow(1.0, 0.0, false)];
+    assert_eq!(judgement(&tab, Field::Shadow), Judgement::RingAsLine);
+    assert_eq!(judgement(&tab, Field::Radius), Judgement::ByRule);
+    tab.shadow = vec![shadow(0.5, 0.0, true)];
+    assert_eq!(judgement(&tab, Field::Shadow), Judgement::RingAsLine);
+    tab.shadow = vec![shadow(1.0, 4.0, false)];
+    assert_eq!(judgement(&tab, Field::Shadow), Judgement::ByRule);
+    tab.shadow = vec![shadow(0.0, 0.0, false)];
+    assert_eq!(judgement(&tab, Field::Shadow), Judgement::ByRule);
+
+    let mut close = element("chrome.window.close", ElementKind::Control);
+    close.fill = Some(ink);
+    close.shadow = vec![shadow(0.5, 0.0, true)];
+    assert_eq!(judgement(&close, Field::Fill), Judgement::BySnapshot);
+    assert_eq!(judgement(&close, Field::Shadow), Judgement::BySnapshot);
+    assert_eq!(judgement(&close, Field::Frame), Judgement::ByRule);
+
+    let mut chevron = element("chrome.workspace.chevron", ElementKind::Icon);
+    chevron.color = Some(ink);
+    assert_eq!(judgement(&chevron, Field::Color), Judgement::BySnapshot);
+    let mut glass = element("chrome.search.icon", ElementKind::Icon);
+    glass.color = Some(ink);
+    assert_eq!(judgement(&glass, Field::Color), Judgement::ByRule);
+
+    assert_eq!(absent_value(Field::LineWidth), Some(0.0));
+    assert_eq!(absent_value(Field::Radius), Some(0.0));
+    assert_eq!(absent_value(Field::Fill), None);
+}

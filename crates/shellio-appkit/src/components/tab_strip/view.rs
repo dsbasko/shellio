@@ -345,14 +345,17 @@ impl TabStrip {
         let view = self.view.view();
         let parts = view.ivars();
         let state = model.state.borrow().clone();
-        let mut nodes = vec![inspect::node(
-            id,
-            "TabStrip",
-            parent,
-            view,
-            None,
-            Some(NodeState::TabStrip(Box::new(self.facts()))),
-        )];
+        let mut nodes = vec![
+            inspect::node(
+                id,
+                "TabStrip",
+                parent,
+                view,
+                None,
+                Some(NodeState::TabStrip(Box::new(self.facts()))),
+            )
+            .with_line_layer(&parts.line, &[crate::style::Side::Bottom]),
+        ];
         for (tab, tab_view) in state.tabs.iter().zip(parts.tabs.borrow().iter()) {
             let mut node = inspect::node(
                 &format!("{id}.tab.{}", tab.id),
@@ -367,6 +370,11 @@ impl TabStrip {
             node.facts.visible &= shown.size.width > 0.0 && shown.size.height > 0.0;
             node.facts.selected = Some(tab_view.isAccessibilitySelected());
             let shown = node.facts.visible;
+            // Кольцо активной вкладки рисует отдельный слой с линией по краю.
+            let ring = &tab_view.ivars().ring;
+            if !ring.isHidden() {
+                node = node.with_ring_layer(ring);
+            }
             nodes.push(node);
             // Части вкладки для сверки: значок, название и кнопка закрытия, пока они показаны.
             let tab_id = format!("{id}.tab.{}", tab.id);
@@ -386,11 +394,23 @@ impl TabStrip {
             if !tab_parts.icon.isHidden() {
                 let icon: &NSView = &tab_parts.icon;
                 let size = icon.bounds().size.width;
-                nodes.push(part("icon", "TabIcon", icon).with_icon(&tab.icon, size, None));
+                let tint = tab_parts
+                    .icon
+                    .contentTintColor()
+                    .and_then(|color| crate::style::rgba(&color));
+                nodes.push(part("icon", "TabIcon", icon).with_icon(&tab.icon, size, tint));
             }
             nodes.push(part("label", "TabLabel", &tab_parts.title));
             if !tab_parts.close_box.isHidden() {
                 nodes.push(part("close", "TabClose", &tab_parts.close_box));
+                let cross: &NSView = &tab_parts.close;
+                let size = cross.bounds().size.width;
+                let tint = tab_parts
+                    .close
+                    .contentTintColor()
+                    .and_then(|color| crate::style::rgba(&color));
+                nodes
+                    .push(part("close.icon", "TabCloseIcon", cross).with_icon("close", size, tint));
             }
         }
         nodes.push(inspect::node(
@@ -404,22 +424,28 @@ impl TabStrip {
         for button in state.presentation.buttons() {
             let button_id = format!("{id}.{}", button.id());
             match button {
-                StripButton::Split(_) => nodes.push(inspect::node(
-                    &button_id,
-                    "StripButton",
-                    Some(id),
-                    &parts.split,
-                    Some(parts.split.isEnabled()),
-                    None,
-                )),
-                StripButton::Zoom | StripButton::Restore => nodes.push(inspect::node(
-                    &button_id,
-                    "StripButton",
-                    Some(id),
-                    &parts.zoom,
-                    Some(parts.zoom.isEnabled()),
-                    None,
-                )),
+                StripButton::Split(_) | StripButton::Zoom | StripButton::Restore => {
+                    let view = if matches!(button, StripButton::Split(_)) {
+                        &parts.split
+                    } else {
+                        &parts.zoom
+                    };
+                    nodes.push(inspect::node(
+                        &button_id,
+                        "StripButton",
+                        Some(id),
+                        view,
+                        Some(view.isEnabled()),
+                        None,
+                    ));
+                    // Значок рисует ячейка кнопки: кадр — её прямоугольник картинки.
+                    nodes.extend(inspect::button_image(
+                        &format!("{button_id}.icon"),
+                        &button_id,
+                        view,
+                        button.symbol(),
+                    ));
+                }
                 StripButton::Menu => nodes.extend(model.menu.inspect(&button_id, Some(id))),
             }
         }

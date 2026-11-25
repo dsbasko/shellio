@@ -447,7 +447,7 @@ impl ChromeBar {
                 None,
                 view,
                 None,
-                Some(NodeState::Chrome(state)),
+                Some(NodeState::Chrome(state.clone())),
             )
             .with_root_ck(inspect::ck::CHROME)
             .with_line_layer(&parts.line, &[crate::style::Side::Bottom]),
@@ -460,6 +460,26 @@ impl ChromeBar {
                 None,
             )
             .with_ck(inspect::ck::WORKSPACE),
+        ];
+        // Подпись и шеврон рисует ячейка кнопки: их кадры — её прямоугольники.
+        nodes.extend(
+            inspect::button_title(
+                "chrome.workspace.label",
+                "chrome.workspace",
+                &parts.workspace,
+            )
+            .map(|node| node.with_ck(inspect::ck::WORKSPACE_LABEL)),
+        );
+        nodes.extend(
+            inspect::button_image(
+                "chrome.workspace.chevron",
+                "chrome.workspace",
+                &parts.workspace,
+                "chevD",
+            )
+            .map(|node| node.with_ck(inspect::ck::WORKSPACE_CHEVRON)),
+        );
+        nodes.extend([
             inspect::node(
                 "chrome.search",
                 "SearchField",
@@ -493,7 +513,7 @@ impl ChromeBar {
             .with_text_of(&search.key),
             inspect::node("chrome.zones", "ZoneGroup", BAR, &parts.zones, None, None)
                 .with_ck(inspect::ck::ZONES),
-        ];
+        ]);
         let zone_ids = [
             "chrome.zone.left",
             "chrome.zone.bottom",
@@ -503,17 +523,30 @@ impl ChromeBar {
         .zip(inspect::ck::ZONE_BUTTONS);
         // Нажатая кнопка — значение AX-переключателя, а не выбор: факта `selected` у неё нет, как
         // и атрибута `AXSelected`, который с ним сверяет пункт `ax` E2E.
-        for ((id, ck), button) in zone_ids.into_iter().zip(&parts.zone_buttons) {
-            nodes.push(
-                inspect::node(
-                    id,
-                    "ZoneButton",
-                    ZONES,
-                    button,
-                    Some(button.isEnabled()),
-                    None,
-                )
-                .with_ck(ck),
+        let zone_parts = zone_ids
+            .zip(&parts.zone_buttons)
+            .zip(ZoneButton::ALL)
+            .zip(inspect::ck::ZONE_ICONS)
+            .enumerate();
+        for (index, ((((id, ck), button), kind), icon_ck)) in zone_parts {
+            let mut node = inspect::node(
+                id,
+                "ZoneButton",
+                ZONES,
+                button,
+                Some(button.isEnabled()),
+                None,
+            )
+            .with_ck(ck);
+            // Линию слева от второй и третьей кнопки рисует слой-разделитель группы.
+            if let Some(separator) = index.checked_sub(1).and_then(|i| parts.separators.get(i)) {
+                node = node.with_line_layer(separator, &[crate::style::Side::Left]);
+            }
+            nodes.push(node);
+            let (symbol, _) = zone_button(kind, state.side_plate);
+            nodes.extend(
+                inspect::button_image(&format!("{id}.icon"), id, button, symbol)
+                    .map(|node| node.with_ck(icon_ck)),
             );
         }
         // Кнопки окна системные: сверяются место и состав, кадр и диаметр — исключение реестра.
@@ -527,7 +560,17 @@ impl ChromeBar {
                 (NSWindowButton::ZoomButton, inspect::ck::WINDOW_BUTTONS[2]),
             ];
             for (kind, ck) in buttons {
-                if let Some(button) = window.standardWindowButton(kind) {
+                // В полноэкранном режиме кнопки живут в другом окне: их кадры к заголовку не
+                // относятся.
+                let own = |button: &NSButton| {
+                    button
+                        .window()
+                        .is_some_and(|button_window| std::ptr::eq(&*button_window, &*window))
+                };
+                if let Some(button) = window.standardWindowButton(kind)
+                    && own(&button)
+                    && !button.isHidden()
+                {
                     let enabled = button.isEnabled();
                     nodes.push(
                         inspect::node(ck, "WindowButton", BAR, &button, Some(enabled), None)
@@ -546,6 +589,16 @@ impl ChromeBar {
                 None,
             )
             .with_ck(inspect::ck::APPEARANCE),
+        );
+        let (symbol, _) = appearance_button(state.choice);
+        nodes.extend(
+            inspect::button_image(
+                "chrome.appearance.icon",
+                "chrome.appearance",
+                &parts.appearance,
+                symbol,
+            )
+            .map(|node| node.with_ck(inspect::ck::APPEARANCE_ICON)),
         );
         nodes
     }

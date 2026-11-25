@@ -436,7 +436,7 @@ impl LayoutUi {
                 &mut nodes,
                 list.into_iter()
                     .map(|node| {
-                        if shown && node.id == id {
+                        if shown && node.id == id && node.facts.visible {
                             node.with_root_ck(zone_ck(zone))
                         } else {
                             node
@@ -474,6 +474,7 @@ impl LayoutUi {
                     base.as_deref(),
                 );
                 if !list.is_empty() {
+                    nodes.extend(zoom_zone(&list[0]).map(window_ui::component));
                     let mut component = window_ui::component(list.remove(0));
                     let slot = PlateSlot {
                         tabs: vec![zoomed.active],
@@ -498,7 +499,7 @@ impl LayoutUi {
                 let parent = host_id(slot.host);
                 let mut component =
                     window_ui::component(view.inspect(&panel_id(*panel), Some(&parent)));
-                if slot.shown() {
+                if slot.shown() && component.visible {
                     component.ck = host_ck(slot.host, zoomed).map(|host| format!("{host}.body"));
                 }
                 component.state = Some(ComponentState::Panel(Box::new(PanelNodeView {
@@ -528,6 +529,7 @@ impl LayoutUi {
                     nodes.extend(list.into_iter().map(|node| {
                         let ck = base
                             .as_deref()
+                            .filter(|_| node.facts.visible)
                             .and_then(|base| stub_ck(base, &node.id[id.len()..]));
                         let mut component = window_ui::component(node);
                         component.ck = ck;
@@ -557,7 +559,7 @@ impl LayoutUi {
             };
             nodes.push(window_ui::component(node));
         }
-        nodes
+        with_dividers(nodes)
     }
 
     fn add_plate(&mut self, app: &App, key: PartKey, bench: &Bench) {
@@ -974,6 +976,94 @@ fn host_ck(host: Host, zoomed: bool) -> Option<String> {
     }
 }
 
+/// Контейнер центра под развёрнутой панелью для сверки. Отдельного вида у него нет: область зон
+/// скрыта, развёрнутая плитка — ребёнок корня раскладки. Его кадр — кадр плитки, заливка — та,
+/// что видна за ней. `None` — плитка не показана.
+fn zoom_zone(plate: &shellio_appkit::InspectNode) -> Option<shellio_appkit::InspectNode> {
+    plate.ck.as_ref()?;
+    let mut zone = plate.clone();
+    zone.id = format!("{}.zone", plate.id);
+    zone.class = "ZoomZone";
+    zone.ck = Some(zone_ck(Zone::Center));
+    zone.style = plate.behind.map(|fill| shellio_appkit::Style {
+        fill: Some(fill),
+        ..shellio_appkit::Style::default()
+    });
+    zone.truncated = None;
+    zone.state = None;
+    zone.facts.role = None;
+    zone.facts.label = None;
+    zone.facts.help = None;
+    zone.facts.first_responder = false;
+    zone.facts.animation_keys = 0;
+    Some(zone)
+}
+
+/// Промежуток между кадрами соседних частей: части рядом — по горизонтали, одна над другой —
+/// по вертикали (начало кадра внизу слева, первая часть выше).
+fn gap(first: shellio_control::Rect, second: shellio_control::Rect) -> shellio_control::Rect {
+    if second.x >= first.x + first.width {
+        shellio_control::Rect {
+            x: first.x + first.width,
+            y: first.y,
+            width: second.x - (first.x + first.width),
+            height: first.height,
+        }
+    } else {
+        let top = second.y + second.height;
+        shellio_control::Rect {
+            x: first.x,
+            y: top,
+            width: first.width,
+            height: first.y - top,
+        }
+    }
+}
+
+/// Разделители частей зоны для сверки. Вида у разделителя нет: его кадр — промежуток между
+/// кадрами соседних плиток зоны. Колонка навигатора плиткой не считается: между ней и плиткой
+/// левой зоны разделителя частей нет.
+fn with_dividers(mut nodes: Vec<ComponentView>) -> Vec<ComponentView> {
+    let mut dividers = Vec::new();
+    for zone in Zone::ALL {
+        let base = zone_ck(zone);
+        let first = 1 + usize::from(zone == Zone::Left);
+        let part = |number: usize| {
+            let ck = format!("{base}.part.{number}");
+            nodes
+                .iter()
+                .find(|node| node.ck.as_deref() == Some(ck.as_str()))
+        };
+        let mut number = first;
+        while let (Some(above), Some(below)) = (part(number), part(number + 1)) {
+            let index = number - first + 1;
+            dividers.push(ComponentView {
+                id: format!("{}.divider.{index}", split_id(zone)),
+                class: "Divider".to_owned(),
+                object: 0,
+                parent: above.parent.clone(),
+                ck: Some(format!("{base}.divider.{index}")),
+                frame: gap(above.frame, below.frame),
+                visible: above.visible && below.visible,
+                first_responder: false,
+                enabled: None,
+                role: None,
+                label: None,
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+                style: None,
+                truncated: None,
+                state: None,
+            });
+            number += 1;
+        }
+    }
+    nodes.extend(dividers);
+    nodes
+}
+
 /// Ключ сверки узла плитки: `suffix` — остаток имени узла после имени плитки, `class` — класс
 /// узла, `tab` — номер вкладки на экране с единицы. Узлы вне таблицы ключей (нагрузка строки,
 /// пункты меню) ключа не получают.
@@ -984,7 +1074,11 @@ fn plate_ck(base: &str, suffix: &str, class: &str, tab: u32) -> Option<String> {
         (".tabs.split" | ".tabs.zoom" | ".tabs.restore" | ".tabs.menu", _) => {
             Some(format!("{base}{suffix}"))
         }
+        (".tabs.split.icon" | ".tabs.zoom.icon" | ".tabs.restore.icon" | ".tabs.menu.icon", _) => {
+            Some(format!("{base}{suffix}"))
+        }
         (_, "Tab") => Some(format!("{base}.tabs.tab.{tab}")),
+        (_, "TabCloseIcon") => Some(format!("{base}.tabs.tab.{tab}.close.icon")),
         (_, "TabIcon") => Some(format!("{base}.tabs.tab.{tab}.icon")),
         (_, "TabLabel") => Some(format!("{base}.tabs.tab.{tab}.label")),
         (_, "TabClose") => Some(format!("{base}.tabs.tab.{tab}.close")),
@@ -996,7 +1090,7 @@ fn plate_ck(base: &str, suffix: &str, class: &str, tab: u32) -> Option<String> {
 fn stub_ck(base: &str, suffix: &str) -> Option<String> {
     match suffix {
         "" => Some(base.to_owned()),
-        ".label" | ".expand" => Some(format!("{base}{suffix}")),
+        ".label" | ".expand" | ".expand.label" => Some(format!("{base}{suffix}")),
         _ => None,
     }
 }
@@ -1193,6 +1287,77 @@ mod tests {
 
     /// Каждый ключ сверки, который назначают заголовок, строка статуса и раскладка, есть в
     /// таблице шаблонов `shellio-conformance`.
+    /// Разделитель — промежуток между соседними плитками зоны; колонка навигатора не плитка.
+    #[test]
+    fn dividers_fill_the_gaps_between_zone_plates() {
+        use shellio_conformance::keys::check_key;
+
+        let plate = |ck: &str, x: f64, y: f64, width: f64, height: f64| ComponentView {
+            id: ck.to_owned(),
+            class: "Plate".to_owned(),
+            object: 1,
+            parent: Some("layout.split".to_owned()),
+            ck: Some(ck.to_owned()),
+            frame: shellio_control::Rect {
+                x,
+                y,
+                width,
+                height,
+            },
+            visible: true,
+            first_responder: false,
+            enabled: None,
+            role: None,
+            label: None,
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 0,
+            style: None,
+            truncated: None,
+            state: None,
+        };
+        let nodes = with_dividers(vec![
+            plate("zone.left.part.1", 8.0, 34.0, 222.0, 640.0),
+            plate("zone.left.part.2", 236.0, 34.0, 372.0, 642.0),
+            plate("zone.center.part.1", 236.0, 274.0, 277.0, 400.0),
+            plate("zone.center.part.2", 519.0, 274.0, 277.0, 400.0),
+            plate("zone.right.part.1", 802.0, 356.0, 372.0, 318.0),
+            plate("zone.right.part.2", 802.0, 32.0, 372.0, 318.0),
+            plate("zone.right.part.3", 802.0, 0.0, 372.0, 26.0),
+        ]);
+        let divider = |ck: &str| {
+            nodes
+                .iter()
+                .find(|node| node.ck.as_deref() == Some(ck))
+                .map(|node| {
+                    assert_eq!(node.class, "Divider");
+                    assert_eq!(node.parent.as_deref(), Some("layout.split"));
+                    check_key(ck).unwrap();
+                    (
+                        node.frame.x,
+                        node.frame.y,
+                        node.frame.width,
+                        node.frame.height,
+                    )
+                })
+        };
+        assert_eq!(divider("zone.left.divider.1"), None, "колонка — не плитка");
+        assert_eq!(
+            divider("zone.center.divider.1"),
+            Some((513.0, 274.0, 6.0, 400.0))
+        );
+        assert_eq!(
+            divider("zone.right.divider.1"),
+            Some((802.0, 350.0, 372.0, 6.0))
+        );
+        assert_eq!(
+            divider("zone.right.divider.2"),
+            Some((802.0, 26.0, 372.0, 6.0))
+        );
+        assert_eq!(nodes.len(), 10);
+    }
+
     #[test]
     fn every_assigned_key_is_in_the_template_table() {
         use shellio_conformance::keys::{check_key, check_unique};
@@ -1218,7 +1383,7 @@ mod tests {
                 "под развёрнутой панелью ключа нет"
             );
             keys.push(format!("{base}.body"));
-            for suffix in ["", ".label", ".expand"] {
+            for suffix in ["", ".label", ".expand", ".expand.label"] {
                 keys.push(stub_ck(&format!("{base}.body.stub"), suffix).unwrap());
             }
             for (suffix, class, tab) in [
@@ -1228,6 +1393,11 @@ mod tests {
                 (".tabs.tab.a.icon", "TabIcon", 1),
                 (".tabs.tab.a.label", "TabLabel", 1),
                 (".tabs.tab.a.close", "TabClose", 1),
+                (".tabs.tab.a.close.icon", "TabCloseIcon", 1),
+                (".tabs.split.icon", "ButtonIcon", 2),
+                (".tabs.zoom.icon", "ButtonIcon", 2),
+                (".tabs.restore.icon", "ButtonIcon", 2),
+                (".tabs.menu.icon", "ButtonIcon", 2),
                 (".tabs.tab.b", "Tab", 2),
                 (".tabs.tab.b.label", "TabLabel", 2),
                 (".tabs.split", "StripButton", 2),
@@ -1383,6 +1553,7 @@ mod tests {
             style: None,
             truncated: None,
             under: None,
+            behind: None,
             facts: ViewFacts {
                 frame,
                 visible: true,

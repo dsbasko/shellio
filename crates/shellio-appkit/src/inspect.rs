@@ -5,7 +5,9 @@
 use objc2::rc::Retained;
 use objc2::runtime::AnyClass;
 use objc2::{MainThreadMarker, Message};
-use objc2_app_kit::{NSAccessibility, NSControl, NSScreen, NSTextField, NSView, NSWindow};
+use objc2_app_kit::{
+    NSAccessibility, NSButton, NSControl, NSScreen, NSTextField, NSView, NSWindow,
+};
 use objc2_quartz_core::CALayer;
 
 use crate::chrome_bar::{ChromeState, Frame};
@@ -39,11 +41,21 @@ pub mod ck {
         "chrome.window.zoom",
     ];
     pub const APPEARANCE: &str = "chrome.appearance";
+    pub const WORKSPACE_LABEL: &str = "chrome.workspace.label";
+    pub const WORKSPACE_CHEVRON: &str = "chrome.workspace.chevron";
+    /// Значки кнопок зон в порядке [`ZONE_BUTTONS`].
+    pub const ZONE_ICONS: [&str; 3] = [
+        "chrome.zones.left.icon",
+        "chrome.zones.bottom.icon",
+        "chrome.zones.right.icon",
+    ];
+    pub const APPEARANCE_ICON: &str = "chrome.appearance.icon";
+    /// Строка статуса окна. Ключ назначает окно: тот же компонент рисует подписи в телах панелей.
     pub const STATUS: &str = "status";
     pub const STATUS_MESSAGE: &str = "status.message";
 
     /// Все ключи, которые назначают заголовок и строка статуса.
-    pub const ALL: [&str; 16] = [
+    pub const ALL: [&str; 22] = [
         CHROME,
         WORKSPACE,
         SEARCH,
@@ -60,6 +72,12 @@ pub mod ck {
         WINDOW_BUTTONS[0],
         WINDOW_BUTTONS[1],
         WINDOW_BUTTONS[2],
+        WORKSPACE_LABEL,
+        WORKSPACE_CHEVRON,
+        ZONE_ICONS[0],
+        ZONE_ICONS[1],
+        ZONE_ICONS[2],
+        APPEARANCE_ICON,
     ];
 }
 
@@ -120,6 +138,8 @@ pub struct InspectNode {
     /// Заливка, которую видно под видом: его слой, слои предков и фон окна. `None` — непрозрачной
     /// заливки под видом нет.
     pub under: Option<style::Rgba>,
+    /// Заливка, которую видно за видом: слои предков и фон окна без его собственного слоя.
+    pub behind: Option<style::Rgba>,
     pub state: Option<NodeState>,
 }
 
@@ -153,6 +173,20 @@ impl InspectNode {
             style.line_color = Some(color);
             style.line_width = Some(size.width.min(size.height));
             style.line_sides = sides.to_vec();
+        }
+        self
+    }
+
+    /// Линия по краю вида, нарисованная отдельным слоем `ring` с линией слоя: цвет и толщина —
+    /// его, стороны — все четыре.
+    #[must_use]
+    pub(crate) fn with_ring_layer(mut self, ring: &CALayer) -> InspectNode {
+        let line = style::layer_style(ring);
+        if line.line_color.is_some() {
+            let style = self.style.get_or_insert_with(Style::default);
+            style.line_color = line.line_color;
+            style.line_width = line.line_width;
+            style.line_sides = line.line_sides;
         }
         self
     }
@@ -210,6 +244,13 @@ pub(crate) fn seen_fill(view: &NSView) -> Option<style::Rgba> {
         chain.push(fill);
     }
     style::seen_fill(&chain)
+}
+
+/// Заливка, которую видно за видом: то, что видно под его родителем.
+pub(crate) fn seen_behind(view: &NSView) -> Option<style::Rgba> {
+    // SAFETY: `superview` у живого вида на главном потоке.
+    let parent = unsafe { view.superview() }?;
+    seen_fill(&parent)
 }
 
 /// Вид или слой материала с прозрачностью.
@@ -344,8 +385,90 @@ pub(crate) fn node(
         style: Some(style::view_style(view)).filter(|style| !style.is_empty()),
         truncated: view.downcast_ref::<NSTextField>().map(style::truncated),
         under: seen_fill(view),
+        behind: seen_behind(view),
         state,
     }
+}
+
+/// Часть кнопки, которую рисует её ячейка: у ячейки вида нет, кадр — её прямоугольник в окне.
+fn button_part(
+    id: &str,
+    class: &'static str,
+    parent: &str,
+    button: &NSButton,
+    rect: objc2_foundation::NSRect,
+    object: u64,
+) -> InspectNode {
+    let whole = facts(button, None);
+    InspectNode {
+        id: id.to_owned(),
+        class,
+        object,
+        parent: Some(parent.to_owned()),
+        ck: None,
+        facts: ViewFacts {
+            frame: frame_of(button.convertRect_toView(rect, None)),
+            visible: whole.visible && rect.size.width > 0.0 && rect.size.height > 0.0,
+            first_responder: false,
+            enabled: None,
+            role: None,
+            label: None,
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 0,
+        },
+        style: None,
+        truncated: None,
+        under: None,
+        behind: None,
+        state: None,
+    }
+}
+
+/// Подпись кнопки: прямоугольник заголовка её ячейки (`titleRectForBounds:`), шрифт кнопки, цвет
+/// `contentTintColor`. `None` — подписи у кнопки нет.
+pub(crate) fn button_title(id: &str, parent: &str, button: &NSButton) -> Option<InspectNode> {
+    let title = button.title().to_string();
+    let cell = button.cell().filter(|_| !title.is_empty())?;
+    let bounds = button.bounds();
+    let rect = cell.titleRectForBounds(bounds);
+    let mut node = button_part(id, "ButtonTitle", parent, button, rect, object_id(&*cell));
+    node.facts.label = Some(title);
+    node.style = Some(Style {
+        font: button.font().map(|font| style::font_facts(&font)),
+        color: button
+            .contentTintColor()
+            .and_then(|color| style::rgba(&color)),
+        ..Style::default()
+    });
+    node.truncated = Some(button.intrinsicContentSize().width > bounds.size.width + 0.5);
+    Some(node)
+}
+
+/// Значок кнопки: прямоугольник картинки её ячейки (`imageRectForBounds:`) и сторона картинки.
+/// `name` — имя значка, которое компонент поставил кнопке. Шаблонную картинку красит
+/// `contentTintColor`; цветная несёт цвет в себе, и свойством вида он не читается.
+pub(crate) fn button_image(
+    id: &str,
+    parent: &str,
+    button: &NSButton,
+    name: &str,
+) -> Option<InspectNode> {
+    let image = button.image()?;
+    let cell = button.cell()?;
+    let rect = cell.imageRectForBounds(button.bounds());
+    let color = button
+        .contentTintColor()
+        .filter(|_| image.isTemplate())
+        .and_then(|color| style::rgba(&color));
+    Some(
+        button_part(id, "ButtonIcon", parent, button, rect, object_id(&*image)).with_icon(
+            name,
+            image.size().width,
+            color,
+        ),
+    )
 }
 
 /// Ключи анимаций у слоя и всех его подслоёв.

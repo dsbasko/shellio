@@ -683,7 +683,8 @@ impl OwnerWindow {
         let status_nodes = self
             .status
             .as_ref()
-            .map(|status| status.inspect("status", None));
+            .map(|status| status.inspect(STATUS_ID, None))
+            .map(|nodes| nodes.into_iter().map(status_keyed).collect::<Vec<_>>());
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -1003,6 +1004,28 @@ fn tab_strip_view(facts: TabStripFacts) -> TabStripView {
                 help: button.help,
             })
             .collect(),
+    }
+}
+
+/// Имя узла строки статуса окна в `ui.inspect`.
+const STATUS_ID: &str = "status";
+
+/// Ключ сверки узла строки статуса окна: строка — корень поверхности, слот сообщения входит в
+/// сверку только с показанным текстом.
+fn status_keyed(node: InspectNode) -> InspectNode {
+    if node.id == STATUS_ID {
+        return node.with_root_ck(shellio_appkit::ck::STATUS);
+    }
+    let shown = node.facts.visible
+        && node
+            .facts
+            .label
+            .as_deref()
+            .is_some_and(|text| !text.is_empty());
+    if shown {
+        node.with_ck(shellio_appkit::ck::STATUS_MESSAGE)
+    } else {
+        node
     }
 }
 
@@ -1608,6 +1631,52 @@ mod tests {
         assert_eq!(copy.submenu.as_ref().map(Vec::len), Some(1));
         assert!(menu.items[1].separator);
         assert_eq!(menu.items[1].id, "sep");
+    }
+
+    /// Строка статуса окна — корень поверхности, пустой или скрытый слот сообщения ключа не несёт.
+    #[test]
+    fn status_message_is_keyed_only_with_shown_text() {
+        let node = |id: &str, visible: bool, label: Option<&str>| InspectNode {
+            id: id.to_owned(),
+            class: "StatusMessage",
+            object: 1,
+            parent: None,
+            ck: None,
+            style: None,
+            truncated: None,
+            under: Some(shellio_appkit::Rgba {
+                r: 30,
+                g: 29,
+                b: 27,
+                a: 1.0,
+            }),
+            behind: None,
+            facts: shellio_appkit::ViewFacts {
+                frame: Frame::new(0.0, 0.0, 1.0, 1.0),
+                visible,
+                first_responder: false,
+                enabled: None,
+                role: None,
+                label: label.map(str::to_owned),
+                help: None,
+                selected: None,
+                expanded: None,
+                animation_keys: 0,
+            },
+            state: None,
+        };
+        let line = status_keyed(node("status", true, None));
+        assert_eq!(line.ck.as_deref(), Some("status"));
+        assert!(line.style.is_some_and(|style| style.fill.is_some()));
+        let shown = status_keyed(node("status.message", true, Some("Не хватает места")));
+        assert_eq!(shown.ck.as_deref(), Some("status.message"));
+        assert_eq!(shown.style, None, "слот — не корень поверхности");
+        for (visible, label) in [(true, None), (true, Some("")), (false, Some("текст"))] {
+            assert_eq!(
+                status_keyed(node("status.message", visible, label)).ck,
+                None
+            );
+        }
     }
 
     #[test]

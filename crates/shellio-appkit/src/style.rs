@@ -3,8 +3,7 @@
 
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSColor, NSColorSpace, NSControl, NSFont, NSFontTraitsAttribute, NSFontWeightTrait,
-    NSTextField, NSView,
+    NSColor, NSColorSpace, NSFont, NSFontTraitsAttribute, NSFontWeightTrait, NSTextField, NSView,
 };
 use objc2_core_text::kCTFontURLAttribute;
 use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL};
@@ -265,7 +264,8 @@ pub(crate) fn font_file(font: &NSFont) -> Option<String> {
     url.absoluteString().map(|url| url.to_string())
 }
 
-/// Свойства вида: слой, а у текстового контрола ещё шрифт и цвет текста.
+/// Свойства вида: слой, а у поля с текстом ещё шрифт и цвет текста. Контрол без текста шрифта не
+/// несёт: шрифт кнопки отдаёт узел её подписи.
 pub(crate) fn view_style(view: &NSView) -> Style {
     let mut style = view
         .layer()
@@ -273,9 +273,9 @@ pub(crate) fn view_style(view: &NSView) -> Style {
         .unwrap_or_default();
     if let Some(field) = view.downcast_ref::<NSTextField>() {
         style.color = field.textColor().and_then(|color| rgba(&color));
-    }
-    if let Some(font) = view.downcast_ref::<NSControl>().and_then(NSControl::font) {
-        style.font = Some(font_facts(&font));
+        if field.stringValue().length() > 0 {
+            style.font = field.font().map(|font| font_facts(&font));
+        }
     }
     style
 }

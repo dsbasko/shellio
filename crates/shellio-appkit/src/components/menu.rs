@@ -965,14 +965,22 @@ impl MenuButton {
     /// Кнопка для `ui.inspect` с состоянием меню: пункты, открыто ли, подсвеченный пункт.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {
         let button = self.view.view();
-        vec![inspect::node(
+        let mut nodes = vec![inspect::node(
             id,
             "MenuButton",
             parent,
             button,
             Some(button.isEnabled()),
             Some(NodeState::Menu(self.menu().state())),
-        )]
+        )];
+        // Значок рисует ячейка кнопки: кадр — её прямоугольник картинки.
+        nodes.extend(inspect::button_image(
+            &format!("{id}.icon"),
+            id,
+            button,
+            "more",
+        ));
+        nodes
     }
 
     /// Кнопка для размещения в иерархии.

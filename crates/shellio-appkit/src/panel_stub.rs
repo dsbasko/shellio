@@ -752,6 +752,12 @@ impl ExpandStub {
                 Some(button.isEnabled()),
                 None,
             ));
+            // Подпись рисует ячейка кнопки: кадр — её прямоугольник заголовка.
+            nodes.extend(inspect::button_title(
+                &format!("{id}.expand.label"),
+                &format!("{id}.expand"),
+                button,
+            ));
         }
         nodes
     }
@@ -1039,7 +1045,14 @@ impl EmptyNote {
 
     /// Сообщение для `ui.inspect`.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> InspectNode {
-        inspect::node(id, "EmptyNote", parent, self.view.view(), None, None)
+        // Сообщение рисует вложенное поле: шрифт, цвет и обрезка — его, имя узла остаётся именем
+        // вида для доступности.
+        let view = self.view.view();
+        let node = inspect::node(id, "EmptyNote", parent, view, None, None);
+        let label = node.facts.label.clone();
+        let mut node = node.with_text_of(&view.ivars().text);
+        node.facts.label = label;
+        node
     }
 
     fn apply_theme(&self) {
