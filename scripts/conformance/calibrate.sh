@@ -254,6 +254,11 @@ cleanup() {
   local status=$? deadline
   trap '' INT TERM
   set +eu
+  # bash 3.2 при обрыве по set -u выходит с кодом 0: исход без отметки конца — ошибка исполнения.
+  if [[ $completed -ne 1 && $status -eq 0 ]]; then
+    say "сценарий оборван до конца"
+    status=1
+  fi
   if [[ -n "$profile" && -d "$profile" ]]; then
     if lock_held "$profile"; then
       deadline=$(($(now_ms) + OWNER_START_S * 1000))
@@ -292,6 +297,7 @@ mkdir -p "$run/product"
 : >"$run/log"
 say "каталог прогона: $run"
 
+completed=0
 trap cleanup EXIT
 trap 'say "прерван сигналом"; exit 1' INT TERM
 
@@ -347,3 +353,4 @@ cat "$run/oracle.stderr" >&2
 cp "$run/calibration.json" "$materials/.calibration.json.part"
 mv "$materials/.calibration.json.part" "$record"
 say "калибровка записана: $record"
+completed=1

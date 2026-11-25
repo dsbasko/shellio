@@ -658,8 +658,9 @@ impl Judge<'_> {
                     None,
                 );
             }
-            // Подпись кнопки не обрезается полем: факт обрезки у неё несёт ширина по чернилам.
-            if let (Some(want), true) = (element.truncated, node.class != BUTTON_TITLE) {
+            // У подписи кнопки факт обрезки читается так же: естественная ширина заголовка
+            // против ширины кнопки.
+            if let Some(want) = element.truncated {
                 match node.truncated {
                     None => self.unread(ck, Field::Truncated, want.to_string()),
                     Some(got) if got != want => {
@@ -696,7 +697,10 @@ impl Judge<'_> {
             match fields::judgement(element, field) {
                 Judgement::ByRule => self.number(ck, field, want, got, tolerance),
                 // Интервал однострочного текста несёт середина строки в кадре.
-                Judgement::ByFrames | Judgement::NotDrawn | Judgement::ByChildren => {}
+                Judgement::ByFrames
+                | Judgement::NotDrawn
+                | Judgement::ByChildren
+                | Judgement::SystemDetail => {}
                 Judgement::RingAsLine | Judgement::BySnapshot => {
                     self.snapshot(ck, field, SnapshotKind::Region);
                 }
@@ -708,7 +712,8 @@ impl Judge<'_> {
             Judgement::ByChildren
             | Judgement::ByFrames
             | Judgement::NotDrawn
-            | Judgement::RingAsLine => {}
+            | Judgement::RingAsLine
+            | Judgement::SystemDetail => {}
         }
         match fields::judgement(element, Field::Fill) {
             Judgement::BySnapshot => {
@@ -716,6 +721,7 @@ impl Judge<'_> {
                     self.snapshot(ck, Field::Fill, SnapshotKind::Region);
                 }
             }
+            Judgement::SystemDetail => {}
             Judgement::ByRule
             | Judgement::ByFrames
             | Judgement::ByChildren
@@ -738,6 +744,7 @@ impl Judge<'_> {
                 }
             }
             Judgement::BySnapshot => self.snapshot(ck, Field::Shadow, SnapshotKind::Region),
+            Judgement::SystemDetail => {}
             Judgement::ByRule
             | Judgement::ByFrames
             | Judgement::ByChildren
@@ -1163,6 +1170,55 @@ pub fn region_median(
     }))
 }
 
+/// Цвет чернил значка по снимку: медиана ядра. Ядро — пиксели переднего плана кадра (правило
+/// `ICON_FG` против фона), чья разница с фоном не меньше наибольшей разницы минус допуск канала:
+/// полностью покрытый пиксель несёт цвет чернил, сглаженный край лежит между чернилами и фоном
+/// и в ядро не входит. `None` — чернил в кадре нет.
+pub fn ink_color(
+    frame: &Rect,
+    background: Rgba,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<Option<[u8; 3]>, String> {
+    let clip = PixelClip::of(frame, scale)?;
+    let mut pixels = Vec::with_capacity(clip.width as usize * clip.height as usize);
+    let mut rgba = Vec::with_capacity(pixels.capacity() * 4);
+    for y in 0..clip.height {
+        for x in 0..clip.width {
+            let [r, g, b] = pixel(clip.x + x, clip.y + y)
+                .ok_or_else(|| format!("значок за кадром снимка: пиксель {x}×{y} области"))?;
+            pixels.push([r, g, b]);
+            rgba.extend([r, g, b, 255]);
+        }
+    }
+    let distance = |[r, g, b]: [u8; 3]| {
+        r.abs_diff(background.r)
+            .max(g.abs_diff(background.g))
+            .max(b.abs_diff(background.b))
+    };
+    let ink: Vec<[u8; 3]> = pixels
+        .into_iter()
+        .zip(foreground(&rgba, background, ICON_FG))
+        .filter_map(|(rgb, on)| on.then_some(rgb))
+        .collect();
+    let Some(far) = ink.iter().map(|rgb| distance(*rgb)).max() else {
+        return Ok(None);
+    };
+    let mut channels: [Vec<u8>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+    for rgb in ink
+        .into_iter()
+        .filter(|rgb| distance(*rgb) >= far.saturating_sub(CHANNEL_TOLERANCE))
+    {
+        for (channel, value) in channels.iter_mut().zip(rgb) {
+            channel.push(value);
+        }
+    }
+    Ok(Some(channels.map(|mut channel| {
+        channel.sort_unstable();
+        channel[channel.len() / 2]
+    })))
+}
+
 /// Непрозрачная заливка участка: медиана снимка против цвета паспорта, допуск канала. `None` — в
 /// допуске.
 pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) -> Option<Mismatch> {
@@ -1242,8 +1298,8 @@ pub struct Staged {
 /// Стадия снимка: судит поля [`Report::snapshot`] по снимку окна. Маска значка — против эталонной
 /// маски паспорта, подпись кнопки — чернилами, непрозрачная заливка — медианой участка: у
 /// элемента с узлом продукта по кадру узла (место судит поле кадра), у псевдоэлемента — по кадру
-/// паспорта. Остальное (полупрозрачный участок, кольцо кнопок окна, цвет цветного значка, линия
-/// под вкладкой) попадает в [`Staged::unjudged`].
+/// паспорта, цвет цветного значка — медианой ядра чернил ([`ink_color`]). Остальное
+/// (полупрозрачный участок, линия под вкладкой) попадает в [`Staged::unjudged`].
 pub fn snapshot_stage(
     passport: &Passport,
     product: &Product,
@@ -1304,7 +1360,24 @@ pub fn snapshot_stage(
                 None => Err("у элемента паспорта нет заливки".to_owned()),
             },
             (SnapshotKind::Region, _) => Err("кольцо и тень участком не судятся".to_owned()),
-            (SnapshotKind::IconColor, _) => Err("цвет цветного значка не судится".to_owned()),
+            (SnapshotKind::IconColor, _) => match (element.and_then(|e| e.color), node) {
+                (Some(color), Some(node)) => product_backdrop(product, node)
+                    .and_then(|background| {
+                        let frame = product.frame(node);
+                        ink_color(&frame, background, snapshot.scale, snapshot.pixel)
+                    })
+                    .map(|ink| match ink {
+                        Some(median) => fill_mismatch(ck, Field::Color, color, median),
+                        None => Some(Mismatch {
+                            ck: ck.to_owned(),
+                            field: Field::Color,
+                            expected: rgba_text(color),
+                            actual: "чернил значка на снимке нет".to_owned(),
+                            difference: None,
+                        }),
+                    }),
+                _ => Err("нет узла значка или цвета в паспорте".to_owned()),
+            },
             (SnapshotKind::Underline, _) => Err("линия под вкладкой не судится".to_owned()),
         };
         match judged {
@@ -1537,6 +1610,58 @@ mod tests {
         };
         assert!(region_median(&thin, 2.0, |_, _| Some([0, 0, 0])).is_err());
         assert!(region_median(&frame, 2.0, |_, _| None).is_err());
+    }
+
+    #[test]
+    fn ink_color_is_the_median_of_fully_covered_pixels() {
+        let frame = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 6.0,
+            h: 6.0,
+        };
+        let background = Rgba {
+            r: 17,
+            g: 16,
+            b: 14,
+            a: 1.0,
+        };
+        let ink = [143, 137, 126];
+        let half = [80, 76, 70];
+        // Штрих в три пикселя со сглаженными краями: ядро — средний столбец.
+        let stroke = |x: u32, _: u32| {
+            Some(match x {
+                4 | 6 => half,
+                5 => ink,
+                _ => [17, 16, 14],
+            })
+        };
+        assert_eq!(ink_color(&frame, background, 2.0, stroke), Ok(Some(ink)));
+        // Штрих в два пикселя по сетке: соседей-чернил сверху и снизу нет, ядро то же.
+        let thin = |_: u32, y: u32| Some(if y == 4 || y == 5 { ink } else { [17, 16, 14] });
+        assert_eq!(ink_color(&frame, background, 2.0, thin), Ok(Some(ink)));
+        // Один сглаженный край без покрытого пикселя даёт цвет смеси: расхождение, а не цвет.
+        let edge = |x: u32, _: u32| Some(if x == 5 { half } else { [17, 16, 14] });
+        assert_eq!(ink_color(&frame, background, 2.0, edge), Ok(Some(half)));
+        assert_eq!(
+            ink_color(&frame, background, 2.0, |_, _| Some([17, 16, 14])),
+            Ok(None)
+        );
+        assert!(ink_color(&frame, background, 2.0, |_, _| None).is_err());
+        // Допуск канала: 3 единицы проходят, 4 — расхождение цвета.
+        let want = Rgba {
+            r: 143,
+            g: 137,
+            b: 126,
+            a: 1.0,
+        };
+        assert_eq!(
+            fill_mismatch("k", Field::Color, want, [146, 137, 126]),
+            None
+        );
+        let over = fill_mismatch("k", Field::Color, want, [147, 137, 126])
+            .unwrap_or_else(|| panic!("расхождение"));
+        assert_eq!((over.field, over.difference), (Field::Color, Some(4.0)));
     }
 
     #[test]

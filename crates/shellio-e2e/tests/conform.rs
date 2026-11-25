@@ -280,6 +280,8 @@ fn snapshot_stage_gets_pseudo_masks_and_system_buttons() {
         kind("chrome.workspace.chevron", Field::Color),
         Some(SnapshotKind::IconColor)
     );
+    // Кольцо кнопки окна: строка контракта «деталь системного вида», стадии снимка не отдаётся.
+    assert_eq!(kind("chrome.window.close", Field::Shadow), None);
     // Значок вкладки демо-плагина: силуэт покрыт исключением реестра.
     let demo = "zone.center.part.1.tabs.tab.2.icon";
     assert!(passport.elements.iter().any(|e| e.ck == demo));
@@ -659,6 +661,15 @@ fn button_title_is_left_to_the_snapshot_stage() {
             .any(|c| c.ck == label && c.kind == SnapshotKind::ButtonTitleInk)
     );
 
+    // Факт обрезки подписи кнопки сверяется, как у поля.
+    let mut cut = tree.clone();
+    node(&mut cut, label)["truncated"] = json!(true);
+    only(
+        &run("chrome-titlebar", &passport, &cut),
+        label,
+        Field::Truncated,
+    );
+
     // Середина строки по вертикали судится и у подписи кнопки.
     let y = node(&mut tree, label)["frame"]["y"].as_f64().expect("y");
     node(&mut tree, label)["frame"]["y"] = json!(y + 2.0);
@@ -814,14 +825,26 @@ fn snapshot_stage_judges_opaque_fill_and_names_what_it_left() {
         (mismatch.field, mismatch.difference),
         (Field::Fill, Some(4.0))
     );
-    // Что стадия не судит, названо с причиной: линия под вкладкой, цвет цветного значка, маска
-    // без эталона.
+    // Цвет цветного значка судится: на одноцветном снимке шеврона нужного цвета нет.
+    let chevron = "chrome.workspace.chevron";
+    assert!(
+        exact
+            .mismatches
+            .iter()
+            .any(|m| m.ck == chevron && m.field == Field::Color)
+    );
+    assert!(
+        exact
+            .unjudged
+            .iter()
+            .all(|u| u.kind != SnapshotKind::IconColor)
+    );
+    // Что стадия не судит, названо с причиной: линия под вкладкой, маска без эталона.
     for (key, kind) in [
         (
             "zone.center.part.1.tabs.tab.1::after",
             SnapshotKind::Underline,
         ),
-        ("chrome.workspace.chevron", SnapshotKind::IconColor),
         ("chrome.search.icon", SnapshotKind::Mask),
     ] {
         assert!(
@@ -843,11 +866,11 @@ fn oracle(args: &[&str]) -> (Option<i32>, Value) {
     (output.status.code(), report)
 }
 
-#[test]
-fn conform_subcommand_refuses_a_verdict_while_a_snapshot_field_is_unjudged() {
-    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
-    let passport_path = root().join("conformance/passports/chrome-titlebar/dark-normal.json");
-    let passport = passport("chrome-titlebar", "dark-normal");
+/// Вызов `conform` на зеркале паспорта состояния и белом снимке окна: код, отчёт и пути входов
+/// (паспорт, `ui.inspect`, `ui.window`, PNG).
+fn conform_on_white(dir: &Path, state: &str) -> (Option<i32>, Value, [String; 4]) {
+    let passport_path = root().join(format!("conformance/passports/{state}/dark-normal.json"));
+    let passport = passport(state, "dark-normal");
     let (width, height) = (passport.window.width, passport.window.height);
     let mut tree = mirror(&passport);
     tree["window_number"] = json!(7);
@@ -879,7 +902,7 @@ fn conform_subcommand_refuses_a_verdict_while_a_snapshot_field_is_unjudged() {
             .unwrap_or_else(|e| panic!("png: {e}"));
     }
     let file = |name: &str, bytes: &[u8]| {
-        let path = dir.path().join(name);
+        let path = dir.join(format!("{state}.{name}"));
         fs::write(&path, bytes).unwrap_or_else(|e| panic!("{name}: {e}"));
         path.display().to_string()
     };
@@ -912,22 +935,45 @@ fn conform_subcommand_refuses_a_verdict_while_a_snapshot_field_is_unjudged() {
         "--calibration",
         &calibration,
     ]);
+    (code, report, [passport_arg, inspect, window, png])
+}
+
+#[test]
+fn conform_subcommand_gives_code_3_with_named_fields_and_code_1_while_a_field_is_unjudged() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    // Заголовок: каждое поле снимка судится, белый снимок — расхождение с названными полями.
+    let (code, report, [passport_arg, inspect, window, png]) =
+        conform_on_white(dir.path(), "chrome-titlebar");
+    assert_eq!(code, Some(3), "{report:#}");
+    assert_eq!(report["verdict"], "mismatch");
+    assert_eq!(report["state"], "chrome-titlebar");
+    assert_eq!(report["unjudged"], json!([]), "{report:#}");
+    let named = |ck: &str, field: &str| {
+        report["mismatches"]
+            .as_array()
+            .is_some_and(|m| m.iter().any(|m| m["ck"] == ck && m["field"] == field))
+    };
+    assert!(named("chrome.search.icon", "icon_mask"), "{report:#}");
+    assert!(named("chrome.workspace.chevron", "color"), "{report:#}");
+    assert!(named("chrome.window.close", "fill"), "{report:#}");
+    // Кольцо кнопки окна не сверяется строкой контракта: ни расхождения, ни поля без суждения.
+    assert!(!named("chrome.window.close", "shadow"), "{report:#}");
+
+    // Раскладка: вуаль и линия под вкладкой стадией ещё не судятся — вердикта нет, код 1.
+    let (code, report, _) = conform_on_white(dir.path(), "layout-all-zones");
     assert_eq!(code, Some(1), "{report:#}");
     assert_eq!(report["verdict"], "error");
-    assert_eq!(report["state"], "chrome-titlebar");
     let unjudged = report["unjudged"]
         .as_array()
         .unwrap_or_else(|| panic!("список несуженных полей: {report:#}"));
     assert!(
         unjudged
             .iter()
-            .any(|u| u["ck"] == "chrome.workspace.chevron" && u["kind"] == "icon_color")
+            .any(|u| u["ck"] == "zone.center.part.1.tabs.tab.1::after" && u["kind"] == "underline"),
+        "{report:#}"
     );
-    // Белый снимок: силуэт значка поиска — расхождение маски, оно названо и при ошибке.
     assert!(
-        report["mismatches"].as_array().is_some_and(|m| m
-            .iter()
-            .any(|m| m["ck"] == "chrome.search.icon" && m["field"] == "icon_mask")),
+        unjudged.iter().all(|u| u["kind"] != "icon_color"),
         "{report:#}"
     );
     // Неполный вызов и чужой флаг — код 2.

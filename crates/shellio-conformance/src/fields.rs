@@ -333,6 +333,10 @@ pub enum Judgement {
     RingAsLine,
     /// Вид рисует система без слоя: судит участок снимка.
     BySnapshot,
+    /// Деталь системного вида, которую снимок не читает: не сверяется. Внутреннее кольцо кнопки
+    /// окна в полточки при масштабе 2 — один сглаженный пиксель края круга, его цвет не отделить
+    /// от смеси с фоном. Заливку той же кнопки судит участок снимка.
+    SystemDetail,
 }
 
 /// Системные кнопки окна: AppKit рисует их без слоя вида.
@@ -374,7 +378,7 @@ pub fn judgement(element: &Element, field: Field) -> Judgement {
         }
         Field::Color if SELF_COLORED.contains(&element.ck.as_str()) => Judgement::BySnapshot,
         Field::Fill if system => Judgement::BySnapshot,
-        Field::Shadow if system => Judgement::BySnapshot,
+        Field::Shadow if system => Judgement::SystemDetail,
         Field::Shadow if !element.shadow.is_empty() && element.shadow.iter().all(is_ring) => {
             Judgement::RingAsLine
         }

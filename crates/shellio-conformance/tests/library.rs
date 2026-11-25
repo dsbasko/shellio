@@ -792,7 +792,7 @@ fn judgement_rows_cover_fields_appkit_does_not_carry() {
     close.fill = Some(ink);
     close.shadow = vec![shadow(0.5, 0.0, true)];
     assert_eq!(judgement(&close, Field::Fill), Judgement::BySnapshot);
-    assert_eq!(judgement(&close, Field::Shadow), Judgement::BySnapshot);
+    assert_eq!(judgement(&close, Field::Shadow), Judgement::SystemDetail);
     assert_eq!(judgement(&close, Field::Frame), Judgement::ByRule);
 
     let mut chevron = element("chrome.workspace.chevron", ElementKind::Icon);
