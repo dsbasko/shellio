@@ -1,6 +1,6 @@
 //! Съёмщик паспортов сверки (ADR-0037): запускает закреплённый `chrome-headless-shell` с новым
 //! профилем, говорит с ним по CDP через loopback, загружает сцену и рецепт во вход
-//! `?conformance=1` прототипа и пишет собранные факты.
+//! `?conformance=1` прототипа и пишет канонический паспорт.
 //!
 //! Вызов: `shellio-snap --chrome <путь> --root <репозиторий> --recipe <имя> --cell <ячейка>
 //! --out <файл>`. Коды: 0 — записано, 1 — ошибка исполнения, 2 — неверный вызов.
@@ -14,8 +14,11 @@ use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use shellio_conformance::passport::Cell;
+use shellio_conformance::cdp;
+use shellio_conformance::passport::{Cell, Element, FontFace, Passport, Window};
 use shellio_conformance::recipe::Recipe;
+use shellio_conformance::scene::{Composition, Scene};
+use shellio_conformance::validity::Inputs;
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
 struct Args {
@@ -170,7 +173,7 @@ impl Cdp {
     }
 }
 
-fn snap(args: &Args) -> Result<Value, String> {
+fn snap(args: &Args) -> Result<String, String> {
     let recipe_path = args
         .root
         .join(format!("conformance/recipes/{}.json", args.recipe));
@@ -227,7 +230,92 @@ fn snap(args: &Args) -> Result<Value, String> {
         "contrast": serde_json::to_value(args.cell.contrast).map_err(|e| e.to_string())?,
     });
     cdp.eval(&format!("window.conformance.apply({recipe_text}, {cell})"))?;
-    cdp.eval("window.conformance.facts()")
+    let facts = cdp.eval("window.conformance.facts()")?;
+
+    let scene =
+        Scene::parse(&scene_path.display().to_string(), &scene_text).map_err(|e| e.to_string())?;
+    let observed: Composition =
+        serde_json::from_value(facts["composition"].clone()).map_err(|e| format!("состав: {e}"))?;
+    let unmet = recipe.check_post(&scene, &observed);
+    if !unmet.is_empty() {
+        return Err(format!(
+            "постусловие рецепта не выполнено: {}",
+            unmet.join("; ")
+        ));
+    }
+    let mut elements = cdp::elements(&facts)?;
+    fonts(&mut cdp, &mut elements)?;
+    let inputs = Inputs::from_root(&args.root).map_err(|e| e.to_string())?;
+    let passport = Passport {
+        validity: inputs
+            .expected(&args.recipe, args.cell)
+            .map_err(|e| e.to_string())?,
+        window: Window {
+            width: f64::from(recipe.window.width),
+            height: f64::from(recipe.window.height),
+            dpr: f64::from(recipe.window.dpr),
+        },
+        composition: observed,
+        elements,
+    };
+    passport.check()?;
+    passport.to_canonical().map_err(|e| e.to_string())
+}
+
+/// Шрифты, которыми Chrome фактически набрал текст элемента, с `isCustomFont` и числом глифов.
+/// Узлы `[data-ck]` идут в порядке документа, как факты.
+fn fonts(cdp: &mut Cdp, elements: &mut [Element]) -> Result<(), String> {
+    cdp.call("DOM.enable", json!({}))?;
+    cdp.call("CSS.enable", json!({}))?;
+    let doc = cdp.call("DOM.getDocument", json!({"depth": 0}))?;
+    let root = doc["root"]["nodeId"]
+        .as_u64()
+        .ok_or("нет корня документа")?;
+    let found = cdp.call(
+        "DOM.querySelectorAll",
+        json!({"nodeId": root, "selector": "[data-ck]"}),
+    )?;
+    let nodes: Vec<u64> = found["nodeIds"]
+        .as_array()
+        .map(|a| a.iter().filter_map(Value::as_u64).collect())
+        .unwrap_or_default();
+    if nodes.len() != elements.len() {
+        return Err(format!(
+            "узлов с data-ck {}, фактов {}",
+            nodes.len(),
+            elements.len()
+        ));
+    }
+    for (node, element) in nodes.into_iter().zip(elements.iter_mut()) {
+        let Some(font) = element.font.as_mut() else {
+            continue;
+        };
+        let reply = cdp.call("CSS.getPlatformFontsForNode", json!({"nodeId": node}))?;
+        let mut faces: Vec<FontFace> = reply["fonts"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|f| FontFace {
+                        family: f["postScriptName"]
+                            .as_str()
+                            .filter(|n| !n.is_empty())
+                            .or_else(|| f["familyName"].as_str())
+                            .unwrap_or_default()
+                            .to_owned(),
+                        custom: f["isCustomFont"].as_bool().unwrap_or(false),
+                        glyphs: f["glyphCount"].as_u64().unwrap_or(0) as u32,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        faces.sort_by(|a, b| {
+            b.glyphs
+                .cmp(&a.glyphs)
+                .then_with(|| a.family.cmp(&b.family))
+        });
+        font.faces = faces;
+    }
+    Ok(())
 }
 
 fn main() -> ExitCode {
@@ -238,10 +326,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    match snap(&args).and_then(|facts| {
-        let text = serde_json::to_string_pretty(&facts).map_err(|e| e.to_string())?;
-        fs::write(&args.out, text + "\n").map_err(|e| e.to_string())
-    }) {
+    match snap(&args).and_then(|text| fs::write(&args.out, text).map_err(|e| e.to_string())) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("shellio-snap: {e}");

@@ -193,7 +193,7 @@ impl Scene {
                         } else {
                             BodyMode::Ready
                         },
-                        tools: if part.tabs.is_empty() {
+                        tools: if part.tabs.is_empty() || is_column(zone.zone, part) {
                             Vec::new()
                         } else {
                             PART_TOOLS.iter().map(|t| (*t).to_owned()).collect()
@@ -226,6 +226,15 @@ pub const TITLEBAR_CONTROLS: &[&str] = &[
     "chrome.zones.right",
     "chrome.appearance",
 ];
+
+/// Колонка навигатора: левая часть с единственной вкладкой навигатора. Она не делится
+/// (ADR-0031) и рисуется без строки вкладок.
+fn is_column(zone: Zone, part: &ScenePart) -> bool {
+    zone == Zone::Left && part.tabs.len() == 1 && part.tabs[0].plugin == COLUMN_PLUGIN
+}
+
+/// Плагин колонки навигатора.
+pub const COLUMN_PLUGIN: &str = "navigator";
 
 /// Контролы строки вкладок части с вкладками без шагов рецепта, по порядку: сегменты `{tool}`.
 pub const PART_TOOLS: &[&str] = &["split", "zoom", "menu"];
