@@ -1013,6 +1013,117 @@ pub fn mask_mismatch(
     }
 }
 
+/// Чернила текста по снимку: начало и ширина по `x` в точках окна. Столбец пикселей кадра узла
+/// несёт чернила, если в нём есть пиксель переднего плана по правилу `ICON_FG` против фона
+/// [`product_backdrop`]. `None` — чернил в кадре нет.
+pub fn ink_span(
+    product: &Product,
+    node: &Node,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<Option<(f64, f64)>, String> {
+    let clip = PixelClip::of(&product.frame(node), scale)?;
+    let background = product_backdrop(product, node)?;
+    let mut span: Option<(u32, u32)> = None;
+    for x in 0..clip.width {
+        let mut ink = false;
+        for y in 0..clip.height {
+            let [r, g, b] = pixel(clip.x + x, clip.y + y)
+                .ok_or_else(|| format!("подпись за кадром снимка: пиксель {x}×{y} области"))?;
+            if foreground(&[r, g, b, 255], background, ICON_FG) == [true] {
+                ink = true;
+                break;
+            }
+        }
+        if ink {
+            span = Some((span.map_or(x, |(first, _)| first), x));
+        }
+    }
+    Ok(span.map(|(first, last)| {
+        (
+            f64::from(clip.x + first) / scale,
+            f64::from(last - first + 1) / scale,
+        )
+    }))
+}
+
+/// Начало и ширина подписи кнопки: чернила продукта против кадра подписи паспорта. Начало —
+/// допуск кадра, ширина — допуск калибровки ширины текста. Начала передаются уже от общего
+/// начала: окна или предка с исключением `frame_x`. `None` — в допуске.
+pub fn title_mismatch(
+    ck: &str,
+    expected: (f64, f64),
+    ink: Option<(f64, f64)>,
+    tolerances: Tolerances,
+) -> Option<Mismatch> {
+    let wanted = format!("начало {}, ширина {}", expected.0, expected.1);
+    let Some((x, width)) = ink else {
+        return Some(Mismatch {
+            ck: ck.to_owned(),
+            field: Field::Frame,
+            expected: wanted,
+            actual: "чернил подписи на снимке нет".to_owned(),
+            difference: None,
+        });
+    };
+    let (x_gap, w_gap) = ((expected.0 - x).abs(), (expected.1 - width).abs());
+    (x_gap > FRAME_TOLERANCE || w_gap > tolerances.text_width.max(FRAME_TOLERANCE)).then(|| {
+        Mismatch {
+            ck: ck.to_owned(),
+            field: Field::Frame,
+            expected: wanted,
+            actual: format!("чернила: начало {x}, ширина {width}"),
+            difference: Some(x_gap.max(w_gap)),
+        }
+    })
+}
+
+/// Медиана цвета участка снимка по каналам: пиксели, лежащие целиком внутри кадра `frame` в
+/// координатах паспорта. Кадр без единого целого пикселя или за снимком — отказ.
+pub fn region_median(
+    frame: &Rect,
+    scale: f64,
+    pixel: impl Fn(u32, u32) -> Option<[u8; 3]>,
+) -> Result<[u8; 3], String> {
+    let edge = |v: f64| (v * scale * 1e6).round() / 1e6;
+    let (x0, y0) = (edge(frame.x).ceil(), edge(frame.y).ceil());
+    let (x1, y1) = (
+        edge(frame.x + frame.w).floor(),
+        edge(frame.y + frame.h).floor(),
+    );
+    if x0 < 0.0 || y0 < 0.0 || x1 <= x0 || y1 <= y0 {
+        return Err(format!("участок {frame:?} не содержит ни одного пикселя"));
+    }
+    let mut channels: [Vec<u8>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+    for y in y0 as u32..y1 as u32 {
+        for x in x0 as u32..x1 as u32 {
+            let rgb = pixel(x, y).ok_or_else(|| format!("участок {frame:?} за кадром снимка"))?;
+            for (channel, value) in channels.iter_mut().zip(rgb) {
+                channel.push(value);
+            }
+        }
+    }
+    Ok(channels.map(|mut channel| {
+        channel.sort_unstable();
+        channel[channel.len() / 2]
+    }))
+}
+
+/// Непрозрачная заливка участка: медиана снимка против цвета паспорта, допуск канала. `None` — в
+/// допуске.
+pub fn fill_mismatch(ck: &str, field: Field, expected: Rgba, median: [u8; 3]) -> Option<Mismatch> {
+    let [r, g, b] = median;
+    let actual = Rgba { r, g, b, a: 1.0 };
+    let gap = color_gap(Rgba { a: 1.0, ..expected }, actual);
+    (gap > f64::from(CHANNEL_TOLERANCE)).then(|| Mismatch {
+        ck: ck.to_owned(),
+        field,
+        expected: rgba_text(expected),
+        actual: rgba_text(actual),
+        difference: Some(gap),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1132,5 +1243,116 @@ mod tests {
         // Маски, расходящиеся больше чем на пиксель, — расхождение с причиной.
         let big = mask(4, 2, &[1; 8]);
         assert!(mask_mismatch("k", &big, &three, 0.1).is_some_and(|m| m.difference.is_none()));
+    }
+
+    /// Кнопка 30×10 точек в (5, 5) с подписью: место заголовка — весь кадр, чернила — столбцы
+    /// 24..=51 пикселей снимка (12 точек от края окна, ширина 14 точек).
+    fn button() -> Product {
+        let tree = serde_json::json!({
+            "content": {"width": 40.0, "height": 20.0},
+            "components": [
+                {"id": "bar", "ck": "chrome", "frame": {"x": 0.0, "y": 0.0, "width": 40.0, "height": 20.0},
+                 "visible": true, "style": {"fill": {"r": 30, "g": 29, "b": 27, "a": 1.0}}},
+                {"id": "title", "parent": "bar", "ck": "chrome.workspace.label", "class": BUTTON_TITLE,
+                 "frame": {"x": 5.0, "y": 5.0, "width": 30.0, "height": 10.0}, "visible": true}
+            ]
+        });
+        Product::parse(&tree.to_string()).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    fn text_pixel(x: u32, y: u32) -> Option<[u8; 3]> {
+        let ink = (24..=51).contains(&x) && (14..26).contains(&y) && (x + y).is_multiple_of(2);
+        Some(if ink { [217, 212, 202] } else { [30, 29, 27] })
+    }
+
+    const TEXT: Tolerances = Tolerances {
+        text_width: 1.25,
+        mask_iou: 0.9,
+    };
+
+    #[test]
+    fn ink_span_reads_the_drawn_text_not_the_title_slot() {
+        let product = button();
+        let title = product
+            .keyed("chrome.workspace.label")
+            .unwrap_or_else(|| panic!("подпись"));
+        let ink = ink_span(&product, title, 2.0, text_pixel).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(ink, Some((12.0, 14.0)));
+        let blank = ink_span(&product, title, 2.0, |_, _| Some([30, 29, 27]));
+        assert_eq!(blank, Ok(None));
+        assert!(ink_span(&product, title, 2.0, |_, _| None).is_err());
+    }
+
+    #[test]
+    fn title_ink_is_judged_by_start_and_calibrated_width() {
+        let ink = Some((12.0, 14.0));
+        assert_eq!(title_mismatch("k", (12.0, 14.0), ink, TEXT), None);
+        // Начало — точка кадра на границе и за ней.
+        assert_eq!(title_mismatch("k", (13.0, 14.0), ink, TEXT), None);
+        assert!(title_mismatch("k", (13.01, 14.0), ink, TEXT).is_some());
+        // Подпись с лишним отступом 2 точки.
+        let padded =
+            title_mismatch("k", (10.0, 14.0), ink, TEXT).unwrap_or_else(|| panic!("расхождение"));
+        assert_eq!((padded.field, padded.difference), (Field::Frame, Some(2.0)));
+        // Ширина — допуск калибровки на границе и за ней.
+        assert_eq!(title_mismatch("k", (12.0, 15.25), ink, TEXT), None);
+        assert!(title_mismatch("k", (12.0, 15.26), ink, TEXT).is_some());
+        // Подпись не нарисована.
+        assert!(
+            title_mismatch("k", (12.0, 14.0), None, TEXT).is_some_and(|m| m.difference.is_none())
+        );
+    }
+
+    #[test]
+    fn region_median_takes_whole_pixels_inside_the_frame() {
+        // Круглая кнопка 12×12 точек в (14, 13,5): углы кадра — фон, медиана — заливка.
+        let frame = Rect {
+            x: 14.0,
+            y: 13.5,
+            w: 12.0,
+            h: 12.0,
+        };
+        let button = |x: u32, y: u32| {
+            let (dx, dy) = (f64::from(x) - 39.5, f64::from(y) - 38.5);
+            Some(if dx * dx + dy * dy <= 144.0 {
+                [255, 95, 87]
+            } else {
+                [30, 29, 27]
+            })
+        };
+        assert_eq!(region_median(&frame, 2.0, button), Ok([255, 95, 87]));
+        // Линия в половину точки на дробной границе: целый пиксель один.
+        let line = Rect {
+            x: 0.0,
+            y: 0.25,
+            w: 4.0,
+            h: 0.75,
+        };
+        assert_eq!(
+            region_median(&line, 2.0, |_, y| Some([y as u8, 0, 0])),
+            Ok([1, 0, 0])
+        );
+        let thin = Rect {
+            x: 0.0,
+            y: 0.25,
+            w: 4.0,
+            h: 0.5,
+        };
+        assert!(region_median(&thin, 2.0, |_, _| Some([0, 0, 0])).is_err());
+        assert!(region_median(&frame, 2.0, |_, _| None).is_err());
+    }
+
+    #[test]
+    fn opaque_fill_is_judged_within_three_units() {
+        let fill = Rgba {
+            r: 255,
+            g: 95,
+            b: 87,
+            a: 1.0,
+        };
+        assert_eq!(fill_mismatch("k", Field::Fill, fill, [252, 98, 87]), None);
+        let over = fill_mismatch("k", Field::Fill, fill, [251, 95, 87])
+            .unwrap_or_else(|| panic!("расхождение"));
+        assert_eq!((over.field, over.difference), (Field::Fill, Some(4.0)));
     }
 }
