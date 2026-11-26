@@ -408,9 +408,21 @@
     const p = S.focused();
     if (!p) return 'nav';
     const def = S.plugins[p.plugin];
+    // У панели с полем режим не хранится: «ВВОД» — только пока фокус в поле.
+    if (def.fieldInput) return 'nav';
     return def.surfaceless && def.surfaceless(p) ? 'nav' : p.mode;
   };
-  S.setMode = (m) => { const p = S.focused(); if (!p) return; p.mode = m; S.render(); };
+  S.panelField = (p) => [...document.querySelectorAll(`.panel[data-panel="${p.id}"] .panel-body input, .panel[data-panel="${p.id}"] .panel-body textarea`)][0] || null;
+  S.setMode = (m) => {
+    const p = S.focused(); if (!p) return;
+    if (S.plugins[p.plugin].fieldInput) {
+      const field = S.panelField(p);
+      if (m === 'input') { if (field) field.focus(); } else if (S.isField(document.activeElement)) document.activeElement.blur();
+      S.render();
+      return;
+    }
+    p.mode = m; S.render();
+  };
 
   // Сводка ресурсов считается из единого снимка.
   S.totals = () => {

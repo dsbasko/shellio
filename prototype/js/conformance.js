@@ -102,14 +102,14 @@
     const known = S.plugins;
     S.plugins = {};
     scene.catalog.forEach((c) => {
-      const base = known[c.id] || { view: () => '' };
+      // Плагин, которого нет в обычном мире, берёт вид сцены; без него тело пустое.
+      const base = known[c.id] || S.sceneViews[c.id] || { view: () => '' };
       S.plugins[c.id] = { ...base, id: c.id, title: c.title, icon: c.icon, placements: c.placements, defaultZone: c.default_zone, minSize: { w: c.min_size.width, h: c.min_size.height }, cardinality: { multi: 'multi', per_workbench: 'workbench', per_project: 'project', per_workspace: 'workspace', per_app: 'app' }[c.cardinality] };
       // Подпись вкладки, точка, счётчик, нагрузка и действия демо-мира в сцену не попадают.
       ['tabTitle', 'tabStatus', 'tabCount', 'meter', 'actions', 'inputHints', 'inputTarget', 'surfaceless'].forEach((k) => { delete S.plugins[c.id][k]; });
       // Получатель ввода есть только у плагина, которому его дала сцена. Режим клавиатуры сцена
       // не называет: он следует за фактическим получателем.
       S.plugins[c.id].inputDefault = !!(c.capabilities || {}).input;
-      if (!known[c.id]) S.plugins[c.id].view = () => '';
     });
     S.scenarios.length = 0;
     St.scene = scene; St.statusMessage = null;

@@ -110,8 +110,9 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-layout-all-zones conform-layout-left-plate conform-layout-split-right conform-layout-split-center
   conform-layout-split-bottom conform-layout-zoom conform-tabs-side conform-tabs-center conform-tabs-half
   conform-tabs-wide ck-coverage conform-layout-stub conform-layout-empty-workbench conform-menu-panel
-  conform-picker-new-part conform-status-split-no-room conform-panel-filter voiceover-speech)
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 0)
+  conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
+  conform-status-input-field voiceover-speech)
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
 DONE_TASK=12
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
@@ -1814,7 +1815,8 @@ item_ck_coverage
 # Состояния без шагов рецепта идут первыми на одной сцене, остальные получают новый профиль.
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
-  layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter; do
+  layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
+  status-input-field; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then

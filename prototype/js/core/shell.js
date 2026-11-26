@@ -288,6 +288,9 @@
     document.documentElement.dataset.mode = S.mode();
     S.morph(document.getElementById('app'), shellHtml());
     renderPanels();
+    // Панель с полем, взявшая фокус, отдаёт его полю: поле появляется только после отрисовки тела.
+    const taken = S.focused();
+    if (taken && taken.wantField) { taken.wantField = false; const field = S.panelField(taken); if (field) field.focus(); }
     document.querySelectorAll('.tabs').forEach((tabs) => {
       const on = tabs.querySelector('.tab.on');
       const g = tabs.closest('[data-g]').dataset.g;
