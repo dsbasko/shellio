@@ -11,7 +11,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -412,6 +412,16 @@ fn capture(cdp: &mut Cdp, facts: Value, dpr: f64) -> Result<cdp::Capture, String
     let mut keys = BTreeMap::new();
     let mut pseudo_nodes = Vec::new();
     keyed_nodes(&doc["root"], None, &mut keys, &mut pseudo_nodes);
+    // Строки за границей видимой области списка палитры факты не описывают: их узлы и
+    // псевдоэлементы в паспорт не входят.
+    let clipped: BTreeSet<&str> = facts["clipped"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    keys.retain(|ck, _| !clipped.contains(ck.as_str()));
+    pseudo_nodes.retain(|(owner, _, _)| !clipped.contains(owner.as_str()));
     if keys.len() != list.len() {
         return Err(format!(
             "узлов с data-ck {}, фактов {}",

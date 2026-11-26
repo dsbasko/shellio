@@ -1611,11 +1611,62 @@ fn coverage_recorded(inspect: &str) -> (Option<i32>, Value) {
     ])
 }
 
+/// Запись окна `p15` снята до подсказки «поиск» строки статуса, которую паспорт ждёт с палитрой
+/// P1.6: её узлы дописываются по образцу второй подсказки, пока срез 3 задачи 4 плана
+/// `command-overlays` не переснимет запись.
+fn p15_inspect() -> Value {
+    let path = recorded("p15-light-normal.inspect.json");
+    let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let mut tree: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
+    let nodes = tree["ok"]["ui"]["inspect"]["components"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("в записи нет узлов"));
+    let at = nodes
+        .iter()
+        .rposition(|n| {
+            n["ck"]
+                .as_str()
+                .is_some_and(|ck| ck.starts_with("status.hint.2"))
+        })
+        .unwrap_or_else(|| panic!("в записи нет второй подсказки"));
+    let added: Vec<Value> = [
+        ("status.hint.3", "status", "StatusHint", Value::Null),
+        (
+            "status.hint.3.key",
+            "status.hint.3",
+            "KeyBadge",
+            json!("⌘K"),
+        ),
+        (
+            "status.hint.3.label",
+            "status.hint.3",
+            "Label",
+            json!("поиск"),
+        ),
+    ]
+    .into_iter()
+    .map(|(ck, parent, class, label)| {
+        let mut node = nodes[at].clone();
+        node["id"] = json!(ck);
+        node["ck"] = json!(ck);
+        node["parent"] = json!(parent);
+        node["class"] = json!(class);
+        node["label"] = label;
+        node
+    })
+    .collect();
+    nodes.splice(at + 1..at + 1, added);
+    tree
+}
+
 /// Пункт `ck-coverage`: на записи настоящего окна состав сцены найден и у каждого сверяемого узла
 /// есть ключ из таблицы; калибровка и снимок подкоманде не нужны.
 #[test]
 fn coverage_subcommand_passes_the_recorded_p15_window() {
-    let (code, report) = coverage_recorded(&recorded("p15-light-normal.inspect.json"));
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
+    let file = dir.path().join("p15.inspect.json");
+    fs::write(&file, p15_inspect().to_string()).unwrap_or_else(|e| panic!("{e}"));
+    let (code, report) = coverage_recorded(&file.display().to_string());
     assert_eq!(code, Some(0), "{report:#}");
     assert_eq!(report["state"], "layout-all-zones");
     assert_eq!(report["mismatches"], json!([]));
@@ -1628,8 +1679,7 @@ fn coverage_subcommand_names_a_lost_a_foreign_and_a_repeated_key() {
     const BUTTON: &str = "zone.center.part.1.tabs.zoom";
     const OTHER: &str = "zone.bottom.part.1.tabs.zoom";
     let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("каталог: {e}"));
-    let path = recorded("p15-light-normal.inspect.json");
-    let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let text = p15_inspect().to_string();
     let cases: [(&str, Value, &str, &str); 3] = [
         ("lost", Value::Null, BUTTON, "нет узла продукта"),
         (

@@ -234,6 +234,14 @@
       if (!inp) throw new Error(`строки фильтра у панели ${p.plugin} нет`);
       inp.value = s.text;
     },
+    // Текст запроса открытой палитры: выбор возвращается к первой строке.
+    query: (s) => {
+      const o = S.ov.has('palette'); if (!o) throw new Error('палитра не открыта');
+      o.state.q = s.text; o.state.i = 0; S.renderNow();
+      const inp = document.querySelector('[data-ck="palette.query"]');
+      if (!inp) throw new Error('поля запроса у палитры нет');
+      inp.value = s.text;
+    },
   };
 
   // Рецепт применяется над загруженной сценой в ячейке { theme, contrast }.
@@ -288,7 +296,16 @@
     const pop = document.querySelector('.pop[data-ck]');
     const menu = pop ? [...pop.querySelectorAll('.row')].map((row) => ({ title: row.querySelector('.row-t').textContent, enabled: !row.classList.contains('dim') })) : undefined;
     const controls = (root) => [...document.querySelectorAll(`${root} button[data-ck]`)].map(ck);
-    const elements = [...document.querySelectorAll('[data-ck]')].map((el) => {
+    // Строки за границей видимой области списка палитры в паспорт не входят: продукт строит
+    // только видимые строки VirtualList, полный состав судит чтение ui.overlay.
+    const clipped = (el) => {
+      const list = el.parentElement && el.parentElement.closest('.pal-list');
+      if (!list) return false;
+      const r = el.getBoundingClientRect(); const c = list.getBoundingClientRect();
+      return r.bottom <= c.top || r.top >= c.bottom;
+    };
+    const all = [...document.querySelectorAll('[data-ck]')];
+    const elements = all.filter((el) => !clipped(el)).map((el) => {
       const r = el.getBoundingClientRect();
       const parent = el.parentElement && el.parentElement.closest('[data-ck]');
       const cs = getComputedStyle(el);
@@ -310,7 +327,7 @@
         },
       };
     });
-    return { composition: { zones, focus, menu, titlebar: controls('.titlebar'), statusline: controls('.status') }, elements };
+    return { composition: { zones, focus, menu, titlebar: controls('.titlebar'), statusline: controls('.status') }, elements, clipped: all.filter(clipped).map(ck) };
   };
 
   // Инвентарь обычного мира: id зарегистрированных сценариев и плагины с размещениями.

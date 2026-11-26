@@ -120,6 +120,10 @@ pub enum Step {
     Filter {
         text: String,
     },
+    /// Текст запроса открытой палитры.
+    Query {
+        text: String,
+    },
 }
 
 impl Step {
@@ -140,6 +144,7 @@ impl Step {
             Step::Keymap { .. } => "keymap",
             Step::FocusField { .. } => "focus_field",
             Step::Filter { .. } => "filter",
+            Step::Query { .. } => "query",
         }
     }
 

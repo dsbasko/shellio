@@ -134,6 +134,15 @@
   // Палитра
   const GROUPS = [['sess', 'Сессии'], ['prj', 'Проекты'], ['cmd', 'Команды'], ['proj', 'Рабочие области'], ['ws', 'Воркспейсы'], ['panel', 'Панели'], ['file', 'Файлы'], ['mr', 'Ревью'], ['demo', 'Сценарии']];
   const CATS = [['all', 'Всё'], ...GROUPS];
+  // Мир P1.6 сцены сверки: палитра выполняет команды и открывает панели, провайдеры поиска
+  // сущностей приходят в P1.7. Демо-мир прототипа сохраняет все группы.
+  const GROUPS_P16 = [['cmd', 'Команды'], ['panel', 'Панели']];
+  const CATS_P16 = [['all', 'Всё'], ...GROUPS_P16];
+  const groupsNow = () => (St.scene ? GROUPS_P16 : GROUPS);
+  const catsNow = () => (St.scene ? CATS_P16 : CATS);
+  // Команды мира P1.6 в порядке commands.js; у выхода продукта есть Cmd-q.
+  const COMMANDS_P16 = ['split.v', 'split.s', 'part.next', 'panel.close', 'panel.only', 'layout.equal', 'zoom', 'app.quit'];
+  const KEYS_P16 = { 'app.quit': 'Cmd-q' };
   const ZONE = { center: 'центр', left: 'слева', right: 'справа', bottom: 'низ' };
   const stateOf = (s) => (s.kind !== 'agent' && s.state === 'running' ? 'выполняется' : S.stateName(s));
   const shortTitle = (p) => { const def = S.plugins[p.plugin]; return p.state.sid && def.tabTitle ? def.tabTitle(p) : def.title; };
@@ -176,6 +185,11 @@
       { id: 'zone.bottom', title: `${toggle(L.hidden.bottom)} нижнюю зону`, sub: names('bottom'), keys: S.keyFor('zone.bottom', 'Cmd-j') },
       { id: 'zone.right', title: `${toggle(L.hidden[side])} ${side === 'plate' ? 'левую' : 'правую'} зону`, sub: side === 'plate' ? plateNames : names('right'), keys: S.keyFor('zone.right', 'Cmd-Alt-0') },
     ];
+    if (St.scene) {
+      const head = pinned.map((c) => ({ cat: 'cmd', icon: 'cmd', ...c, run: () => S.run(c.id) }));
+      const rest = COMMANDS_P16.map((id) => S.command(id)).filter((c) => c && (!c.when || c.when()) && (!c.palWhen || c.palWhen())).map((c) => ({ cat: 'cmd', icon: 'cmd', title: c.title, sub: c.sub || '', keys: KEYS_P16[c.id] || S.keysOf(c)[0], run: () => c.run() }));
+      return [...head, ...rest];
+    }
     if (plateTabs.length && side === 'right') pinned.push({ title: `${toggle(L.hidden.plate)} панели слева`, sub: plateNames, run: () => S.toggleZone('plate') });
     if (changes) {
       const zone = S.groupOf(L, changes.id).zone === 'right' ? 'left' : 'right';
@@ -192,7 +206,12 @@
     return [...head, ...own, ...rest];
   }
 
+  function panelItems() {
+    return S.panelsOf().filter((p) => { const def = S.plugins[p.plugin]; return !def.chromeless && !p.state.sid; }).map((p) => { const def = S.plugins[p.plugin]; return { cat: 'panel', icon: def.icon, title: def.tabTitle ? def.tabTitle(p) : def.title, sub: `панель · ${ZONE[S.groupOf(S.layout(), p.id).zone] || ''}`, run: () => S.focus(p.id) }; });
+  }
+
   function paletteItems() {
+    if (St.scene) return [...commandItems(), ...panelItems(), ...St.scene.catalog.map((c) => ({ cat: 'panel', icon: c.icon, title: `Открыть: ${c.title}`, sub: '', run: () => S.open(c.id, {}) }))];
     const out = [...sessionItems(), ...commandItems()];
     const g = S.projectGroups(St.route.ws);
     const shown = [...g.listed, ...g.outside];
@@ -200,7 +219,7 @@
     shown.forEach((p) => out.push({ cat: 'prj', near: recent.has(p.id), icon: 'folder', title: p.title, sub: `${S.fmt.plural(p.repos.length, 'репозиторий', 'репозитория', 'репозиториев')}${S.listed(p) ? '' : ', вне списка'}`, score: (q) => S.projScore(p, q), run: () => S.openProject(p.id) }));
     Object.values(W.workbenches).forEach((w) => { const p = W.projects[w.project]; if (p.ws !== St.route.ws || p.removedAt) return; out.push({ cat: 'proj', icon: 'branch', title: w.title, sub: `${p.title} / ${w.branch}`, run: () => S.go(w.id) }); });
     S.workspaces().filter((w) => w.id !== St.route.ws).forEach((w) => out.push({ cat: 'ws', near: false, icon: 'folder', title: w.title, sub: 'перейти в воркспейс', run: () => S.goWs(w.id) }));
-    S.panelsOf().forEach((p) => { const def = S.plugins[p.plugin]; if (def.chromeless || p.state.sid) return; out.push({ cat: 'panel', icon: def.icon, title: def.tabTitle ? def.tabTitle(p) : def.title, sub: `панель · ${ZONE[S.groupOf(S.layout(), p.id).zone] || ''}`, run: () => S.focus(p.id) }); });
+    out.push(...panelItems());
     if (S.repo()) W.allFiles().forEach((f) => out.push({ cat: 'file', icon: 'file', title: f, sub: `${S.repo().id}, ${S.wb().branch}`, run: () => S.openFile(f) }));
     W.mrList.filter((id) => S.repoWs(W.mrs[id].repo) === St.route.ws).forEach((id) => { const m = W.mrs[id]; out.push({ cat: 'mr', icon: 'review', title: `${m.id} ${m.title}`, sub: `${m.repo} · черновиков: ${m.drafts.length}`, run: () => S.open('review', { key: m.id, target: m.id }) }); });
     (S.scenarios || []).forEach((s) => out.push({ cat: 'demo', icon: 'scenes', title: s.title, sub: s.group, run: s.run }));
@@ -216,6 +235,7 @@
       const q = (st.q || '').trim();
       const scope = all.filter((i) => (st.cat === 'all' ? q || (!QUIET.has(i.cat) && i.near !== false) : i.cat === st.cat));
       const scored = q ? scope.map((i) => ({ i, s: i.score ? i.score(q) : S.match(`${i.title} ${i.sub}`, q) })).filter((x) => x.s > 0) : scope.map((i, n) => ({ i, s: -n }));
+      const GROUPS = groupsNow();
       const groups = GROUPS.map(([id, title]) => ({ title, items: scored.filter((x) => x.i.cat === id).sort((a, b) => b.s - a.s).map((x) => x.i) })).filter((g) => g.items.length);
       if (q) groups.sort((a, b) => Math.max(...scored.filter((x) => x.i.cat === GROUPS.find(([, t]) => t === b.title)[0]).map((x) => x.s)) - Math.max(...scored.filter((x) => x.i.cat === GROUPS.find(([, t]) => t === a.title)[0]).map((x) => x.s)));
       let left = 60;
@@ -229,17 +249,19 @@
       render: (x) => {
         const { groups, flat } = compute(x.state);
         let n = -1;
-        const cat = CATS.find(([id]) => id === x.state.cat);
-        return `<div class="float pal" role="dialog" aria-label="Переход и команды"><div class="pal-in">${icon('search', 16)}${x.state.cat !== 'all' ? `<span class="pal-cat">${cat[1]}</span>` : ''}<input data-autofocus data-bind="q" autocomplete="off" spellcheck="false" placeholder="Сессия, команда или действие…" value="${esc(x.state.q)}"><kbd>esc</kbd></div>
-        <div class="pal-list">${flat.length ? groups.map((g) => `<div class="pg" data-k="g-${g.title}">${g.title}</div>${g.items.map((it) => { n++; return `<button type="button" class="${cx('pi', n === x.state.i && 'on')}" data-do="pick" data-arg="${n}" data-i="${n}" data-k="${esc(`${it.cat}-${it.title}`)}">${icon(it.icon, 14)}<span class="t">${it.title}</span><span class="${cx('u', it.wait && 'wait')}">${it.sub || ''}</span><span class="k">${it.keys ? K.kbd(K.keyChips(it.keys)) : ''}</span></button>`; }).join('')}`).join('') : '<div class="pal-empty">Ничего не найдено</div>'}</div>
-        <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> выбрать</span><span><kbd>⏎</kbd> выполнить</span><span><kbd>esc</kbd> закрыть</span></div></div>`;
+        const cat = catsNow().find(([id]) => id === x.state.cat);
+        const row = (it, rk) => { n++; return `<button type="button" class="${cx('pi', n === x.state.i && 'on')}" data-do="pick" data-arg="${n}" data-i="${n}" data-k="${esc(`${it.cat}-${it.title}`)}" data-ck="${rk}">${icon(it.icon, 14, `${rk}.icon`)}<span class="t" data-ck="${rk}.title">${it.title}</span><span class="${cx('u', it.wait && 'wait')}" data-ck="${rk}.detail">${it.sub || ''}</span><span class="k">${it.keys ? K.kbd(K.keyChips(it.keys), `${rk}.key`) : ''}</span></button>`; };
+        const hint = (i, keys, label) => `<span data-ck="palette.footer.hint.${i}">${keys.map((k, j) => `<kbd data-ck="palette.footer.hint.${i}.key${keys.length > 1 ? `.${j + 1}` : ''}">${k}</kbd>`).join('')}<span data-ck="palette.footer.hint.${i}.label">${label}</span></span>`;
+        return `<div class="float pal" role="dialog" aria-label="Переход и команды" data-ck="palette"><div class="pal-in" data-ck="palette.header">${icon('search', 16, 'palette.header.icon')}${x.state.cat !== 'all' ? `<span class="pal-cat" data-ck="palette.category">${cat[1]}</span>` : ''}<input data-autofocus data-bind="q" autocomplete="off" spellcheck="false" placeholder="Сессия, команда или действие…" value="${esc(x.state.q)}" data-ck="palette.query"><kbd data-ck="palette.escape">esc</kbd></div>
+        <div class="pal-list" data-ck="palette.list">${flat.length ? groups.map((g, gi) => { const gk = `palette.group.${gi + 1}`; return `<div class="pal-g" data-ck="${gk}"><div class="pg" data-k="g-${g.title}" data-ck="${gk}.title">${g.title}</div>${g.items.map((it, ri) => row(it, `${gk}.row.${ri + 1}`)).join('')}</div>`; }).join('') : '<div class="pal-empty" data-ck="palette.empty">Ничего не найдено</div>'}</div>
+        <div class="pal-foot" data-ck="palette.footer">${hint(1, ['↑', '↓'], 'выбрать')}${hint(2, ['⏎'], 'выполнить')}${hint(3, ['esc'], 'закрыть')}</div></div>`;
       },
       onKey: (e, tok) => {
         const list = compute(o.state).flat;
         if (tok === 'Esc' || tok === 'Cmd-k') { S.ov.pop(o); return true; }
         if (tok === 'Down' || tok === 'Ctrl-n' || tok === 'Ctrl-j') { o.state.i = Math.min(list.length - 1, o.state.i + 1); S.render(); return true; }
         if (tok === 'Up' || tok === 'Ctrl-p' || tok === 'Ctrl-k') { o.state.i = Math.max(0, o.state.i - 1); S.render(); return true; }
-        if (tok === 'Tab' || tok === 'Shift-Tab') { const n = CATS.findIndex(([id]) => id === o.state.cat); o.state.cat = CATS[(n + (tok === 'Tab' ? 1 : CATS.length - 1)) % CATS.length][0]; o.state.i = 0; S.render(); return true; }
+        if (tok === 'Tab' || tok === 'Shift-Tab') { const CATS = catsNow(); const n = CATS.findIndex(([id]) => id === o.state.cat); o.state.cat = CATS[(n + (tok === 'Tab' ? 1 : CATS.length - 1)) % CATS.length][0]; o.state.i = 0; S.render(); return true; }
         if (tok === 'Enter') { const it = list[o.state.i]; S.ov.pop(o); if (it) it.run(); return true; }
         return 'native';
       },

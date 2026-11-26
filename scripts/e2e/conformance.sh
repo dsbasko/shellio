@@ -23,7 +23,7 @@
 # System Events (key code с модификаторами, владелец на переднем плане), после последнего аккорда шага — запись
 # ui.receipts исполненного действия не дольше KEY_GRACE_MS; keymap — текст шага пишется в
 # config/keymap.toml профиля и применяется командой keymap reload; focus_field — panel focus активной панели части,
-# first_responder поля этой панели в ui.inspect, клавиша Tab — только если панель сама фокус полю не отдала; filter — ui filter с текстом шага. Шаг, который
+# first_responder поля этой панели в ui.inspect, клавиша Tab — только если панель сама фокус полю не отдала; filter — ui filter с текстом шага; query — ui palette open --query с текстом шага у открытой палитры. Шаг, который
 # продукт не исполнил (отказ команды, поле без фокуса), — fail пункта, а не пропуск.
 #
 # Шаги split_refused, open_menu и open_picker — нажатия в окне, а не команды: штатным CLI шаг только переводит
@@ -114,8 +114,10 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-layout-split-bottom conform-layout-zoom conform-tabs-side conform-tabs-center conform-tabs-half
   conform-tabs-wide ck-coverage conform-layout-stub conform-layout-empty-workbench conform-menu-panel
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
-  conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech)
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0)
+  conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech
+  conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results)
+# Пункты палитры плана command-overlays ждут снимка композиции: до него они выше DONE_TASK.
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
 DONE_TASK=12
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
@@ -1116,7 +1118,7 @@ recipe_plan() {
     my @steps = @{ $recipe->{steps} // [] };
     binmode STDOUT, ":utf8";
     if ($mode eq "count") { print scalar(@steps), "\n"; exit 0 }
-    # Текст шага N: keymap.toml шага keymap или текст фильтра шага filter, без перевода строки в конце.
+    # Текст шага N: keymap.toml шага keymap, текст фильтра шага filter или запроса шага query, без перевода строки в конце.
     if ($mode eq "text") {
       my $s = $steps[ $rest[0] - 1 ] or die "в рецепте нет шага $rest[0]\n";
       defined $s->{text} or die "у шага $rest[0] нет текста\n";
@@ -1195,6 +1197,7 @@ recipe_plan() {
       }
       if ($op eq "keymap") { print "!keymap\n"; exit 0 }
       if ($op eq "filter") { print "!filter\n"; exit 0 }
+      if ($op eq "query") { print "!query\n"; exit 0 }
       if ($op eq "hide_zone" || $op eq "show_zone") {
         my $verb = $op eq "hide_zone" ? "hide" : "show";
         fail("центр не скрывается") if $zone eq "center";
@@ -1374,7 +1377,7 @@ se_chord() {
 }
 
 # Шаг рецепта, который не команда ядра: строка плана «!key код модификаторы аккорд», «!keymap», «!field панель»
-# или «!filter». Отказ — причина в WHY и род в STEP_KIND: fail — продукт шаг не исполнил, broken — ошибка
+# «!filter» или «!query». Отказ — причина в WHY и род в STEP_KIND: fail — продукт шаг не исполнил, broken — ошибка
 # исполнения.
 keyboard_step() {
   local line="$1" recipe="$2" n="$3" dir="$4" prefix="$5" kind code mods name place panel text deadline node before
@@ -1456,6 +1459,16 @@ keyboard_step() {
         return 1
       }
       ui_cmd "$profile" "$prefix" ui filter "$text" || {
+        STEP_KIND=fail
+        return 1
+      }
+      ;;
+    '!query')
+      text="$(recipe_plan text "$recipe" "$n" 2>"$prefix.stderr")" || {
+        WHY="текст запроса шага не прочитан: $(oneline "$prefix.stderr")"
+        return 1
+      }
+      ui_cmd "$profile" "$prefix" ui palette open --query "$text" || {
         STEP_KIND=fail
         return 1
       }

@@ -87,6 +87,28 @@ pub const TEMPLATES: &[&str] = &[
     "picker.title",
     "picker.item.{n}",
     "picker.item.{n}.label",
+    // Палитра.
+    "palette",
+    "palette.header",
+    "palette.header.icon",
+    "palette.query",
+    "palette.category",
+    "palette.escape",
+    "palette.list",
+    "palette.group.{n}",
+    "palette.group.{n}.title",
+    "palette.group.{n}.row.{n}",
+    "palette.group.{n}.row.{n}.icon",
+    "palette.group.{n}.row.{n}.title",
+    "palette.group.{n}.row.{n}.detail",
+    "palette.group.{n}.row.{n}.key",
+    "palette.group.{n}.row.{n}.key.{n}",
+    "palette.empty",
+    "palette.footer",
+    "palette.footer.hint.{n}",
+    "palette.footer.hint.{n}.key",
+    "palette.footer.hint.{n}.key.{n}",
+    "palette.footer.hint.{n}.label",
 ];
 
 const PSEUDO: [&str; 2] = ["::before", "::after"];
@@ -197,5 +219,38 @@ mod tests {
         ] {
             assert!(check_key(key).is_err(), "{key}");
         }
+    }
+
+    #[test]
+    fn palette_keys_belong_to_the_palette_surface() {
+        use crate::cdp::kind_of;
+        use crate::fields::ElementKind;
+        use crate::registry::Surface;
+        for key in [
+            "palette",
+            "palette.query",
+            "palette.group.2.title",
+            "palette.group.1.row.3.key.2",
+            "palette.footer.hint.1.key.2",
+            "palette.empty",
+        ] {
+            assert_eq!(check_key(key), Ok(()), "{key}");
+            assert!(Surface::Palette.owns(key), "{key}");
+        }
+        assert!(check_key("palette.row.1").is_err());
+        assert!(!Surface::Palette.owns("status.hint.1"));
+        assert!(!Surface::Palette.owns("palettes"));
+        assert_eq!(kind_of("div", "palette"), ElementKind::Plate);
+        assert_eq!(kind_of("span", "palette.category"), ElementKind::Badge);
+        assert_eq!(kind_of("div", "palette.empty"), ElementKind::Text);
+        assert_eq!(
+            kind_of("span", "palette.footer.hint.2"),
+            ElementKind::Container
+        );
+        assert_eq!(kind_of("div", "palette.group.1.title"), ElementKind::Text);
+        assert_eq!(
+            kind_of("button", "palette.group.1.row.1"),
+            ElementKind::Control
+        );
     }
 }

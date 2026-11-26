@@ -28,11 +28,13 @@ pub enum Surface {
     Layout,
     Menu,
     Picker,
+    /// Палитра: плавающая панель над окном владельца.
+    Palette,
 }
 
 impl Surface {
     /// Ключ принадлежит поверхности: заголовок — `chrome` и всё под ним, строка статуса —
-    /// `status` и всё под ним, остальные поверхности — всё окно.
+    /// `status` и всё под ним, палитра — `palette` и всё под ним, остальные поверхности — всё окно.
     pub fn owns(self, key: &str) -> bool {
         let under = |root: &str| {
             key.strip_prefix(root)
@@ -41,6 +43,7 @@ impl Surface {
         match self {
             Surface::Titlebar => under("chrome"),
             Surface::Statusline => under("status"),
+            Surface::Palette => under("palette"),
             Surface::Layout | Surface::Menu | Surface::Picker => true,
         }
     }

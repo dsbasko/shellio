@@ -1715,15 +1715,119 @@
       "text": "вкладки",
       "truncated": false,
       "visible": true
+    },
+    {
+      "ck": "status.hint.3",
+      "frame": {
+        "h": 18.000000,
+        "w": 64.539062,
+        "x": 389.820312,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.3.key",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 22.601562,
+        "x": 389.820312,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.3",
+      "radius": 4.000000,
+      "text": "⌘K",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.3.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 5
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 34.937500,
+        "x": 419.421875,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.3",
+      "text": "поиск",
+      "truncated": false,
+      "visible": true
     }
   ],
   "validity": {
     "cell": "light-high",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "dab3f462db8ed8c04da9542187b8e80a60c54a808d1c2c6ab0dcea682be1e53e",
+    "prototype": "aeb1242dce76eb7d6ac6f151ee6160e7234359e96da1d4f27bdeabaeee02edfa",
     "recipe": "fdf213ec74e00b7229a9f4431a6bbbb0071bfc84f5013abe4e4d78a9ecad01b4",
-    "scene": "f5fc85636e1c845d7b5f05ea954591e6b88f457583ee6d70fe0300cd70f5a529",
-    "schema": 6
+    "scene": "d119a0106773817d2304a315e4053bbab9d82d6f40816df815bdb002086d5e6c",
+    "schema": 7
   },
   "window": {
     "dpr": 2.000000,

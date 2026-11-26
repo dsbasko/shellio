@@ -817,7 +817,8 @@ fn recipe_keyboard_steps_parse() {
              "commands": {"zoom": ["Ctrl-w m"], "split.v": []}},
             {"op": "keymap", "text": "", "message": "keymap.toml, строка 2: причина"},
             {"op": "focus_field", "zone": "center", "part": 1},
-            {"op": "filter", "text": "два слова"}],
+            {"op": "filter", "text": "два слова"},
+            {"op": "query", "text": "скрыть"}],
            "post": {"parts": {"center": 1}}}"#,
     )
     .unwrap();
@@ -847,10 +848,16 @@ fn recipe_keyboard_steps_parse() {
             Step::Filter {
                 text: "два слова".to_owned(),
             },
+            Step::Query {
+                text: "скрыть".to_owned(),
+            },
         ]
     );
     let ops: Vec<_> = recipe.steps.iter().map(Step::op).collect();
-    assert_eq!(ops, ["key", "keymap", "keymap", "focus_field", "filter"]);
+    assert_eq!(
+        ops,
+        ["key", "keymap", "keymap", "focus_field", "filter", "query"]
+    );
     // Имя шага на проводе совпадает с `op` записи, запись читается обратно без потерь.
     for step in &recipe.steps {
         let wire = serde_json::to_value(step).unwrap();
@@ -921,18 +928,21 @@ fn scene_reads_capabilities_absent_commands_and_right_summaries() {
             ..Capabilities::default()
         }
     );
-    assert_eq!(scene.commands_absent, ["palette"]);
+    // Палитра P1.6 есть в мире сцены: отсутствующих действий у неё нет.
+    assert!(scene.commands_absent.is_empty());
     // Плашка режима есть в строке статуса любой сцены.
     assert_eq!(scene.composition().statusline, ["status.mode"]);
 
     let mut value: serde_json::Value = serde_json::from_str(P15).unwrap();
     value["status"] = serde_json::json!({"load": "3% CPU · 210 МБ"});
+    value["commands_absent"] = serde_json::json!(["palette"]);
     value["catalog"][0]["capabilities"] = serde_json::json!({
         "input": true,
         "hints": [{"key": "Enter", "label": "открыть"}]
     });
     let scene = Scene::parse("s", &value.to_string()).unwrap();
     assert_eq!(scene.status.load.as_deref(), Some("3% CPU · 210 МБ"));
+    assert_eq!(scene.commands_absent, ["palette"]);
     assert_eq!(
         scene.composition().statusline,
         ["status.mode", "status.load"]

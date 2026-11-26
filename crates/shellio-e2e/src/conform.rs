@@ -954,7 +954,7 @@ fn within(full: &Composition, surface: Surface) -> Composition {
             titlebar: Vec::new(),
             statusline: full.statusline.clone(),
         },
-        Surface::Layout | Surface::Menu | Surface::Picker => full.clone(),
+        Surface::Layout | Surface::Menu | Surface::Picker | Surface::Palette => full.clone(),
     }
 }
 

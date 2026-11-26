@@ -1,0 +1,737 @@
+{
+  "composition": {
+    "focus": {
+      "part": 1,
+      "zone": "center"
+    },
+    "statusline": [
+      "status.mode"
+    ],
+    "titlebar": [
+      "chrome.window.close",
+      "chrome.window.minimize",
+      "chrome.window.zoom",
+      "chrome.workspace",
+      "chrome.search",
+      "chrome.zones.left",
+      "chrome.zones.bottom",
+      "chrome.zones.right",
+      "chrome.appearance"
+    ],
+    "zones": {
+      "bottom": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "center": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal",
+            "demo-native"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "left": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "navigator"
+          ]
+        }
+      ],
+      "right": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "demo-list",
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "ck": "palette",
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "frame": {
+        "h": 147.000000,
+        "w": 640.000000,
+        "x": 270.000000,
+        "y": 46.000000
+      },
+      "kind": "plate",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "radius": 10.000000,
+      "shadow": [
+        {
+          "blur": 48.000000,
+          "color": {
+            "a": 0.180000,
+            "b": 30,
+            "g": 22,
+            "r": 20
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 18.000000
+        },
+        {
+          "blur": 8.000000,
+          "color": {
+            "a": 0.100000,
+            "b": 30,
+            "g": 22,
+            "r": 20
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 2.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "palette.header",
+      "frame": {
+        "h": 46.000000,
+        "w": 638.000000,
+        "x": 271.000000,
+        "y": 47.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "bottom"
+      ],
+      "line_width": 1.000000,
+      "parent": "palette",
+      "visible": true
+    },
+    {
+      "ck": "palette.header.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 16.000000,
+        "x": 285.000000,
+        "y": 61.500000
+      },
+      "icon": {
+        "name": "search",
+        "size": 16.000000
+      },
+      "kind": "icon",
+      "parent": "palette.header",
+      "visible": true
+    },
+    {
+      "ck": "palette.query",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 5
+          }
+        ],
+        "family": "-apple-system",
+        "size": 15.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 30.000000,
+        "w": 545.093750,
+        "x": 311.000000,
+        "y": 54.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "palette.header",
+      "text": "xyzzy",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.escape",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 3
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 28.906250,
+        "x": 866.093750,
+        "y": 61.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "palette.header",
+      "radius": 4.000000,
+      "text": "esc",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.list",
+      "frame": {
+        "h": 64.000000,
+        "w": 638.000000,
+        "x": 271.000000,
+        "y": 93.000000
+      },
+      "kind": "container",
+      "parent": "palette",
+      "visible": true
+    },
+    {
+      "ck": "palette.empty",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 17
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 54.000000,
+        "w": 638.000000,
+        "x": 271.000000,
+        "y": 97.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "palette.list",
+      "text": "Ничего не найдено",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer",
+      "fill": {
+        "a": 1.000000,
+        "b": 236,
+        "g": 241,
+        "r": 243
+      },
+      "frame": {
+        "h": 35.000000,
+        "w": 638.000000,
+        "x": 271.000000,
+        "y": 157.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top"
+      ],
+      "line_width": 1.000000,
+      "parent": "palette",
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.1",
+      "frame": {
+        "h": 18.000000,
+        "w": 89.218750,
+        "x": 285.000000,
+        "y": 166.000000
+      },
+      "kind": "container",
+      "parent": "palette.footer",
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.1.key.1",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 285.000000,
+        "y": 166.500000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "palette.footer.hint.1",
+      "radius": 4.000000,
+      "text": "↑",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.1.key.2",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 306.000000,
+        "y": 166.500000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "palette.footer.hint.1",
+      "radius": 4.000000,
+      "text": "↓",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 7
+          }
+        ],
+        "family": "-apple-system",
+        "size": 11.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 47.218750,
+        "x": 327.000000,
+        "y": 166.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "palette.footer.hint.1",
+      "text": "выбрать",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.2",
+      "frame": {
+        "h": 18.000000,
+        "w": 81.875000,
+        "x": 390.218750,
+        "y": 166.000000
+      },
+      "kind": "container",
+      "parent": "palette.footer",
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.2.key",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 390.218750,
+        "y": 166.500000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "palette.footer.hint.2",
+      "radius": 4.000000,
+      "text": "⏎",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.2.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 9
+          }
+        ],
+        "family": "-apple-system",
+        "size": 11.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 60.875000,
+        "x": 411.218750,
+        "y": 166.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "palette.footer.hint.2",
+      "text": "выполнить",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.3",
+      "frame": {
+        "h": 18.000000,
+        "w": 79.171875,
+        "x": 488.093750,
+        "y": 166.000000
+      },
+      "kind": "container",
+      "parent": "palette.footer",
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.3.key",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 3
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 28.906250,
+        "x": 488.093750,
+        "y": 166.500000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "palette.footer.hint.3",
+      "radius": 4.000000,
+      "text": "esc",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "palette.footer.hint.3.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 7
+          }
+        ],
+        "family": "-apple-system",
+        "size": 11.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 46.265625,
+        "x": 521.000000,
+        "y": 166.000000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "palette.footer.hint.3",
+      "text": "закрыть",
+      "truncated": false,
+      "visible": true
+    }
+  ],
+  "validity": {
+    "cell": "light-high",
+    "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
+    "prototype": "aeb1242dce76eb7d6ac6f151ee6160e7234359e96da1d4f27bdeabaeee02edfa",
+    "recipe": "4830faf7551c8879f527226c7f1b52abda599aba5fd0cea7ebcc135bd6f1bf62",
+    "scene": "d119a0106773817d2304a315e4053bbab9d82d6f40816df815bdb002086d5e6c",
+    "schema": 7
+  },
+  "window": {
+    "dpr": 2.000000,
+    "height": 720.000000,
+    "width": 1180.000000
+  }
+}

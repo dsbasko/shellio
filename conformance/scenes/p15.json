@@ -142,8 +142,5 @@
     "part": 1
   },
   "appearance": "system",
-  "mode": "nav",
-  "commands_absent": [
-    "palette"
-  ]
+  "mode": "nav"
 }
