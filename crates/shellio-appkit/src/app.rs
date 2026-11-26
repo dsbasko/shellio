@@ -36,6 +36,10 @@ pub trait Delegate: 'static {
     /// `applicationDidBecomeActive`: приложение стало активным, то есть получило передний план.
     fn did_become_active(&self, app: &App);
 
+    /// `applicationDidResignActive`: приложение ушло с переднего плана. Маршрутизатор клавиш снимает
+    /// по нему ожидание второго аккорда выхода.
+    fn did_resign_active(&self, _app: &App) {}
+
     /// `applicationShouldHandleReopen:hasVisibleWindows:`: приложение открыли снова (обычный
     /// `open` бандла, щелчок по значку в Dock). Делегат сам показывает окно, AppKit больше ничего
     /// не делает.
@@ -489,6 +493,14 @@ define_class!(
             self.ivars()
                 .delegate
                 .did_become_active(&App { mtm: self.mtm() });
+        }
+
+        // SAFETY: селектор, аргумент и результат — как у `applicationDidResignActive:` протокола.
+        #[unsafe(method(applicationDidResignActive:))]
+        fn did_resign_active(&self, _notification: &NSNotification) {
+            self.ivars()
+                .delegate
+                .did_resign_active(&App { mtm: self.mtm() });
         }
 
         // SAFETY: селектор, аргументы и результат — как у

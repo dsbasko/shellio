@@ -41,6 +41,7 @@ mod counters;
 mod font;
 mod icon;
 mod inspect;
+mod key_monitor;
 mod layer;
 mod main_menu;
 mod marker;
@@ -105,6 +106,9 @@ pub use counters::{
 pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
     ViewFacts, WindowFacts, ck,
+};
+pub use key_monitor::{
+    KeyFocus, KeyMods, KeyMonitor, KeyResponder, KeyStroke, MonitorEvent, Verdict,
 };
 pub use main_menu::{MainMenu, MenuAction, PanelRow, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
