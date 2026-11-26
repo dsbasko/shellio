@@ -28,6 +28,9 @@
 # Пункт, который меняет раскладку, идёт в своей рабочей области (fresh_bench): отказ одного пункта не портит
 # сцену следующего. Команда ядра с клавиши судится ещё и одной дельтой events --since от ревизии до нажатия.
 #
+# Пункты exit-chord и exit-chord-cancel идут на галерее (--gallery) своего профиля после выхода основного владельца:
+# фокус приёмнику отдаёт gallery focus input, свидетели — журнал приёмника (gallery input journal) и ui.mode.
+#
 # Рубежи накопительные: пункт, чей срез задачи 10 ещё не выполнен, получает not_run «пункт среза N» и необязателен.
 #
 # Сигналы и уборка адресуют только PID, полученные через hello сокетов прогона и сверенные с бинарём бандла
@@ -72,7 +75,7 @@ ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zone
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
 STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=10
+DONE_STAGE=11
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -105,6 +108,7 @@ K_A=0
 K_C=8
 K_I=34
 K_M=46
+K_BACKSLASH=42
 
 REQUIRED=()
 STATUS=()
@@ -2847,6 +2851,273 @@ item_appearance_cycle() {
   conclude "$item" "Cmd-Alt-t трижды: выбор оформления ui.window системное → светлое → тёмное → системное, на каждое нажатие одна запись ui.receipts ui.appearance.cycle с источником key"
 }
 
+# --- галерея: приёмник ввода и аккорд выхода ---
+
+# Владелец галереи на своём профиле: идёт после выхода основного, на переднем плане один процесс бандла.
+profile_g=""
+owner_pid_g=""
+setup_gallery() {
+  new_profile
+  profile_g="$NEW_PROFILE"
+  launch_owner "$profile_g" "$run/exit-chord" --gallery || fatal "владелец галереи не поднят: $WHY"
+  owner_pid_g="$OWNER_PID"
+}
+
+quit_gallery() {
+  [[ -n "$owner_pid_g" ]] || return 0
+  mkdir -p "$run/cleanup/gallery"
+  ui_cmd "$profile_g" "$run/cleanup/gallery/quit" app quit || core_cmd "$profile_g" "$run/cleanup/gallery/quit" app quit || true
+  wait_gone "$owner_pid_g" "$EXIT_S" || terminate "$owner_pid_g"
+  if alive "$owner_pid_g"; then
+    fatal "владелец галереи pid $owner_pid_g не вышел"
+  fi
+  owner_pid_g=""
+}
+
+# Журнал приёмника и режим одной строкой — в SINK: «поколение журнала|режим журнала|события|режим|получатель|выход|
+# получатель ожидания»; событие — «down|up код[+cmd][+ctrl][+alt][+shift][+repeat]», события через запятую, «нет» —
+# получателя нет. Чтения — <prefix>.journal.stdout и <prefix>.mode.stdout, иначе WHY.
+SINK=""
+SINK_GEN=""
+sink_read() {
+  local prefix="$1"
+  WHY=""
+  SINK=""
+  if ! ctl "$profile" "$prefix.journal" --json --timeout "$CTL_TIMEOUT_MS" gallery input journal ||
+    ! ctl "$profile" "$prefix.mode" --json --timeout "$CTL_TIMEOUT_MS" ui mode get; then
+    WHY="журнал приёмника или ui.mode не прочитан: $(oneline "$prefix.journal.stdout") $(oneline "$prefix.journal.stderr")"
+    return 1
+  fi
+  SINK="$(/usr/bin/perl -MJSON::PP -e 'my @v;
+    for my $f (@ARGV) { open my $fh, "<", $f or exit 2; local $/; push @v, JSON::PP->new->utf8->decode(<$fh>) }
+    my $j = $v[0]{ok}{ui}{input_journal}; my $m = $v[1]{ok}{ui}{mode};
+    exit 1 unless ref $j eq "HASH" && ref $m eq "HASH";
+    my $gen = sub { my $r = shift; ref $r eq "HASH" && defined $r->{gallery_input} ? $r->{gallery_input} : "нет" };
+    my @e = map { my $e = $_; join("+", "$e->{kind} $e->{key_code}", grep { $e->{$_} } qw(cmd ctrl alt shift repeat)) }
+      @{ $j->{events} // [] };
+    print join("|", $gen->($j->{receiver}), $j->{mode} // "?", join(",", @e), $m->{mode} // "?", $gen->($m->{receiver}),
+      $m->{exit} // "?", $gen->($m->{exit_receiver})), "\n"' "$prefix.journal.stdout" "$prefix.mode.stdout" 2>/dev/null || true)"
+  if [[ -z "$SINK" ]]; then
+    WHY="журнал приёмника или ui.mode не разобран: $(oneline "$prefix.journal.stdout") $(oneline "$prefix.mode.stdout")"
+    return 1
+  fi
+}
+
+# Опрос журнала и режима до строки want; иначе WHY.
+sink_wait() {
+  local prefix="$1" want="$2" deadline
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if sink_read "$prefix" && [[ "$SINK" == "$want" ]]; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс приёмник — «${SINK:-не прочитан}», ожидалось «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос до приёмника во вводе с пустым журналом и без ожидания второго аккорда; поколение — в SINK_GEN. С old —
+# поколение обязано быть другим. Иначе WHY.
+sink_fresh() {
+  local prefix="$1" old="$2" deadline gen
+  SINK_GEN=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if sink_read "$prefix"; then
+      gen="${SINK%%|*}"
+      if [[ "$gen" =~ ^[0-9]+$ && "$gen" != "$old" && "$SINK" == "$gen|input||input|$gen|idle|нет" ]]; then
+        SINK_GEN="$gen"
+        return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс приёмник — «${SINK:-не прочитан}», ожидался приёмник во вводе с пустым журналом и выходом idle${old:+, поколение не $old}"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Исходное состояние случая: фокус снят и отдан приёмнику заново (приёмник получил фокус — он в Input, ожидание
+# прежнего случая снято), журнал очищен. Поколение — в SINK_GEN, иначе WHY.
+sink_prime() {
+  local dir="$1" name="$2"
+  ui_cmd "$profile" "$dir/$name.unfocus" gallery focus window || return 1
+  ui_cmd "$profile" "$dir/$name.focus" gallery focus input || return 1
+  if ! ctl "$profile" "$dir/$name.reset" --json --timeout "$CTL_TIMEOUT_MS" gallery input reset; then
+    WHY="gallery input reset: $(oneline "$dir/$name.reset.stdout") $(oneline "$dir/$name.reset.stderr")"
+    return 1
+  fi
+  sink_fresh "$dir/$name" ""
+}
+
+# Ctrl-\ с одной записью кольца action от key и состоянием приёмника want после него; отказ — в failures и код 1.
+xstep() {
+  local dir="$1" name="$2" action="$3" want="$4"
+  if ! act "$dir" "$name" "$action" "$K_BACKSLASH+control"; then
+    failures+=("$name: $WHY")
+    return 1
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$name: действие $action отказало: $OUTCOME")
+  if ! sink_wait "$dir/$name" "$want"; then
+    failures+=("$name: $WHY")
+    return 1
+  fi
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# После снятого ожидания: следующий Ctrl-\ — действие mode.toggle, а не второй аккорд (пара не возвращается, журнал
+# пуст, приёмник во вводе); ещё один Ctrl-\ — снова первый аккорд, он же барьер для отпусканий прежних клавиш.
+after_cancel() {
+  local dir="$1" name="$2" g="$3"
+  xstep "$dir" "$name-toggle" mode.toggle "$g|input||input|$g|idle|нет" || return 0
+  xstep "$dir" "$name-again" mode.navigation "$g|navigation||navigation|$g|armed|$g" || return 0
+}
+
+# Щелчок левой кнопкой в точке глобальных координат CG (начало сверху слева главного экрана), как в appkit.sh.
+click_at() {
+  osascript -l JavaScript -e "
+    ObjC.import('CoreGraphics');
+    const p = \$.CGPointMake($1, $2);
+    for (const type of [\$.kCGEventLeftMouseDown, \$.kCGEventLeftMouseUp])
+      \$.CGEventPost(\$.kCGHIDEventTap, \$.CGEventCreateMouseEvent(null, type, p, \$.kCGMouseButtonLeft));
+    'ok';"
+}
+
+# Середина вида приёмника в координатах CG — в POINT_X и POINT_Y: кадры ui.inspect — в точках окна с началом снизу
+# слева, кадр окна — в точках экрана с началом снизу слева главного экрана. Иначе WHY.
+POINT_X=""
+POINT_Y=""
+sink_point() {
+  local prefix="$1" wx wy h rx ry rw rh
+  WHY=""
+  if ! ui_read "$profile" "$prefix.window" window || ! ui_read "$profile" "$prefix.inspect" inspect; then
+    WHY="ui.window или ui.inspect не прочитан"
+    return 1
+  fi
+  wx="$(jv "$prefix.window.stdout" ok.ui.window.frame.x || true)"
+  wy="$(jv "$prefix.window.stdout" ok.ui.window.frame.y || true)"
+  h="$(jv "$prefix.window.stdout" 'ok.ui.window.screens[0].frame.height' || true)"
+  rx="$(comp "$prefix.inspect.stdout" gallery.input frame.x || true)"
+  ry="$(comp "$prefix.inspect.stdout" gallery.input frame.y || true)"
+  rw="$(comp "$prefix.inspect.stdout" gallery.input frame.width || true)"
+  rh="$(comp "$prefix.inspect.stdout" gallery.input frame.height || true)"
+  if [[ -z "$wx" || -z "$wy" || -z "$h" || -z "$rx" || -z "$ry" || -z "$rw" || -z "$rh" ]]; then
+    WHY="в ui.window или ui.inspect нет кадра окна, экрана или узла gallery.input"
+    return 1
+  fi
+  POINT_X="$(awk -v wx="$wx" -v rx="$rx" -v rw="$rw" 'BEGIN { printf "%.1f", wx + rx + rw / 2 }')"
+  POINT_Y="$(awk -v h="$h" -v wy="$wy" -v ry="$ry" -v rh="$rh" 'BEGIN { printf "%.1f", h - (wy + ry + rh / 2) }')"
+  printf 'точка CG %s %s\n' "$POINT_X" "$POINT_Y" >"$prefix.txt"
+}
+
+# Галерея, приёмник во вводе: первый Ctrl-\ никому не доходит, второй возвращает приёмнику одну пару.
+item_exit_chord() {
+  local item=exit-chord dir="$run/exit-chord" g ring seen pair="down $K_BACKSLASH+ctrl,up $K_BACKSLASH+ctrl"
+  local profile="$profile_g" owner_pid="$owner_pid_g"
+  log "== $item"
+  failures=()
+  to_front "$dir" "$item"
+  if sink_prime "$dir" start; then
+    g="$SINK_GEN"
+    receipts_last "$profile" "$dir/ring.before" || fatal "$item: $WHY"
+    ring="$LAST"
+    if xstep "$dir" first mode.navigation "$g|navigation||navigation|$g|armed|$g"; then
+      # Второй аккорд записи кольца не даёт: его свидетель — пара в журнале.
+      if ! key "$dir/keys.log" "$K_BACKSLASH" control; then
+        failures+=("второй Ctrl-\\ не отправлен: $(tail -n 1 "$dir/keys.log")")
+      elif ! sink_wait "$dir/second" "$g|input|$pair|input|$g|idle|нет"; then
+        failures+=("второй Ctrl-\\: $WHY")
+      # Третий Ctrl-\ — барьер: после него в журнале та же одна пара, в кольце две записи (первый и третий).
+      elif xstep "$dir" third mode.navigation "$g|navigation|$pair|navigation|$g|armed|$g"; then
+        if receipts_get "$profile" "$dir/ring" "$ring"; then
+          seen="$(jv "$dir/ring.stdout" 'ok.ui.receipts.receipts[#]' || echo "?")"
+          [[ "$seen" == 2 ]] ||
+            failures+=("записей кольца за три Ctrl-\\ — $seen, ожидались две: второй аккорд действия не исполняет")
+        else
+          failures+=("ui.receipts не прочитан: $(oneline "$dir/ring.stderr")")
+        fi
+      fi
+    fi
+  else
+    failures+=("подготовка: $WHY")
+  fi
+  conclude "$item" "галерея, приёмник во вводе: первый Ctrl-\\ — одна запись ui.receipts mode.navigation с источником key, журнал пуст, режим navigation, выход armed; второй — в журнале ровно пара down и up с кодом $K_BACKSLASH и одним Ctrl, режим input, записи кольца нет; третий Ctrl-\\ пары не добавляет"
+}
+
+# Снятое ожидание второго аккорда: другая клавиша, щелчок и закрытие приёмника.
+item_exit_chord_cancel() {
+  local item=exit-chord-cancel dir="$run/exit-chord-cancel" g n pair="down $K_BACKSLASH+ctrl,up $K_BACKSLASH+ctrl"
+  local profile="$profile_g" owner_pid="$owner_pid_g"
+  log "== $item"
+  failures=()
+  to_front "$dir" "$item"
+  # Другая клавиша.
+  if sink_prime "$dir" j; then
+    g="$SINK_GEN"
+    if xstep "$dir" j-arm mode.navigation "$g|navigation||navigation|$g|armed|$g"; then
+      if ! act "$dir" j-key panel.focus.down "$K_J"; then
+        failures+=("j: $WHY")
+      elif ! sink_wait "$dir/j-key" "$g|navigation||navigation|$g|idle|нет"; then
+        failures+=("j: $WHY")
+      else
+        once "$dir" j-key || failures+=("j: $WHY")
+        after_cancel "$dir" j "$g"
+      fi
+    fi
+  else
+    failures+=("подготовка случая j: $WHY")
+  fi
+  # Щелчок по самому приёмнику: первый ответчик не меняется, ожидание снимает только нажатие кнопки.
+  if sink_prime "$dir" click; then
+    g="$SINK_GEN"
+    if xstep "$dir" click-arm mode.navigation "$g|navigation||navigation|$g|armed|$g"; then
+      if ! sink_point "$dir/click"; then
+        failures+=("щелчок: $WHY")
+      elif ! click_at "$POINT_X" "$POINT_Y" >"$dir/click.log" 2>&1; then
+        failures+=("щелчок в точке $POINT_X $POINT_Y не отправлен: $(oneline "$dir/click.log")")
+      elif ! sink_wait "$dir/click-after" "$g|navigation||navigation|$g|idle|нет"; then
+        failures+=("щелчок в точке $POINT_X $POINT_Y: $WHY")
+      else
+        ui_read "$profile" "$dir/click-after.inspect" inspect || true
+        [[ "$(comp "$dir/click-after.inspect.stdout" gallery.input first_responder || echo "?")" == true ]] ||
+          failures+=("щелчок: вид приёмника перестал быть первым ответчиком")
+        after_cancel "$dir" click "$g"
+      fi
+    fi
+  else
+    failures+=("подготовка случая щелчка: $WHY")
+  fi
+  # Закрытие приёмника: режим navigation судится у прежнего получателя до перестройки (решение исполнителя задачи 10),
+  # новый вид получает фокус последнего запроса gallery.focus и начинает с пустого журнала без ожидания.
+  if sink_prime "$dir" close; then
+    g="$SINK_GEN"
+    if xstep "$dir" close-arm mode.navigation "$g|navigation||navigation|$g|armed|$g"; then
+      if ! ui_cmd "$profile" "$dir/close-rebuild" gallery rebuild; then
+        failures+=("закрытие: $WHY")
+      elif ! sink_fresh "$dir/close-new" "$g"; then
+        failures+=("закрытие: $WHY")
+      else
+        n="$SINK_GEN"
+        # Пара прежнего приёмника новому не возвращается: его первый Ctrl-\ — первый аккорд, второй даёт одну пару.
+        if xstep "$dir" close-first mode.navigation "$n|navigation||navigation|$n|armed|$n"; then
+          if ! key "$dir/keys.log" "$K_BACKSLASH" control; then
+            failures+=("закрытие: второй Ctrl-\\ нового приёмника не отправлен: $(tail -n 1 "$dir/keys.log")")
+          elif ! sink_wait "$dir/close-second" "$n|input|$pair|input|$n|idle|нет"; then
+            failures+=("закрытие, второй Ctrl-\\ нового приёмника: $WHY")
+          fi
+        fi
+      fi
+    fi
+  else
+    failures+=("подготовка случая закрытия: $WHY")
+  fi
+  conclude "$item" "галерея, приёмник во вводе, три случая после первого Ctrl-\\ (выход armed): j — одна запись panel.focus.down с источником key; щелчок по приёмнику — первый ответчик прежний; gallery rebuild — приёмник нового поколения. После каждого журнал пуст, выход idle, режим navigation (у закрытого — до перестройки), следующий Ctrl-\\ — действие mode.toggle или первый аккорд, а не возврат пары"
+}
+
 prepare
 preconditions
 setup_main
@@ -2875,6 +3146,14 @@ if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
   owner_pid=""
+fi
+# Галерея идёт после выхода основного владельца и до второго: пункты среза 11 вызываются, когда срез доказан
+# приёмочным проходом (DONE_STAGE не меньше 11).
+if ((DONE_STAGE >= 11)); then
+  setup_gallery
+  item_exit_chord
+  item_exit_chord_cancel
+  quit_gallery
 fi
 # Второй владелец идёт после выхода основного: на переднем плане один процесс бандла.
 item_window_quit
