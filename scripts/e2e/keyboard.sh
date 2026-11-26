@@ -68,7 +68,7 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 3 2 3 3 2 3 1 4 4 5 5 4 4 5 5 4 4 5 5 5 0)
+STAGE=(1 2 2 3 3 2 3 1 4 4 5 5 4 4 5 5 4 4 5 5 5 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
 DONE_STAGE=2
 
@@ -1382,6 +1382,85 @@ item_move_and_split() {
   conclude "$item" "вторая панель центра: Ctrl-w L, H, K, J, K переносят её центр → правая → левая → центр → нижняя → центр, фокус остаётся на ней; Ctrl-w v уводит её во вторую часть центра, Ctrl-w s — вторую панель правой зоны во вторую часть правой, заглушек нет; на каждую последовательность одна запись ui.receipts с источником key без отказа и одна дельта events --since"
 }
 
+# Опрос query.panel: data.key панели равен want (или, с «!» впереди, отличается от него); значение — в KEY, чтение —
+# <prefix>.stdout, иначе WHY.
+KEY=""
+wait_key() {
+  local prefix="$1" panel="$2" want="$3" deadline
+  WHY=""
+  KEY="?"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if panel_get "$profile" "$prefix" "$panel"; then
+      KEY="$(pv "$prefix.stdout" data.key 2>/dev/null || echo "?")"
+      if [[ "$want" == "!"* ]]; then
+        [[ "$KEY" == "?" || "$KEY" == "${want#!}" ]] || return 0
+      else
+        [[ "$KEY" != "$want" ]] || return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс data.key query.panel — $KEY, ожидалось $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Клавиша списка: lstep <каталог> <имя> <действие> <панель> <ожидаемый data.key> <аккорд>… — одна запись кольца
+# list.* с источником key без отказа, выбор query.panel по ожиданию, фокус query.layout остался в панели.
+lstep() {
+  local dir="$1" name="$2" action="$3" panel="$4" want="$5"
+  shift 5
+  if ! act "$dir" "$name" "$action" "$@"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$name: действие $action отказало: $OUTCOME")
+  wait_key "$dir/$name.panel" "$panel" "$want" || failures+=("$name: $WHY")
+  if layout_get "$profile" "$dir/$name.layout" "$wb_a"; then
+    [[ "$(focus_of "$dir/$name.layout.stdout")" == "$panel" ]] ||
+      failures+=("$name: фокус ушёл из списка: $(name_of "$(focus_of "$dir/$name.layout.stdout")")")
+  else
+    failures+=("$name: query.layout не прочитан")
+  fi
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# «Демо: список» в центре между левой и нижней зонами: j на последней строке и h остаются в списке. Клавиша без
+# исхода судится по следующей: k после них уводит выбор с последней строки на предпоследнюю.
+item_list_owns_keys() {
+  local item=list-owns-keys dir="$run/list-owns-keys" demo first last prev
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-list center
+  demo="$PANEL"
+  wait_focus "$dir/open-demo.layout" "$demo" || fatal "$item: $WHY"
+  [[ "$(place_of "$dir/open-demo.layout.stdout" "$demo")" == center.0 ]] ||
+    fatal "$item: подготовка: список не в части 0 центра: $(place_of "$dir/open-demo.layout.stdout" "$demo")"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
+  wait_key "$dir/first" "$demo" "!?" || fatal "$item: подготовка: $WHY"
+  first="$KEY"
+  ui_cmd "$profile" "$dir/bottom" ui list bottom || fatal "$item: подготовка: $WHY"
+  wait_key "$dir/last" "$demo" "!$first" || fatal "$item: подготовка: ui list bottom не сменил выбор: $WHY"
+  last="$KEY"
+  to_front "$dir" "$item"
+  if act "$dir" key-k list.up "$K_K"; then
+    wait_key "$dir/key-k.panel" "$demo" "!$last" || failures+=("key-k: $WHY")
+    prev="$KEY"
+    once "$dir" key-k || failures+=("key-k: $WHY")
+    lstep "$dir" key-j list.down "$demo" "$last" "$K_J"
+    lstep "$dir" key-j-last list.down "$demo" "$last" "$K_J"
+    lstep "$dir" key-h list.collapse "$demo" "$last" "$K_H"
+    lstep "$dir" key-k-after list.up "$demo" "$prev" "$K_K"
+  else
+    failures+=("key-k: $WHY")
+  fi
+  conclude "$item" "«Демо: список» в центре, слева и снизу — терминалы: k и j ведут выбор query.panel $last → ${prev:-?} → $last, j на последней строке и h оставляют выбор $last (следующий k уводит на ${prev:-?}), фокус query.layout остаётся в списке; на каждую клавишу одна запись ui.receipts list.* с источником key без отказа"
+}
+
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
@@ -1407,6 +1486,7 @@ prepare
 preconditions
 setup_main
 item_focus_hjkl
+item_list_owns_keys
 item_move_and_split
 item_tabs
 item_appearance_cycle
