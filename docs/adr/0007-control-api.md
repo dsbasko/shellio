@@ -850,6 +850,41 @@ AX `AXSize` не делает окно шире экрана: на встрое�
 
 Передачи: палитра и имя `palette.open`: план `command-overlays`; имена keymap действий над воркспейсами, проектами и рабочими областями: P1.7; редактор keymap: P1.8; граница с nvim по `query.keymap` и подписке: P3.6 и P3.7.
 
+## Уточнено в P1.6
+
+Вывод плана [`navigation-keymap`](../plans/completed/20261126-navigation-keymap.md) по `make check`, `make e2e` и приёмочному проходу исполнителя 2026-11-26.
+Слой команд и транспорт не меняются, статус остаётся `Proposed` до P2.3.
+
+Подтверждено:
+
+- тестами `make check`: `query.keymap`, `keymap.reload` и подписка keymap через настоящий сокет при закрытом окне, независимость доменной ревизии от смены таблицы, протокол 5 с `protocol_mismatch` в обоих направлениях, команды ядра `layout.split {axis}`, `layout.resize_by`, `tab.prev`, `tab.next` и `tab.select`, отдельным процессом `shellioctl keymap list|reload`, `ui mode`, `ui history`, `ui list`, `ui filter`, `panel tab`, `layout split --axis`, `layout resize --by`, `layout toggle`, `ui appearance cycle` и `gallery input journal|reset`;
+- настоящим владельцем: пункты `keyboard.sh` итогового `make e2e`, все `pass` (`target/e2e/keyboard/20261126-201232-77234/result.json`). «Ровно один раз» судят `key-and-menu-once` и `hot-reload-menu` по `ui.receipts`, `hot-reload` и `move-and-split` по одной дельте `events --since`, CLI судит `relative-resize-cli`, отказ оси судит `wrong-axis`.
+
+Форма, которую раздел планирования не задавал:
+
+- Запросы keymap стали отдельным видом запроса `keymap`, а не `Query` ядра: `query.keymap`, `keymap.reload` и `keymap.subscribe`. Ответ и кадр подписки лежат под ключом `keymap`: `version`, `leader`, `bindings` (`context`, `sequence`, `action`, `args`, `source`) и `diagnostics` (`line`, `kind`, `reason`, `message`).
+- `keymap.reload` отвечает применённой таблицей. Срок или обрыв службы дают `unavailable`, а не `outcome_unknown`: повтор безопасен.
+- Порт сервера: `KeymapHandler` и `Server::start_with_keymap`. Прежний `Server::start` отвечает пустой таблицей версии 0.
+- `layout.resize_by {target?, workbench?, dimension, delta}`. `target` вместе с `workbench` дают `arguments_conflict`. Значение у границы не зажимается: отказ `resize_out_of_range` с `min` и `max`. Высота колонки навигатора: отказ `navigator_column`.
+- Причина отказа по `min_size`. План называл её `size_no_room`, такой причины в контракте нет: ядро отдаёт `resize_out_of_range`, пункт `resize-zoom` судит это имя, строки плана приведены к нему.
+- `split_wrong_axis`: значения `axis` это `row` и `stack`, ось сверяется сразу после поиска панели. На проводе это `invalid_argument` с `details.reason`, запись `ui.receipts` несёт код `invalid_argument`.
+- `tab.prev` и `tab.next` идут по кругу. У `tab.select` `index` считается с единицы, вкладки с таким номером нет: ответ без ревизии.
+- Пять UI-команд `layout.toggle.navigator|bottom|side|plate|right` с пустым телом, ответ `accepted`. Кнопка оформления заголовка шлёт `ui.appearance.cycle`.
+- Id пунктов зон меню «Вид» стали именами keymap `layout.toggle.navigator`, `layout.toggle.bottom` и `layout.toggle.side`. Отрицательный вывод раздела «Уточнено в P1.4» этим закрыт, id `layout.visibility.*` у пунктов меню больше нет.
+- Новые значения `UiCommand`: `Mode`, `History`, `List` и `PanelFilter`. `HistoryStep` и `ListAction` живут в `shellio-core`.
+- `ui.mode`: `pid`, `panel`, `mode`, `receiver`, `exit` (`idle` или `armed`) и `exit_receiver`. Команда режима при скрытом окне, без панели с фокусом или у панели без получателя ввода даёт `not_applicable`. В галерее `panel` равен `null`, получатель на проводе: `{"gallery_input": N}`.
+- `ui.history`: `pid`, `workspace`, `points` (`workbench`, `panel`, `mode`) и `cursor` с нуля или `null`.
+- `list.*`: девять запросов, `shellioctl ui list <движение>`. `panel.filter` имеет две формы: `{"panel.filter": {}}` и `{"panel.filter": {"text": "…"}}`, `text: null` равен форме без текста. Обе формы открывают строку фильтра.
+- `gallery.input.journal` отвечает ключом `input_journal`: `pid`, `receiver`, `mode` и `events`. `gallery.input.reset` отвечает `accepted`. Фокус приёмнику отдаёт значение `input` существующей команды `gallery.focus`, новой команды нет.
+- `ui.receipts`: запись несёт обязательные `action` и `source` (`key`, `menu`, `button`). Действие, которое не применилось, пишет `error: "not_applicable"`, как и клавиша с негодными `args` или неизвестным именем. Ёмкость кольца выросла с 16 до 64. Вызов из CLI, щелчок в тело панели и перетаскивание записей не оставляют. Перенос панели в ту же зону даёт запись без дельты.
+
+### Отрицательные выводы
+
+- Чтения главного меню в `ui.*` нет: клавишу пункта меню после перезагрузки пункт `hot-reload-menu` судит только через AX. Поле `selected` у узлов `chrome.zone.*` в `ui.inspect` равно `null`, отметку кнопки зоны тоже даёт только AX.
+- Передача P1.5 «название недоступного пункта выбора в AX» не закрыта: клавиатурного пути к выбору «Открыть в новой части» в матрице плана нет. Она переходит плану `command-overlays`.
+
+Передачи: `palette.open` и палитра со списком плагинов реестра, проверка названий выбора в AX: `command-overlays`; имена keymap действий над воркспейсами, проектами и рабочими областями: P1.7; граница с nvim по `query.keymap` и подписке (последний полный снимок, не каждое поколение): P3.6 и P3.7.
+
 ## Условие пересмотра
 
 Потребность в управлении с другой машины.

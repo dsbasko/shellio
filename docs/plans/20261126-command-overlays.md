@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Второй и последний план шага P1.6 `navigation-keymap` [дорожной карты](../roadmap.md). Он зависит от плана [`navigation-keymap`](20261126-navigation-keymap.md): модель `shellio-keymap`, `KeyRouter`, режимы, действующая таблица keymap, намерения панели и `resolve_args` уже есть. Этот план отмечает строку P1.6 дорожной карты.
+- Второй и последний план шага P1.6 `navigation-keymap` [дорожной карты](../roadmap.md). Он зависит от плана [`navigation-keymap`](completed/20261126-navigation-keymap.md): модель `shellio-keymap`, `KeyRouter`, режимы, действующая таблица keymap, намерения панели и `resolve_args` уже есть. Этот план отмечает строку P1.6 дорожной карты.
 - План строит наложения модального слоя `KeyRouter`: палитру `CommandPalette` (`Cmd-k` и `Space Space`, кнопка «⌘K поиск» заголовка), подсказку which-key после префикса, метки `f` (`HintOverlay`) и командную строку `:`. Палитра в P1.6 выполняет команды и открывает панели. Провайдеры поиска сущностей приходят в P1.7.
 - Решения: [ADR-0010](../adr/0010-input-and-navigation.md), [ADR-0023](../adr/0023-opaque-window-and-shell.md) (пять типов наложений, непрозрачность), [ADR-0024](../adr/0024-main-screen-design.md), [ADR-0002](../adr/0002-ui-stack-appkit.md) (бюджет палитры), [ADR-0007](../adr/0007-control-api.md), [ADR-0008](../adr/0008-plugin-system.md), [ADR-0031](../adr/0031-zone-splits.md), [ADR-0037](../adr/0037-prototype-conformance.md), [ADR-0036](../adr/0036-autonomous-execution.md).
 - Готово, когда:

@@ -346,6 +346,38 @@ pub type Done = Box<dyn FnOnce(Result<(), Refusal>)>;   // на главном �
 
 Передачи: настоящий навигатор с `list_keys` и `filter`: P1.7; терминал как получатель `Input`: P2.2.
 
+## Уточнено в P1.6
+
+Вывод плана [`navigation-keymap`](../plans/completed/20261126-navigation-keymap.md) по `make check`, `make e2e` и приёмочному проходу исполнителя 2026-11-26.
+Решение не меняется, статус остаётся `Accepted`.
+Передача P1.5 о привязках действий плагинов выполнена: действия плагинов привязываются в контексте `panel.<plugin>` манифестом и `keymap.toml`.
+
+Подтверждено:
+
+- тестами `make check`: контракт намерений `shellio_plugin_view::check_intents` по UI-free части вида плагина, объявившего `list_keys` или `filter` (`apps/shellio/tests/plugin_contract.rs` требует его прогона от каждого такого плагина), миграция данных «Демо: список» v1 → v2, проверка `args` привязки типом модели, полнота перевода имён действий (`every_action_of_the_table_and_of_the_registry_has_a_path`, `apps/shellio/src/key_actions.rs`);
+- в окне пунктами итогового `make e2e`, все `pass`: `list-owns-keys`, `filter` и `field-input` сценария `keyboard.sh` (`target/e2e/keyboard/20261126-201232-77234/result.json`), `conform-panel-filter` сценария `conformance.sh` (`target/e2e/conformance/20261126-201036-64851/result.json`).
+
+Форма, которую раздел планирования не задавал:
+
+- Типы `shellio-plugin-view`: `ViewIntent { List(ListMove), Filter { text } }`, `Handled`, `PluginView::intent` и `PluginView::resolve_args` с телами по умолчанию.
+- Признак «без ввода»: поле манифеста `input: bool`. Признаки `list_keys`, `filter` и `input` в `PluginInfo` и в `query.plugins` не входят.
+- Привязки демо по умолчанию: `u` для `demo-list.back`, `s` для `demo-native.set`.
+- Фильтр «Демо: список»: команда `demo-list.filter {text}`, предел 64 знака, отказ `filter_too_long`. `state_version` равен 2, незнакомая версия даёт `state_version_unknown`.
+- Страница `list.page_down` и `list.page_up` у «Демо: список»: 4 строки. `list.collapse` историю «назад» панели не трогает.
+- `resolve_args`: «Демо: поле» отдаёт `{"value": <черновик>}`, «Демо: список» отдаёт `{}` действиям без аргументов. Вид, который `resolve_args` не определил, клавишу своего действия не исполняет: так при исполнении не работала `u`, вид «Демо: список» исправлен.
+- Хост зовёт `resolve_args` в `Bodies::key_request`. Отказ `KeyRefusal::NoArgs` показывает строка статуса: «„<действие>“ не выполнено: панель не дала аргументы».
+- Проверку `args` строки `keymap.toml` делает модель плагина: для этого открыт `DynModel::parse_command`.
+- Строка фильтра хоста: поле вида `TextFieldKind::Filter` (`TextField::filter`) размером 205×26. Текст в строке это состояние хоста: после перезапуска строка пуста. У колонки навигатора строки фильтра нет.
+- Пункты меню `panel.open.<plugin>` получают клавишу из таблицы keymap.
+- `HOST_NAMESPACES` получил `history`, `keymap`, `list`, `mode` и `tab`, как записано при планировании.
+
+### Покрыто одним уровнем
+
+- Вид AppKit в `cargo` не строится: намерения в окне судят только пункты `make e2e`.
+- Свои подсказки панели в строке статуса не наблюдались: ни один манифест их не объявляет ([ADR-0010](0010-input-and-navigation.md), «Уточнено в P1.6»).
+
+Передачи: настоящий навигатор с `list_keys` и `filter`: P1.7; терминал как получатель `Input`: P2.2; свои подсказки панели: первому плану с плагином, который их объявит.
+
 ## Условие пересмотра
 
 Появление реальной потребности в плагине, который нельзя собрать вместе с приложением.

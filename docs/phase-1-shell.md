@@ -2,7 +2,7 @@
 
 Обзор фазы: что в ней реализуется, что система даёт по её итогу и что входит в каждый шаг. Состав и порядок шагов задаёт [дорожная карта](roadmap.md), решения — [ADR](adr/README.md), поведение — [ux.md](ux.md), подробности выполненных шагов — планы в [plans/completed/](plans/completed/). Статусы приведены на 2026-11-24, актуальный статус шага — колонка «Готов» дорожной карты.
 
-Фаза в работе. Шаги P1.1–P1.4 выполнены и описаны фактическим итогом. P1.5 исполняется по плану [plans/completed/20261124-plugin-host.md](plans/completed/20261124-plugin-host.md). P1.6 исполняется двумя планами: [plans/20261126-navigation-keymap.md](plans/20261126-navigation-keymap.md) и [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md). У P1.7 и P1.8 планов ещё нет: их состав собран из дорожной карты, ADR, `ux.md`, прототипа и передач выполненных шагов и уточняется при планировании ([ADR-0036](adr/0036-autonomous-execution.md)).
+Фаза в работе. Шаги P1.1–P1.4 выполнены и описаны фактическим итогом. P1.5 исполняется по плану [plans/completed/20261124-plugin-host.md](plans/completed/20261124-plugin-host.md). P1.6 исполняется двумя планами: [plans/completed/20261126-navigation-keymap.md](plans/completed/20261126-navigation-keymap.md) и [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md). У P1.7 и P1.8 планов ещё нет: их состав собран из дорожной карты, ADR, `ux.md`, прототипа и передач выполненных шагов и уточняется при планировании ([ADR-0036](adr/0036-autonomous-execution.md)).
 
 ## Цель фазы
 
@@ -601,7 +601,7 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 | Зависит от | P1.5, внеочередной план `prototype-conformance` ([ADR-0037](adr/0037-prototype-conformance.md)): план выполнен |
 | Готово, когда | Клавиатурный сценарий проходит без мыши |
 | Решения | [ADR-0010](adr/0010-input-and-navigation.md), [ADR-0007](adr/0007-control-api.md), [ADR-0018](adr/0018-storage-and-config.md), [ADR-0008](adr/0008-plugin-system.md), [ADR-0021](adr/0021-testing.md), [ADR-0037](adr/0037-prototype-conformance.md), [ADR-0023](adr/0023-opaque-window-and-shell.md), [ADR-0024](adr/0024-main-screen-design.md), [ADR-0031](adr/0031-zone-splits.md), [ADR-0032](adr/0032-split-and-zoom-buttons.md), [ADR-0002](adr/0002-ui-stack-appkit.md) |
-| План | [plans/20261126-navigation-keymap.md](plans/20261126-navigation-keymap.md), затем [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md) |
+| План | [plans/completed/20261126-navigation-keymap.md](plans/completed/20261126-navigation-keymap.md), затем [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md) |
 
 ### Зачем этот шаг
 
@@ -613,7 +613,7 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 
 | План | Что строит |
 | --- | --- |
-| [`navigation-keymap`](plans/20261126-navigation-keymap.md) | Чистая модель `shellio-keymap`, `keymap.toml` с горячей перезагрузкой и последней исправной версией, `KeyRouter`, режимы `Navigation` и `Input`, аккорд выхода, привязки названных действий P1.3–P1.5, плашка режима, подсказки и набранный префикс в строке статуса, история `Ctrl-o` и `Ctrl-i`, фильтр `/`, отказ деления не той оси, чтение действующей таблицы `query.keymap` и её подписка, шестой сценарий `make e2e` `keyboard.sh` |
+| [`navigation-keymap`](plans/completed/20261126-navigation-keymap.md) | Чистая модель `shellio-keymap`, `keymap.toml` с горячей перезагрузкой и последней исправной версией, `KeyRouter`, режимы `Navigation` и `Input`, аккорд выхода, привязки названных действий P1.3–P1.5, плашка режима, подсказки и набранный префикс в строке статуса, история `Ctrl-o` и `Ctrl-i`, фильтр `/`, отказ деления не той оси, чтение действующей таблицы `query.keymap` и её подписка, шестой сценарий `make e2e` `keyboard.sh` |
 | [`command-overlays`](plans/20261126-command-overlays.md) | Наложения модального слоя: палитра `CommandPalette` по `Cmd-k`, `Space Space` и кнопке «⌘K поиск», подсказка which-key, метки `f` (`HintOverlay`), командная строка `:`, замер бюджета палитры |
 
 Второй план зависит от первого и отмечает строку P1.6 дорожной карты. Каждый план несёт раздел «Сверка с прототипом» ([ADR-0037](adr/0037-prototype-conformance.md)): первый добавляет в реестр состояния `status-mode-nav`, `status-input-field`, `status-wrong-axis`, `status-keymap-error` и `panel-filter` и переснимает перенятые состояния P1.3–P1.5 со строкой статуса.
