@@ -12,6 +12,7 @@ use serde_json::{Value, json};
 
 use crate::fuzzy::score;
 use crate::keymap::{Context, Keymap};
+use crate::sequence::Sequence;
 
 /// Предел строк выдачи (прототип `overlays.js:221`).
 pub const PALETTE_LIMIT: usize = 60;
@@ -132,6 +133,11 @@ pub struct Candidate {
     pub detail: String,
     pub action: String,
     pub args: Args,
+    /// Действие, чья привязка подписывает строку, если оно другое (прототип `S.keyFor(id, …)`):
+    /// строка темы выполняет `ui.appearance.dark`, а клавиша у `ui.appearance.cycle`.
+    pub key_action: Option<String>,
+    /// Привычная клавиша: подпись берёт её, пока она назначена, иначе первую из назначенных.
+    pub usual: Option<String>,
 }
 
 /// Кандидаты палитры, собранные приложением в момент открытия.
@@ -249,8 +255,16 @@ impl Palette {
                     Args::View(_) => None,
                     _ => args.as_ref(),
                 };
-                let keys = keymap
-                    .key_for(&source.contexts, &candidate.action, bound)
+                let key_action = candidate.key_action.as_deref().unwrap_or(&candidate.action);
+                let all = keymap.sequences_for(&source.contexts, key_action, bound);
+                let usual = candidate
+                    .usual
+                    .as_deref()
+                    .and_then(|text| Sequence::parse(text, keymap.leader()).ok());
+                let keys = usual
+                    .as_ref()
+                    .filter(|usual| all.contains(usual))
+                    .or(all.first().copied())
                     .map(ToString::to_string);
                 rows.push(PaletteRow {
                     id: candidate.id.clone(),
@@ -395,7 +409,6 @@ mod tests {
     use super::*;
     use crate::chord::Chord;
     use crate::keymap::{Binding, Source};
-    use crate::sequence::Sequence;
 
     fn leader() -> Chord {
         Chord::parse("Space").unwrap()
@@ -454,6 +467,8 @@ mod tests {
             detail: detail.to_owned(),
             action: action.to_owned(),
             args: Args::None,
+            key_action: None,
+            usual: None,
         }
     }
 
@@ -591,6 +606,69 @@ mod tests {
         let palette = Palette::new(&input, &keymap(), "", Category::All);
         let row = palette.rows().iter().find(|row| row.id == "split.row");
         assert_eq!(row.unwrap().keys, None);
+    }
+
+    #[test]
+    fn rows_label_with_the_key_action_and_prefer_the_usual_key() {
+        let bind = |context: Context, sequence: &str, action: &str| Binding {
+            context,
+            sequence: Sequence::parse(sequence, leader()).unwrap(),
+            action: action.to_owned(),
+            args: None,
+            source: Source::Default,
+        };
+        let keymap = |bindings| Keymap::build(1, leader(), bindings, Vec::new()).unwrap();
+        let theme = Candidate {
+            key_action: Some("ui.appearance.cycle".to_owned()),
+            usual: Some("Cmd-Alt-t".to_owned()),
+            ..cand(
+                "ui.appearance.cycle",
+                "Тёмная тема",
+                "оформление",
+                "ui.appearance.dark",
+            )
+        };
+        let zone = Candidate {
+            usual: Some("Cmd-0".to_owned()),
+            ..cand(
+                "layout.toggle.navigator",
+                "Скрыть навигацию",
+                "зоны",
+                "layout.toggle.navigator",
+            )
+        };
+        let source = PaletteSource {
+            pinned: vec![theme, zone],
+            contexts: Keymap::contexts(crate::keymap::Mode::Navigation, None),
+            ..PaletteSource::default()
+        };
+        let keys = |keymap: &Keymap| -> Vec<Option<String>> {
+            Palette::new(&source, keymap, "", Category::All)
+                .rows()
+                .iter()
+                .map(|row| row.keys.clone())
+                .collect()
+        };
+        // Привычная клавиша назначена: подпись — она, хотя короче её нет.
+        let defaults = keymap(vec![
+            bind(Context::Navigation, "Space z h", "layout.toggle.navigator"),
+            bind(Context::Global, "Cmd-0", "layout.toggle.navigator"),
+            bind(Context::Global, "Cmd-Alt-t", "ui.appearance.cycle"),
+            bind(Context::Global, "Cmd-Alt-d", "ui.appearance.dark"),
+        ]);
+        assert_eq!(
+            keys(&defaults),
+            [Some("Cmd-Alt-t".to_owned()), Some("Cmd-0".to_owned())]
+        );
+        // Привычная снята: первая из назначенных.
+        let remapped = keymap(vec![
+            bind(Context::Navigation, "Space z h", "layout.toggle.navigator"),
+            bind(Context::Global, "Cmd-Alt-y", "ui.appearance.cycle"),
+        ]);
+        assert_eq!(
+            keys(&remapped),
+            [Some("Cmd-Alt-y".to_owned()), Some("Space z h".to_owned())]
+        );
     }
 
     #[test]

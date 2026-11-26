@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 use shellio_core::PanelId;
 use shellio_keymap::{Args, Axis, Candidate, Keymap, Mode, PaletteSource};
-use shellio_layout::{Location, Zone};
+use shellio_layout::{Hideable, Location, Zone};
 use shellio_plugin_api::{Manifest, Registry};
 
 use crate::scene::Scene;
@@ -24,8 +24,8 @@ pub struct Facts<'a> {
     pub resolve: &'a dyn Fn(&str) -> Option<Value>,
 }
 
-/// Действия хоста с названием палитры по командам прототипа (`commands.js:40`–`:143`). Фокус,
-/// перенос в зону, размеры, вкладки и `mode.input` в палитре не показываются.
+/// Действия хоста с названием палитры по командам прототипа и в их порядке (`commands.js:40`–`:143`).
+/// Фокус, перенос в зону, размеры, вкладки и `mode.input` в палитре не показываются.
 const TITLED: [(&str, Option<&str>, &str); 10] = [
     ("layout.split", Some("row"), "Разделить зону: части рядом"),
     (
@@ -33,17 +33,24 @@ const TITLED: [(&str, Option<&str>, &str); 10] = [
         Some("stack"),
         "Разделить зону: части одна над другой",
     ),
+    (PART_NEXT, None, "В соседнюю часть"),
     ("panel.close", None, "Закрыть панель"),
     ("layout.only", None, "Только эта панель"),
     ("layout.equal", None, "Выровнять размеры"),
     ("layout.zoom", None, "Развернуть панель"),
-    ("panel.move_part.next", None, "В соседнюю часть"),
     ("ui.appearance.cycle", None, "Сменить тему"),
     ("app.quit", None, "Выйти из shellio"),
     ("mode.toggle", None, "Переключить режим"),
 ];
 
 const PANEL_OPEN: &str = "panel.open.";
+
+/// Показывается, только когда у части панели-источника есть соседняя (`commands.js:120`).
+const PART_NEXT: &str = "panel.move_part.next";
+
+/// Панели с сессией: их строки даёт провайдер сессий P1.7, а не группа «Панели» (прототип
+/// `overlays.js:210`, `p.state.sid`).
+const SESSION_PLUGINS: [&str; 1] = ["terminal"];
 
 fn candidate(id: &str, title: String, detail: String, action: &str, args: Args) -> Candidate {
     Candidate {
@@ -52,6 +59,16 @@ fn candidate(id: &str, title: String, detail: String, action: &str, args: Args) 
         detail,
         action: action.to_owned(),
         args,
+        key_action: None,
+        usual: None,
+    }
+}
+
+/// Подпись строки привычной клавишей прототипа (`S.keyFor(id, usual)`).
+fn usual(candidate: Candidate, usual: &str) -> Candidate {
+    Candidate {
+        usual: Some(usual.to_owned()),
+        ..candidate
     }
 }
 
@@ -131,69 +148,103 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
     let hidden = bench.map(|bench| bench.layout.hidden).unwrap_or_default();
     let nav = facts.mode == Mode::Navigation;
     let mut pinned = vec![
-        candidate(
-            "mode.toggle",
-            if nav {
-                "Режим «Ввод»"
-            } else {
-                "Режим «Навигация»"
-            }
-            .to_owned(),
-            format!(
-                "клавиши {}",
+        usual(
+            candidate(
+                "mode.toggle",
                 if nav {
-                    "идут в терминал"
+                    "Режим «Ввод»"
                 } else {
-                    "управляют окном"
+                    "Режим «Навигация»"
                 }
+                .to_owned(),
+                format!(
+                    "клавиши {}",
+                    if nav {
+                        "идут в терминал"
+                    } else {
+                        "управляют окном"
+                    }
+                ),
+                "mode.toggle",
+                Args::None,
             ),
-            "mode.toggle",
-            Args::None,
+            "Ctrl-\\",
         ),
-        candidate(
-            "ui.appearance.cycle",
-            if facts.dark {
-                "Светлая тема"
-            } else {
-                "Тёмная тема"
-            }
-            .to_owned(),
-            "оформление".to_owned(),
-            if facts.dark {
-                "ui.appearance.light"
-            } else {
-                "ui.appearance.dark"
-            },
-            Args::None,
-        ),
+        Candidate {
+            key_action: Some("ui.appearance.cycle".to_owned()),
+            ..usual(
+                candidate(
+                    "ui.appearance.cycle",
+                    if facts.dark {
+                        "Светлая тема"
+                    } else {
+                        "Тёмная тема"
+                    }
+                    .to_owned(),
+                    "оформление".to_owned(),
+                    if facts.dark {
+                        "ui.appearance.light"
+                    } else {
+                        "ui.appearance.dark"
+                    },
+                    Args::None,
+                ),
+                "Cmd-Alt-t",
+            )
+        },
     ];
-    if bench.is_some() {
+    if let Some(buttons) = facts.scene.and_then(Scene::zone_buttons) {
+        // Третья кнопка — плитка левой зоны, когда она занята, а правая пуста (`overlays.js:186`).
+        let (side, side_hidden, side_titles) = match buttons.side {
+            Hideable::Plate => ("левую", hidden.plate, titles(Zone::Left)),
+            _ => ("правую", hidden.right, titles(Zone::Right)),
+        };
         pinned.extend([
-            candidate(
-                "layout.toggle.navigator",
-                format!("{} навигацию", toggle(hidden.navigator)),
-                "зоны".to_owned(),
-                "layout.toggle.navigator",
-                Args::None,
+            usual(
+                candidate(
+                    "layout.toggle.navigator",
+                    format!("{} навигацию", toggle(hidden.navigator)),
+                    "зоны".to_owned(),
+                    "layout.toggle.navigator",
+                    Args::None,
+                ),
+                "Cmd-0",
             ),
-            candidate(
-                "layout.toggle.bottom",
-                format!("{} нижнюю зону", toggle(hidden.bottom)),
-                titles(Zone::Bottom),
-                "layout.toggle.bottom",
-                Args::None,
+            usual(
+                candidate(
+                    "layout.toggle.bottom",
+                    format!("{} нижнюю зону", toggle(hidden.bottom)),
+                    titles(Zone::Bottom),
+                    "layout.toggle.bottom",
+                    Args::None,
+                ),
+                "Cmd-j",
             ),
-            candidate(
-                "layout.toggle.right",
-                format!("{} правую зону", toggle(hidden.right)),
-                titles(Zone::Right),
-                "layout.toggle.right",
-                Args::None,
+            usual(
+                candidate(
+                    "layout.toggle.side",
+                    format!("{} {side} зону", toggle(side_hidden)),
+                    side_titles,
+                    "layout.toggle.side",
+                    Args::None,
+                ),
+                "Cmd-Alt-0",
             ),
         ]);
     }
+    let location = facts
+        .panel
+        .zip(bench)
+        .and_then(|(panel, bench)| bench.layout.locate(panel));
+    let neighbor = location
+        .zip(bench)
+        .is_some_and(|(location, bench)| match location {
+            Location::Navigator => false,
+            Location::Part { zone, .. } => bench.layout.zones.get(zone).parts.len() > 1,
+        });
     let commands = TITLED
         .iter()
+        .filter(|(action, ..)| *action != PART_NEXT || neighbor)
         .map(|(action, axis, title)| {
             let (id, args) = match axis {
                 Some(axis) => (
@@ -205,10 +256,6 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
             candidate(&id, (*title).to_owned(), String::new(), action, args)
         })
         .collect();
-    let location = facts
-        .panel
-        .zip(bench)
-        .and_then(|(panel, bench)| bench.layout.locate(panel));
     let plugin = facts
         .panel
         .zip(bench)
@@ -232,6 +279,12 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
                 .filter_map(|panel| {
                     let slot = bench.views.get(&panel)?;
                     let place = bench.layout.locate(panel)?;
+                    // Навигатор без хрома в «Панели» не входит (`def.chromeless`).
+                    if place == Location::Navigator
+                        || SESSION_PLUGINS.contains(&slot.plugin.as_str())
+                    {
+                        return None;
+                    }
                     let wire = json!(panel);
                     let key = wire
                         .as_str()
@@ -379,6 +432,74 @@ mod tests {
         assert_eq!(rows[0].args, Args::View(None));
         // Действия без названия в палитру не идут.
         assert!(panel_rows(manifest("demo-list"), &|_| Some(json!({}))).is_empty());
+    }
+
+    #[test]
+    fn scene_rows_follow_the_prototype_order_keys_and_filters() {
+        use shellio_core::{Panel, PluginId, Title, UnixMillis, layout_metrics};
+        use shellio_layout::{Part, SHARE_TOTAL};
+
+        use crate::scene::tests::{SMALL, fixture, id, layout_mut, registry};
+
+        let registry = registry();
+        let mut fixture = fixture();
+        let source_of = |fixture: &crate::scene::tests::Fixture, panel| {
+            let scene = Scene::of(&fixture.state, &registry, SMALL, layout_metrics());
+            source(&Facts {
+                scene: Some(&scene),
+                registry: &registry,
+                panel: Some(panel),
+                mode: Mode::Navigation,
+                dark: false,
+                resolve: &|_| None,
+            })
+        };
+        let terminal = fixture.terminal;
+        let lone = source_of(&fixture, terminal);
+        let side = lone
+            .pinned
+            .iter()
+            .find(|row| row.action == "layout.toggle.side")
+            .unwrap();
+        assert_eq!(side.id, "layout.toggle.side");
+        assert_eq!(side.usual.as_deref(), Some("Cmd-Alt-0"));
+        let theme = &lone.pinned[1];
+        assert_eq!(theme.key_action.as_deref(), Some("ui.appearance.cycle"));
+        assert_eq!(theme.usual.as_deref(), Some("Cmd-Alt-t"));
+        // Одна часть: «В соседнюю часть» не показывается.
+        assert!(lone.commands.iter().all(|row| row.action != PART_NEXT));
+        // Навигатор без хрома и терминал с сессией в «Панели» не входят.
+        assert!(lone.open.is_empty());
+
+        let field: PanelId = id(20);
+        fixture.state.panels.insert(
+            field,
+            Panel {
+                id: field,
+                workbench: fixture.workbench,
+                plugin: PluginId::new("demo-native").unwrap(),
+                title: Title::new("Демо: поле").unwrap(),
+                created_at: UnixMillis(0),
+            },
+        );
+        layout_mut(&mut fixture)
+            .zones
+            .center
+            .parts
+            .push(Part::single(field, SHARE_TOTAL));
+        let pair = source_of(&fixture, terminal);
+        let ids: Vec<_> = pair.commands.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(
+            ids[..4],
+            [
+                "layout.split.row",
+                "layout.split.stack",
+                PART_NEXT,
+                "panel.close"
+            ]
+        );
+        assert_eq!(titles(&pair.open), ["Демо: поле"]);
+        assert_eq!(pair.open[0].detail, "панель · центр");
     }
 
     #[test]
