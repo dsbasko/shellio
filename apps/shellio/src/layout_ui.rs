@@ -27,10 +27,10 @@ use shellio::scene::{
     SplitPlan,
 };
 use shellio_appkit::{
-    App, EmptyNote, ExpandStub, FILTER_PLACEHOLDER, Frame, Insets, MainWindow, Menu, MenuEntry,
-    MenuIntent, MenuItem, Pane, PanelView, Plate, Presentation, SplitDirection, SplitDrag,
-    SplitSlot, SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus,
-    TabStripState, TextField, TextFieldIntent, TextFieldState, ZoneSide, filter_size,
+    App, ButtonKeys, EmptyNote, ExpandStub, FILTER_PLACEHOLDER, Frame, Insets, MainWindow, Menu,
+    MenuEntry, MenuIntent, MenuItem, Pane, PanelView, Plate, Presentation, SplitDirection,
+    SplitDrag, SplitSlot, SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent,
+    TabStatus, TabStripState, TextField, TextFieldIntent, TextFieldState, ZoneSide, filter_size,
 };
 use shellio_control::{ComponentState, ComponentView, ModeReceiver, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, PluginId, State, layout_metrics};
@@ -104,6 +104,33 @@ fn filter_state(text: &str) -> TextFieldState {
     }
 }
 
+/// Клавиши кнопок строки вкладок из действующей таблицы keymap: деление по оси зоны и разворот.
+/// У кнопки меню «…» действия keymap нет, её подсказка остаётся «Клавиша не назначена».
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StripKeys {
+    /// `layout.split` с осью `row`: центр и нижняя зона.
+    pub row: Option<String>,
+    /// `layout.split` с осью `stack`: левая и правая зоны.
+    pub stack: Option<String>,
+    /// `layout.zoom`.
+    pub zoom: Option<String>,
+}
+
+impl StripKeys {
+    /// Клавиши кнопок строки вкладок зоны `zone`.
+    fn of(&self, zone: Zone) -> ButtonKeys {
+        let split = match zone {
+            Zone::Left | Zone::Right => &self.stack,
+            Zone::Center | Zone::Bottom => &self.row,
+        };
+        ButtonKeys {
+            split: split.clone(),
+            zoom: self.zoom.clone(),
+            menu: None,
+        }
+    }
+}
+
 /// Раскладка обычного окна.
 pub struct LayoutUi {
     // Порядок полей — порядок освобождения: сначала заглушки, тела, контейнеры панелей и плитки,
@@ -145,6 +172,8 @@ pub struct LayoutUi {
     visible: bool,
     /// Панели в режиме `Input`: тон плитки с фокусом и линия под её вкладкой берут цвет режима.
     input: BTreeSet<PanelId>,
+    /// Клавиши кнопок строк вкладок из действующей таблицы keymap.
+    keys: StripKeys,
 }
 
 impl LayoutUi {
@@ -232,6 +261,7 @@ impl LayoutUi {
             factories,
             visible: false,
             input: BTreeSet::new(),
+            keys: StripKeys::default(),
         }
     }
 
@@ -328,7 +358,18 @@ impl LayoutUi {
     ) -> TabStripState {
         let mut state = strip_state(&self.registry, zone, index, count, slot, bench, zoomed);
         state.mode = plate_mode(&self.input, slot.active);
+        state.keys = self.keys.of(zone);
         state
+    }
+
+    /// Клавиши кнопок строк вкладок из действующей таблицы keymap. `true` — клавиши изменились.
+    pub fn set_button_keys(&mut self, keys: StripKeys) -> bool {
+        if self.keys == keys {
+            return false;
+        }
+        self.keys = keys;
+        self.restrip();
+        true
     }
 
     /// Панели в режиме `Input` по маршрутизатору клавиш: строки вкладок показанных плиток получают
@@ -338,8 +379,14 @@ impl LayoutUi {
             return false;
         }
         self.input = panels;
+        self.restrip();
+        true
+    }
+
+    /// Строки вкладок показанных плиток и развёрнутой панели заново по текущему состоянию.
+    fn restrip(&self) {
         let Some(bench) = self.scene.as_ref().and_then(|scene| scene.bench.as_ref()) else {
-            return true;
+            return;
         };
         for (key, slot) in &bench.plates {
             let Some(plate) = self.plates.get(key) else {
@@ -362,7 +409,6 @@ impl LayoutUi {
                 ));
             }
         }
-        true
     }
 
     /// Режим панели на первом ответчике: `input` ставит ввод в предпочтительный вид её показанного
@@ -2222,6 +2268,27 @@ mod tests {
             KeyMode::Navigation,
             "панель, о которой маршрутизатор не знает, в Навигации"
         );
+    }
+
+    #[test]
+    fn strip_keys_follow_the_axis_of_the_zone() {
+        let keys = StripKeys {
+            row: Some("Ctrl-w v".to_owned()),
+            stack: Some("Ctrl-w s".to_owned()),
+            zoom: Some("Ctrl-w z".to_owned()),
+        };
+        for (zone, split) in [
+            (Zone::Left, "Ctrl-w s"),
+            (Zone::Right, "Ctrl-w s"),
+            (Zone::Center, "Ctrl-w v"),
+            (Zone::Bottom, "Ctrl-w v"),
+        ] {
+            let buttons = keys.of(zone);
+            assert_eq!(buttons.split.as_deref(), Some(split), "{zone:?}");
+            assert_eq!(buttons.zoom.as_deref(), Some("Ctrl-w z"));
+            assert_eq!(buttons.menu, None);
+        }
+        assert_eq!(StripKeys::default().of(Zone::Center), ButtonKeys::default());
     }
 
     #[test]

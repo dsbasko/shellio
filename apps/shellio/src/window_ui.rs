@@ -53,13 +53,15 @@ use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
     ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
-use shellio_keymap::{Cancel, Chord, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints};
+use shellio_keymap::{
+    Cancel, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints,
+};
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, KeyMode, Motion, Overrides, Source};
 
 use crate::gallery_ui::GalleryUi;
-use crate::layout_ui::{LayoutUi, PanelAction};
+use crate::layout_ui::{LayoutUi, PanelAction, StripKeys};
 
 thread_local! {
     /// Окно владельца; создаётся один раз после выбора роли и живёт до выхода процесса.
@@ -77,6 +79,8 @@ thread_local! {
     /// Действующая таблица keymap: целый снимок службы, заменяется одной доставкой. Ячейка своя по
     /// той же причине, что у маршрутизатора.
     static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
+    /// Сообщение ошибки keymap, показанное последним снимком: исправный снимок убирает его.
+    static KEYMAP_NOTE: RefCell<Option<String>> = const { RefCell::new(None) };
     /// Панель с фокусом видимого окна для решения о клавише. Пишет её отрисовка раскладки:
     /// обработчик монитора работает внутри AppKit и окно не заимствует.
     static KEY_PANEL: RefCell<Option<PanelFocus<ModeReceiver>>> = const { RefCell::new(None) };
@@ -265,18 +269,52 @@ fn on_refused(app: &App, sent: &Command, error: &CoreError) -> bool {
     {
         return true;
     }
-    let text = MIRROR.with(|mirror| {
-        let mirror = mirror.borrow();
-        let state = mirror.as_ref().map(Mirror::state);
-        scene::refusal_text(sent, error, |panel| {
-            state
-                .and_then(|state| state.panels.get(&panel))
-                .map(|panel| panel.title.to_string())
+    let text = wrong_axis(sent, error).unwrap_or_else(|| {
+        MIRROR.with(|mirror| {
+            let mirror = mirror.borrow();
+            let state = mirror.as_ref().map(Mirror::state);
+            scene::refusal_text(sent, error, |panel| {
+                state
+                    .and_then(|state| state.panels.get(&panel))
+                    .map(|panel| panel.title.to_string())
+            })
         })
     });
     with_window(|owner| owner.show_status(Some(&text)));
     refresh_layout(app);
     false
+}
+
+/// Сообщение отказа `split_wrong_axis`: зона панели по раскладке окна и действующая клавиша
+/// деления её оси из таблицы keymap. `None` — отказ другой или зона не найдена.
+fn wrong_axis(sent: &Command, error: &CoreError) -> Option<String> {
+    if error.detail_str("reason") != Some("split_wrong_axis") {
+        return None;
+    }
+    let Command::LayoutSplit { panel, .. } = sent else {
+        return None;
+    };
+    let zone = with_window(|owner| {
+        let bench = owner.layout.as_ref()?.scene()?.bench.as_ref()?;
+        match bench.layout.locate(*panel)? {
+            shellio_layout::Location::Part { zone, .. } => Some(zone),
+            shellio_layout::Location::Navigator => None,
+        }
+    })
+    .flatten()?;
+    let axis = error.detail_str("axis")?;
+    let key = KEYMAP.with(|slot| {
+        let snapshot = slot.borrow().clone()?;
+        snapshot
+            .keymap
+            .key_for(
+                &[Context::Navigation, Context::Global],
+                "layout.split",
+                Some(&serde_json::json!({ "axis": axis })),
+            )
+            .map(ToString::to_string)
+    });
+    Some(scene::wrong_axis_text(zone, key.as_deref()))
 }
 
 /// Сколько последних записей держит журнал анимаций `ui.stats`.
@@ -377,6 +415,37 @@ impl OwnerWindow {
         }
     }
 
+    /// Сообщение ошибки `keymap.toml` по диагностике действующего снимка: первая запись замещает
+    /// подсказки, исправный снимок убирает только своё прежнее сообщение. `fresh` — пришёл новый
+    /// снимок: его сообщение показывается заново; иначе — только то, что ещё не показано (снимок
+    /// пришёл раньше строки статуса). `true` — строка изменилась.
+    fn show_keymap_note(&self, fresh: bool) -> bool {
+        let Some(status) = &self.status else {
+            return false;
+        };
+        let note = KEYMAP.with(|slot| {
+            let snapshot = slot.borrow().clone()?;
+            snapshot
+                .keymap
+                .diagnostics()
+                .first()
+                .map(Diagnostic::message)
+        });
+        let shown = status.message();
+        let previous = KEYMAP_NOTE.with(|slot| slot.replace(note.clone()));
+        match note {
+            Some(note) if note != shown && (fresh || previous.as_ref() != Some(&note)) => {
+                status.set_message(Some(&note));
+                true
+            }
+            None if previous.is_some_and(|previous| previous == shown) => {
+                status.set_message(None);
+                true
+            }
+            Some(_) | None => false,
+        }
+    }
+
     /// Плашка режима, набранный префикс и подсказки строки статуса по маршрутизатору и действующей
     /// таблице (правило «Строка статуса»). `true` — строка изменилась; занятый маршрутизатор её
     /// не трогает.
@@ -453,9 +522,13 @@ impl OwnerWindow {
     /// и пункты меню «Вид» по сцене.
     fn render_layout(&mut self, app: &App) {
         let viewport = self.content_viewport();
+        // Снимок keymap мог прийти раньше окна: клавиши кнопок и сообщение его диагностики
+        // берутся из него при первой раскладке.
+        self.show_keymap_note(false);
         let Some(layout) = self.layout.as_mut() else {
             return;
         };
+        layout.set_button_keys(strip_keys());
         let visible = self.window.is_visible();
         let open = MIRROR.with(|mirror| {
             let mirror = mirror.borrow();
@@ -1478,6 +1551,7 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         MonitorEvent::FlagsChanged => with_router(|router| router.flags_changed()),
         MonitorEvent::MouseDown => {
             with_router(|router| router.cancel(Cancel::MouseDown));
+            defer(|_| forget_status());
             None
         }
         MonitorEvent::ScrollWheel => {
@@ -1489,6 +1563,21 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         Some(Decision::Swallow) => Verdict::Swallow,
         Some(Decision::Pass | Decision::Run(_) | Decision::Replay { .. }) | None => Verdict::Pass,
     }
+}
+
+/// Следующее действие пользователя в окне — клавиша, принятая маршрутизатором, или нажатие
+/// указателя — убирает сообщение строки статуса. Команды CLI его не трогают.
+fn forget_status() {
+    with_window(|owner| {
+        if owner
+            .status
+            .as_ref()
+            .is_some_and(|status| !status.message().is_empty())
+        {
+            owner.show_status(None);
+            owner.bump();
+        }
+    });
 }
 
 fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
@@ -1524,11 +1613,15 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         Some(Decision::Pass) | None => Verdict::Pass,
         // Поглощённая клавиша меняет набранный префикс: строка статуса показывает его.
         Some(Decision::Swallow) => {
-            defer(|_| show_modes());
+            defer(|_| {
+                forget_status();
+                show_modes();
+            });
             Verdict::Swallow
         }
         Some(Decision::Run(action)) => {
             defer(move |app| {
+                forget_status();
                 run_key(app, action);
                 show_modes();
             });
@@ -1712,6 +1805,37 @@ pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle
 pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
     KEYMAP.with(|slot| *slot.borrow_mut() = Some(snapshot));
     show_modes();
+    with_window(|owner| {
+        let keys = strip_keys();
+        let buttons = owner
+            .layout
+            .as_mut()
+            .is_some_and(|layout| layout.set_button_keys(keys));
+        if owner.show_keymap_note(true) || buttons {
+            owner.bump();
+        }
+    });
+}
+
+/// Клавиши кнопок строки вкладок из действующей таблицы: деление по обеим осям и разворот.
+fn strip_keys() -> StripKeys {
+    KEYMAP.with(|slot| {
+        let Some(snapshot) = slot.borrow().clone() else {
+            return StripKeys::default();
+        };
+        let contexts = [Context::Navigation, Context::Global];
+        let key = |action: &str, args: Option<serde_json::Value>| {
+            snapshot
+                .keymap
+                .key_for(&contexts, action, args.as_ref())
+                .map(ToString::to_string)
+        };
+        StripKeys {
+            row: key("layout.split", Some(serde_json::json!({ "axis": "row" }))),
+            stack: key("layout.split", Some(serde_json::json!({ "axis": "stack" }))),
+            zoom: key("layout.zoom", None),
+        }
+    })
 }
 
 /// Размер содержимого окна изменился: раскладка встаёт по нему сразу, ядро получает его в конце

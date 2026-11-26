@@ -1289,6 +1289,21 @@ pub fn open_command(panel: PanelId, plugin: &str) -> Command {
     }
 }
 
+/// Текст строки статуса для отказа `split_wrong_axis` (`docs/ux.md`, «Пограничные пути»): зона,
+/// её ось и действующая клавиша деления этой оси. Без назначенной клавиши строка кончается на оси.
+pub fn wrong_axis_text(zone: Zone, key: Option<&str>) -> String {
+    let (name, axis) = match zone {
+        Zone::Left => ("Левая зона", "одна над другой"),
+        Zone::Right => ("Правая зона", "одна над другой"),
+        Zone::Center => ("Центр", "рядом"),
+        Zone::Bottom => ("Нижняя зона", "рядом"),
+    };
+    match key {
+        Some(key) => format!("{name} делится {axis}: {key}"),
+        None => format!("{name} делится {axis}"),
+    }
+}
+
 /// Текст строки статуса для отказа ядра на команду интерфейса (ADR-0031, `docs/ux.md`): что не
 /// вышло и сколько места нужно. `title` — название панели по её id.
 pub fn refusal_text(
@@ -1539,6 +1554,26 @@ pub(crate) mod tests {
 
     fn scene(fixture: &Fixture) -> Scene {
         Scene::of(&fixture.state, &registry(), SMALL, layout_metrics())
+    }
+
+    #[test]
+    fn wrong_axis_text_names_the_zone_its_axis_and_the_key() {
+        assert_eq!(
+            wrong_axis_text(Zone::Right, Some("Ctrl-w s")),
+            "Правая зона делится одна над другой: Ctrl-w s"
+        );
+        assert_eq!(
+            wrong_axis_text(Zone::Left, None),
+            "Левая зона делится одна над другой"
+        );
+        assert_eq!(
+            wrong_axis_text(Zone::Center, Some("Ctrl-w v")),
+            "Центр делится рядом: Ctrl-w v"
+        );
+        assert_eq!(
+            wrong_axis_text(Zone::Bottom, Some("x")),
+            "Нижняя зона делится рядом: x"
+        );
     }
 
     #[test]
