@@ -1113,11 +1113,59 @@ leader = "Space"
 
 ### Task 12: Verify acceptance criteria
 
-- [ ] все пункты «Готово, когда» выполнены
-- [ ] `make check` зелёный
-- [ ] `scripts/e2e/with-latin-input.sh make e2e`: шесть сценариев, вердикт по обязательным пунктам `result.json` и правилу «Готовность при коде 3»; путь к прогону и исход каждого пункта матрицы
-- [ ] полный прогон сверки: все состояния реестра
-- [ ] `make test-scripts` и `make link-audit` без регрессии
+- [x] все пункты «Готово, когда» выполнены
+- [x] `make check` зелёный
+- [x] `scripts/e2e/with-latin-input.sh make e2e`: шесть сценариев, вердикт по обязательным пунктам `result.json` и правилу «Готовность при коде 3»; путь к прогону и исход каждого пункта матрицы
+- [x] полный прогон сверки: все состояния реестра
+- [x] `make test-scripts` и `make link-audit` без регрессии
+- Итог приёмки 2026-11-26 на `30bd217`. С рубежа задачи 10 (`f1af863`) менялись только `docs/ux.md`, `docs/phase-1-shell.md` и этот план (`git diff --name-only f1af863 HEAD`), код и сценарии прежние. Правок кода в задаче нет.
+  - `make check` — зелёный, код 0, 20:00:50–20:02:46 (`target/task12/check1.log`): 112 строк `test result: ok`, отказов нет. Непостоянный отказ теста пробы P0.3 (`.backlog/probe-ghostty-fixture-pty-test-fails-under-full-run.md`) в этом прогоне не проявился.
+  - `scripts/e2e/with-latin-input.sh make e2e` — 20:02:54–20:14:01 (`target/task12/gate1.log`), `pgrep -x AeroSpace` перед прогоном пуст, все шесть сценариев исполнены без ошибки исполнения, код цели 3 даёт один `conform-layout-empty-workbench`. Обёртка заменила `com.apple.keylayout.RussianWin` на `com.apple.keylayout.ABC` и вернула прежний источник (`target/e2e/input-source/20261126-200254-35886`), процессов бинаря бандла после прогона нет.
+    - Коды и счёт обязательных пунктов по `result.json`: `single-instance.sh` — 0, 8 из 8 (`target/e2e/single-instance/20261126-200258-36242`); `appkit.sh` — 0, 24 из 24 (`target/e2e/appkit/20261126-200311-39320`); `layout.sh` — 0, 20 из 20 (`target/e2e/layout/20261126-200616-52764`); `plugins.sh` — 0, 26 из 26 (`target/e2e/plugins/20261126-200828-58411`); `conformance.sh` — 3, 25 из 26 (`target/e2e/conformance/20261126-201036-64851`); `keyboard.sh` — 0, 21 из 21 (`target/e2e/keyboard/20261126-201232-77234`).
+    - Сверка с рубежом задачи 10 по пунктам (`target/task10/cmp.pl`): статус каждого пункта всех шести сценариев прежний, необязательные `not_run` те же и с теми же причинами (`gui-quit`, `system-appearance`, `voiceover`, `startup-cold`, `key-latency-60`, `voiceover-speech`, `system-contrast`, `exit-chord-hid`).
+    - Вердикт по правилу «Готовность при коде 3»: пункты инструмента `cell-override`, `fonts-bundled` и `ck-coverage` — `pass`, первые четыре сценария без регрессии, `fail` нового или перенятого `conform-*` без записи нет, ошибки исполнения нет. Код 3 наследован от `conform-layout-empty-workbench` (известное расхождение до P1.7, ADR-0021, «Уточнено в `conformance-closure`») и готовность не блокирует.
+  - Исход каждого пункта матрицы приёмки (`target/e2e/keyboard/20261126-201232-77234/result.json`, `target/e2e/conformance/20261126-201036-64851/result.json`):
+
+    | Пункт | Исход |
+    | --- | --- |
+    | `focus-hjkl` | `pass` |
+    | `list-owns-keys` | `pass` |
+    | `move-and-split` | `pass` |
+    | `wrong-axis` | `pass`: сообщение «Правая зона делится одна над другой: Ctrl-w s», после правки `keymap.toml` называет `Ctrl-w x` |
+    | `resize-zoom` | `pass`: отказ у границы — «Размер зоны — от 202 до 484 точек», причина ядра `resize_out_of_range` |
+    | `tabs` | `pass` |
+    | `zones-toggle` | `pass` |
+    | `appearance-cycle` | `pass` |
+    | `window-quit` | `pass` |
+    | `field-input` | `pass` |
+    | `exit-chord` | `pass`: после второго `Ctrl-\` в журнале ровно пара `down` и `up` с кодом 42 и одним `Ctrl`, режим `input` |
+    | `exit-chord-cancel` | `pass` |
+    | `history` | `pass` |
+    | `filter` | `pass` |
+    | `hot-reload` | `pass` |
+    | `hot-reload-menu` | `pass` |
+    | `key-and-menu-once` | `pass` |
+    | `relative-resize-cli` | `pass` |
+    | `bad-line` | `pass` |
+    | `bad-file` | `pass` |
+    | `cyrillic-physical` | `pass` под `com.apple.keylayout.RussianWin` |
+    | `exit-chord-hid` | `not_run` «наблюдает только человек» (необязательный) |
+    | `conform-status-mode-nav`, `conform-status-input-field`, `conform-status-wrong-axis`, `conform-status-keymap-error`, `conform-panel-filter` | `pass` |
+    | перенятые `conform-*` | 17 — `pass`, `conform-layout-empty-workbench` — `fail` (до P1.7) |
+
+  - Полный прогон сверки: в `conformance/registry.toml` 23 состояния, в `result.json` 23 пункта `conform-*` — 22 `pass`, один `fail` (`conform-layout-empty-workbench`), `not_run` среди них нет, калибровка на месте.
+  - `make test-scripts` — код 0 (`target/task12/test-scripts1.log`, OpenSSL 4.1.0 из `/opt/homebrew/bin`): `test-publish` — 72 проверки, `test-identity` — 23 проверки. `make link-audit` — код 0 (`target/task12/link-audit1.log`): архив линкуется целиком, зависимостей 14, все в `/System` и `/usr/lib`.
+  - «Готово, когда» по пунктам.
+    - Клавиатурный сценарий без мыши: фокус — `focus-hjkl`, перенос и деление по оси — `move-and-split` и `wrong-axis`, размеры и разворот — `resize-zoom`, вкладки — `tabs`, скрытие зон — `zones-toggle`, тема — `appearance-cycle`, закрытие окна и выход — `window-quit`, движение в списке — `list-owns-keys` (выбор `query.panel` идёт `h` → `g` → `h` клавишами `k` и `j`), фильтр — `filter`, поле — `field-input`, `Ctrl-o` и `Ctrl-i` — `history`.
+    - Аккорд выхода: `exit-chord` и `exit-chord-cancel` на приёмнике галереи.
+    - Правка `keymap.toml` без перезапуска: подсказки кнопок — `hot-reload`, пункт меню — `hot-reload-menu`, строка статуса — `wrong-axis` (переназначенная клавиша оси), неверная строка — `bad-line`, испорченный файл — `bad-file`.
+    - Каждое новое действие: 50 имён `HOST_ACTIONS` (`apps/shellio/src/keymap_service.rs:106`) и имена `panel.open.<plugin>` по реестру; у каждого есть исполнение — тест `every_action_of_the_table_and_of_the_registry_has_a_path` (`apps/shellio/src/key_actions.rs:544`) в составе `make check`. Все действия с клавишей по умолчанию стоят в таблице `query.keymap` прогона (61 строка, `bad-line/edit.stdout`). Вызовы CLI каждой строки таблицы «Команды, чтения и CLI» есть в `shellioctl --help` бандла: `keymap list [--follow]`, `keymap reload`, `ui mode`, `ui history`, `panel tab`, `ui list`, `ui filter`, `layout split --axis`, `layout resize --by`, `layout toggle`, `ui appearance cycle`, `gallery input`.
+    - Рубежи: `make check` зелёный, `make e2e` — запись выше. Чего сценарии не наблюдают (снятие сообщения указателем, нажатие плашки режима указателем с заливкой `chrome_press`), прошло приёмочным проходом среза 12 задачи 10 на том же коде и здесь не повторялось.
+  - Записанные расхождения с текстом плана, ни одно условие «Готово, когда» не нарушают.
+    - Имя причины отказа по `min_size`: матрица и правило «Шаг размера» называют `size_no_room`, ядро отдаёт `resize_out_of_range`; пункт `resize-zoom` судит имя ядра. Приведение строк плана и ADR-0007 — задача 13.
+    - Подсказки строки статуса: «поиск» и своих подсказок панели продукт не показывает (запись задачи 11); «поиск» приходит с палитрой плана `command-overlays`.
+    - Шаг истории к панели с полем оставляет её во Вводе (`.backlog/history-step-to-field-panel-lands-in-input.md`): пункт `history` идёт на терминалах, условие «`Ctrl-o` и `Ctrl-i`» наблюдается на них.
+    - Сообщение строки статуса снимает любая клавиша или нажатие указателя в окне, а не только действие в раскладке (запись задачи 11).
 
 ### Task 13: [Final] Документы
 
