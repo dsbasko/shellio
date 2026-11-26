@@ -18,7 +18,9 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use shellio::bodies::{self, Bodies, Build, SharedRequests, Shell, Ticket};
+use serde_json::Value;
+use shellio::bodies::{self, Bodies, Build, KeyRefusal, SharedRequests, Shell, Ticket};
+use shellio::key_router::PanelFocus;
 use shellio::plugins::{self, Factories};
 use shellio::scene::{
     self, Bench, Host, MenuRow, Op, PanelMenuItem, PartKey, PlateRef, PlateSlot, Scene, SplitId,
@@ -30,7 +32,7 @@ use shellio_appkit::{
     SplitSlot, SplitSpec, SplitView, StubCard, StubIntent, Tab, TabDrag, TabIntent, TabStatus,
     TabStripState, TextField, TextFieldIntent, TextFieldState, ZoneSide, filter_size,
 };
-use shellio_control::{ComponentState, ComponentView, PanelNodeView, PartNodeView};
+use shellio_control::{ComponentState, ComponentView, ModeReceiver, PanelNodeView, PartNodeView};
 use shellio_core::{Command, PanelId, PluginId, State, layout_metrics};
 use shellio_layout::{Point, Rect, Viewport, Zone, ZoneMap};
 use shellio_plugin_api::Registry;
@@ -286,6 +288,67 @@ impl LayoutUi {
     /// Панель с фокусом для действий `mode.*` и признак получателя ввода её плагина.
     pub fn mode_target(&self) -> Option<(PanelId, bool)> {
         scene::mode_target(self.scene.as_ref()?, &self.registry)
+    }
+
+    /// Панель с фокусом для решения о клавише: получатель ввода, плагин её контекста keymap и
+    /// признак получателя ввода. `None` — вид панели с фокусом не показан.
+    pub fn key_focus(&self) -> Option<PanelFocus<ModeReceiver>> {
+        let scene = self.scene.as_ref()?;
+        let (panel, input) = scene::mode_target(scene, &self.registry)?;
+        let plugin = scene.bench.as_ref()?.views.get(&panel)?.plugin.to_string();
+        Some(PanelFocus {
+            receiver: ModeReceiver::Panel(panel),
+            plugin,
+            input,
+        })
+    }
+
+    /// Панель, чьё поле держит ввод: открытая строка фильтра или поле тела.
+    pub fn typing(&self) -> Option<PanelId> {
+        self.filter_typing().or_else(|| {
+            self.views
+                .iter()
+                .find(|(_, view)| view.holds_field())
+                .map(|(&panel, _)| panel)
+        })
+    }
+
+    /// Режим панели на первом ответчике: `input` ставит ввод в предпочтительный вид её показанного
+    /// тела, иначе поле панели отдаёт ввод окну.
+    pub fn set_input(&self, panel: PanelId, input: bool) {
+        if input {
+            if self.bodies.active(panel)
+                && let Some(view) = self.bodies.view(panel)
+            {
+                view.focus_preferred();
+            }
+            return;
+        }
+        if self
+            .filters
+            .get(&panel)
+            .is_some_and(|row| row.field.resign_focus())
+        {
+            return;
+        }
+        if let Some(view) = self.views.get(&panel)
+            && view.holds_field()
+        {
+            view.resign_focus();
+        }
+    }
+
+    /// Запрос действия `name` плагина для панели с фокусом, вызванного клавишей: `args` привязки
+    /// или аргументы её вида.
+    pub fn key_request(
+        &self,
+        name: &str,
+        args: Option<Value>,
+    ) -> Result<(PanelId, PanelRequest), KeyRefusal> {
+        let (panel, _) = self.mode_target().ok_or(KeyRefusal::NoBody)?;
+        self.bodies
+            .key_request(panel, name, args)
+            .map(|request| (panel, request))
     }
 
     /// Действие `panel.filter` для панели с фокусом: открывает строку фильтра над её телом и

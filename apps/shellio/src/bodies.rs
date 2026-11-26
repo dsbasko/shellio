@@ -234,6 +234,25 @@ pub fn request_command(state: Option<&State>, panel: PanelId, request: PanelRequ
     command_of(panel, workbench, request)
 }
 
+/// Отказ действия плагина, вызванного клавишей (ADR-0008, «Уточнено в P1.6 (планирование)»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyRefusal {
+    /// Тела панели нет или оно не показано.
+    NoBody,
+    /// Привязка `args` не несёт, а вид панели их не дал.
+    NoArgs,
+}
+
+impl KeyRefusal {
+    /// Причина для строки статуса: действие `action` не выполнено.
+    pub fn text(self, action: &str) -> String {
+        match self {
+            KeyRefusal::NoBody => format!("«{action}» не выполнено: панель не показана"),
+            KeyRefusal::NoArgs => format!("«{action}» не выполнено: панель не дала аргументы"),
+        }
+    }
+}
+
 /// Движение списка вида по действию `list.*`.
 pub const fn list_move(action: ListAction) -> ListMove {
     match action {
@@ -531,6 +550,33 @@ impl Bodies {
         live.active.then(|| live.body.view_mut().intent(intent))
     }
 
+    /// Запрос действия `name` плагина панели `panel`, вызванного клавишей. `args` привязки идут
+    /// как есть; без них аргументы даёт вид панели ([`PluginView::resolve_args`]). Пример `args`
+    /// манифеста не подставляется: вид аргументов не дал — действие не выполняется.
+    pub fn key_request(
+        &self,
+        panel: PanelId,
+        name: &str,
+        args: Option<Value>,
+    ) -> Result<PanelRequest, KeyRefusal> {
+        let live = self
+            .live(panel)
+            .filter(|live| live.active)
+            .ok_or(KeyRefusal::NoBody)?;
+        let args = match args {
+            Some(args) => args,
+            None => live
+                .body
+                .view()
+                .resolve_args(name)
+                .ok_or(KeyRefusal::NoArgs)?,
+        };
+        Ok(PanelRequest::Command {
+            name: name.to_owned(),
+            args,
+        })
+    }
+
     /// Виды всех построенных тел, включая припаркованные.
     pub fn views_mut(&mut self) -> impl Iterator<Item = &mut dyn PluginView> {
         self.panels
@@ -632,6 +678,9 @@ mod tests {
         fn intent(&mut self, intent: &ViewIntent) -> Handled {
             self.say(format!("intent {intent:?}"));
             Handled::Yes
+        }
+        fn resolve_args(&self, action: &str) -> Option<Value> {
+            (action == "demo-list.back").then(|| json!({}))
         }
         fn close_view(&mut self) {
             self.say("close".to_owned());
@@ -971,6 +1020,38 @@ mod tests {
 
         let missing = id(250);
         assert_eq!(host.bodies.intent(missing, &down), None);
+    }
+
+    #[test]
+    fn key_action_without_args_asks_the_view_and_is_refused_when_it_gives_none() {
+        let mut host = Host::new();
+        let panel = host.open_list(list("a", false));
+        host.sync();
+        let request = |name: &str, args| PanelRequest::Command {
+            name: name.to_owned(),
+            args,
+        };
+        assert_eq!(
+            host.bodies.key_request(panel, "demo-list.back", None),
+            Ok(request("demo-list.back", json!({})))
+        );
+        // Пример `args` манифеста не подставляется: вид аргументов не дал — действия нет.
+        let refused = host.bodies.key_request(panel, "demo-list.select", None);
+        assert_eq!(refused, Err(KeyRefusal::NoArgs));
+        assert_eq!(
+            KeyRefusal::NoArgs.text("demo-list.select"),
+            "«demo-list.select» не выполнено: панель не дала аргументы"
+        );
+        // `args` привязки идут как есть, вид о них не спрашивают.
+        assert_eq!(
+            host.bodies
+                .key_request(panel, "demo-list.select", Some(json!({ "key": "b" }))),
+            Ok(request("demo-list.select", json!({ "key": "b" })))
+        );
+        assert_eq!(
+            host.bodies.key_request(id(250), "demo-list.back", None),
+            Err(KeyRefusal::NoBody)
+        );
     }
 
     #[test]

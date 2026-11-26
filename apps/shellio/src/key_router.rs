@@ -350,6 +350,16 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         self.exit.cancel(cause)
     }
 
+    /// Остаются только получатели, для которых `alive` истинно: остальные закрыты.
+    pub fn retain(&mut self, alive: impl Fn(&R) -> bool) {
+        self.input.retain(|receiver, ()| alive(receiver));
+        if let Some(receiver) = self.exit.receiver().cloned()
+            && !alive(&receiver)
+        {
+            self.exit.receiver_closed(&receiver);
+        }
+    }
+
     /// Панель закрыта: её режим и её ожидание второго аккорда забыты.
     pub fn closed(&mut self, receiver: &R) {
         self.input.remove(receiver);
@@ -833,6 +843,47 @@ mod tests {
         router.closed(&FIELD);
         assert_eq!(router.exit_armed(), None);
         assert_eq!(router.mode(&FIELD), Mode::Navigation);
+    }
+
+    /// Правило «Режим панели»: новая и восстановленная панели начинают в `Navigation`, панель,
+    /// открытая с автоматическим вводом в поле, сразу в `Input`.
+    #[test]
+    fn new_and_restored_panels_start_in_navigation_and_autofocus_gives_input() {
+        // Новая панель: маршрутизатор о ней не знает.
+        let mut router = Router::default();
+        assert_eq!(router.mode(&TERMINAL), Mode::Navigation);
+        assert_eq!(router.mode(&FIELD), Mode::Navigation);
+        assert_eq!(
+            down(&mut router, &body(TERMINAL), "h"),
+            ran("panel.focus.left")
+        );
+
+        // Восстановленная панель: режимы в базу не пишутся, новый процесс начинает с пустых, даже
+        // если прежний оставил её в `Input`.
+        router.set_mode(FIELD, Mode::Input);
+        let restored = Router::default();
+        assert_eq!(restored.mode(&FIELD), Mode::Navigation);
+        assert_eq!(restored.exit_armed(), None);
+
+        // Открытие с вводом в поле: `Input` без клавиши, печатаемое идёт полю.
+        let mut opened = Router::default();
+        assert!(opened.follow_field(Some(&FIELD)));
+        assert_eq!(opened.mode(&FIELD), Mode::Input);
+        let field = focus(Responder::Field, FIELD);
+        assert_eq!(down(&mut opened, &field, "h"), Decision::Pass);
+    }
+
+    #[test]
+    fn only_living_receivers_keep_their_mode_and_exit_chord() {
+        let mut router = Router::default();
+        router.set_mode(FIELD, Mode::Input);
+        router.set_mode(LIST, Mode::Input);
+        down(&mut router, &body(FIELD), "Ctrl-\\");
+        router.retain(|receiver| *receiver == FIELD);
+        assert_eq!(router.exit_armed(), Some(&FIELD));
+        assert_eq!(router.mode(&LIST), Mode::Navigation);
+        router.retain(|receiver| *receiver == LIST);
+        assert_eq!(router.exit_armed(), None);
     }
 
     #[test]

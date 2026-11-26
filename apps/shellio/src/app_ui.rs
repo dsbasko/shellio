@@ -340,6 +340,10 @@ impl Delegate for AppDelegate {
         self.ui.became_active.send_replace(true);
     }
 
+    fn did_resign_active(&self, _app: &App) {
+        window_ui::resigned();
+    }
+
     fn reopen(&self, app: &App, _has_visible_windows: bool) {
         window_ui::reopen(app);
     }

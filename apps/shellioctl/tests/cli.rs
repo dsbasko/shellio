@@ -17,7 +17,8 @@ use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Accepted, Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast,
-    FontView, InspectView, Lightness, Motion, Rect, Size, StyleView,
+    ExitChordState, FontView, InspectView, Lightness, ModeReceiver, ModeView, Motion, PanelMode,
+    Rect, Size, StyleView,
 };
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
@@ -31,8 +32,8 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, IdGen, LayoutView,
-    OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue, Revision, Route,
-    TreeView, UnixMillis, WorkbenchId, WorkspaceId,
+    ModeAction, OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue,
+    Revision, Route, TreeView, UiCommand, UnixMillis, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
 use shellio_plugin_api::{Cardinality, Registry};
@@ -1185,6 +1186,120 @@ async fn appearance_cycle_and_layout_toggle_reach_the_owner() -> TestResult {
         before,
         "UI-команды ревизию не меняют"
     );
+    owner.stop().await
+}
+
+/// Порт UI с одной панелью, у которой есть получатель ввода: `mode.*` меняет её режим, `ui.mode`
+/// его читает.
+#[derive(Clone)]
+struct ModeUi {
+    panel: PanelId,
+    mode: Arc<Mutex<PanelMode>>,
+}
+
+impl UiHandler for ModeUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let reply = match request {
+            UiRequest::Command(UiCommand::Mode(action)) if gate.begin() => {
+                let mut mode = self
+                    .mode
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner());
+                *mode = match (action, *mode) {
+                    (ModeAction::Navigation, _) | (ModeAction::Toggle, PanelMode::Input) => {
+                        PanelMode::Navigation
+                    }
+                    (ModeAction::Input, _) | (ModeAction::Toggle, PanelMode::Navigation) => {
+                        PanelMode::Input
+                    }
+                };
+                Ok(UiReply::Accepted(Accepted {
+                    command: request.name().to_owned(),
+                    pid: std::process::id(),
+                    generation: 1,
+                }))
+            }
+            UiRequest::Mode if gate.begin() => Ok(UiReply::Mode(ModeView {
+                pid: std::process::id(),
+                panel: Some(self.panel),
+                mode: *self
+                    .mode
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner()),
+                receiver: Some(ModeReceiver::Panel(self.panel)),
+                exit: ExitChordState::Idle,
+                exit_receiver: None,
+            })),
+            _ => Err(UiRefusal::NoUi),
+        };
+        ready(reply)
+    }
+}
+
+/// `ui mode` отдельным процессом: действия `mode.*` доходят до порта UI под именем keymap, `get`
+/// читает режим панели с фокусом и её получателя, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_mode_reaches_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let panel: PanelId = "019a8f2e-0000-7000-8000-000000000a07".parse()?;
+    let ui = ModeUi {
+        panel,
+        mode: Arc::new(Mutex::new(PanelMode::Navigation)),
+    };
+    let owner = Owner::start_with(&dir, ui).await?;
+    let before = revision(&dir).await?;
+    let get = async || -> TestResult<ModeView> {
+        match dir
+            .run(&["ui", "mode", "get", "--json"])
+            .await?
+            .expect(0)?
+            .frame()?
+        {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Mode(view)),
+                ..
+            } => Ok(view),
+            other => Err(format!("ui mode get: ожидался режим, получено {other:?}").into()),
+        }
+    };
+    let first = get().await?;
+    assert_eq!(first.panel, Some(panel));
+    assert_eq!(
+        first.mode,
+        PanelMode::Navigation,
+        "панель начинает в Navigation"
+    );
+    assert_eq!(first.receiver, Some(ModeReceiver::Panel(panel)));
+    assert_eq!(first.exit, ExitChordState::Idle);
+    for (action, name, mode) in [
+        ("input", "mode.input", PanelMode::Input),
+        ("toggle", "mode.toggle", PanelMode::Navigation),
+        ("toggle", "mode.toggle", PanelMode::Input),
+        ("navigation", "mode.navigation", PanelMode::Navigation),
+    ] {
+        match dir
+            .run(&["ui", "mode", action, "--json"])
+            .await?
+            .expect(0)?
+            .frame()?
+        {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Accepted(accepted)),
+                ..
+            } => assert_eq!(accepted.command, name),
+            other => {
+                return Err(
+                    format!("ui mode {action}: ожидалась квитанция, получено {other:?}").into(),
+                );
+            }
+        }
+        assert_eq!(get().await?.mode, mode, "после ui mode {action}");
+    }
+    assert_eq!(revision(&dir).await?, before, "режим ревизию не меняет");
     owner.stop().await
 }
 

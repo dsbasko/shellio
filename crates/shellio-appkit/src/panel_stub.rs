@@ -15,7 +15,7 @@ use objc2_app_kit::{
     NSBaselineOffsetAttributeName, NSButton, NSColor, NSControl, NSEvent, NSEventType, NSFont,
     NSFontAttributeName, NSFontWeightMedium, NSFontWeightRegular, NSForegroundColorAttributeName,
     NSLayoutManager, NSLineBreakMode, NSMutableParagraphStyle, NSParagraphStyleAttributeName,
-    NSResponder, NSTextAlignment, NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
+    NSResponder, NSText, NSTextAlignment, NSTextField, NSView, NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{
     NSAlignmentOptions, NSAttributedString, NSMutableAttributedString, NSNumber, NSObject, NSPoint,
@@ -169,6 +169,19 @@ impl PanelView {
                 responder
                     .downcast_ref::<NSView>()
                     .map(|view| view.isDescendantOf(host))
+            })
+            .unwrap_or(false)
+    }
+
+    /// Ввод у поля внутри контейнера: first responder окна — редактор поля его тела.
+    pub fn holds_field(&self) -> bool {
+        let host: &NSView = self.view.view();
+        host.window()
+            .and_then(|window| window.firstResponder())
+            .and_then(|responder| {
+                responder
+                    .downcast_ref::<NSText>()
+                    .map(|editor| editor.isFieldEditor() && editor.isDescendantOf(host))
             })
             .unwrap_or(false)
     }

@@ -393,6 +393,16 @@ impl TextField {
         self.field().currentEditor().is_some()
     }
 
+    /// Отдаёт ввод окну, если его держит это поле. `true` — ввод был здесь.
+    pub fn resign_focus(&self) -> bool {
+        let field = self.field();
+        let held = editor_is_first_responder(field);
+        if held && let Some(window) = field.window() {
+            window.makeFirstResponder(None);
+        }
+        held
+    }
+
     /// Поле для `ui.inspect`: кадр подложки, AX-роль и имя ячейки, first responder — field editor
     /// поля во время ввода, состояние.
     ///
@@ -553,6 +563,13 @@ fn notify_focus(focus: FieldFocus) {
     if let Some(handler) = handler {
         handler(focus);
     }
+}
+
+/// Редактор поля составляет текст в IME.
+fn composing(editor: &AnyObject) -> bool {
+    // SAFETY: редактор поля — `NSTextView`, он реализует `hasMarkedText` протокола
+    // `NSTextInputClient`: метод без аргументов возвращает BOOL.
+    unsafe { msg_send![editor, hasMarkedText] }
 }
 
 /// Окно поля держит field editor поля first responder.
@@ -903,13 +920,24 @@ define_class!(
         // SAFETY: селектор, аргументы и результат — как у
         // `control:textView:doCommandBySelector:` протокола; field editor передаётся как объект.
         #[unsafe(method(control:textView:doCommandBySelector:))]
-        fn do_command(&self, control: &NSControl, _editor: &AnyObject, command: Sel) -> bool {
+        fn do_command(&self, control: &NSControl, editor: &AnyObject, command: Sel) -> bool {
             let value = control.stringValue().to_string();
-            let command = command.name().to_string_lossy();
-            self.ivars()
+            let name = command.name().to_string_lossy();
+            let handled = self
+                .ivars()
                 .owner
-                .call(|model| model.command(&command, &value))
-                .unwrap_or(false)
+                .call(|model| model.command(&name, &value))
+                .unwrap_or(false);
+            // `Esc` после отказа от черновика отдаёт ввод окну: панель возвращается в `Navigation`
+            // (ADR-0010). Составление текста в IME `Esc` отменяет само и ввод не отдаёт.
+            if handled
+                && name == "cancelOperation:"
+                && !composing(editor)
+                && let Some(window) = control.window()
+            {
+                window.makeFirstResponder(None);
+            }
+            handled
         }
     }
 

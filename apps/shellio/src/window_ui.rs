@@ -23,7 +23,8 @@ use std::sync::Arc;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
-use shellio::key_router::KeyRouter;
+use shellio::key_actions::{self, KeyAction};
+use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
 use shellio::keymap_service::KeymapSnapshot;
 use shellio::launch::WindowMode;
 use shellio::owner;
@@ -31,11 +32,12 @@ use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
-    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyStroke, LoopMonitor,
-    MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow,
-    Regime, SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldIntent,
-    TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts, VirtualListFacts,
-    ZoneButton, ZoneSide, instance_counts, late_callbacks,
+    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyMonitor, KeyResponder,
+    KeyStroke, LoopMonitor, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuState,
+    MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusLine,
+    TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection, Transition,
+    TransitionPath, TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide,
+    instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -51,7 +53,7 @@ use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
     ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
-use shellio_keymap::Mode;
+use shellio_keymap::{Cancel, Chord, KeyCode, Mode, Mods};
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
@@ -75,6 +77,11 @@ thread_local! {
     /// Действующая таблица keymap: целый снимок службы, заменяется одной доставкой. Ячейка своя по
     /// той же причине, что у маршрутизатора.
     static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
+    /// Панель с фокусом видимого окна для решения о клавише. Пишет её отрисовка раскладки:
+    /// обработчик монитора работает внутри AppKit и окно не заимствует.
+    static KEY_PANEL: RefCell<Option<PanelFocus<ModeReceiver>>> = const { RefCell::new(None) };
+    /// Монитор клавиш живёт до выхода процесса, как окно.
+    static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
 }
 
 /// Ядро для главного потока: вход размера окна и команды без ожидания, исход — задачей runtime.
@@ -402,6 +409,11 @@ impl OwnerWindow {
             let mirror = mirror.borrow();
             let state = mirror.as_ref().map(Mirror::state);
             layout.render(app, state, viewport, visible);
+            let focus = visible.then(|| layout.key_focus()).flatten();
+            let typing = layout.typing().map(ModeReceiver::Panel);
+            sync_keys(focus, typing, |panel| {
+                state.is_none_or(|state| state.panels.contains_key(&panel))
+            });
             state.is_some_and(|state| open_workbench(state).is_some())
         });
         self.menu.set_open_enabled(open);
@@ -1281,7 +1293,228 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         with_window(|owner| owner.project(projection));
     }
     with_window(|owner| owner.render_layout(app));
+    install_keys(app);
     number
+}
+
+/// Ставит монитор клавиш и наблюдателя ввода в полях. Оба вызываются изнутри AppKit: наблюдатель
+/// только ставит согласование режимов в очередь главного потока.
+fn install_keys(app: &App) {
+    app.on_field_focus(|_| defer(|_| follow_field()));
+    match KeyMonitor::install(app, on_key_event) {
+        Some(monitor) => {
+            KEY_MONITOR.with(|slot| *slot.borrow_mut() = Some(ManuallyDrop::new(monitor)));
+        }
+        None => owner::say_err("shellio: монитор клавиш не поставлен"),
+    }
+}
+
+/// Маршрутизатор без повторного входа: занятый пропускает работу, событие идёт AppKit.
+fn with_router<T>(work: impl FnOnce(&mut KeyRouter<ModeReceiver, KeyStroke>) -> T) -> Option<T> {
+    ROUTER.with(|router| {
+        router
+            .try_borrow_mut()
+            .ok()
+            .map(|mut router| work(&mut router))
+    })
+}
+
+/// Маршрутизатор после отрисовки раскладки: панель с фокусом для решения о клавише, закрытые
+/// панели, смена панели с фокусом и режим вслед за полем.
+fn sync_keys(
+    focus: Option<PanelFocus<ModeReceiver>>,
+    typing: Option<ModeReceiver>,
+    alive: impl Fn(PanelId) -> bool,
+) {
+    let moved = KEY_PANEL.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let moved =
+            slot.as_ref().map(|focus| focus.receiver) != focus.as_ref().map(|focus| focus.receiver);
+        *slot = focus;
+        moved
+    });
+    with_router(|router| {
+        router.retain(|receiver| match receiver {
+            ModeReceiver::Panel(panel) => alive(*panel),
+        });
+        if moved {
+            router.cancel(Cancel::Focus);
+        }
+        router.follow_field(typing.as_ref());
+    });
+}
+
+/// Режим вслед за полем (ADR-0010): панель, чьё поле держит ввод, в `Input`, остальные в
+/// `Navigation`. Занятое окно и галерея режимов не трогают.
+fn follow_field() {
+    let typing = with_window(|owner| owner.layout.as_ref().map(LayoutUi::typing));
+    if let Some(Some(typing)) = typing {
+        let receiver = typing.map(ModeReceiver::Panel);
+        with_router(|router| router.follow_field(receiver.as_ref()));
+    }
+}
+
+/// Приложение перестало быть активным: ожидание второго аккорда выхода и набранный префикс сняты.
+pub fn resigned() {
+    with_router(|router| router.cancel(Cancel::Resigned));
+}
+
+/// Событие монитора клавиш. Вызывается изнутри AppKit до доставки события: решение принимает
+/// маршрутизатор по своей ячейке, действие исполняется следующим оборотом очереди главного потока.
+fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
+    let decision = match event {
+        MonitorEvent::KeyDown(stroke) => return on_key_down(app, stroke),
+        MonitorEvent::KeyUp { key_code } => with_router(|router| router.key_up(KeyCode(key_code))),
+        MonitorEvent::FlagsChanged => with_router(|router| router.flags_changed()),
+        MonitorEvent::MouseDown => {
+            with_router(|router| router.cancel(Cancel::MouseDown));
+            None
+        }
+        MonitorEvent::ScrollWheel => {
+            with_router(|router| router.cancel(Cancel::ScrollWheel));
+            None
+        }
+    };
+    match decision {
+        Some(Decision::Swallow) => Verdict::Swallow,
+        Some(Decision::Pass | Decision::Run(_) | Decision::Replay { .. }) | None => Verdict::Pass,
+    }
+}
+
+fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
+    let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
+        return Verdict::Pass;
+    };
+    let facts = app.key_focus();
+    let focus = Focus {
+        responder: match facts.responder {
+            KeyResponder::None => Responder::None,
+            KeyResponder::Other => Responder::Body,
+            KeyResponder::Field => Responder::Field,
+            KeyResponder::TabStrip => Responder::TabStrip,
+            KeyResponder::Button => Responder::Button,
+        },
+        composing: facts.composing,
+        panel: KEY_PANEL.with(|slot| slot.borrow().clone()),
+    };
+    let mods = stroke.mods();
+    let chord = Chord::new(
+        KeyCode(stroke.key_code()),
+        Mods {
+            cmd: mods.cmd,
+            ctrl: mods.ctrl,
+            alt: mods.alt,
+            shift: mods.shift,
+        },
+    );
+    let repeat = stroke.repeat();
+    let decision =
+        with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, stroke));
+    match decision {
+        Some(Decision::Pass) | None => Verdict::Pass,
+        Some(Decision::Swallow) => Verdict::Swallow,
+        Some(Decision::Run(action)) => {
+            defer(move |app| run_key(app, action));
+            Verdict::Swallow
+        }
+        // Получатель снова держит ввод, пара идёт ему напрямую, мимо очереди событий.
+        Some(Decision::Replay { receiver, event }) => {
+            let ModeReceiver::Panel(panel) = receiver;
+            with_window(|owner| {
+                if let Some(layout) = owner.layout.as_ref() {
+                    layout.set_input(panel, true);
+                }
+            });
+            if app.key_focus().responder == KeyResponder::Field {
+                event.replay(app);
+            }
+            defer(|_| follow_field());
+            Verdict::Swallow
+        }
+    }
+}
+
+/// Действие привязки, исполненное клавишей: тот же обработчик, что у меню, кнопки и CLI, и ровно
+/// одна запись кольца квитанций с источником `key`.
+fn run_key(app: &App, action: Action) {
+    const KEY: ReceiptSource = ReceiptSource::Key;
+    let name = action.name.as_str();
+    let not_applicable = || record_receipt(Sent::action(name, KEY), Ending::NotApplicable);
+    let refused = |text: &str| {
+        with_window(|owner| owner.show_status(Some(text)));
+        not_applicable();
+    };
+    let Ok(registry) = plugins::shared_registry() else {
+        return not_applicable();
+    };
+    let path = match key_actions::recognize(&registry, name, action.args.as_ref()) {
+        Some(Ok(path)) => path,
+        Some(Err(reason)) => return refused(&format!("«{name}» не выполнено: {reason}")),
+        None => return refused(&format!("«{name}» не выполнено: такого действия нет")),
+    };
+    match path {
+        KeyAction::Ui(UiCommand::Mode(mode)) => on_mode_key(mode),
+        KeyAction::Ui(command) => handle(app, command, Some(KEY)),
+        KeyAction::Filter(text) => on_filter(app, Some(&text), Some(KEY)),
+        KeyAction::Layout(layout) => {
+            let command = with_window(|owner| {
+                if !owner.window.is_visible() {
+                    return None;
+                }
+                let scene = owner.layout.as_ref().and_then(LayoutUi::scene)?;
+                key_actions::command(scene, layout)
+            })
+            .flatten();
+            match command {
+                Some(command) => {
+                    let sent = Sent::command(name, &command, KEY);
+                    send_ui(app, command, Some(sent));
+                }
+                None => not_applicable(),
+            }
+        }
+        KeyAction::Open(plugin) => {
+            let visible = with_window(|owner| owner.window.is_visible()) == Some(true);
+            let command = MIRROR.with(|mirror| {
+                let mirror = mirror.borrow();
+                scene::open_panel_command(mirror.as_ref()?.state(), &plugin)
+            });
+            match command.filter(|_| visible) {
+                Some(command) => {
+                    let sent = Sent::command(name, &command, KEY);
+                    send_ui(app, command, Some(sent));
+                }
+                None => not_applicable(),
+            }
+        }
+        KeyAction::Plugin {
+            name: plugin_action,
+            args,
+        } => {
+            let request = with_window(|owner| {
+                if !owner.window.is_visible() {
+                    return None;
+                }
+                Some(owner.layout.as_ref()?.key_request(&plugin_action, args))
+            })
+            .flatten();
+            match request {
+                Some(Ok((panel, request))) => {
+                    let command = MIRROR.with(|mirror| {
+                        let mirror = mirror.borrow();
+                        let state = mirror.as_ref().map(Mirror::state);
+                        bodies::request_command(state, panel, request)
+                    });
+                    send_ui(app, command, Some(Sent::action(name, KEY)));
+                }
+                Some(Err(refusal)) => refused(&refusal.text(name)),
+                None => not_applicable(),
+            }
+        }
+        // История переходов и перечитывание таблицы с клавиши встают вместе со своими портами
+        // главного потока.
+        KeyAction::History(_) | KeyAction::Reload => not_applicable(),
+    }
 }
 
 /// Новое окно владельца: смена ячейки и намерения заголовка уходят в очередь главного потока.
@@ -1571,12 +1804,9 @@ fn on_mode(action: ModeAction, source: Option<ReceiptSource>) {
     let tag = source.map(|source| Sent::action(action.keymap_name(), source));
     let applied = mode_target().flatten().and_then(|(panel, input)| {
         let receiver = ModeReceiver::Panel(panel);
-        let mode = ROUTER.with(|router| {
-            router
-                .borrow()
-                .target_mode(&receiver, input, action.keymap_name())
-        })?;
-        apply_mode(receiver, mode);
+        let mode =
+            with_router(|router| router.target_mode(&receiver, input, action.keymap_name()))??;
+        set_panel_mode(panel, mode);
         Some(())
     });
     let ending = match applied {
@@ -1586,17 +1816,49 @@ fn on_mode(action: ModeAction, source: Option<ReceiptSource>) {
     note_receipt(tag, ending);
 }
 
-/// Поставить режим получателя. Повторный вызов с тем же режимом ничего не меняет: клавиша режим
-/// уже сменила в решении маршрутизатора.
-fn apply_mode(receiver: ModeReceiver, mode: Mode) {
-    ROUTER.with(|router| router.borrow_mut().set_mode(receiver, mode));
+/// Действие `mode.*` с клавиши. Режим уже сменило решение маршрутизатора: здесь он только
+/// применяется к первому ответчику, а запись кольца пишется с источником `key`.
+fn on_mode_key(action: ModeAction) {
+    let applied = mode_target().flatten().and_then(|(panel, input)| {
+        let mode = match action {
+            ModeAction::Navigation => Mode::Navigation,
+            ModeAction::Input => input.then_some(Mode::Input)?,
+            ModeAction::Toggle => {
+                let receiver = ModeReceiver::Panel(panel);
+                input.then_some(())?;
+                with_router(|router| router.mode(&receiver))?
+            }
+        };
+        set_panel_mode(panel, mode);
+        Some(())
+    });
+    let ending = match applied {
+        Some(()) => Ending::Done,
+        None => Ending::NotApplicable,
+    };
+    record_receipt(
+        Sent::action(action.keymap_name(), ReceiptSource::Key),
+        ending,
+    );
+}
+
+/// Поставить режим панели: запись маршрутизатора и первый ответчик. `Input` ставит ввод в поле
+/// панели, `Navigation` отдаёт ввод окну. Режим, за которым поле не последовало, возвращается к
+/// факту окна.
+fn set_panel_mode(panel: PanelId, mode: Mode) {
+    with_router(|router| router.set_mode(ModeReceiver::Panel(panel), mode));
+    with_window(|owner| {
+        if let Some(layout) = owner.layout.as_ref() {
+            layout.set_input(panel, mode == Mode::Input);
+        }
+    });
+    follow_field();
 }
 
 /// Чтение `ui.mode`. `None` — окна нет.
 fn mode_view() -> Option<ModeView> {
     let target = mode_target()?;
-    Some(ROUTER.with(|router| {
-        let router = router.borrow();
+    with_router(|router| {
         let receiver = target.map(|(panel, _)| ModeReceiver::Panel(panel));
         let mode = receiver.map_or(Mode::Navigation, |receiver| router.mode(&receiver));
         let exit_receiver = router.exit_armed().copied();
@@ -1615,7 +1877,7 @@ fn mode_view() -> Option<ModeView> {
             },
             exit_receiver,
         }
-    }))
+    })
 }
 
 /// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`.

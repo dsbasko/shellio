@@ -123,6 +123,8 @@ COLD_VALUE="cold-значение"
 KEY_ESC=53
 KEY_RETURN=36
 KEY_DOWN=125
+# Клавиша i: действие mode.input панели с получателем ввода.
+KEY_I=34
 
 REQUIRED=()
 STATUS=()
@@ -1547,12 +1549,29 @@ wait_ax_field() {
   done
 }
 
+# Ввод у поля демо-поля. Escape в поле отдаёт ввод окну, панель остаётся с фокусом в режиме «НАВИГАЦИЯ»
+# (ADR-0010): поле, которое ввод не держит, получает его штатной клавишей i действия mode.input у владельца
+# впереди. Раскладка к этому чтению уже применена, поэтому ввод панели, получившей фокус, уже стоит; иначе WHY.
+field_input() {
+  local dir="$1" held=""
+  if ui_read "$profile" "$dir/field-before" inspect; then
+    held="$(comp "$dir/field-before.stdout" "layout.panel.$native.field" first_responder 2>/dev/null || echo нет)"
+  fi
+  [[ "$held" != true ]] || return 0
+  front_ok "$owner_pid" "$dir" || return 1
+  se_key "$KEY_I" "$dir/keys.log" || {
+    WHY="клавиша i не отправлена: $(oneline "$dir/keys.log")"
+    return 1
+  }
+  wait_inspect "$profile" "$dir/focus-field" "layout.panel.$native.field" first_responder true
+}
+
 # Фокус панели демо-поля рабочей области bench, ввод у её поля, владелец впереди; иначе WHY.
 native_focus() {
   local dir="$1" bench="$2"
   core_cmd "$profile" "$dir/focus" panel focus "$native" --all || return 1
   settle_layout "$profile" "$dir/focus-settle" "$bench" "$REV" || return 1
-  wait_inspect "$profile" "$dir/focus-field" "layout.panel.$native.field" first_responder true || return 1
+  field_input "$dir" || return 1
   front_ok "$owner_pid" "$dir"
 }
 
@@ -2730,6 +2749,8 @@ item_open_menu_native() {
   wait_ax_field "$owner_pid" "$dir/typed.ax.json" x || failures+=("ввод x: $WHY")
   se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
   wait_field "$profile" "$dir/escaped" "$native" "" || failures+=("Escape: $WHY")
+  wait_inspect "$profile" "$dir/escaped-input" "layout.panel.$native.field" first_responder false ||
+    failures+=("Escape не отдал ввод окну: $WHY")
   if panel_get "$profile" "$dir/panel" "$native"; then
     [[ "$(pv "$dir/panel.stdout" data.value || echo ?)" == "" && "$(pv "$dir/panel.stdout" data.edits || echo ?)" == 0 ]] ||
       failures+=("query.panel: данные $(pv "$dir/panel.stdout" data || echo ?), ожидались пустое значение и 0 правок")
@@ -2778,9 +2799,12 @@ item_native_edit() {
   wait_field "$profile" "$dir/edited" "$native" shellio-checkzz || failures+=("правка без Return: $WHY")
   se_key "$KEY_ESC" "$dir/keys.log" || failures+=("Escape не отправлен: $(oneline "$dir/keys.log")")
   wait_field "$profile" "$dir/escaped" "$native" shellio-check || failures+=("Escape: $WHY")
+  wait_inspect "$profile" "$dir/escaped-input" "layout.panel.$native.field" first_responder false ||
+    failures+=("Escape не отдал ввод окну: $WHY")
   revision_of "$dir/after-escape" "$wb_a"
   [[ "$NOW_REV" == "$rev1" ]] ||
     failures+=("правка и Escape дали ревизию $(jv "$dir/after-escape.stdout" ok.revision || echo ?), до них $rev1")
+  field_input "$dir" || failures+=("ввод не вернулся полю после Escape: $WHY")
 
   long="$(printf 'abcdefghij%.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)abcdefg"
   [[ ${#long} -eq 257 ]] || fatal "$item: строка проверки не из 257 символов: ${#long}"
@@ -2833,6 +2857,8 @@ item_native_zones() {
     return 0
   }
   show_bench "$dir" "$wb_a" "$ws1"
+  # Прежний пункт закончился Escape в поле: перенос панели возвращает ввод только полю, которое его держало.
+  native_focus "$dir" "$wb_a" || fatal "условие пункта: $WHY"
   ui_read "$profile" "$dir/before.inspect" inspect || fatal "$item: ui.inspect не прочитан"
   component="$(pfact "$dir/before.inspect.stdout" "$native" component || echo нет)"
   panel_get "$profile" "$dir/panel-before" "$native" || fatal "$item: query.panel не прочитан"
