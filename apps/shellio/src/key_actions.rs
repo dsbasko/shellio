@@ -286,6 +286,16 @@ pub fn menu_chords(keymap: &Keymap, actions: &[&str]) -> BTreeMap<String, MenuCh
         .collect()
 }
 
+/// Имена действий пунктов меню: постоянные пункты `fixed` и `panel.open.<plugin>` строк «Открыть
+/// панель» по плагинам `plugins`.
+pub fn menu_actions(fixed: &[&str], plugins: &[&str]) -> Vec<String> {
+    fixed
+        .iter()
+        .map(|name| (*name).to_owned())
+        .chain(plugins.iter().map(|plugin| format!("{PANEL_OPEN}{plugin}")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -411,6 +421,50 @@ mod tests {
                 ("ui.appearance.light", "cmd+\r"),
                 ("window.close", "cmd+w"),
             ])
+        );
+    }
+
+    #[test]
+    fn open_panel_items_take_the_keys_of_their_actions() {
+        let registry = registry();
+        let plugins: Vec<&str> = crate::scene::open_rows(&registry)
+            .iter()
+            .map(|row| row.plugin)
+            .collect();
+        assert!(plugins.contains(&"demo-list"), "{plugins:?}");
+        let names = menu_actions(&MENU, &plugins);
+        assert_eq!(names.len(), MENU.len() + plugins.len());
+        let names: Vec<&str> = names.iter().map(String::as_str).collect();
+        let actions = Actions::of(Arc::new(registry));
+        let defaults = Keymap::defaults(actions.panels()).unwrap();
+        assert!(
+            menu_chords(&defaults, &names)
+                .keys()
+                .all(|action| !action.starts_with(PANEL_OPEN)),
+            "по умолчанию клавиш у пунктов «Открыть панель» нет"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keymap.toml");
+        std::fs::write(
+            &path,
+            "[global]\n\"Cmd-Alt-p\" = \"panel.open.demo-list\"\n",
+        )
+        .unwrap();
+        let next = crate::keymap_service::load(&defaults, &path, &actions).unwrap();
+        assert_eq!(next.diagnostics(), []);
+        let shown = menu_chords(&next, &names);
+        assert_eq!(
+            shown.get("panel.open.demo-list").map(written).as_deref(),
+            Some("opt+cmd+p")
+        );
+        assert_eq!(
+            shown
+                .keys()
+                .filter(|action| action.starts_with(PANEL_OPEN))
+                .count(),
+            1,
+            "клавишу получает только названный плагин"
         );
     }
 

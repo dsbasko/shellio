@@ -67,7 +67,8 @@ const CLOSE: &str = "window.close";
 /// Эквиваленты пунктов по id пункта. Пункт без записи клавиши не показывает.
 pub type MenuKeys = BTreeMap<String, MenuKey>;
 
-/// Id пунктов, которые получают эквивалент: имена действий keymap без аргументов.
+/// Id постоянных пунктов, которые получают эквивалент: имена действий keymap без аргументов.
+/// Пункты «Открыть панель» получают его по своему id `panel.open.<plugin>`.
 pub const MENU_ACTIONS: [&str; 8] = [
     QUIT,
     CLOSE,
@@ -103,13 +104,16 @@ fn zone_entries(zones: ZoneMenu, keys: &MenuKeys) -> Vec<MenuEntry> {
         .collect()
 }
 
-/// Пункты «Открыть панель» по строкам `rows`; `enabled` — рабочая область открыта.
-fn panel_entries(rows: &[PanelRow], enabled: bool) -> Vec<MenuEntry> {
+/// Пункты «Открыть панель» по строкам `rows`; `enabled` — рабочая область открыта. Id пункта —
+/// имя действия keymap `panel.open.<plugin>`, по нему же берётся эквивалент.
+fn panel_entries(rows: &[PanelRow], enabled: bool, keys: &MenuKeys) -> Vec<MenuEntry> {
     rows.iter()
         .map(|row| {
+            let id = format!("{OPEN_PANEL}{}", row.id);
             MenuEntry::Item(MenuItem {
+                key: keys.get(&id).cloned(),
                 enabled,
-                ..MenuItem::new(&format!("{OPEN_PANEL}{}", row.id), &row.title)
+                ..MenuItem::new(&id, &row.title)
             })
         })
         .collect()
@@ -159,7 +163,7 @@ fn entries(
             items.push(submenu(
                 OPEN_PANEL_MENU,
                 "Открыть панель",
-                panel_entries(rows, open_enabled),
+                panel_entries(rows, open_enabled, keys),
             ));
             items
         }),
@@ -442,6 +446,41 @@ mod tests {
         for id in keys().keys() {
             assert!(MENU_ACTIONS.contains(&id.as_str()));
         }
+    }
+
+    #[test]
+    fn open_panel_items_take_the_key_of_their_action() {
+        let rows = [
+            PanelRow {
+                id: "demo-list".to_owned(),
+                title: "Демо: список".to_owned(),
+            },
+            PanelRow {
+                id: "demo-field".to_owned(),
+                title: "Демо: поле".to_owned(),
+            },
+        ];
+        let option = MenuKey {
+            option: true,
+            ..MenuKey::command("p")
+        };
+        let mut table = keys();
+        table.insert("panel.open.demo-list".to_owned(), option);
+        let mut shown = Vec::new();
+        keyed(
+            &entries(AppearanceChoice::System, None, &rows, true, &table),
+            &mut shown,
+        );
+        let panels: Vec<_> = shown
+            .iter()
+            .filter(|(id, _)| id.starts_with(OPEN_PANEL))
+            .cloned()
+            .collect();
+        assert_eq!(
+            panels,
+            [("panel.open.demo-list".to_owned(), "opt+cmd+p".to_owned())],
+            "клавишу получает только пункт с записью в наборе"
+        );
     }
 
     #[test]

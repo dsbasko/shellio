@@ -19,8 +19,8 @@ use shellio_theme::{AppTheme, KeyMode};
 use crate::app::App;
 use crate::chrome_bar::Frame;
 use crate::counters::{Live, counter};
-use crate::font;
 use crate::inspect::{self, InspectNode};
+use crate::key_badge::{KEY_SIZE, KeyBadge};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
 use crate::piece::ns_rect;
@@ -47,12 +47,6 @@ const HINT_GAP: f64 = 14.0;
 const KEY_GAP: f64 = 3.0;
 /// От последней клавиши до подписи: промежуток подсказки и `em { margin-left: 4px }`.
 const LABEL_GAP: f64 = 7.0;
-/// Плашка клавиши — правило `kbd` прототипа: высота и наименьшая ширина 17, поля 4, линия 1,
-/// радиус 4, моноширинный кегль 10,5.
-const KEY_SIZE: f64 = 17.0;
-const KEY_PAD: f64 = 4.0;
-const KEY_RADIUS: f64 = 4.0;
-const KEY_FONT: f64 = 10.5;
 
 /// Слот сообщения в строке статуса `width`×`height` с линией `line` сверху, в точках строки с
 /// началом сверху слева (`.sb-msg { padding: 0 12px }` прототипа): от правого края плашки режима
@@ -113,13 +107,6 @@ pub fn key_badges(keys: &[String]) -> Vec<String> {
         badges.push(format!("{signs}{name}"));
     }
     badges
-}
-
-/// Ширина плашки клавиши с набором подписи `text_width`.
-pub fn key_width(text_width: f64) -> f64 {
-    (text_width.max(0.0) + 2.0 * KEY_PAD + 2.0)
-        .ceil()
-        .max(KEY_SIZE)
 }
 
 /// Подсказка строки статуса: клавиши по одной и подпись.
@@ -199,7 +186,7 @@ struct StatusModel {
 /// Виды одной подсказки.
 struct HintViews {
     group: Retained<NSView>,
-    keys: Vec<(Retained<NSView>, Retained<NSTextField>)>,
+    keys: Vec<KeyBadge>,
     label: Retained<NSTextField>,
 }
 
@@ -385,23 +372,16 @@ impl StatusLine {
             );
             // Ключ одной клавиши — без номера, как `K.kbd` прототипа.
             let single = hint.keys.len() == 1;
-            for (key, (key_box, label)) in hint.keys.iter().enumerate() {
+            for (key, badge) in hint.keys.iter().enumerate() {
                 let key_ck = if single {
                     format!("{hint_ck}.key")
                 } else {
                     format!("{hint_ck}.key.{}", key + 1)
                 };
                 nodes.push(
-                    inspect::node(
-                        &format!("{hint_id}.key.{}", key + 1),
-                        "KeyBadge",
-                        Some(&hint_id),
-                        key_box,
-                        None,
-                        None,
-                    )
-                    .with_ck(key_ck)
-                    .with_text_of(label),
+                    badge
+                        .node(&format!("{hint_id}.key.{}", key + 1), &hint_id)
+                        .with_ck(key_ck),
                 );
             }
             nodes.push(
@@ -443,16 +423,8 @@ impl StatusLine {
             hint.label
                 .setTextColor(Some(&layer::ns_color(theme.colors.text_3)));
             hint.label.setFont(Some(&small));
-            for (key_box, label) in &hint.keys {
-                label.setTextColor(Some(&layer::ns_color(theme.colors.text_2)));
-                label.setFont(Some(&font::mono(KEY_FONT)));
-                if let Some(layer) = key_box.layer() {
-                    without_actions(|| {
-                        layer::set_fill(&layer, theme.colors.kbd);
-                        layer::set_line(&layer, Some((theme.colors.line_2, 1.0)));
-                        layer::set_radius(&layer, KEY_RADIUS);
-                    });
-                }
+            for badge in &hint.keys {
+                badge.apply_theme(&theme.colors);
             }
         }
         view.setNeedsDisplay(true);
@@ -690,15 +662,9 @@ impl StatusView {
             let keys = key_badges(&hint.keys)
                 .iter()
                 .map(|key| {
-                    let label = NSTextField::labelWithString(&NSString::from_str(key), mtm);
-                    let key_box = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
-                    key_box.setWantsLayer(true);
-                    key_box.setLayerContentsRedrawPolicy(
-                        NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay,
-                    );
-                    key_box.addSubview(&label);
-                    group.addSubview(&key_box);
-                    (key_box, label)
+                    let badge = KeyBadge::new(mtm, key);
+                    group.addSubview(badge.view());
+                    badge
                 })
                 .collect();
             let label = NSTextField::labelWithString(&NSString::from_str(&hint.label), mtm);
@@ -721,11 +687,7 @@ impl StatusView {
         let widths: Vec<(Vec<f64>, f64)> = hints
             .iter()
             .map(|hint| {
-                let keys = hint
-                    .keys
-                    .iter()
-                    .map(|(_, label)| key_width(label.intrinsicContentSize().width))
-                    .collect();
+                let keys = hint.keys.iter().map(KeyBadge::width).collect();
                 let label = hint.label.font().map_or(0.0, |font| {
                     style::typeset_width(&hint.label.stringValue().to_string(), &font)
                 });
@@ -759,27 +721,8 @@ impl StatusView {
             );
             for (hint, frame) in hints.iter().zip(&frames) {
                 hint.group.setFrame(frame.group.rect());
-                for ((key_box, label), key) in hint.keys.iter().zip(&frame.keys) {
-                    key_box.setFrame(
-                        Frame::new(
-                            key.x - frame.group.x,
-                            key.y - frame.group.y,
-                            key.width,
-                            key.height,
-                        )
-                        .rect(),
-                    );
-                    let natural = label.intrinsicContentSize();
-                    let width = natural.width + 2.0 * style::LABEL_INSET;
-                    label.setFrame(
-                        Frame::new(
-                            ((key.width - width) / 2.0).round(),
-                            ((key.height - natural.height) / 2.0).round(),
-                            width,
-                            natural.height,
-                        )
-                        .rect(),
-                    );
+                for (badge, key) in hint.keys.iter().zip(&frame.keys) {
+                    badge.place(key.x - frame.group.x, key.y - frame.group.y);
                 }
                 let typeset = Frame::new(
                     frame.label.x - frame.group.x,
@@ -797,6 +740,7 @@ impl StatusView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::key_badge::key_width;
 
     #[test]
     fn message_slot_wraps_the_text_with_its_padding() {

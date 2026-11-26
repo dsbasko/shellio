@@ -25,12 +25,13 @@ use shellio_theme::{AppTheme, AppearanceChoice};
 
 use crate::app::App;
 use crate::counters::{Live, counter};
-use crate::font;
 use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState};
+use crate::key_badge::{KEY_SIZE, KeyBadge};
 use crate::layer::{self, without_actions};
 use crate::own::{Callback, ComponentId, View};
 use crate::runloop;
+use crate::status_line::key_badges;
 use crate::style;
 
 counter!(CHROME_OWNER, Owner, "ChromeBar");
@@ -553,16 +554,10 @@ impl ChromeBar {
                 None,
             )
             .with_ck(inspect::ck::SEARCH_LABEL),
-            inspect::node(
-                "chrome.search.kbd",
-                "KeyBadge",
-                SEARCH,
-                &search.key_box,
-                None,
-                None,
-            )
-            .with_ck(inspect::ck::SEARCH_KBD)
-            .with_text_of(&search.key),
+            search
+                .key
+                .node("chrome.search.kbd", "chrome.search")
+                .with_ck(inspect::ck::SEARCH_KBD),
             inspect::node("chrome.zones", "ZoneGroup", BAR, &parts.zones, None, None)
                 .with_ck(inspect::ck::ZONES),
         ]);
@@ -757,19 +752,9 @@ impl ChromeBar {
         search.icon.setContentTintColor(Some(&muted));
         search.label.setTextColor(Some(&muted));
         search
-            .key
-            .setTextColor(Some(&layer::ns_color(colors.text_2)));
-        search
             .label
             .setFont(Some(&font(theme.metrics.font.body, Weight::Regular)));
-        search.key.setFont(Some(&font::mono(KEY_FONT)));
-        if let Some(key_box) = search.key_box.layer() {
-            without_actions(|| {
-                layer::set_fill(&key_box, colors.kbd);
-                layer::set_line(&key_box, Some((colors.line_2, 1.0)));
-                layer::set_radius(&key_box, KEY_RADIUS);
-            });
-        }
+        search.key.apply_theme(colors);
         if let Some(seg) = parts.zones.layer() {
             without_actions(|| {
                 layer::set_fill(&seg, colors.chrome);
@@ -1091,9 +1076,8 @@ struct SearchIvars {
     owner: Callback<ChromeModel>,
     icon: Retained<NSImageView>,
     label: Retained<NSTextField>,
-    /// Плашка клавиши (`kbd` прототипа) с подписью внутри.
-    key_box: Retained<NSView>,
-    key: Retained<NSTextField>,
+    /// Плашка клавиши (`kbd` прототипа): образец клавиши палитры.
+    key: KeyBadge,
 }
 
 define_class!(
@@ -1168,16 +1152,10 @@ define_class!(
 const SEARCH_INSET: f64 = 9.0;
 const SEARCH_ICON: f64 = 14.0;
 const SEARCH_ICON_GAP: f64 = 8.0;
-/// Плашка клавиши — правило `kbd` прототипа: высота и наименьшая ширина 17, поля 4, линия 1,
-/// радиус 4, моноширинный кегль 10,5. Правый отступ — поле 6 и линия поля поиска.
-const KEY_SIZE: f64 = 17.0;
-const KEY_PAD: f64 = 4.0;
-const KEY_RADIUS: f64 = 4.0;
-const KEY_FONT: f64 = 10.5;
+/// Правый отступ плашки клавиши: поле 6 и линия поля поиска.
 const KEY_INSET: f64 = 7.0;
-/// Поля ячейки подписи AppKit по горизонтали. Собственный размер подписи их не содержит: кадру
-/// уже текста с полями ячейка обрезает последний знак.
-const LABEL_CELL_PAD: f64 = 4.0;
+/// Образец клавиши палитры в записи keymap.
+const SEARCH_KEY: &str = "Cmd-k";
 
 impl SearchView {
     fn new(mtm: MainThreadMarker, owner: Callback<ChromeModel>) -> Retained<SearchView> {
@@ -1187,16 +1165,12 @@ impl SearchView {
         let label =
             NSTextField::labelWithString(&NSString::from_str("Сессии, файлы, команды"), mtm);
         label.setLineBreakMode(NSLineBreakMode::ByTruncatingTail);
-        let key = NSTextField::labelWithString(&NSString::from_str("⌘K"), mtm);
-        let key_box = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
-        layered(&key_box);
-        key_box.addSubview(&key);
+        let key = KeyBadge::new(mtm, &key_badges(&[SEARCH_KEY.to_owned()]).concat());
         let this = SearchView::alloc(mtm).set_ivars(SearchIvars {
             _live: CHROME_SEARCH.live(),
             owner,
             icon: glass,
             label,
-            key_box,
             key,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
@@ -1206,7 +1180,7 @@ impl SearchView {
         let parts = view.ivars();
         view.addSubview(&parts.icon);
         view.addSubview(&parts.label);
-        view.addSubview(&parts.key_box);
+        view.addSubview(parts.key.view());
         view.setAccessibilityElement(true);
         // SAFETY: роль доступности — неизменяемая константа AppKit.
         view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
@@ -1218,11 +1192,8 @@ impl SearchView {
         let parts = self.ivars();
         let bounds = self.bounds();
         let height = bounds.size.height;
-        let key = parts.key.intrinsicContentSize();
         let label = parts.label.intrinsicContentSize();
-        let box_width = (key.width + 2.0 * KEY_PAD + 2.0).ceil().max(KEY_SIZE);
-        let key_width = key.width + LABEL_CELL_PAD;
-        let key_x = bounds.size.width - KEY_INSET - box_width;
+        let key_x = bounds.size.width - KEY_INSET - parts.key.width();
         let label_x = SEARCH_INSET + SEARCH_ICON + SEARCH_ICON_GAP;
         without_actions(|| {
             parts.icon.setFrame(
@@ -1243,24 +1214,7 @@ impl SearchView {
                 )
                 .rect(),
             );
-            parts.key_box.setFrame(
-                Frame::new(
-                    key_x,
-                    ((height - KEY_SIZE) / 2.0).floor(),
-                    box_width,
-                    KEY_SIZE,
-                )
-                .rect(),
-            );
-            parts.key.setFrame(
-                Frame::new(
-                    ((box_width - key_width) / 2.0).round(),
-                    ((KEY_SIZE - key.height) / 2.0).round(),
-                    key_width,
-                    key.height,
-                )
-                .rect(),
-            );
+            parts.key.place(key_x, ((height - KEY_SIZE) / 2.0).floor());
         });
     }
 }

@@ -41,6 +41,7 @@ mod counters;
 mod font;
 mod icon;
 mod inspect;
+mod key_badge;
 mod key_monitor;
 mod layer;
 mod main_menu;

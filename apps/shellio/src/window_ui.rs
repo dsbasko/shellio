@@ -1372,7 +1372,8 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         },
     );
     // Снимок keymap мог прийти раньше окна: эквиваленты пунктов берутся из него сразу.
-    menu.set_keys(menu_keys());
+    let open_rows: Vec<&'static str> = rows.iter().map(|row| row.plugin).collect();
+    menu.set_keys(menu_keys(&open_rows));
     let monitor = match LoopMonitor::install(app) {
         Ok(monitor) => Some(monitor),
         Err(error) => {
@@ -1436,7 +1437,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             gallery,
             layout,
             status,
-            open_rows: rows.iter().map(|row| row.plugin).collect(),
+            open_rows,
             viewport: ViewportGate::default(),
             pending: Vec::new(),
             animations: VecDeque::new(),
@@ -1809,7 +1810,7 @@ pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
     show_modes();
     with_window(|owner| {
         // Меню окну не принадлежит: его клавиши поколения окна не меняют.
-        owner.menu.set_keys(menu_keys());
+        owner.menu.set_keys(menu_keys(&owner.open_rows));
         let keys = strip_keys();
         let buttons = owner
             .layout
@@ -1821,13 +1822,16 @@ pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
     });
 }
 
-/// Эквиваленты пунктов главного меню из действующей таблицы; без снимка клавиш у пунктов нет.
-fn menu_keys() -> MenuKeys {
+/// Эквиваленты пунктов главного меню из действующей таблицы: постоянные пункты и пункты «Открыть
+/// панель» плагинов `open_rows`. Без снимка клавиш у пунктов нет.
+fn menu_keys(open_rows: &[&str]) -> MenuKeys {
     KEYMAP.with(|slot| {
         let Some(snapshot) = slot.borrow().clone() else {
             return MenuKeys::new();
         };
-        key_actions::menu_chords(&snapshot.keymap, &MENU_ACTIONS)
+        let actions = key_actions::menu_actions(&MENU_ACTIONS, open_rows);
+        let names: Vec<&str> = actions.iter().map(String::as_str).collect();
+        key_actions::menu_chords(&snapshot.keymap, &names)
             .into_iter()
             .map(|(action, chord)| {
                 let key = MenuKey {
