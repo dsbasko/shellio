@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use shellio::keymap_service::KeymapSnapshot;
 use shellio::launch::{self, Mode, Run, WindowMode};
 use shellio::owner::{
     self, ActivationHandoff, Claim, Handoff, HandoffOutcome, MirrorSink, Reopen,
@@ -48,6 +49,8 @@ struct RaceUi {
     terminate: watch::Sender<bool>,
     exit: Mutex<Option<oneshot::Sender<u8>>>,
     mirror: Mutex<Option<Mirror>>,
+    /// Последняя таблица keymap, которую получил главный поток.
+    keymap: Mutex<Option<Arc<KeymapSnapshot>>>,
 }
 
 impl MirrorSink for RaceUi {
@@ -68,6 +71,11 @@ impl Ui for RaceUi {
     }
 
     fn attach_core(&self, _core: CoreHandle) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
+    fn keymap(&self, snapshot: Arc<KeymapSnapshot>) -> impl Future<Output = ()> + Send {
+        *self.keymap.lock().unwrap() = Some(snapshot);
         ready(())
     }
 
@@ -236,6 +244,7 @@ fn race(
         terminate: watch::Sender::new(false),
         exit: Mutex::new(Some(exit_tx)),
         mirror: Mutex::new(None),
+        keymap: Mutex::new(None),
     });
     let runtime = owner::start(Arc::clone(&ui), run_of(owner_args), Ok(profile.clone())).unwrap();
 

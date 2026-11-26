@@ -40,7 +40,7 @@ pub struct KeymapSnapshot {
 }
 
 impl KeymapSnapshot {
-    fn of(keymap: Keymap) -> Self {
+    pub(crate) fn of(keymap: Keymap) -> Self {
         let view = view_of(&keymap);
         Self { keymap, view }
     }

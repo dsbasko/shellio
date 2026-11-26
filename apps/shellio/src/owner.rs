@@ -35,9 +35,10 @@ use shellio_store::{Database, Profile, ProfileError, SqlitePersist};
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::signal::unix::{Signal, SignalKind, signal};
 use tokio::sync::broadcast::{self, error::RecvError};
+use tokio::sync::watch;
 use tokio::task::{JoinHandle, spawn_blocking};
 
-use crate::keymap_service::{Actions, KeymapService};
+use crate::keymap_service::{Actions, KeymapService, KeymapSnapshot};
 use crate::launch::{self, Outgoing, Run, WindowMode};
 use crate::plugins;
 
@@ -73,6 +74,10 @@ pub trait Ui: MirrorSink {
     /// Ядро загружено, сокет ещё не опубликован: главный поток получает ручку ядра и передаёт ему
     /// первый размер окна внутренним входом (ADR-0009, «Размер окна»). Возвращается после вызова.
     fn attach_core(&self, core: CoreHandle) -> impl Future<Output = ()> + Send;
+
+    /// Действующая таблица keymap для главного потока: первый снимок — до публикации сокета,
+    /// дальше каждый новый снимок службы целиком. Возвращается после вызова.
+    fn keymap(&self, snapshot: Arc<KeymapSnapshot>) -> impl Future<Output = ()> + Send;
 
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
@@ -670,6 +675,15 @@ async fn serve<U: Ui>(
         Ok(keymap) => keymap,
         Err(reason) => return abort(core, ownership, reason).await,
     };
+    // Главный поток получает ту же таблицу до публикации сокета и до строки готовности.
+    let _keymap_feed = {
+        let ui = Arc::clone(&ui);
+        feed_keymap(keymap.port().subscribe(), move |snapshot| {
+            let ui = Arc::clone(&ui);
+            async move { ui.keymap(snapshot).await }
+        })
+        .await
+    };
 
     let (ownership, published) = blocking(move || {
         let mut ownership = ownership;
@@ -739,6 +753,27 @@ async fn start_keymap(profile: &Profile) -> Result<KeymapService, String> {
     .map_err(|reason| format!("служба keymap не запущена: {reason}"))
 }
 
+/// Передавать снимки таблицы keymap получателю `deliver`: действующий снимок доставляется до
+/// возврата, каждый следующий — задачей. Отставший получатель видит последний снимок целиком,
+/// промежуточные поколения не гарантируются. Задача заканчивается вместе со службой.
+pub async fn feed_keymap<F, Fut>(
+    mut table: watch::Receiver<Arc<KeymapSnapshot>>,
+    deliver: F,
+) -> JoinHandle<()>
+where
+    F: Fn(Arc<KeymapSnapshot>) -> Fut + Send + 'static,
+    Fut: Future<Output = ()> + Send,
+{
+    let first = Arc::clone(&table.borrow_and_update());
+    deliver(first).await;
+    tokio::spawn(async move {
+        while table.changed().await.is_ok() {
+            let next = Arc::clone(&table.borrow_and_update());
+            deliver(next).await;
+        }
+    })
+}
+
 /// Строка готовности владельца: PID, сокет, режим окна и `windowNumber`. Сценарии берут PID из
 /// начала строки, поэтому новые поля только дописываются в конец.
 pub fn ready_line(pid: u32, socket: &Path, mode: WindowMode, window: Option<i64>) -> String {
@@ -805,6 +840,37 @@ mod tests {
     use shellio_core::{Command, Mirror, Revision, Snapshot, UnixMillis, workspace_name};
 
     use super::*;
+
+    fn keymap_snapshot() -> Arc<KeymapSnapshot> {
+        let keymap = shellio_keymap::Keymap::defaults(&[]).unwrap();
+        Arc::new(KeymapSnapshot::of(keymap))
+    }
+
+    /// Главный поток получает действующую таблицу до возврата, дальше — каждый новый снимок, а
+    /// со службой передача заканчивается.
+    #[tokio::test]
+    async fn keymap_feed_delivers_the_current_table_first_and_then_every_new_one() {
+        let first = keymap_snapshot();
+        let (publish, table) = watch::channel(Arc::clone(&first));
+        let (seen, mut versions) = tokio::sync::mpsc::unbounded_channel();
+        let feed = feed_keymap(table, move |snapshot: Arc<KeymapSnapshot>| {
+            let seen = seen.clone();
+            async move {
+                let _ = seen.send(snapshot);
+            }
+        })
+        .await;
+        // Первый снимок уже доставлен: ожидания нет.
+        assert!(Arc::ptr_eq(&versions.try_recv().unwrap(), &first));
+
+        let second = keymap_snapshot();
+        publish.send(Arc::clone(&second)).unwrap();
+        assert!(Arc::ptr_eq(&versions.recv().await.unwrap(), &second));
+
+        drop(publish);
+        feed.await.unwrap();
+        assert!(versions.recv().await.is_none());
+    }
 
     /// `ui.cell` и `ui.window.size` принимает только владелец с явным каталогом состояния;
     /// остальные запросы `ui` от профиля не зависят.

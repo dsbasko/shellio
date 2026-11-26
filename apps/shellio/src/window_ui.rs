@@ -19,10 +19,12 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem::ManuallyDrop;
+use std::sync::Arc;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::key_router::KeyRouter;
+use shellio::keymap_service::KeymapSnapshot;
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio::plugins;
@@ -70,6 +72,9 @@ thread_local! {
     /// Маршрутизатор клавиш: режимы панелей, набранный префикс и автомат аккорда выхода. Ячейка
     /// своя, а не поле окна: решение о клавише принимается и тогда, когда окно уже занято.
     static ROUTER: RefCell<KeyRouter<ModeReceiver, KeyStroke>> = RefCell::new(KeyRouter::default());
+    /// Действующая таблица keymap: целый снимок службы, заменяется одной доставкой. Ячейка своя по
+    /// той же причине, что у маршрутизатора.
+    static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
 }
 
 /// Ядро для главного потока: вход размера окна и команды без ожидания, исход — задачей runtime.
@@ -1351,6 +1356,11 @@ pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle
             receipts: RefCell::new(Ring::default()),
         });
     });
+}
+
+/// Новая таблица keymap от службы: первый снимок приходит до публикации сокета.
+pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
+    KEYMAP.with(|slot| *slot.borrow_mut() = Some(snapshot));
 }
 
 /// Размер содержимого окна изменился: раскладка встаёт по нему сразу, ядро получает его в конце
