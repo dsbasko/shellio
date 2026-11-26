@@ -64,6 +64,54 @@ pub fn message_frame(left: f64, width: f64, height: f64, line: f64, text_width: 
     )
 }
 
+/// Подпись клавиши без модификаторов-знаков (`KEY` прототипа).
+fn key_name(key: &str) -> Option<&'static str> {
+    match key {
+        "Esc" => Some("esc"),
+        "Enter" => Some("⏎"),
+        "Up" => Some("↑"),
+        "Down" => Some("↓"),
+        "Left" => Some("←"),
+        "Right" => Some("→"),
+        _ => None,
+    }
+}
+
+/// Подписи плашек клавиш по записи аккордов keymap (правило `K.kbd` прототипа): клавиша без
+/// модификаторов — одна плашка, `Ctrl` — отдельная плашка перед клавишей, `Alt`, `Shift` и `Cmd`
+/// — знаки `⌥⇧⌘` в одной плашке с клавишей, буква при знаке — прописная.
+pub fn key_badges(keys: &[String]) -> Vec<String> {
+    const MODS: [&str; 4] = ["Ctrl-", "Alt-", "Shift-", "Cmd-"];
+    let mut badges = Vec::new();
+    for chord in keys {
+        let mut key = chord.as_str();
+        let mut held = [false; 4];
+        while let Some((index, rest)) = MODS.iter().enumerate().find_map(|(index, prefix)| {
+            key.strip_prefix(prefix)
+                .filter(|rest| !rest.is_empty())
+                .map(|rest| (index, rest))
+        }) {
+            held[index] = true;
+            key = rest;
+        }
+        if held[0] {
+            badges.push("Ctrl".to_owned());
+        }
+        let signs: String = [(1, '⌥'), (2, '⇧'), (3, '⌘')]
+            .iter()
+            .filter(|(index, _)| held[*index])
+            .map(|(_, sign)| *sign)
+            .collect();
+        let name = match key_name(key) {
+            Some(name) => name.to_owned(),
+            None if !signs.is_empty() && key.chars().count() == 1 => key.to_uppercase(),
+            None => key.to_owned(),
+        };
+        badges.push(format!("{signs}{name}"));
+    }
+    badges
+}
+
 /// Ширина плашки клавиши с набором подписи `text_width`.
 pub fn key_width(text_width: f64) -> f64 {
     (text_width.max(0.0) + 2.0 * KEY_PAD + 2.0)
@@ -333,7 +381,14 @@ impl StatusLine {
                 inspect::node(&hint_id, "StatusHint", Some(id), &hint.group, None, None)
                     .with_ck(hint_ck.clone()),
             );
+            // Ключ одной клавиши — без номера, как `K.kbd` прототипа.
+            let single = hint.keys.len() == 1;
             for (key, (key_box, label)) in hint.keys.iter().enumerate() {
+                let key_ck = if single {
+                    format!("{hint_ck}.key")
+                } else {
+                    format!("{hint_ck}.key.{}", key + 1)
+                };
                 nodes.push(
                     inspect::node(
                         &format!("{hint_id}.key.{}", key + 1),
@@ -343,7 +398,7 @@ impl StatusLine {
                         None,
                         None,
                     )
-                    .with_ck(format!("{hint_ck}.key.{}", key + 1))
+                    .with_ck(key_ck)
                     .with_text_of(label),
                 );
             }
@@ -460,6 +515,10 @@ define_class!(
         fn mouse_down(&self, event: &NSEvent) {
             if self.on_mode(event) {
                 self.press(true);
+            } else {
+                // Вне плашки строка нажатие не обрабатывает: оно идёт дальше по цепочке ответчиков.
+                // SAFETY: `mouseDown:` у NSResponder с тем же событием.
+                let _: () = unsafe { msg_send![super(self), mouseDown: event] };
             }
         }
 
@@ -467,8 +526,13 @@ define_class!(
         #[unsafe(method(mouseUp:))]
         fn mouse_up(&self, event: &NSEvent) {
             let pressed = self.ivars().owner.call(|model| model.pressed.get()) == Some(true);
+            if !pressed {
+                // SAFETY: `mouseUp:` у NSResponder с тем же событием.
+                let _: () = unsafe { msg_send![super(self), mouseUp: event] };
+                return;
+            }
             self.press(false);
-            if pressed && self.on_mode(event) {
+            if self.on_mode(event) {
                 let handler = self
                     .ivars()
                     .owner
@@ -571,8 +635,7 @@ impl StatusView {
         }
         for hint in hints {
             let group = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
-            let keys = hint
-                .keys
+            let keys = key_badges(&hint.keys)
                 .iter()
                 .map(|key| {
                     let label = NSTextField::labelWithString(&NSString::from_str(key), mtm);
@@ -740,5 +803,19 @@ mod tests {
     fn mode_plate_names_the_mode() {
         assert_eq!(mode_title(KeyMode::Navigation), "НАВИГАЦИЯ");
         assert_eq!(mode_title(KeyMode::Input), "ВВОД");
+    }
+    #[test]
+    fn key_badges_follow_the_prototype_rule() {
+        let keys =
+            |keys: &[&str]| key_badges(&keys.iter().map(|k| (*k).to_owned()).collect::<Vec<_>>());
+        assert_eq!(keys(&["h", "j", "k", "l"]), ["h", "j", "k", "l"]);
+        assert_eq!(keys(&["Esc"]), ["esc"]);
+        assert_eq!(keys(&["Enter", "Up"]), ["⏎", "↑"]);
+        assert_eq!(keys(&["Cmd-k"]), ["⌘K"]);
+        assert_eq!(keys(&["Cmd-Alt-0"]), ["⌥⌘0"]);
+        assert_eq!(keys(&["Ctrl-w"]), ["Ctrl", "w"]);
+        assert_eq!(keys(&["Ctrl-\\"]), ["Ctrl", "\\"]);
+        assert_eq!(keys(&["Ctrl-Shift-Esc"]), ["Ctrl", "⇧esc"]);
+        assert_eq!(keys(&["-", "Ctrl--"]), ["-", "Ctrl", "-"]);
     }
 }
