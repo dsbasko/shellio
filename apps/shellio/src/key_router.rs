@@ -142,6 +142,21 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         }
     }
 
+    /// Режим панели после действия `mode.*`, которое пришло не клавишей: меню, кнопка или CLI.
+    /// Клавиша режим меняет в самом решении, и её действие целевой режим не считает заново.
+    /// `None` — действие у панели не действует: `input` — есть ли у неё получатель ввода.
+    pub fn target_mode(&self, receiver: &R, input: bool, action: &str) -> Option<Mode> {
+        match action {
+            MODE_NAVIGATION => Some(Mode::Navigation),
+            MODE_INPUT => input.then_some(Mode::Input),
+            MODE_TOGGLE => input.then(|| match self.mode(receiver) {
+                Mode::Navigation => Mode::Input,
+                Mode::Input => Mode::Navigation,
+            }),
+            _ => None,
+        }
+    }
+
     /// Получатель, которому второй аккорд выхода вернёт пару.
     pub fn exit_armed(&self) -> Option<&R> {
         self.exit.receiver()
@@ -540,6 +555,36 @@ mod tests {
         assert_eq!(router.mode(&FIELD), Mode::Navigation);
         assert_eq!(down(&mut router, &field, "Ctrl-\\"), ran("mode.navigation"));
         assert_eq!(router.exit_armed(), Some(&FIELD));
+    }
+
+    #[test]
+    fn mode_action_from_menu_or_cli_resolves_its_target_mode() {
+        let mut router = Router::default();
+        assert_eq!(
+            router.target_mode(&FIELD, true, MODE_NAVIGATION),
+            Some(Mode::Navigation)
+        );
+        assert_eq!(
+            router.target_mode(&FIELD, true, MODE_INPUT),
+            Some(Mode::Input)
+        );
+        assert_eq!(
+            router.target_mode(&FIELD, true, MODE_TOGGLE),
+            Some(Mode::Input)
+        );
+        router.set_mode(FIELD, Mode::Input);
+        assert_eq!(
+            router.target_mode(&FIELD, true, MODE_TOGGLE),
+            Some(Mode::Navigation)
+        );
+        // Панель без получателя ввода остаётся в `Navigation`.
+        assert_eq!(
+            router.target_mode(&LIST, false, MODE_NAVIGATION),
+            Some(Mode::Navigation)
+        );
+        assert_eq!(router.target_mode(&LIST, false, MODE_INPUT), None);
+        assert_eq!(router.target_mode(&LIST, false, MODE_TOGGLE), None);
+        assert_eq!(router.target_mode(&FIELD, true, "layout.zoom"), None);
     }
 
     #[test]

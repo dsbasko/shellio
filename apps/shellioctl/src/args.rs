@@ -16,8 +16,8 @@ use shellio_control::{
     KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, ListAction, PanelId, ProjectId, Revision, SplitAxis, ToggleTarget,
-    TreeScope, UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, Command, ListAction, ModeAction, PanelId, ProjectId, Revision, SplitAxis,
+    ToggleTarget, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Dimension, Direction, Edge, Hideable, Zone};
 
@@ -70,6 +70,7 @@ pub const USAGE: &str = "\
   ui appearance <light|dark|system|cycle>
   ui list <down|up|top|bottom|page-down|page-up|collapse|expand|activate>
   ui filter [<текст>]
+  ui mode <navigation|input|toggle|get>
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -1195,6 +1196,19 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::List(action))))
+        }
+        "ui mode" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            if value == "get" {
+                return Ok(Action::Ui(UiRequest::Mode));
+            }
+            let action = ModeAction::parse(&value).ok_or_else(|| {
+                usage(format!(
+                    "{call}: ожидается navigation, input, toggle или get, получено «{value}»"
+                ))
+            })?;
+            Ok(Action::Ui(UiRequest::Command(UiCommand::Mode(action))))
         }
         "ui filter" => {
             given.only(call, &[])?;
@@ -2723,6 +2737,27 @@ mod tests {
                 action_of(&["ui", "list", action.as_str()]),
                 Action::Ui(UiRequest::Command(UiCommand::List(action)))
             );
+        }
+        assert_eq!(
+            action_of(&["ui", "mode", "get"]),
+            Action::Ui(UiRequest::Mode)
+        );
+        for action in ModeAction::ALL {
+            assert_eq!(
+                action_of(&["ui", "mode", action.as_str()]),
+                Action::Ui(UiRequest::Command(UiCommand::Mode(action)))
+            );
+        }
+        for (args, part) in [
+            (&["ui", "mode"][..], "ui mode"),
+            (
+                &["ui", "mode", "insert"],
+                "navigation, input, toggle или get",
+            ),
+            (&["ui", "mode", "get", "--all"], "не применим"),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(part), "{args:?}: {message}");
         }
         assert_eq!(
             action_of(&["ui", "filter"]),

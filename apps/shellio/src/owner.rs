@@ -565,6 +565,7 @@ pub const fn admit_ui(request: &UiRequest, explicit: bool) -> Result<(), UiRefus
         | UiRequest::Inspect
         | UiRequest::Stats
         | UiRequest::Receipts { .. }
+        | UiRequest::Mode
         | UiRequest::Command(_)
         | UiRequest::Filter { .. }
         | UiRequest::Gallery(_) => Ok(()),

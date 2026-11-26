@@ -31,6 +31,7 @@ use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
     StyleView,
 };
+use shellio_control::{ExitChordState, ModeReceiver, ModeView, PanelMode};
 use shellio_control::{
     KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView, ReceiptSource,
 };
@@ -39,10 +40,10 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
-    EventsSince, FsRootResolver, IdGen, LayoutView, ListAction, OpenOutcome, PanelId, PanelStatus,
-    PanelView, PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot, State, StatusView,
-    Title, ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId,
-    Workspace, WorkspaceId,
+    EventsSince, FsRootResolver, IdGen, LayoutView, ListAction, ModeAction, OpenOutcome, PanelId,
+    PanelStatus, PanelView, PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot,
+    State, StatusView, Title, ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis,
+    WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -227,6 +228,12 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Command(UiCommand::PanelFilter) | UiRequest::Filter { .. }) => {
             "request.ui.panel_filter"
         }
+        RequestBody::Ui(UiRequest::Mode) => "request.ui.mode",
+        RequestBody::Ui(UiRequest::Command(UiCommand::Mode(action))) => match action {
+            ModeAction::Navigation => "request.ui.mode_navigation",
+            ModeAction::Input => "request.ui.mode_input",
+            ModeAction::Toggle => "request.ui.mode_toggle",
+        },
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -341,6 +348,12 @@ fn requests() -> Vec<Request> {
             RequestBody::Ui(UiRequest::Filter {
                 text: "вид".into()
             }),
+        ),
+        // P1.6, задача 7: режим панели с фокусом.
+        request(51, RequestBody::Ui(UiRequest::Mode)),
+        request(
+            52,
+            RequestBody::Ui(UiRequest::Command(UiCommand::Mode(ModeAction::Toggle))),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
@@ -614,6 +627,7 @@ fn response_golden(response: &Response) -> &'static str {
         } => match reply {
             UiReply::Window(_) => "response.ok.ui.window",
             UiReply::Cell(_) => "response.ok.ui.cell",
+            UiReply::Mode(_) => "response.ok.ui.mode",
             UiReply::Inspect(inspect)
                 if inspect
                     .components
@@ -758,6 +772,7 @@ fn responses() -> Result<Vec<Response>, String> {
             OkValue::Ui(UiReply::Inspect(Box::new(inspect_style_view()))),
         ),
         ok(43, OkValue::Ui(UiReply::Cell(cell_view()))),
+        ok(51, OkValue::Ui(UiReply::Mode(mode_view()))),
         // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
         // не меняется.
         ok(
@@ -1168,6 +1183,18 @@ fn inspect_view() -> InspectView {
             own: false,
         }],
         gallery: None,
+    }
+}
+
+fn mode_view() -> ModeView {
+    let (panel, _, _) = layout_ids();
+    ModeView {
+        pid: 4242,
+        panel: Some(panel),
+        mode: PanelMode::Navigation,
+        receiver: Some(ModeReceiver::Panel(panel)),
+        exit: ExitChordState::Armed,
+        exit_receiver: Some(ModeReceiver::Panel(panel)),
     }
 }
 
@@ -2151,6 +2178,7 @@ fn ui_replies_answer_only_their_request() {
         ("stats", UiReply::Stats(Box::new(stats_view()))),
         ("receipts", UiReply::Receipts(receipts_view())),
         ("cell", UiReply::Cell(cell_view())),
+        ("mode", UiReply::Mode(mode_view())),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -2172,6 +2200,11 @@ fn ui_replies_answer_only_their_request() {
                 motion: Some(CellMotion::Reduced),
             },
             "cell",
+        ),
+        (UiRequest::Mode, "mode"),
+        (
+            UiRequest::Command(UiCommand::Mode(ModeAction::Input)),
+            "accepted",
         ),
         (UiRequest::Command(UiCommand::WindowClose), "accepted"),
         (UiRequest::Command(UiCommand::AppQuit), "accepted"),

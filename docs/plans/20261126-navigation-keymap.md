@@ -627,6 +627,11 @@ leader = "Space"
     - Редактор поля один на окно и обслуживает все поля: по указателю первого ответчика поле A от поля B не отличить. Срез 5 определяет панель поля по владельцу поля, а не по редактору.
     - Срезу 4: `UiCommand` (`crates/shellio-core/src/ui_command.rs:154`) и `UiCommand::ALL` получают три значения `mode.*`, размер массива — 24.
   - Проверка срезов 2 и 3: `make check` — зелёный (`target/task7/check3.log`), один прогон на оба среза.
+  - Срез 4 (пункты режимов и тестов `ui.mode` остаются открытыми до среза 5): `UiCommand::Mode(ModeAction)` с именами `mode.navigation`, `mode.input`, `mode.toggle` (`UiCommand::ALL` — 24), пространство `mode` в `HOST_NAMESPACES`, чтение `ui.mode` (`UiRequest::Mode`, ответ `UiReply::Mode(ModeView)`), CLI `shellioctl ui mode navigation|input|toggle|get`, эталоны провода `request.ui.mode`, `request.ui.mode_toggle`, `response.ok.ui.mode`.
+    - `ModeView`: `pid`, `panel` (панель с фокусом видимого окна), `mode`, `receiver` (`{"panel": <id>}` или `null` у панели без ввода), `exit` (`idle` или `armed`) и `exit_receiver`. Получатель — перечисление `ModeReceiver`, оно же тип `R` маршрутизатора: задача 9 добавляет в него приёмник галереи без смены формы ответа.
+    - Маршрутизатор живёт в ячейке главного потока `ROUTER` (`apps/shellio/src/window_ui.rs`). Обработчик `on_mode` считает целевой режим (`KeyRouter::target_mode`) только для меню, кнопки и CLI и ставит его `apply_mode`; клавиша режим уже сменила в решении, срез 5 зовёт для неё только `apply_mode`, иначе `mode.toggle` с клавиши переключился бы дважды. Скрытое окно, отсутствие панели и `mode.input` или `mode.toggle` у панели без `input` в манифесте — `not_applicable`.
+    - Срезу 5 остаётся: побочные действия режима на первом ответчике (`mode.input` ставит ввод в поле, `mode.navigation` снимает), режим вслед за полем, `KeyRouter::closed` при закрытии панели, тесты режима новой, восстановленной и открытой с автофокусом панели и тест `shellioctl ui mode` отдельным процессом.
+  - Проверка среза 4: `make check` — зелёный (`target/task7/check4.log`).
 
 ### Task 8: Строка статуса, тон режима, подсказки кнопок и меню
 

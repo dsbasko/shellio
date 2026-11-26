@@ -4,7 +4,7 @@
 //!
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
-//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell` или `accepted`.
+//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode` или `accepted`.
 //!
 //! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
 //! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 use shellio_core::{
-    AppearanceChoice, ListAction, OpenOutcome, PanelId, PanelStatus, Revision, ToggleTarget,
-    UiCommand, WorkbenchId,
+    AppearanceChoice, ListAction, ModeAction, OpenOutcome, PanelId, PanelStatus, Revision,
+    ToggleTarget, UiCommand, WorkbenchId,
 };
 use shellio_layout::{SizeClass, Zone};
 
@@ -37,6 +37,8 @@ pub enum UiRequest {
     /// `ui.receipts`: квитанции действий главного потока с номером больше `after`.
     /// Чтение ничего не меняет.
     Receipts { after: Option<u64> },
+    /// `ui.mode`: режим панели с фокусом и автомат аккорда выхода. Чтение ничего не меняет.
+    Mode,
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
     /// `panel.filter` с полем `text`: текст фильтра панели с фокусом, пустой снимает фильтр. Тот
@@ -260,6 +262,7 @@ impl UiRequest {
             Self::Inspect => "ui.inspect",
             Self::Stats => "ui.stats",
             Self::Receipts { .. } => "ui.receipts",
+            Self::Mode => "ui.mode",
             Self::Command(command) => command.name(),
             Self::Filter { .. } => UiCommand::PanelFilter.name(),
             Self::Gallery(command) => command.name(),
@@ -271,7 +274,9 @@ impl UiRequest {
     /// Изменяет ли запрос состояние: начатый изменяющий запрос не повторяется.
     pub const fn is_mutation(&self) -> bool {
         match self {
-            Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } => false,
+            Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } | Self::Mode => {
+                false
+            }
             Self::Command(_)
             | Self::Filter { .. }
             | Self::Gallery(_)
@@ -288,6 +293,7 @@ impl UiRequest {
                 | (Self::Inspect, UiReply::Inspect(_))
                 | (Self::Stats, UiReply::Stats(_))
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
+                | (Self::Mode, UiReply::Mode(_))
                 | (
                     Self::Command(_)
                         | Self::Filter { .. }
@@ -447,6 +453,14 @@ enum WireUiRequest {
     ListActivate(NoArgs),
     #[serde(rename = "panel.filter")]
     PanelFilter(FilterArgs),
+    #[serde(rename = "ui.mode")]
+    Mode(NoArgs),
+    #[serde(rename = "mode.navigation")]
+    ModeNavigation(NoArgs),
+    #[serde(rename = "mode.input")]
+    ModeInput(NoArgs),
+    #[serde(rename = "mode.toggle")]
+    ModeToggle(NoArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
@@ -534,6 +548,16 @@ impl From<WireUiRequest> for UiRequest {
                 Self::Command(UiCommand::PanelFilter)
             }
             WireUiRequest::PanelFilter(FilterArgs { text: Some(text) }) => Self::Filter { text },
+            WireUiRequest::Mode(NoArgs {}) => Self::Mode,
+            WireUiRequest::ModeNavigation(NoArgs {}) => {
+                Self::Command(UiCommand::Mode(ModeAction::Navigation))
+            }
+            WireUiRequest::ModeInput(NoArgs {}) => {
+                Self::Command(UiCommand::Mode(ModeAction::Input))
+            }
+            WireUiRequest::ModeToggle(NoArgs {}) => {
+                Self::Command(UiCommand::Mode(ModeAction::Toggle))
+            }
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
                 Self::WindowSize { width, height }
@@ -617,6 +641,12 @@ impl From<UiRequest> for WireUiRequest {
                 Self::PanelFilter(FilterArgs { text: None })
             }
             UiRequest::Filter { text } => Self::PanelFilter(FilterArgs { text: Some(text) }),
+            UiRequest::Mode => Self::Mode(NoArgs {}),
+            UiRequest::Command(UiCommand::Mode(action)) => match action {
+                ModeAction::Navigation => Self::ModeNavigation(NoArgs {}),
+                ModeAction::Input => Self::ModeInput(NoArgs {}),
+                ModeAction::Toggle => Self::ModeToggle(NoArgs {}),
+            },
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
@@ -665,6 +695,8 @@ pub enum UiReply {
     Receipts(ReceiptsView),
     /// Оси окна после `ui.cell`.
     Cell(CellView),
+    /// Режим панели с фокусом: ответ `ui.mode`.
+    Mode(ModeView),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
 }
@@ -680,6 +712,67 @@ pub struct CellView {
     pub motion: Axis<Motion>,
     /// Поколение отрисовки после запроса.
     pub generation: u64,
+}
+
+/// Режим клавиатуры панели.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PanelMode {
+    Navigation,
+    Input,
+}
+
+impl PanelMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Navigation => "navigation",
+            Self::Input => "input",
+        }
+    }
+}
+
+/// Получатель ввода: по нему хранится режим, ему второй аккорд выхода возвращает исходную пару.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeReceiver {
+    /// Панель рабочей области: `{"panel": <id>}`.
+    Panel(PanelId),
+}
+
+/// Автомат аккорда выхода.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExitChordState {
+    Idle,
+    /// Первый аккорд принят: следующий такой же вернёт получателю исходную пару.
+    Armed,
+}
+
+impl ExitChordState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Armed => "armed",
+        }
+    }
+}
+
+/// Ответ `ui.mode` (ADR-0007, «Уточнено в P1.6 (планирование)»).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModeView {
+    /// PID владельца.
+    pub pid: u32,
+    /// Панель с фокусом видимой части открытой рабочей области.
+    pub panel: Option<PanelId>,
+    /// Режим панели с фокусом; без неё — `navigation`.
+    pub mode: PanelMode,
+    /// Получатель ввода панели с фокусом; `null` — панель без ввода или панели нет.
+    pub receiver: Option<ModeReceiver>,
+    pub exit: ExitChordState,
+    /// Получатель, которому второй аккорд вернёт пару; ключа нет, пока автомат в `idle`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_receiver: Option<ModeReceiver>,
 }
 
 /// Квитанции действий главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI» и «Уточнено
@@ -1667,6 +1760,12 @@ mod tests {
                 "panel.filter",
                 true,
             ),
+            (UiRequest::Mode, "ui.mode", false),
+            (
+                UiRequest::Command(UiCommand::Mode(ModeAction::Toggle)),
+                "mode.toggle",
+                true,
+            ),
             (
                 UiRequest::Filter {
                     text: "вид".into()
@@ -1992,6 +2091,60 @@ mod tests {
         );
         assert_eq!(serde_json::from_value::<StyleView>(json).unwrap(), style);
         assert!(serde_json::from_value::<StyleView>(json!({"colour": null})).is_err());
+    }
+
+    #[test]
+    fn mode_requests_and_reply_have_stable_frames() {
+        for action in ModeAction::ALL {
+            let frame = json!({ UiCommand::Mode(action).name(): {} });
+            let request: UiRequest = serde_json::from_value(frame.clone()).unwrap();
+            assert_eq!(request, UiRequest::Command(UiCommand::Mode(action)));
+            assert_eq!(serde_json::to_value(&request).unwrap(), frame);
+        }
+        let read: UiRequest = serde_json::from_value(json!({"ui.mode": {}})).unwrap();
+        assert_eq!(read, UiRequest::Mode);
+        assert_eq!(serde_json::to_value(&read).unwrap(), json!({"ui.mode": {}}));
+        assert!(serde_json::from_value::<UiRequest>(json!({"ui.mode": {"panel": 1}})).is_err());
+
+        let idle = ModeView {
+            pid: 7,
+            panel: None,
+            mode: PanelMode::Navigation,
+            receiver: None,
+            exit: ExitChordState::Idle,
+            exit_receiver: None,
+        };
+        let json = serde_json::to_value(UiReply::Mode(idle.clone())).unwrap();
+        assert_eq!(
+            json,
+            json!({"mode": {
+                "pid": 7, "panel": null, "mode": "navigation", "receiver": null, "exit": "idle"
+            }})
+        );
+        assert_eq!(
+            serde_json::from_value::<UiReply>(json).unwrap(),
+            UiReply::Mode(idle.clone())
+        );
+        let id = "00000000-0000-0000-0000-000000000003";
+        let panel: PanelId = serde_json::from_value(json!(id)).unwrap();
+        let armed = ModeView {
+            panel: Some(panel),
+            receiver: Some(ModeReceiver::Panel(panel)),
+            exit: ExitChordState::Armed,
+            exit_receiver: Some(ModeReceiver::Panel(panel)),
+            ..idle
+        };
+        let json = serde_json::to_value(&armed).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "pid": 7, "panel": id, "mode": "navigation", "receiver": {"panel": id},
+                "exit": "armed", "exit_receiver": {"panel": id}
+            })
+        );
+        assert_eq!(serde_json::from_value::<ModeView>(json).unwrap(), armed);
+        assert!(UiRequest::Mode.answered_by(&UiReply::Mode(armed.clone())));
+        assert!(!UiRequest::Window.answered_by(&UiReply::Mode(armed)));
     }
 
     #[test]

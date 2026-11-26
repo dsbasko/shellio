@@ -150,6 +150,22 @@ pub fn intent_target(scene: &Scene, registry: &Registry, intent: &ViewIntent) ->
     declared.then_some(panel)
 }
 
+/// Панель, на которую действует `mode.*`: панель с фокусом, если её вид показан. Второе значение —
+/// у её плагина есть получатель режима `Input`.
+pub fn mode_target(scene: &Scene, registry: &Registry) -> Option<(PanelId, bool)> {
+    let bench = scene.bench.as_ref()?;
+    let panel = bench.focus?;
+    let slot = bench.views.get(&panel)?;
+    if !slot.shown() {
+        return None;
+    }
+    let input = PluginId::new(&slot.plugin)
+        .ok()
+        .and_then(|plugin| registry.get(&plugin))
+        .is_some_and(|entry| entry.manifest().input);
+    Some((panel, input))
+}
+
 /// Что показывает обычное окно.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Scene {

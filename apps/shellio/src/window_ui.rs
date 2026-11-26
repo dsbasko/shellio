@@ -22,31 +22,34 @@ use std::mem::ManuallyDrop;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
+use shellio::key_router::KeyRouter;
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
-    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, LoopMonitor, MainMenu,
-    MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow, Regime,
-    SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldIntent,
+    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyStroke, LoopMonitor,
+    MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuState, NodeState, PanelRow,
+    Regime, SplitAxis, SplitDrag, Startup, StatusLine, TabStatus, TabStripFacts, TextFieldIntent,
     TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts, VirtualListFacts,
     ZoneButton, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
     CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView, LateCallbackView,
-    ListRowView, MaterialView, MenuItemView, MenuView, ReceiptSource, Rect, RunLoopView,
-    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
-    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal,
-    UiReply, UiRequest, VirtualListView, WindowView,
+    ExitChordState, GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView,
+    LateCallbackView, ListRowView, MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView,
+    PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView,
+    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
+    TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView,
+    WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
-    PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
+    ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
+use shellio_keymap::Mode;
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
@@ -64,6 +67,9 @@ thread_local! {
     static MIRROR: RefCell<Option<Mirror>> = const { RefCell::new(None) };
     /// Ручка ядра: размер окна и команды раскладки из интерфейса. Ставится до публикации сокета.
     static CORE: RefCell<Option<CoreLink>> = const { RefCell::new(None) };
+    /// Маршрутизатор клавиш: режимы панелей, набранный префикс и автомат аккорда выхода. Ячейка
+    /// своя, а не поле окна: решение о клавише принимается и тогда, когда окно уже занято.
+    static ROUTER: RefCell<KeyRouter<ModeReceiver, KeyStroke>> = RefCell::new(KeyRouter::default());
 }
 
 /// Ядро для главного потока: вход размера окна и команды без ожидания, исход — задачей runtime.
@@ -1537,6 +1543,71 @@ fn on_filter(app: &App, text: Option<&str>, source: Option<ReceiptSource>) {
     note_receipt(tag, ending);
 }
 
+/// Панель с фокусом видимого окна для действий `mode.*` и признак получателя ввода её плагина.
+/// Внешнее `None` — окна нет.
+fn mode_target() -> Option<Option<(PanelId, bool)>> {
+    with_window(|owner| {
+        if !owner.window.is_visible() {
+            return None;
+        }
+        owner.layout.as_ref()?.mode_target()
+    })
+}
+
+/// Действие `mode.*` меню, кнопки и CLI для панели с фокусом: целевой режим считается здесь, а
+/// ставит его [`apply_mode`]. Скрытое окно, отсутствие панели и `mode.input` или `mode.toggle` у
+/// панели без получателя ввода — действовать не на что.
+fn on_mode(action: ModeAction, source: Option<ReceiptSource>) {
+    let tag = source.map(|source| Sent::action(action.keymap_name(), source));
+    let applied = mode_target().flatten().and_then(|(panel, input)| {
+        let receiver = ModeReceiver::Panel(panel);
+        let mode = ROUTER.with(|router| {
+            router
+                .borrow()
+                .target_mode(&receiver, input, action.keymap_name())
+        })?;
+        apply_mode(receiver, mode);
+        Some(())
+    });
+    let ending = match applied {
+        Some(()) => Ending::Done,
+        None => Ending::NotApplicable,
+    };
+    note_receipt(tag, ending);
+}
+
+/// Поставить режим получателя. Повторный вызов с тем же режимом ничего не меняет: клавиша режим
+/// уже сменила в решении маршрутизатора.
+fn apply_mode(receiver: ModeReceiver, mode: Mode) {
+    ROUTER.with(|router| router.borrow_mut().set_mode(receiver, mode));
+}
+
+/// Чтение `ui.mode`. `None` — окна нет.
+fn mode_view() -> Option<ModeView> {
+    let target = mode_target()?;
+    Some(ROUTER.with(|router| {
+        let router = router.borrow();
+        let receiver = target.map(|(panel, _)| ModeReceiver::Panel(panel));
+        let mode = receiver.map_or(Mode::Navigation, |receiver| router.mode(&receiver));
+        let exit_receiver = router.exit_armed().copied();
+        ModeView {
+            pid: std::process::id(),
+            panel: target.map(|(panel, _)| panel),
+            mode: match mode {
+                Mode::Navigation => PanelMode::Navigation,
+                Mode::Input => PanelMode::Input,
+            },
+            receiver: receiver.filter(|_| target.is_some_and(|(_, input)| input)),
+            exit: if exit_receiver.is_some() {
+                ExitChordState::Armed
+            } else {
+                ExitChordState::Idle
+            },
+            exit_receiver,
+        }
+    }))
+}
+
 /// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`.
 fn on_filter_row(panel: PanelId, intent: TextFieldIntent) {
     with_window(|owner| {
@@ -1621,6 +1692,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
                     .unwrap_or_default()
             }))
         }),
+        UiRequest::Mode => mode_view().map(UiReply::Mode),
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {
@@ -1680,6 +1752,7 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
         UiCommand::LayoutToggle(target) => on_toggle(app, target, source),
         UiCommand::List(action) => on_list(action, source),
         UiCommand::PanelFilter => on_filter(app, None, source),
+        UiCommand::Mode(action) => on_mode(action, source),
     }
 }
 

@@ -149,6 +149,43 @@ impl ListAction {
     }
 }
 
+/// Действие режима панели с фокусом: `mode.*` (ADR-0010, «Уточнено в P1.6 (планирование)»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ModeAction {
+    Navigation,
+    Input,
+    Toggle,
+}
+
+impl ModeAction {
+    pub const ALL: [Self; 3] = [Self::Navigation, Self::Input, Self::Toggle];
+
+    /// Операнд `shellioctl ui mode` и последний сегмент имени действия.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Navigation => "navigation",
+            Self::Input => "input",
+            Self::Toggle => "toggle",
+        }
+    }
+
+    /// Действие по операнду.
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|action| action.as_str() == value)
+    }
+
+    /// Имя действия в keymap и на проводе.
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Navigation => "mode.navigation",
+            Self::Input => "mode.input",
+            Self::Toggle => "mode.toggle",
+        }
+    }
+}
+
 /// Действие интерфейса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UiCommand {
@@ -168,12 +205,14 @@ pub enum UiCommand {
     /// Открыть строку фильтра панели с фокусом. Текст фильтра действие не несёт: его задаёт
     /// запрос `panel.filter` с полем `text`.
     PanelFilter,
+    /// Режим панели с фокусом. `Input` есть только у панели с получателем ввода.
+    Mode(ModeAction),
 }
 
 impl UiCommand {
-    /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия и
-    /// каждое движение списка.
-    pub const ALL: [Self; 21] = [
+    /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия, каждое
+    /// движение списка и каждое действие режима.
+    pub const ALL: [Self; 24] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
@@ -195,6 +234,9 @@ impl UiCommand {
         Self::List(ListAction::Expand),
         Self::List(ListAction::Activate),
         Self::PanelFilter,
+        Self::Mode(ModeAction::Navigation),
+        Self::Mode(ModeAction::Input),
+        Self::Mode(ModeAction::Toggle),
     ];
 
     /// Имя команды в управляющем API.
@@ -203,9 +245,11 @@ impl UiCommand {
             Self::WindowClose => "window.close",
             Self::AppQuit => "app.quit",
             Self::AppearanceSet(_) => "ui.appearance.set",
-            Self::AppearanceCycle | Self::LayoutToggle(_) | Self::List(_) | Self::PanelFilter => {
-                self.keymap_name()
-            }
+            Self::AppearanceCycle
+            | Self::LayoutToggle(_)
+            | Self::List(_)
+            | Self::PanelFilter
+            | Self::Mode(_) => self.keymap_name(),
         }
     }
 
@@ -225,6 +269,7 @@ impl UiCommand {
             Self::LayoutToggle(ToggleTarget::Right) => "layout.toggle.right",
             Self::List(action) => action.keymap_name(),
             Self::PanelFilter => "panel.filter",
+            Self::Mode(action) => action.keymap_name(),
         }
     }
 
@@ -266,6 +311,9 @@ mod tests {
             ("list.expand", "list.expand"),
             ("list.activate", "list.activate"),
             ("panel.filter", "panel.filter"),
+            ("mode.navigation", "mode.navigation"),
+            ("mode.input", "mode.input"),
+            ("mode.toggle", "mode.toggle"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {
@@ -300,6 +348,18 @@ mod tests {
             );
         }
         assert_eq!(ListAction::parse("page_down"), None);
+    }
+
+    #[test]
+    fn mode_actions_parse_their_operands() {
+        for action in ModeAction::ALL {
+            assert_eq!(ModeAction::parse(action.as_str()), Some(action));
+            assert_eq!(
+                UiCommand::Mode(action).name(),
+                format!("mode.{}", action.as_str())
+            );
+        }
+        assert_eq!(ModeAction::parse("get"), None);
     }
 
     #[test]

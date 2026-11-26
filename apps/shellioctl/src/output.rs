@@ -13,6 +13,7 @@ use shellio_control::{
     Motion, OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply,
     WindowView, encode_line,
 };
+use shellio_control::{ModeReceiver, ModeView};
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
     StatusView, TreeView,
@@ -406,11 +407,32 @@ fn ui_text(reply: &UiReply) -> String {
             cell.pid,
             cell.generation
         ),
+        UiReply::Mode(mode) => mode_text(mode),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
             accepted.command, accepted.pid, accepted.generation
         ),
     }
+}
+
+/// Режим панели с фокусом и автомат аккорда выхода.
+fn mode_text(view: &ModeView) -> String {
+    let panel = view
+        .panel
+        .map_or_else(|| "нет".to_owned(), |panel| panel.to_string());
+    let receiver = match view.receiver {
+        Some(ModeReceiver::Panel(_)) => "панель",
+        None => "нет",
+    };
+    let exit = match view.exit_receiver {
+        Some(ModeReceiver::Panel(panel)) => format!("{}, панель {panel}", view.exit.as_str()),
+        None => view.exit.as_str().to_owned(),
+    };
+    format!(
+        "режим: {}, панель {panel}, получатель ввода: {receiver}, аккорд выхода: {exit}, PID {}\n",
+        view.mode.as_str(),
+        view.pid
+    )
 }
 
 /// Квитанции действий главного потока: итог и по строке на запись.
@@ -1142,6 +1164,41 @@ mod tests {
             error: ControlError::owner_leaving(),
         };
         assert!(matches!(text(&frame), Text::Err(text) if text.starts_with("owner_leaving: ")));
+    }
+
+    #[test]
+    fn ui_mode_has_text() {
+        use shellio_control::{ExitChordState, PanelMode};
+
+        let idle = ModeView {
+            pid: 42,
+            panel: None,
+            mode: PanelMode::Navigation,
+            receiver: None,
+            exit: ExitChordState::Idle,
+            exit_receiver: None,
+        };
+        assert_eq!(
+            ui_text(&UiReply::Mode(idle.clone())),
+            "режим: navigation, панель нет, получатель ввода: нет, аккорд выхода: idle, PID 42\n"
+        );
+        let id = "00000000-0000-0000-0000-000000000003";
+        let panel = serde_json::from_value(serde_json::json!(id)).unwrap();
+        let armed = ModeView {
+            panel: Some(panel),
+            mode: PanelMode::Input,
+            receiver: Some(ModeReceiver::Panel(panel)),
+            exit: ExitChordState::Armed,
+            exit_receiver: Some(ModeReceiver::Panel(panel)),
+            ..idle
+        };
+        assert_eq!(
+            ui_text(&UiReply::Mode(armed)),
+            format!(
+                "режим: input, панель {id}, получатель ввода: панель, аккорд выхода: armed, \
+                 панель {id}, PID 42\n"
+            )
+        );
     }
 
     #[test]

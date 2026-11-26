@@ -19,6 +19,7 @@ pub const HOST_NAMESPACES: &[&str] = &[
     "keymap",
     "layout",
     "list",
+    "mode",
     "panel",
     "project",
     "query",
