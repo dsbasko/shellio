@@ -283,7 +283,7 @@ fn mask() -> NSEventMask {
         | NSEventMask::ScrollWheel
 }
 
-fn mods(flags: NSEventModifierFlags) -> KeyMods {
+pub(crate) fn mods(flags: NSEventModifierFlags) -> KeyMods {
     KeyMods {
         cmd: flags.contains(NSEventModifierFlags::Command),
         ctrl: flags.contains(NSEventModifierFlags::Control),

@@ -14,6 +14,7 @@ use crate::components::tab_strip::TabStrip;
 use crate::components::text_field::TextField;
 use crate::components::tree_list::TreeList;
 use crate::components::virtual_list::VirtualList;
+use crate::key_sink::KeySink;
 use crate::marker::GenerationMarker;
 use crate::panel_stub::{EmptyNote, ExpandStub, NeutralCard, PanelView};
 use crate::plate::Plate;
@@ -41,6 +42,7 @@ pub enum Piece<'a> {
     Note(&'a EmptyNote),
     Status(&'a StatusLine),
     Calibration(&'a CalibrationSheet),
+    KeySink(&'a KeySink),
 }
 
 impl Piece<'_> {
@@ -62,7 +64,14 @@ impl Piece<'_> {
             Piece::Stub(stub) => stub.ns_view(),
             Piece::Note(note) => note.ns_view(),
             Piece::Status(line) => line.ns_view(),
+            Piece::KeySink(sink) => sink.ns_view(),
         }
+    }
+}
+
+impl<'a> From<&'a KeySink> for Piece<'a> {
+    fn from(sink: &'a KeySink) -> Self {
+        Piece::KeySink(sink)
     }
 }
 

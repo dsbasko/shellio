@@ -13,12 +13,12 @@ use shellio::gallery::{
     StripZone, TabAction, TreeAction, TreeFixture, ids,
 };
 use shellio_appkit::{
-    App, CalibrationSheet, FocusLayer, Frame, GenerationMarker, InspectNode, ListIntent, ListKey,
-    ListState, LoopMonitor, MainWindow, MenuButton, MenuEntry, MenuIntent, MenuItem, MenuKey,
-    Piece, Presentation, Row, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec, Tab, TabIntent,
-    TabStatus, TabStrip, TabStripState, TextField, TextFieldIntent, TextFieldState, Transition,
-    TreeList, TreeListIntent, TreeListState, TreeNode, ViewWatch, VirtualList, ZoneSide,
-    text_field_height,
+    App, CalibrationSheet, FocusLayer, Frame, GenerationMarker, InspectNode, KeySink, KeySinkEvent,
+    ListIntent, ListKey, ListState, LoopMonitor, MainWindow, MenuButton, MenuEntry, MenuIntent,
+    MenuItem, MenuKey, Piece, Presentation, Row, Surface, SurfaceFill, SurfaceRadius, SurfaceSpec,
+    Tab, TabIntent, TabStatus, TabStrip, TabStripState, TextField, TextFieldIntent, TextFieldState,
+    Transition, TreeList, TreeListIntent, TreeListState, TreeNode, ViewWatch, VirtualList,
+    ZoneSide, text_field_height,
 };
 use shellio_control::{
     ClassAliveView, GalleryFocus, GalleryStrip, GalleryTreeView, KeyLatencyView, KeyPressView,
@@ -39,10 +39,24 @@ struct Tree {
     tree_list: TreeList,
     field: TextField,
     menu: MenuButton,
+    /// Приёмник ввода на своей подложке.
+    sink: KeySink,
+    sink_plate: Surface,
     focus: Surface,
     plain: Surface,
     marker: GenerationMarker,
     watch: ViewWatch,
+}
+
+/// Связь приёмника ввода с главным потоком. Все три вызова идут изнутри AppKit или при занятом
+/// окне и окна не трогают.
+pub struct InputHooks {
+    /// Поколение нынешнего приёмника: его получает строящийся вид.
+    pub generation: Box<dyn Fn() -> u64>,
+    /// Событие вида приёмника этого поколения.
+    pub event: Rc<dyn Fn(u64, KeySinkEvent)>,
+    /// Дерево с приёмником снято: получатель закрыт, следующий вид — новое поколение.
+    pub retired: Box<dyn Fn()>,
 }
 
 /// Дерево страницы «Калибровка»: лист материалов калибровки на подложке и маркер поколения.
@@ -72,6 +86,7 @@ pub struct GalleryUi {
     calibration: Option<Calibration>,
     retired: VecDeque<Retired>,
     on_intent: Rc<dyn Fn(Intent)>,
+    input: InputHooks,
     /// Строки списка последнего зерна: смена выбора не пересобирает набор.
     list_rows: RefCell<Option<(u64, Rc<[Row]>)>>,
     /// Корни дерева последних вставок и обмена: смена раскрытия и выбора не пересобирает узлы.
@@ -86,6 +101,7 @@ impl GalleryUi {
         window: &MainWindow,
         generation: u64,
         on_intent: impl Fn(Intent) + 'static,
+        input: InputHooks,
     ) -> GalleryUi {
         let mut gallery = GalleryUi {
             model: Gallery::new(),
@@ -93,6 +109,7 @@ impl GalleryUi {
             calibration: None,
             retired: VecDeque::new(),
             on_intent: Rc::new(on_intent),
+            input,
             list_rows: RefCell::new(None),
             tree_roots: RefCell::new(None),
         };
@@ -224,6 +241,29 @@ impl GalleryUi {
         window.place(&plain, frame(layout.plain));
         focus.place(&field, frame(layout.field));
         focus.place(&menu, frame(layout.menu));
+        let sink_plate = Surface::new(
+            app,
+            &theme,
+            SurfaceSpec {
+                fill: SurfaceFill::Surface,
+                line: true,
+                radius: SurfaceRadius::Control,
+                layer: FocusLayer::Plain,
+            },
+        );
+        let sink_generation = (self.input.generation)();
+        let on_event = Rc::clone(&self.input.event);
+        let sink = KeySink::new(app, move |event| on_event(sink_generation, event));
+        focus.place(&sink_plate, frame(layout.input));
+        sink_plate.place(
+            &sink,
+            frame(gallery::Rect::new(
+                0.0,
+                0.0,
+                layout.input.width,
+                layout.input.height,
+            )),
+        );
         let mut strips = Vec::new();
         for strip in GalleryStrip::ALL {
             let on_intent = Rc::clone(&self.on_intent);
@@ -310,6 +350,8 @@ impl GalleryUi {
             tree_list,
             field,
             menu,
+            sink,
+            sink_plate,
             focus,
             plain,
             marker,
@@ -336,6 +378,8 @@ impl GalleryUi {
         window.clear_focus();
         let (number, mut watch) = if let Some(tree) = self.tree.take() {
             let Tree { number, watch, .. } = tree;
+            // Фокус с приёмника уже снят: получатель закрывается вместе с деревом.
+            (self.input.retired)();
             (number, watch)
         } else if let Some(page) = self.calibration.take() {
             let Calibration { number, watch, .. } = page;
@@ -365,6 +409,7 @@ impl GalleryUi {
         tree.plain.set_theme(theme);
         tree.field.set_theme(theme);
         tree.menu.set_theme(theme);
+        tree.sink_plate.set_theme(theme);
         let mut transitions = vec![
             (ids::LIST, tree.list.set_theme(theme)),
             (ids::TREE, tree.tree_list.set_theme(theme)),
@@ -580,8 +625,17 @@ impl GalleryUi {
                     shellio::owner::say_err("shellio: дерево галереи не приняло фокус");
                 }
             }
+            (GalleryFocus::Input, Some(tree)) => {
+                if !tree.sink.focus() {
+                    shellio::owner::say_err("shellio: приёмник ввода галереи не принял фокус");
+                }
+            }
             (
-                GalleryFocus::Field | GalleryFocus::Tabs | GalleryFocus::List | GalleryFocus::Tree,
+                GalleryFocus::Field
+                | GalleryFocus::Tabs
+                | GalleryFocus::List
+                | GalleryFocus::Tree
+                | GalleryFocus::Input,
                 None,
             ) => {}
             (GalleryFocus::Window, _) => {
@@ -655,6 +709,11 @@ impl GalleryUi {
         nodes.extend(tree.focus.inspect(ids::SURFACE_FOCUS, None));
         nodes.extend(tree.field.inspect(ids::FIELD, Some(ids::SURFACE_FOCUS)));
         nodes.extend(tree.menu.inspect(ids::MENU, Some(ids::SURFACE_FOCUS)));
+        nodes.extend(
+            tree.sink_plate
+                .inspect(ids::INPUT_PLATE, Some(ids::SURFACE_FOCUS)),
+        );
+        nodes.extend(tree.sink.inspect(ids::INPUT, Some(ids::INPUT_PLATE)));
         nodes.extend(tree.plain.inspect(ids::SURFACE_PLAIN, None));
         nodes.extend(tree.list.inspect(ids::LIST, Some(ids::SURFACE_PLAIN)));
         nodes.extend(tree.tree_list.inspect(ids::TREE, Some(ids::SURFACE_PLAIN)));

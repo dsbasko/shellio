@@ -43,6 +43,7 @@ mod icon;
 mod inspect;
 mod key_badge;
 mod key_monitor;
+mod key_sink;
 mod layer;
 mod main_menu;
 mod marker;
@@ -111,6 +112,7 @@ pub use inspect::{
 pub use key_monitor::{
     KeyFocus, KeyMods, KeyMonitor, KeyResponder, KeyStroke, MonitorEvent, Verdict,
 };
+pub use key_sink::{KeySink, KeySinkEvent};
 pub use main_menu::{MENU_ACTIONS, MainMenu, MenuAction, MenuKeys, PanelRow, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;

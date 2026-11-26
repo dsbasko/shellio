@@ -17,7 +17,8 @@ use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Accepted, Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast,
-    ExitChordState, FontView, HistoryPoint, HistoryView, InspectView, Lightness, ModeReceiver,
+    ExitChordState, FontView, GalleryCommand, GalleryFocus, HistoryPoint, HistoryView,
+    InputEventKind, InputEventView, InputJournalView, InspectView, Lightness, ModeReceiver,
     ModeView, Motion, PanelMode, Rect, Size, StyleView,
 };
 use shellio_control::{
@@ -1413,6 +1414,129 @@ async fn ui_history_reaches_the_owner() -> TestResult {
         text.stdout
     );
     assert_eq!(revision(&dir).await?, before, "история ревизию не меняет");
+    owner.stop().await
+}
+
+/// Порт UI галереи с приёмником ввода: журнал из одной пары, `gallery.input.reset` его очищает,
+/// `gallery.focus input` запоминается.
+#[derive(Clone)]
+struct InputUi {
+    events: Arc<Mutex<Vec<InputEventView>>>,
+    focused: Arc<Mutex<Option<GalleryFocus>>>,
+}
+
+impl UiHandler for InputUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let mut events = self
+            .events
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let accepted = |request: &UiRequest| {
+            Ok(UiReply::Accepted(Accepted {
+                command: request.name().to_owned(),
+                pid: std::process::id(),
+                generation: 1,
+            }))
+        };
+        let reply = match request {
+            UiRequest::Gallery(GalleryCommand::InputReset) if gate.begin() => {
+                events.clear();
+                accepted(&request)
+            }
+            UiRequest::Gallery(GalleryCommand::Focus(focus)) if gate.begin() => {
+                *self
+                    .focused
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner()) = Some(focus);
+                accepted(&request)
+            }
+            UiRequest::InputJournal if gate.begin() => {
+                Ok(UiReply::InputJournal(InputJournalView {
+                    pid: std::process::id(),
+                    receiver: ModeReceiver::GalleryInput(3),
+                    mode: PanelMode::Input,
+                    events: events.clone(),
+                }))
+            }
+            _ => Err(UiRefusal::NoUi),
+        };
+        ready(reply)
+    }
+}
+
+/// `gallery input` и `gallery focus input` отдельным процессом: журнал приёмника читается с его
+/// поколением и режимом, `reset` доходит до порта UI под именем `gallery.input.reset`, фокус —
+/// со значением `input`, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn gallery_input_reaches_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let pair = [InputEventKind::Down, InputEventKind::Up].map(|kind| InputEventView {
+        kind,
+        key_code: 42,
+        cmd: false,
+        ctrl: true,
+        alt: false,
+        shift: false,
+        repeat: false,
+    });
+    let ui = InputUi {
+        events: Arc::new(Mutex::new(pair.to_vec())),
+        focused: Arc::new(Mutex::new(None)),
+    };
+    let owner = Owner::start_with(&dir, ui.clone()).await?;
+    let before = revision(&dir).await?;
+    let journal = async || -> TestResult<InputJournalView> {
+        match dir
+            .run(&["gallery", "input", "journal", "--json"])
+            .await?
+            .expect(0)?
+            .frame()?
+        {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::InputJournal(view)),
+                ..
+            } => Ok(view),
+            other => Err(format!("gallery input journal: получено {other:?}").into()),
+        }
+    };
+    let first = journal().await?;
+    assert_eq!(first.receiver, ModeReceiver::GalleryInput(3));
+    assert_eq!(first.mode, PanelMode::Input);
+    assert_eq!(first.events, pair);
+    for (args, name) in [
+        (
+            &["gallery", "input", "reset", "--json"][..],
+            "gallery.input.reset",
+        ),
+        (
+            &["gallery", "focus", "input", "--json"][..],
+            "gallery.focus",
+        ),
+    ] {
+        match dir.run(args).await?.expect(0)?.frame()? {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Accepted(accepted)),
+                ..
+            } => assert_eq!(accepted.command, name),
+            other => {
+                return Err(format!("{args:?}: ожидалась квитанция, получено {other:?}").into());
+            }
+        }
+    }
+    assert!(
+        journal().await?.events.is_empty(),
+        "после reset журнал пуст"
+    );
+    let focused = *ui
+        .focused
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    assert_eq!(focused, Some(GalleryFocus::Input));
+    assert_eq!(revision(&dir).await?, before, "приёмник ревизию не меняет");
     owner.stop().await
 }
 

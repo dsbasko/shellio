@@ -57,6 +57,9 @@ pub mod ids {
     pub const LIST: &str = "gallery.list";
     pub const TREE: &str = "gallery.tree";
     pub const CALIBRATION: &str = "gallery.calibration";
+    /// Подложка приёмника ввода и сам приёмник.
+    pub const INPUT_PLATE: &str = "gallery.input.plate";
+    pub const INPUT: &str = "gallery.input";
 
     /// Идентификатор полосы вкладок.
     pub const fn strip(strip: shellio_control::GalleryStrip) -> &'static str {
@@ -936,14 +939,16 @@ pub const MARKER_SIZE: f64 = MARKER_CELL * MARKER_CELLS as f64;
 /// Ширина поля ввода и сторона кнопки «…».
 pub const FIELD_WIDTH: f64 = 280.0;
 pub const MENU_BUTTON: f64 = 24.0;
+/// Высота приёмника ввода: его ширина — ширина поля.
+pub const INPUT_HEIGHT: f64 = 48.0;
 /// Ширина списка и число его видимых строк: список занимает левую часть подложки без фокуса над
 /// её участком фона, правая часть остаётся дереву той же высоты.
 pub const LIST_WIDTH: f64 = 260.0;
 pub const LIST_VISIBLE: f64 = 16.0;
 
 /// Раскладка галереи в содержимом окна. Маркер, подложки и полосы `half` и `wide` — в
-/// координатах содержимого, поле, кнопка «…» и полосы `side` и `center` — в координатах подложки
-/// с фокусом.
+/// координатах содержимого, поле, кнопка «…», полосы `side` и `center` и приёмник ввода — в
+/// координатах подложки с фокусом.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Layout {
     pub marker: Rect,
@@ -951,6 +956,8 @@ pub struct Layout {
     pub plain: Rect,
     pub field: Rect,
     pub menu: Rect,
+    /// Приёмник ввода под полосой `center`.
+    pub input: Rect,
     /// Полосы вкладок в порядке [`GalleryStrip::ALL`].
     pub strips: [Rect; 4],
     /// Список и дерево в координатах подложки без фокуса.
@@ -1008,6 +1015,7 @@ pub fn layout(
     );
     let side = Rect::new(PAD, field.bottom() + PAD, STRIP_NARROW, tabbar);
     let center = Rect::new(PAD, side.bottom() + PAD, STRIP_NARROW, tabbar);
+    let input = Rect::new(PAD, center.bottom() + PAD, FIELD_WIDTH, INPUT_HEIGHT);
     let wide = Rect::new(focus.x, focus.bottom() + PAD, STRIP_WIDE, tabbar);
     let half = Rect::new(focus.x, wide.bottom() + PAD, STRIP_HALF, tabbar);
     let list = Rect::new(PAD, PAD, LIST_WIDTH, LIST_VISIBLE * row);
@@ -1024,6 +1032,7 @@ pub fn layout(
         plain,
         field,
         menu,
+        input,
         strips: [side, center, half, wide],
         list,
         tree,
@@ -1404,6 +1413,36 @@ mod tests {
                 assert!(!rect.intersects(&other_rect), "{strip:?} и {other:?}");
             }
         }
+    }
+
+    /// Приёмник ввода лежит в подложке с фокусом под полосой `center` и держится дальше 4 точек
+    /// от поля, кнопки «…», полос подложки и участков оракула (`scripts/e2e/appkit-expect`).
+    #[test]
+    fn input_sink_stays_clear_of_its_neighbours_and_the_oracle_regions() {
+        let layout = layout(1180.0, 720.0, 40.0, 32.0, 34.0, 26.0);
+        let inner = Rect::new(0.0, 0.0, layout.focus.width, layout.focus.height);
+        assert!(inner.contains(&layout.input), "приёмник в подложке");
+        let around = Rect::new(
+            layout.input.x - 4.0,
+            layout.input.y - 4.0,
+            layout.input.width + 8.0,
+            layout.input.height + 8.0,
+        );
+        let neighbours = [
+            ("поле", layout.field),
+            ("кнопка «…»", layout.menu),
+            ("side", layout.strip(GalleryStrip::Side)),
+            ("center", layout.strip(GalleryStrip::Center)),
+            ("фон подложки", Rect::new(24.0, 460.0, 120.0, 48.0)),
+            (
+                "фон поля",
+                Rect::new(layout.field.x + 180.0, layout.field.y + 8.0, 88.0, 16.0),
+            ),
+        ];
+        for (name, rect) in neighbours {
+            assert!(!around.intersects(&rect), "приёмник и {name}");
+        }
+        assert!(layout.input.width > 0.0 && layout.input.height > 0.0);
     }
 
     #[test]

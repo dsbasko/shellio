@@ -242,15 +242,18 @@ pub enum GalleryFocus {
     List,
     /// Дерево: Up, Down, Left и Right меняют выбор и раскрытие.
     Tree,
+    /// Приёмник ввода: клавиши, дошедшие до него в режиме `Input`, пишутся в журнал.
+    Input,
 }
 
 impl GalleryFocus {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Window,
         Self::Field,
         Self::Tabs,
         Self::List,
         Self::Tree,
+        Self::Input,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -260,6 +263,7 @@ impl GalleryFocus {
             Self::Tabs => "tabs",
             Self::List => "list",
             Self::Tree => "tree",
+            Self::Input => "input",
         }
     }
 }

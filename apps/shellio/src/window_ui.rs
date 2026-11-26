@@ -24,7 +24,7 @@ use std::sync::Arc;
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::history::{History, Jump};
-use shellio::input_sink::{InputSink, KeyKind, KeyRecord};
+use shellio::input_sink::{self, InputSink, KeyKind, KeyRecord};
 use shellio::key_actions::{self, KeyAction};
 use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
@@ -35,11 +35,11 @@ use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyMonitor, KeyResponder,
-    KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry,
-    MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag,
-    Startup, StatusHint, StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState,
-    ThemeSelection, Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
-    ZoneButton, ZoneSide, instance_counts, late_callbacks,
+    KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow,
+    MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PanelRow, Regime,
+    SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
+    TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
+    Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -62,7 +62,7 @@ use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
 use shellio_theme::{Appearance, Contrast, KeyMode, Motion, Overrides, Source};
 
-use crate::gallery_ui::GalleryUi;
+use crate::gallery_ui::{GalleryUi, InputHooks};
 use crate::layout_ui::{LayoutUi, PanelAction, StripKeys};
 
 thread_local! {
@@ -1417,11 +1417,21 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
     };
     let number = window.number();
     let gallery = match mode {
-        WindowMode::Gallery => Some(GalleryUi::new(app, &window, 0, |intent| {
-            defer(move |_| {
-                with_window(|owner| owner.gallery_intent(&intent));
-            });
-        })),
+        WindowMode::Gallery => Some(GalleryUi::new(
+            app,
+            &window,
+            0,
+            |intent| {
+                defer(move |_| {
+                    with_window(|owner| owner.gallery_intent(&intent));
+                });
+            },
+            InputHooks {
+                generation: Box::new(sink_generation),
+                event: std::rc::Rc::new(on_sink_event),
+                retired: Box::new(on_sink_retired),
+            },
+        )),
         WindowMode::Normal => None,
     };
     let layout = match mode {
@@ -1705,8 +1715,18 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
                         event.replay(app);
                     }
                 }
-                // Вида приёмника ещё нет: пару принять некому.
-                ModeReceiver::GalleryInput(_) => {}
+                // Пара идёт виду приёмника, пока он первый ответчик: запись панели с фокусом
+                // держит получателя только на это время.
+                ModeReceiver::GalleryInput(generation) => {
+                    let focused = KEY_PANEL.with(|slot| {
+                        slot.borrow()
+                            .as_ref()
+                            .is_some_and(|focus| focus.receiver == receiver)
+                    });
+                    if focused && generation == sink_generation() {
+                        event.replay(app);
+                    }
+                }
             }
             defer(move |_| {
                 forget_status(seen);
@@ -2152,14 +2172,23 @@ fn on_filter(app: &App, text: Option<&str>, source: Option<ReceiptSource>) {
     note_receipt(tag, ending);
 }
 
-/// Панель с фокусом видимого окна для действий `mode.*` и признак получателя ввода её плагина.
+/// Получатель с фокусом видимого окна для действий `mode.*` и признак того, что он принимает
+/// ввод: панель с фокусом и её плагин, в галерее — приёмник ввода, пока он первый ответчик.
 /// Внешнее `None` — окна нет.
-fn mode_target() -> Option<Option<(PanelId, bool)>> {
+fn mode_target() -> Option<Option<(ModeReceiver, bool)>> {
     with_window(|owner| {
         if !owner.window.is_visible() {
             return None;
         }
-        owner.layout.as_ref()?.mode_target()
+        if owner.gallery.is_some() {
+            return KEY_PANEL.with(|slot| {
+                slot.borrow()
+                    .as_ref()
+                    .map(|focus| (focus.receiver, focus.input))
+            });
+        }
+        let (panel, input) = owner.layout.as_ref()?.mode_target()?;
+        Some((ModeReceiver::Panel(panel), input))
     })
 }
 
@@ -2168,11 +2197,10 @@ fn mode_target() -> Option<Option<(PanelId, bool)>> {
 /// панели без получателя ввода — действовать не на что.
 fn on_mode(action: ModeAction, source: Option<ReceiptSource>) {
     let tag = source.map(|source| Sent::action(action.keymap_name(), source));
-    let applied = mode_target().flatten().and_then(|(panel, input)| {
-        let receiver = ModeReceiver::Panel(panel);
+    let applied = mode_target().flatten().and_then(|(receiver, input)| {
         let mode =
             with_router(|router| router.target_mode(&receiver, input, action.keymap_name()))??;
-        set_panel_mode(panel, mode);
+        set_receiver_mode(receiver, mode);
         Some(())
     });
     let ending = match applied {
@@ -2185,17 +2213,16 @@ fn on_mode(action: ModeAction, source: Option<ReceiptSource>) {
 /// Действие `mode.*` с клавиши. Режим уже сменило решение маршрутизатора: здесь он только
 /// применяется к первому ответчику, а запись кольца пишется с источником `key`.
 fn on_mode_key(action: ModeAction) {
-    let applied = mode_target().flatten().and_then(|(panel, input)| {
+    let applied = mode_target().flatten().and_then(|(receiver, input)| {
         let mode = match action {
             ModeAction::Navigation => Mode::Navigation,
             ModeAction::Input => input.then_some(Mode::Input)?,
             ModeAction::Toggle => {
-                let receiver = ModeReceiver::Panel(panel);
                 input.then_some(())?;
                 with_router(|router| router.mode(&receiver))?
             }
         };
-        set_panel_mode(panel, mode);
+        set_receiver_mode(receiver, mode);
         Some(())
     });
     let ending = match applied {
@@ -2208,29 +2235,37 @@ fn on_mode_key(action: ModeAction) {
     );
 }
 
-/// Поставить режим панели: запись маршрутизатора и первый ответчик. `Input` ставит ввод в поле
-/// панели, `Navigation` отдаёт ввод окну. Режим, за которым поле не последовало, возвращается к
-/// факту окна.
-fn set_panel_mode(panel: PanelId, mode: Mode) {
-    with_router(|router| router.set_mode(ModeReceiver::Panel(panel), mode));
-    with_window(|owner| {
-        if let Some(layout) = owner.layout.as_ref() {
-            layout.set_input(panel, mode == Mode::Input);
+/// Поставить режим получателя: запись маршрутизатора и первый ответчик. У панели `Input` ставит
+/// ввод в её поле, `Navigation` отдаёт ввод окну; режим, за которым поле не последовало,
+/// возвращается к факту окна. Приёмник галереи держит ввод сам: первый ответчик не меняется.
+fn set_receiver_mode(receiver: ModeReceiver, mode: Mode) {
+    with_router(|router| router.set_mode(receiver, mode));
+    match receiver {
+        ModeReceiver::Panel(panel) => {
+            with_window(|owner| {
+                if let Some(layout) = owner.layout.as_ref() {
+                    layout.set_input(panel, mode == Mode::Input);
+                }
+            });
+            follow_field();
         }
-    });
-    follow_field();
+        ModeReceiver::GalleryInput(_) => show_modes(),
+    }
 }
 
 /// Чтение `ui.mode`. `None` — окна нет.
 fn mode_view() -> Option<ModeView> {
     let target = mode_target()?;
     with_router(|router| {
-        let receiver = target.map(|(panel, _)| ModeReceiver::Panel(panel));
+        let receiver = target.map(|(receiver, _)| receiver);
         let mode = receiver.map_or(Mode::Navigation, |receiver| router.mode(&receiver));
         let exit_receiver = router.exit_armed().copied();
         ModeView {
             pid: std::process::id(),
-            panel: target.map(|(panel, _)| panel),
+            panel: receiver.and_then(|receiver| match receiver {
+                ModeReceiver::Panel(panel) => Some(panel),
+                ModeReceiver::GalleryInput(_) => None,
+            }),
             mode: match mode {
                 Mode::Navigation => PanelMode::Navigation,
                 Mode::Input => PanelMode::Input,
@@ -2249,6 +2284,76 @@ fn mode_view() -> Option<ModeView> {
 /// Поколение нынешнего приёмника ввода галереи.
 fn sink_generation() -> u64 {
     INPUT_SINK.with(|sink| sink.borrow().generation())
+}
+
+/// Событие вида приёмника поколения `generation`. Вызывается изнутри AppKit, в том числе при
+/// занятом окне: трогает только ячейки маршрутизатора, панели с фокусом и журнала, строка статуса
+/// обновляется из очереди главного потока.
+fn on_sink_event(generation: u64, event: KeySinkEvent) {
+    let receiver = ModeReceiver::GalleryInput(generation);
+    match event {
+        // Приёмник с фокусом — получатель в `Input`; без фокуса получателя в окне галереи нет.
+        KeySinkEvent::Focus(focused) => {
+            if generation != sink_generation() {
+                return;
+            }
+            KEY_PANEL.with(|slot| {
+                *slot.borrow_mut() = focused.then(|| PanelFocus {
+                    receiver,
+                    plugin: input_sink::PLUGIN.to_owned(),
+                    input: true,
+                });
+            });
+            let mode = if focused {
+                Mode::Input
+            } else {
+                Mode::Navigation
+            };
+            with_router(|router| {
+                router.cancel(Cancel::Focus);
+                router.set_mode(receiver, mode);
+            });
+            defer(|_| show_modes());
+        }
+        // Режим берётся у маршрутизатора в момент события: клавиша, дошедшая в `Navigation`,
+        // принятой не считается.
+        KeySinkEvent::Key {
+            down,
+            key_code,
+            mods,
+            repeat,
+        } => {
+            let Some(mode) = with_router(|router| router.mode(&receiver)) else {
+                return;
+            };
+            let record = KeyRecord {
+                kind: if down { KeyKind::Down } else { KeyKind::Up },
+                key_code,
+                mods: Mods {
+                    cmd: mods.cmd,
+                    ctrl: mods.ctrl,
+                    alt: mods.alt,
+                    shift: mods.shift,
+                },
+                repeat,
+            };
+            INPUT_SINK.with(|sink| sink.borrow_mut().accept(generation, mode, record));
+        }
+    }
+}
+
+/// Дерево галереи с приёмником снято: получатель закрыт вместе с ожиданием второго аккорда,
+/// следующий вид получает новое поколение с пустым журналом.
+fn on_sink_retired() {
+    let closed = ModeReceiver::GalleryInput(sink_generation());
+    KEY_PANEL.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        if slot.as_ref().is_some_and(|focus| focus.receiver == closed) {
+            *slot = None;
+        }
+    });
+    with_router(|router| router.closed(&closed));
+    INPUT_SINK.with(|sink| sink.borrow_mut().rebuilt());
 }
 
 fn input_event(record: &KeyRecord) -> InputEventView {

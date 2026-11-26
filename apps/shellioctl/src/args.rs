@@ -76,7 +76,7 @@ pub const USAGE: &str = "\
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
   gallery motion <normal|reduced>
-  gallery focus <field|window|tabs|list|tree>
+  gallery focus <field|window|tabs|list|tree|input>
   gallery menu open
   gallery rebuild
   gallery window recreate
