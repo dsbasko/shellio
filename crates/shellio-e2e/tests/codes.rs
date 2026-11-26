@@ -82,10 +82,29 @@ fn target_code_of_five_scenarios_includes_the_fifth() -> Result<()> {
     Ok(())
 }
 
-/// Рецепт `e2e` запускает пять сценариев в порядке матрицы: каждый следующий — за проверкой
-/// `next` кода предыдущего, итог — `combine` всех пяти кодов.
+/// Шесть сценариев цели: код шестого (`keyboard.sh`) входит в итог по тому же порядку, а без
+/// него итог считается по пяти запущенным.
 #[test]
-fn makefile_runs_five_scenarios_in_order() -> Result<()> {
+fn target_code_of_six_scenarios_includes_the_sixth() -> Result<()> {
+    assert_eq!(combine(&["0", "0", "0", "0", "0", "0"])?, "0");
+    assert_eq!(combine(&["0", "0", "0", "0", "0", "3"])?, "3");
+    assert_eq!(combine(&["0", "0", "0", "0", "0", "1"])?, "1");
+    // Код 3 сверки (известное расхождение `conform-layout-empty-workbench`) шестой сценарий
+    // не останавливает и остаётся в итоге, пока шестой не дал ошибку исполнения.
+    assert_eq!(codes(&["next", "3"])?.1, "0");
+    assert_eq!(combine(&["0", "0", "0", "0", "3", "0"])?, "3");
+    assert_eq!(combine(&["0", "0", "0", "0", "3", "1"])?, "1");
+    assert_eq!(combine(&["3", "3", "3", "3", "3", "0"])?, "3");
+    // Пятый сценарий с кодом 1 шестого не запускает: итог — по пяти кодам.
+    assert_eq!(codes(&["next", "1"])?.1, "1");
+    assert_eq!(combine(&["0", "0", "0", "3", "1"])?, "1");
+    Ok(())
+}
+
+/// Рецепт `e2e` запускает шесть сценариев в порядке матрицы: каждый следующий — за проверкой
+/// `next` кода предыдущего, итог — `combine` всех шести кодов.
+#[test]
+fn makefile_runs_six_scenarios_in_order() -> Result<()> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let makefile = std::fs::read_to_string(root.join("Makefile"))?;
     for (name, script) in [
@@ -94,6 +113,7 @@ fn makefile_runs_five_scenarios_in_order() -> Result<()> {
         ("E2E_LAYOUT", "layout.sh"),
         ("E2E_PLUGINS", "plugins.sh"),
         ("E2E_CONFORMANCE", "conformance.sh"),
+        ("E2E_KEYBOARD", "keyboard.sh"),
     ] {
         let line = format!("{name} := scripts/e2e/{script}\n");
         assert!(makefile.contains(&line), "нет переменной {name}");
@@ -117,7 +137,9 @@ fn makefile_runs_five_scenarios_in_order() -> Result<()> {
         "$(E2E_PLUGINS) ||",
         "$(E2E_CODES) next $$fourth",
         "$(E2E_CONFORMANCE) ||",
-        "$(E2E_CODES) combine $$first $$second $$third $$fourth $$fifth)",
+        "$(E2E_CODES) next $$fifth",
+        "$(E2E_KEYBOARD) ||",
+        "$(E2E_CODES) combine $$first $$second $$third $$fourth $$fifth $$sixth)",
         "exit $$code",
     ];
     let mut from = 0;
