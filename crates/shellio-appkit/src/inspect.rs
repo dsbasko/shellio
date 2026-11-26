@@ -180,6 +180,15 @@ impl InspectNode {
         self
     }
 
+    /// Линия у стороны `side`, нарисованная видом-полосой `line` со слоем.
+    #[must_use]
+    pub(crate) fn with_line(self, line: &NSView, side: style::Side) -> InspectNode {
+        match line.layer() {
+            Some(layer) => self.with_line_layer(&layer, &[side]),
+            None => self,
+        }
+    }
+
     /// Линия по краю вида, нарисованная отдельным слоем `ring` с линией слоя: цвет и толщина —
     /// его, стороны — все четыре.
     #[must_use]

@@ -443,6 +443,29 @@ pub fn scroll_to(index: usize, row: f64, visible: f64, count: usize) -> f64 {
     (index as f64 * row).clamp(0.0, max)
 }
 
+/// Окно прокрутки списка с полями сверху и снизу (отступ области прокрутки): смещение и высота
+/// считаются в части без полей, где в покое смещение 0, а начало clip view — `-top`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Viewport {
+    pub top: f64,
+    pub bottom: f64,
+}
+
+impl Viewport {
+    /// Смещение и высота части без полей по началу и высоте clip view.
+    pub fn window(self, origin: f64, height: f64) -> (f64, f64) {
+        (
+            origin + self.top,
+            (height - self.top - self.bottom).max(0.0),
+        )
+    }
+
+    /// Начало clip view для смещения части без полей.
+    pub fn origin(self, offset: f64) -> f64 {
+        offset - self.top
+    }
+}
+
 /// Номера строк, которые хотя бы частично видны в окне.
 pub fn visible_rows(row: f64, offset: f64, visible: f64, count: usize) -> Range<usize> {
     if row <= 0.0 || visible <= 0.0 || count == 0 {
@@ -908,6 +931,41 @@ mod tests {
         let presses = log.presses();
         assert_eq!(presses.len(), PressLog::CAPACITY);
         assert_eq!(presses[0].target, "3");
+    }
+
+    #[test]
+    fn viewport_rests_at_zero_with_insets() {
+        let view = Viewport {
+            top: 4.0,
+            bottom: 6.0,
+        };
+        assert_eq!(
+            view.window(-4.0, 482.0),
+            (0.0, 472.0),
+            "покой — начало -top"
+        );
+        assert_eq!(view.origin(0.0), -4.0);
+        assert_eq!(view.origin(30.0), 26.0);
+        assert_eq!(
+            view.window(0.0, 8.0),
+            (4.0, 0.0),
+            "высота без полей не меньше 0"
+        );
+        let rows = vec![
+            Row::header("#1", "Команды"),
+            Row::new("a", "a"),
+            Row::new("b", "b"),
+        ];
+        let offsets = RowOffsets::new(&rows, 34.0, 32.0);
+        let (offset, visible) = view.window(-4.0, 482.0);
+        assert_eq!(
+            offsets.reveal(1, offset, visible),
+            None,
+            "первая строка видна в покое"
+        );
+        let (offset, visible) = view.window(-4.0, 60.0);
+        assert_eq!(offsets.reveal(1, offset, visible), Some(16.0));
+        assert_eq!(view.origin(16.0), 12.0);
     }
 
     #[test]

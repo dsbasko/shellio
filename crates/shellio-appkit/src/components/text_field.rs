@@ -498,6 +498,13 @@ impl TextField {
             node.facts.help = inspect::text(cell.accessibilityHelp());
         }
         node.facts.first_responder = editor_is_first_responder(field);
+        if self.kind() == TextFieldKind::Palette {
+            // Поле палитры сверяется со строкой поиска паспорта целиком: шрифт, цвет и обрезка —
+            // у узла поля, подпись доступности остаётся его именем.
+            let label = node.facts.label.take();
+            node = node.with_text_of(field);
+            node.facts.label = label;
+        }
         nodes.push(node);
         nodes
     }

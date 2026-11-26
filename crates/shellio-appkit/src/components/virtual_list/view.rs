@@ -25,8 +25,8 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::{
     NSAccessibility, NSBezierPath, NSColor, NSControl, NSControlTextEditingDelegate, NSEvent,
     NSFocusRingType, NSFont, NSFontWeightRegular, NSLineBreakMode, NSResponder, NSScrollView,
-    NSTableCellView, NSTableColumn, NSTableColumnResizingOptions, NSTableRowView, NSTableView,
-    NSTableViewAnimationOptions, NSTableViewDataSource, NSTableViewDelegate,
+    NSScrollerStyle, NSTableCellView, NSTableColumn, NSTableColumnResizingOptions, NSTableRowView,
+    NSTableView, NSTableViewAnimationOptions, NSTableViewDataSource, NSTableViewDelegate,
     NSTableViewGridLineStyle, NSTableViewSelectionHighlightStyle, NSTableViewStyle, NSTextField,
     NSUserInterfaceItemIdentification, NSView,
 };
@@ -39,7 +39,7 @@ use shellio_theme::AppTheme;
 
 use super::model::{
     self, KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff,
-    RowKind, RowOffsets,
+    RowKind, RowOffsets, Viewport,
 };
 use crate::app::App;
 use crate::counters::{Live, counter};
@@ -264,6 +264,8 @@ impl ListModel {
 pub struct VirtualList {
     view: View<NSScrollView, ListModel>,
     table: Retained<ListTable>,
+    /// Поля сверху и снизу: смещения прокрутки считаются в части без них.
+    viewport: Cell<Viewport>,
 }
 
 impl VirtualList {
@@ -350,7 +352,14 @@ impl VirtualList {
             }
             drop(source);
         });
-        let list = VirtualList { view, table };
+        let list = VirtualList {
+            view,
+            table,
+            viewport: Cell::new(Viewport {
+                top: 0.0,
+                bottom: 0.0,
+            }),
+        };
         list.set_state(state)?;
         Ok(list)
     }
@@ -520,8 +529,7 @@ impl VirtualList {
     /// Прокрутка: строка `index` встаёт к верхнему краю, в пределах прокрутки.
     pub fn scroll_to_row(&self, index: usize) {
         let row = self.table.rowHeight();
-        let clip = self.view.view().contentView();
-        let visible = clip.bounds().size.height;
+        let (_, visible) = self.window();
         let offset = match self.view.rust().offsets() {
             Some(offsets) => {
                 let max = (offsets.total() - visible).max(0.0);
@@ -552,8 +560,11 @@ impl VirtualList {
     }
 
     /// Поля списка сверху и снизу — отступ области прокрутки, а не строки таблицы.
+    /// Полоса прокрутки накладная при любой настройке системы: постоянная полоса сужала бы строки.
     pub(crate) fn set_insets(&self, top: f64, bottom: f64) {
         let scroll = self.view.view();
+        scroll.setScrollerStyle(NSScrollerStyle::Overlay);
+        self.viewport.set(Viewport { top, bottom });
         scroll.setAutomaticallyAdjustsContentInsets(false);
         scroll.setContentInsets(NSEdgeInsets {
             top,
@@ -638,8 +649,7 @@ impl VirtualList {
 
     fn facts(&self) -> VirtualListFacts {
         let model = self.view.rust();
-        let clip = self.view.view().contentView();
-        let bounds = clip.bounds();
+        let (offset, visible) = self.window();
         let state = self.state();
         let content = match model.offsets() {
             Some(offsets) => offsets.total(),
@@ -653,8 +663,8 @@ impl VirtualList {
             label: state.label.clone(),
             count: state.rows.len(),
             selected,
-            offset: bounds.origin.y,
-            max_offset: (content - bounds.size.height).max(0.0),
+            offset,
+            max_offset: (content - visible).max(0.0),
             keyboard_focus: self.table.is_key_focus(),
             row_views_created: model.row_views.get(),
             cell_views_created: model.cell_views.get(),
@@ -662,42 +672,53 @@ impl VirtualList {
         }
     }
 
+    /// Строки в clip view, включая поля: строка под нижним полем видна, над верхним в покое —
+    /// пусто.
     fn visible_range(&self) -> Range<usize> {
-        let clip = self.view.view().contentView();
-        let bounds = clip.bounds();
+        let bounds = self.view.view().contentView().bounds();
+        let from = bounds.origin.y.max(0.0);
+        let height = (bounds.origin.y + bounds.size.height - from).max(0.0);
         if let Some(offsets) = self.view.rust().offsets() {
-            return offsets.visible(bounds.origin.y, bounds.size.height);
+            return offsets.visible(from, height);
         }
         model::visible_rows(
             self.table.rowHeight(),
-            bounds.origin.y,
-            bounds.size.height,
+            from,
+            height,
             self.view.rust().rows_len(),
         )
     }
 
     fn reveal(&self, index: usize) {
-        let clip = self.view.view().contentView();
-        let bounds = clip.bounds();
+        let (origin, visible) = self.window();
         let offset = match self.view.rust().offsets() {
-            Some(offsets) => offsets.reveal(index, bounds.origin.y, bounds.size.height),
-            None => model::reveal(
-                index,
-                self.table.rowHeight(),
-                bounds.origin.y,
-                bounds.size.height,
-            ),
+            Some(offsets) => offsets.reveal(index, origin, visible),
+            None => model::reveal(index, self.table.rowHeight(), origin, visible),
         };
         if let Some(offset) = offset {
             self.scroll_clip(offset);
         }
     }
 
+    /// Смещение и высота части без полей.
+    fn window(&self) -> (f64, f64) {
+        let bounds = self.view.view().contentView().bounds();
+        self.viewport
+            .get()
+            .window(bounds.origin.y, bounds.size.height)
+    }
+
+    /// Прокрутка к смещению части без полей.
     fn scroll_clip(&self, offset: f64) {
         let scroll = self.view.view();
         let clip = scroll.contentView();
-        clip.scrollToPoint(NSPoint::new(0.0, offset));
+        clip.scrollToPoint(NSPoint::new(0.0, self.viewport.get().origin(offset)));
         scroll.reflectScrolledClipView(&clip);
+    }
+
+    /// Возвращает список в покой: первая строка у верхнего поля.
+    pub(crate) fn scroll_to_start(&self) {
+        self.scroll_clip(0.0);
     }
 }
 

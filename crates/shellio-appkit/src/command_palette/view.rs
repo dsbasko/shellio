@@ -305,6 +305,8 @@ impl PaletteRowView {
             .detail
             .setStringValue(&NSString::from_str(&spec.detail));
         ivars.detail.setFont(Some(&detail_font));
+        // Пустое пояснение не видно, как пустой `span` паспорта.
+        ivars.detail.setHidden(spec.detail.is_empty());
         ivars
             .detail
             .setTextColor(Some(&layer::ns_color(colors.text_3)));
@@ -702,11 +704,13 @@ impl CommandPalette {
         ));
         let list = rows::list_state(&state);
         *self.state.borrow_mut() = state;
-        if self.list.set_state(list).is_err() {
-            // Дубли id отбрасывает модель палитры: сюда они не доходят.
-            return;
-        }
+        // Раскладка до строк: выбор прокручивается в видимую часть списка нового размера.
         self.place();
+        if self.is_open() {
+            self.refit();
+        }
+        // Дубли id отбрасывает модель палитры: сюда они не доходят.
+        let _ = self.list.set_state(list);
     }
 
     pub fn set_theme(&self, theme: &AppTheme) {
@@ -724,6 +728,7 @@ impl CommandPalette {
         if !self.fit(parent) {
             return;
         }
+        self.list.scroll_to_start();
         let window = parent.ns_window();
         if self.panel.parentWindow().is_none() {
             // SAFETY: окно палитры держит палитра дольше связи, связь снимается при закрытии.
@@ -757,6 +762,26 @@ impl CommandPalette {
         let size = NSSize::new(plate.width + 2.0 * margin, plate.height + 2.0 * margin);
         self.panel.setFrame_display(NSRect::new(origin, size), true);
         true
+    }
+
+    /// Открытая палитра сменила высоту: окно палитры держит верхний край, как плашка паспорта.
+    /// Начало окна AppKit — внизу, поэтому без сдвига плашка держала бы нижний край.
+    fn refit(&self) {
+        let Some(layout) = self.layout.borrow().clone() else {
+            return;
+        };
+        let frame = self.panel.frame();
+        let margin = shadow_margin(&self.theme.get());
+        let size = NSSize::new(
+            layout.panel.width + 2.0 * margin,
+            layout.panel.height + 2.0 * margin,
+        );
+        if size == frame.size {
+            return;
+        }
+        let top = frame.origin.y + frame.size.height;
+        let origin = NSPoint::new(frame.origin.x, top - size.height);
+        self.panel.setFrame_display(NSRect::new(origin, size), true);
     }
 
     /// Убирает палитру с экрана и возвращает key окну владельца, если оно видно.
@@ -1033,7 +1058,8 @@ impl CommandPalette {
                 None,
                 None,
             )
-            .with_ck("palette.header"),
+            .with_ck("palette.header")
+            .with_line(&self.header_line, style::Side::Bottom),
         );
         let icon_color = self
             .icon
@@ -1127,7 +1153,8 @@ impl CommandPalette {
                 None,
                 None,
             )
-            .with_ck("palette.footer"),
+            .with_ck("palette.footer")
+            .with_line(&self.footer_line, style::Side::Top),
         );
         for (index, hint) in self.hints.iter().enumerate() {
             let ck = format!("palette.footer.hint.{}", index + 1);
