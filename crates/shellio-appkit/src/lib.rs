@@ -36,6 +36,7 @@
 mod app;
 mod calibration;
 mod chrome_bar;
+mod command_palette;
 mod components;
 mod counters;
 mod font;
@@ -69,6 +70,11 @@ pub use chrome_bar::{
     ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, ZoneButton, shorten,
     zone_button, zone_pressed,
 };
+pub use command_palette::layout::{
+    GroupFrames as PaletteGroupFrames, HintFrames as PaletteHintFrames,
+    HintSpec as PaletteHintSpec, ListContent as PaletteListContent, PaletteLayout, PaletteSpec,
+    RowParts as PaletteRowParts, layout as palette_layout, row_parts as palette_row_parts,
+};
 pub use components::menu::{
     ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,
     MenuState, check_ids as check_menu_ids, diff as menu_diff,
@@ -96,8 +102,8 @@ pub use components::tree_list::model::{
 };
 pub use components::tree_list::{TreeList, TreeListFacts, TreeRowFacts};
 pub use components::virtual_list::model::{
-    KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff,
-    check as check_list, diff as list_diff, diff_rows, key_intent as list_key_intent,
+    KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff, RowKind,
+    RowOffsets, check as check_list, diff as list_diff, diff_rows, key_intent as list_key_intent,
     reveal as list_reveal, scroll_to as list_scroll_to, visible_rows,
 };
 pub use components::virtual_list::{ListRowFacts, VirtualList, VirtualListFacts};

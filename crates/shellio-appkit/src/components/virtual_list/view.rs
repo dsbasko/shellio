@@ -149,6 +149,16 @@ impl ListModel {
             .map(|row| row.id.clone())
     }
 
+    /// Id выбираемой строки: заголовок группы щелчком не выбирается.
+    fn selectable_id(&self, index: usize) -> Option<String> {
+        self.shown
+            .borrow()
+            .as_ref()
+            .and_then(|state| state.rows.get(index))
+            .filter(|row| row.selectable())
+            .map(|row| row.id.clone())
+    }
+
     fn key(&self, key: ListKey, stamp: &Stamp) {
         let intent = self
             .shown
@@ -835,7 +845,7 @@ define_class!(
         fn should_select_row(&self, _table: &NSTableView, row: NSInteger) -> bool {
             if let Ok(index) = usize::try_from(row) {
                 self.ivars().owner.call(|model| {
-                    if let Some(id) = model.row_id(index) {
+                    if let Some(id) = model.selectable_id(index) {
                         (model.on_intent)(ListIntent::Select { id });
                     }
                 });

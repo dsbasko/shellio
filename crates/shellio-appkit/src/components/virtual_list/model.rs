@@ -11,12 +11,25 @@ use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
 
+/// Вид строки: выбираемая строка или заголовок группы.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RowKind {
+    #[default]
+    Item,
+    /// Заголовок группы: не выбирается ни щелчком, ни клавишами.
+    Header,
+}
+
 /// Строка списка.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Row {
     /// Устойчивый id: разница и выбор идут по нему.
     pub id: String,
     pub text: String,
+    pub kind: RowKind,
+    /// Ревизия содержимого, которое показывает поставщик вида строки сверх `text` (значок,
+    /// пояснение, клавиши): её смена перезагружает строку. У текстовой строки — 0.
+    pub content: u64,
 }
 
 impl Row {
@@ -24,7 +37,25 @@ impl Row {
         Row {
             id: id.to_owned(),
             text: text.to_owned(),
+            kind: RowKind::Item,
+            content: 0,
         }
+    }
+
+    /// Заголовок группы.
+    pub fn header(id: &str, text: &str) -> Row {
+        Row {
+            kind: RowKind::Header,
+            ..Row::new(id, text)
+        }
+    }
+
+    pub fn with_content(self, content: u64) -> Row {
+        Row { content, ..self }
+    }
+
+    pub fn selectable(&self) -> bool {
+        self.kind == RowKind::Item
     }
 }
 
@@ -71,6 +102,7 @@ impl ListState {
 pub enum ListError {
     DuplicateId(String),
     UnknownSelection(String),
+    HeaderSelected(String),
 }
 
 impl fmt::Display for ListError {
@@ -78,13 +110,14 @@ impl fmt::Display for ListError {
         match self {
             ListError::DuplicateId(id) => write!(f, "строка {id} повторяется"),
             ListError::UnknownSelection(id) => write!(f, "выбрана строка {id}, которой нет"),
+            ListError::HeaderSelected(id) => write!(f, "выбран заголовок группы {id}"),
         }
     }
 }
 
 impl std::error::Error for ListError {}
 
-/// Id строк уникальны, выбранная строка есть в наборе.
+/// Id строк уникальны, выбранная строка есть в наборе и не заголовок группы.
 pub fn check(state: &ListState) -> Result<(), ListError> {
     let mut seen = HashSet::with_capacity(state.rows.len());
     for row in state.rows.iter() {
@@ -94,6 +127,14 @@ pub fn check(state: &ListState) -> Result<(), ListError> {
     }
     match &state.selected {
         Some(id) if !seen.contains(id.as_str()) => Err(ListError::UnknownSelection(id.clone())),
+        Some(id)
+            if state
+                .rows
+                .iter()
+                .any(|row| row.id == *id && !row.selectable()) =>
+        {
+            Err(ListError::HeaderSelected(id.clone()))
+        }
         _ => Ok(()),
     }
 }
@@ -144,7 +185,7 @@ impl Ranges {
 
 /// Разница наборов по id. Строки, оставшиеся в обоих наборах в прежнем взаимном порядке
 /// (наибольшая возрастающая подпоследовательность прежних номеров), — якоря: они остаются на месте
-/// и перезагружаются, только если изменился текст. Промежутки между соседними якорями
+/// и перезагружаются, только если изменились текст, вид или ревизия содержимого. Промежутки между соседними якорями
 /// сопоставляются попарно по порядку: пара перезагружается на месте, вид строки при этом
 /// переиспользуется. Остаток промежутка удаляется из прежнего набора или вставляется в новый.
 /// Время — `O(n log n)`, диапазонов не больше чем по одному на промежуток и операцию. Id в каждом
@@ -178,7 +219,7 @@ pub fn diff_rows(before: &[Row], after: &[Row]) -> RowDiff {
         remove.push_range(old_from + paired..old_to);
         insert.push_range(new_from + paired..new_to);
         if let Some((old, new)) = anchor {
-            if before[old].text != after[new].text {
+            if before[old] != after[new] {
                 reload.push(new);
             }
             old_from = old + 1;
@@ -279,20 +320,19 @@ pub enum ListKey {
     Escape,
 }
 
-/// Намерение клавиши: Up и Down выбирают соседнюю строку без перехода через край, без выбора
-/// Down выбирает первую строку, а Up — последнюю. `Enter` открывает выбранную. `Escape` просит
+/// Намерение клавиши: Up и Down выбирают ближайшую выбираемую строку без перехода через край,
+/// заголовки групп пропускаются; без выбора Down выбирает первую строку, а Up — последнюю. `Enter` открывает выбранную. `Escape` просит
 /// уровень назад при любом наборе строк и выборе. `None` — клавиша ничего не делает.
 pub fn key_intent(state: &ListState, key: ListKey) -> Option<ListIntent> {
     let index = state.selected_index();
-    let last = state.rows.len().checked_sub(1);
+    let rows = &state.rows;
+    let selectable = |index: &usize| rows[*index].selectable();
     let target = match (key, index) {
         (ListKey::Escape, _) => return Some(ListIntent::Cancel),
-        (ListKey::Down, Some(index)) => {
-            Some(index + 1).filter(|next| last.is_some_and(|last| *next <= last))
-        }
-        (ListKey::Up, Some(index)) => index.checked_sub(1),
-        (ListKey::Down, None) => last.map(|_| 0),
-        (ListKey::Up, None) => last,
+        (ListKey::Down, Some(index)) => (index + 1..rows.len()).find(selectable),
+        (ListKey::Up, Some(index)) => (0..index).rev().find(selectable),
+        (ListKey::Down, None) => (0..rows.len()).find(selectable),
+        (ListKey::Up, None) => (0..rows.len()).rev().find(selectable),
         (ListKey::Enter, Some(index)) => {
             return Some(ListIntent::Activate {
                 id: state.rows[index].id.clone(),
@@ -411,6 +451,82 @@ pub fn visible_rows(row: f64, offset: f64, visible: f64, count: usize) -> Range<
     let first = (offset.max(0.0) / row).floor() as usize;
     let end = ((offset.max(0.0) + visible) / row).ceil() as usize;
     first.min(count)..end.min(count)
+}
+
+/// Верхние края строк разной высоты: у заголовка группы своя высота. Нужны списку, где строки
+/// и заголовки различаются по высоте, вместо расчётов по одной высоте строки.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RowOffsets {
+    /// `tops[i]` — верхний край строки `i`, последний элемент — полная высота.
+    tops: Vec<f64>,
+}
+
+impl RowOffsets {
+    pub fn new(rows: &[Row], item: f64, header: f64) -> RowOffsets {
+        let mut tops = Vec::with_capacity(rows.len() + 1);
+        let mut y = 0.0;
+        tops.push(y);
+        for row in rows {
+            y += match row.kind {
+                RowKind::Item => item,
+                RowKind::Header => header,
+            };
+            tops.push(y);
+        }
+        RowOffsets { tops }
+    }
+
+    pub fn len(&self) -> usize {
+        self.tops.len() - 1
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn top(&self, index: usize) -> f64 {
+        self.tops[index.min(self.len())]
+    }
+
+    pub fn height(&self, index: usize) -> f64 {
+        match self.tops.get(index + 1) {
+            Some(bottom) => bottom - self.tops[index],
+            None => 0.0,
+        }
+    }
+
+    /// Высота всех строк.
+    pub fn total(&self) -> f64 {
+        self.tops[self.len()]
+    }
+
+    /// Номера строк, которые хотя бы частично видны в окне.
+    pub fn visible(&self, offset: f64, visible: f64) -> Range<usize> {
+        if visible <= 0.0 || self.is_empty() {
+            return 0..0;
+        }
+        let from = offset.max(0.0);
+        let to = from + visible;
+        let first = self.tops[1..].partition_point(|bottom| *bottom <= from);
+        let end = self.tops[..self.len()].partition_point(|top| *top < to);
+        first.min(end)..end
+    }
+
+    /// Смещение, при котором строка `index` видна целиком, с наименьшим сдвигом, как [`reveal`].
+    pub fn reveal(&self, index: usize, offset: f64, visible: f64) -> Option<f64> {
+        if visible <= 0.0 || index >= self.len() {
+            return None;
+        }
+        let top = self.top(index);
+        let bottom = top + self.height(index);
+        if top < offset {
+            Some(top)
+        } else if bottom > offset + visible {
+            Some((bottom - visible).max(0.0))
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -817,5 +933,76 @@ mod tests {
         assert_eq!(visible_rows(26.0, 259_740.0, 260.0, 10_000), 9_990..10_000);
         assert_eq!(visible_rows(26.0, 0.0, 260.0, 3), 0..3);
         assert_eq!(visible_rows(26.0, 0.0, 260.0, 0), 0..0);
+    }
+
+    fn grouped() -> Vec<Row> {
+        vec![
+            Row::header("g1", "Команды"),
+            Row::new("a", "А"),
+            Row::new("b", "Б"),
+            Row::header("g2", "Панели"),
+            Row::new("c", "В"),
+        ]
+    }
+
+    #[test]
+    fn keys_skip_group_headers() {
+        let rows = grouped();
+        let state = |selected: Option<&str>| ListState::new("список", rows.clone(), selected);
+        let select = |id: &str| Some(ListIntent::Select { id: id.to_owned() });
+        assert_eq!(key_intent(&state(None), ListKey::Down), select("a"));
+        assert_eq!(key_intent(&state(None), ListKey::Up), select("c"));
+        assert_eq!(key_intent(&state(Some("b")), ListKey::Down), select("c"));
+        assert_eq!(key_intent(&state(Some("c")), ListKey::Up), select("b"));
+        assert_eq!(key_intent(&state(Some("a")), ListKey::Up), None);
+        assert_eq!(key_intent(&state(Some("c")), ListKey::Down), None);
+        let headers = ListState::new("список", vec![Row::header("g", "Г")], None);
+        assert_eq!(key_intent(&headers, ListKey::Down), None);
+        assert_eq!(key_intent(&headers, ListKey::Enter), None);
+    }
+
+    #[test]
+    fn check_rejects_selected_header() {
+        let state = ListState::new("список", grouped(), Some("g2"));
+        assert_eq!(
+            check(&state),
+            Err(ListError::HeaderSelected("g2".to_owned()))
+        );
+        assert_eq!(
+            check(&ListState::new("список", grouped(), Some("c"))),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn changed_content_or_kind_reloads_the_anchor() {
+        let before = grouped();
+        let mut after = grouped();
+        after[2] = after[2].clone().with_content(7);
+        after[4] = Row::header("c", "В");
+        let diff = assert_applies(&before, &after);
+        assert_eq!(diff.reload, vec![2..3, 4..5]);
+        assert!(diff.remove.is_empty() && diff.insert.is_empty());
+    }
+
+    #[test]
+    fn offsets_follow_row_kinds() {
+        let offsets = RowOffsets::new(&grouped(), 34.0, 32.0);
+        assert_eq!(offsets.len(), 5);
+        assert_eq!(offsets.top(1), 32.0);
+        assert_eq!(offsets.top(3), 100.0);
+        assert_eq!(offsets.height(3), 32.0);
+        assert_eq!(offsets.height(5), 0.0);
+        assert_eq!(offsets.total(), 166.0);
+        assert_eq!(offsets.visible(0.0, 32.0), 0..1);
+        assert_eq!(offsets.visible(31.0, 2.0), 0..2);
+        assert_eq!(offsets.visible(100.0, 1000.0), 3..5);
+        assert_eq!(offsets.visible(500.0, 10.0), 5..5);
+        assert_eq!(offsets.visible(0.0, 0.0), 0..0);
+        assert_eq!(offsets.reveal(4, 0.0, 120.0), Some(46.0));
+        assert_eq!(offsets.reveal(1, 50.0, 120.0), Some(32.0));
+        assert_eq!(offsets.reveal(2, 50.0, 120.0), None);
+        assert_eq!(offsets.reveal(9, 0.0, 120.0), None);
+        assert!(RowOffsets::new(&[], 34.0, 32.0).is_empty());
     }
 }
