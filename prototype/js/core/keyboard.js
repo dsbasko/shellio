@@ -79,21 +79,27 @@
     return tok.length === 1;
   }
 
-  let lastEscape = 0;
+  // Ожидание второго аккорда выхода: панель, из которой вышли. Окна времени нет: «сразу после» — следующее нажатие.
+  let armed = null;
+  const disarm = () => { armed = null; };
   function onKey(e) {
     if (e.isComposing) return;
-    if (S.kb && S.kb.capture) { const t = S.token(e); if (t) { e.preventDefault(); e.stopPropagation(); S.kb.capture(t, e); } return; }
+    if (S.kb && S.kb.capture) { disarm(); const t = S.token(e); if (t) { e.preventDefault(); e.stopPropagation(); S.kb.capture(t, e); } return; }
     const physical = S.mode() === 'nav' && !S.isField(document.activeElement);
     const tok = S.token(e, physical);
     if (!tok) return;
     St.kbNav = true;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    const escChord = St.keymap.escape || 'Ctrl-\\';
+    // Ожидание снимает любая другая клавиша вместе со своим автоповтором.
+    if (tok !== escChord) disarm();
 
     // Номера воркспейсов принадлежат приложению: работают из любого режима и поля.
     const wsCmd = tok.startsWith('Cmd-') && S.commands.find((c) => c.id.startsWith('ws.go.') && S.keysOf(c).includes(tok));
     if (wsCmd) { stop(); wsCmd.run(); return; }
 
     const top = St.overlays[St.overlays.length - 1];
+    if (top) disarm();
     if (top && top.onKey) {
       const r = top.onKey(e, tok);
       if (r !== false) { if (r !== 'native') stop(); return; }
@@ -108,17 +114,18 @@
 
     const field = S.isField(document.activeElement);
     if (field) {
+      disarm();
       if (tok === 'Esc') { if (document.activeElement.dataset.ownEsc != null) return; stop(); document.activeElement.blur(); S.render(); return; }
       return;
     }
 
     const p = S.focused();
-    const escChord = St.keymap.escape || 'Ctrl-\\';
     if (S.mode() === 'input') {
       if (tok === escChord) {
         stop();
-        lastEscape = performance.now();
-        St.lastInputPanel = p;
+        // Удержанный второй аккорд режим не меняет.
+        if (e.repeat) return;
+        armed = p;
         St.prefs.seenEscape = true;
         S.setMode('nav');
         return;
@@ -131,7 +138,12 @@
       return;
     }
 
-    if (tok === escChord && performance.now() - lastEscape < 450 && St.lastInputPanel === p && p) {
+    // Автоповтор первого аккорда съедается, ожидание остаётся.
+    if (tok === escChord && armed && e.repeat) { stop(); return; }
+    // Второй аккорд подряд возвращает исходное нажатие прежней панели. Фокус ушёл — ожидание снято, повтора нет.
+    const from = armed;
+    disarm();
+    if (tok === escChord && from && from === p) {
       stop();
       const def = S.plugins[p.plugin];
       if (def.onKey) def.onKey(p, e, tok);
@@ -144,4 +156,8 @@
   }
 
   document.addEventListener('keydown', onKey, true);
+  // Щелчок, прокрутка и уход окна с переднего плана снимают ожидание: повтора после снятия нет.
+  document.addEventListener('mousedown', disarm, true);
+  document.addEventListener('wheel', disarm, { capture: true, passive: true });
+  window.addEventListener('blur', disarm);
 })();

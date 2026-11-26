@@ -109,7 +109,7 @@
       ]
     }
   ],
-  "prototype": "fdfad8890d3c085b1feca8eaef34668302ff7559272c1412b49bed790b590eee",
+  "prototype": "667912ef9d9b69cbf8ca244f20b80eaeafa1b642ca84e0e1f7b1d8a4cd06a727",
   "scenarios": [
     "agents-many",
     "agents-split",
