@@ -206,8 +206,10 @@
     // Клавиши записи keymap по одной: между аккордами последовательности маршрутизатор ждёт префикс.
     key: (s) => { s.keys.split(' ').forEach((name) => { press(name); S.renderNow(); }); },
     // Правка keymap.toml: прототип TOML не разбирает и получает те же привязки под своими именами команд.
+    // Сообщение о неверной строке файла называет шаг: оно замещает подсказки строки статуса.
     keymap: (s) => {
       S.st.sceneInputs.keymapText = s.text;
+      if (s.message) S.refuse(s.message);
       Object.entries(s.commands || {}).forEach(([id, keys]) => {
         keys.forEach(chordsOf);
         if (id === 'escape') { if (keys.length !== 1) throw new Error('аккорд выхода один'); S.st.keymap.escape = keys[0]; return; }

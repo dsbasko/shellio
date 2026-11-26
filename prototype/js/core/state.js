@@ -264,7 +264,9 @@
   // Сколько места займёт панель вдоль оси зоны. Ниже этого часть покажет заглушку.
   const minOf = (pluginId) => S.plugins[pluginId].minSize || { w: 160, h: 90 };
   const KEY = { row: 'Ctrl-w v', stack: 'Ctrl-w s' };
-  const AXIS_TEXT = { row: 'на части рядом', stack: 'на части одна над другой' };
+  const AXIS_TEXT = { row: 'рядом', stack: 'одна над другой' };
+  // Отказ клавиши не той оси: зона, её ось и действующая клавиша этой оси из keymap.
+  S.axisText = (zone) => { const axis = S.AXIS[zone]; const key = S.keyFor(axis === 'row' ? 'split.v' : 'split.s', KEY[axis]); return `${S.ZONE_TITLE[zone]} делится ${AXIS_TEXT[axis]}${key ? `: ${key}` : ''}`; };
   S.splitAxis = () => { const L = S.layout(); const g = L.focus && groupOf(L, L.focus); return g && !g.nav ? S.AXIS[g.zone] : null; };
 
   // Хватит ли места остающейся и новой части: plugins — [остающаяся, новая]. Деление пересчитывает
@@ -310,7 +312,7 @@
     if (!g) return;
     if (g.nav) { S.notify({ title: 'Навигатор не делится', text: 'Делится плитка панелей рядом с ним: перенесите панель влево, Ctrl-w H, и нажмите Ctrl-w s.' }); return; }
     const axis = S.AXIS[g.zone];
-    if (want !== axis) { S.notify({ title: `${S.ZONE_TITLE[g.zone]} делится ${AXIS_TEXT[axis]}`, text: `Клавиша этой зоны: ${KEY[axis]}.` }); return; }
+    if (want !== axis) { S.refuse(S.axisText(g.zone)); return; }
     if (g.tabs.length > 1) { S.moveTo(id, { split: g.id, side: 'after' }); return; }
     const room = S.splitRoom(g, [St.panels[id].plugin, 'terminal'], { fresh: true });
     if (!room.ok) { tight(g, room); return; }

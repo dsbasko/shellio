@@ -597,6 +597,38 @@ mod tests {
             .find(|row| row.context == context && row.sequence == sequence)
     }
 
+    /// Прототип TOML не разбирает и показывает сообщение из шага рецепта: оно обязано совпасть с
+    /// тем, что по тексту того же шага строит разбор продукта.
+    #[tokio::test]
+    async fn keymap_error_recipe_names_the_message_of_the_product() {
+        use shellio_conformance::recipe::{Recipe, Step};
+
+        let place = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../conformance/recipes/status-keymap-error.json"
+        );
+        let recipe = Recipe::parse(place, &fs::read_to_string(place).unwrap()).unwrap();
+        let [
+            Step::Keymap {
+                text,
+                commands,
+                message: Some(message),
+            },
+        ] = recipe.steps.as_slice()
+        else {
+            panic!("рецепт — один шаг keymap с сообщением: {:?}", recipe.steps);
+        };
+        assert!(commands.is_empty(), "неверная строка привязок не даёт");
+
+        let fixture = Fixture::new();
+        fixture.write(text);
+        let service = fixture.service(false).await;
+        let view = service.port().current().view.clone();
+        let shown: Vec<_> = view.diagnostics.iter().map(|d| &d.message).collect();
+        assert_eq!(shown, [message]);
+        assert!(!message.contains('/'), "путь к файлу в сообщение не входит");
+    }
+
     #[test]
     fn host_action_table_is_sorted_and_checks_args() {
         assert!(HOST_ACTIONS.is_sorted_by(|a, b| a.0 < b.0));

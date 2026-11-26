@@ -815,7 +815,7 @@ fn recipe_keyboard_steps_parse() {
             {"op": "key", "keys": "Ctrl-w v"},
             {"op": "keymap", "text": "[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n",
              "commands": {"zoom": ["Ctrl-w m"], "split.v": []}},
-            {"op": "keymap", "text": ""},
+            {"op": "keymap", "text": "", "message": "keymap.toml, строка 2: причина"},
             {"op": "focus_field", "zone": "center", "part": 1},
             {"op": "filter", "text": "два слова"}],
            "post": {"parts": {"center": 1}}}"#,
@@ -833,10 +833,12 @@ fn recipe_keyboard_steps_parse() {
                     ("split.v".to_owned(), Vec::new()),
                     ("zoom".to_owned(), vec!["Ctrl-w m".to_owned()]),
                 ]),
+                message: None,
             },
             Step::Keymap {
                 text: String::new(),
                 commands: BTreeMap::new(),
+                message: Some("keymap.toml, строка 2: причина".to_owned()),
             },
             Step::FocusField {
                 zone: Zone::Center,

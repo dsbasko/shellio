@@ -102,11 +102,14 @@ pub enum Step {
     },
     /// Правка `keymap.toml` профиля: продукт получает текст файла, прототип — те же привязки под
     /// своими именами команд (`commands`: команда прототипа и её клавиши; пустой список снимает
-    /// клавиши команды). Разбора TOML у прототипа нет.
+    /// клавиши команды). Разбора TOML у прототипа нет, поэтому сообщение строки статуса о
+    /// неверной строке файла называет `message`: прототип его показывает, продукт строит своё.
     Keymap {
         text: String,
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         commands: BTreeMap<String, Vec<String>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
     },
     /// Фокус в поле активной панели части: первым ответчиком становится поле.
     FocusField {
@@ -140,14 +143,18 @@ impl Step {
         }
     }
 
-    /// Внутренние правила шага: клавиши и клавиши команд прототипа названы, строка keymap не
-    /// пуста.
+    /// Внутренние правила шага: клавиши и клавиши команд прототипа названы, сообщение шага keymap
+    /// не пусто.
     fn check(&self) -> Result<(), String> {
         let chords = |keys: &str| !keys.is_empty() && keys.split(' ').all(|c| !c.is_empty());
         match self {
             Step::Key { keys } if !chords(keys) => {
                 Err(format!("шаг key: клавиши «{keys}» не разобраны"))
             }
+            Step::Keymap {
+                message: Some(message),
+                ..
+            } if message.trim().is_empty() => Err("шаг keymap: пустое сообщение".to_owned()),
             Step::Keymap { commands, .. } => commands
                 .iter()
                 .flat_map(|(id, keys)| keys.iter().map(move |k| (id, k)))

@@ -154,6 +154,20 @@ surface = "layout"
 scene = "p15"
 recipe = "status-input-field"
 
+[[state]]
+id = "status-wrong-axis"
+step = "P1.6"
+surface = "statusline"
+scene = "p15"
+recipe = "status-wrong-axis"
+
+[[state]]
+id = "status-keymap-error"
+step = "P1.6"
+surface = "statusline"
+scene = "p15"
+recipe = "status-keymap-error"
+
 # Исключения: таблицы «Исключения этого плана» планов prototype-conformance, conformance-closure и navigation-keymap.
 
 [[exception]]

@@ -111,8 +111,8 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-layout-split-bottom conform-layout-zoom conform-tabs-side conform-tabs-center conform-tabs-half
   conform-tabs-wide ck-coverage conform-layout-stub conform-layout-empty-workbench conform-menu-panel
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
-  conform-status-input-field voiceover-speech)
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 0)
+  conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech)
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
 DONE_TASK=12
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
@@ -1816,7 +1816,7 @@ item_ck_coverage
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
   layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
-  status-input-field; do
+  status-input-field status-wrong-axis status-keymap-error; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then
