@@ -48,6 +48,11 @@ impl KeyBadge {
         &self.plate
     }
 
+    /// Подпись плашки.
+    pub(crate) fn text(&self) -> String {
+        self.label.stringValue().to_string()
+    }
+
     /// Ширина плашки по набору подписи.
     pub(crate) fn width(&self) -> f64 {
         key_width(self.label.intrinsicContentSize().width)

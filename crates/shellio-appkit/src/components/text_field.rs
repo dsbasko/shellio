@@ -70,6 +70,9 @@ pub enum TextFieldKind {
     /// Строка фильтра панели (`.pfilter` прототипа): значок перед текстом, подложка поднята над
     /// плиткой — тени токена и кольцо снаружи кадра вместо линии слоя.
     Filter,
+    /// Поле запроса палитры (`.pal-in input` прототипа): без отступов, линии и подложки сверх
+    /// заливки поверхности, кегль заголовка.
+    Palette,
 }
 
 /// Размеры вида поля.
@@ -85,6 +88,8 @@ pub struct FieldMetrics {
     pub focus_line: bool,
     /// Подложка поднята: тени токена и кольцо снаружи кадра, линии слоя нет.
     pub raised: bool,
+    /// У подложки есть линия и радиус.
+    pub line: bool,
 }
 
 impl TextFieldKind {
@@ -97,6 +102,7 @@ impl TextFieldKind {
                 gap: 0.0,
                 focus_line: true,
                 raised: false,
+                line: true,
             },
             TextFieldKind::Filter => FieldMetrics {
                 pad_x: FIELD_PAD_X,
@@ -105,6 +111,16 @@ impl TextFieldKind {
                 gap: FILTER_GAP,
                 focus_line: false,
                 raised: true,
+                line: true,
+            },
+            TextFieldKind::Palette => FieldMetrics {
+                pad_x: 0.0,
+                pad_y: 0.0,
+                icon: 0.0,
+                gap: 0.0,
+                focus_line: false,
+                raised: false,
+                line: false,
             },
         }
     }
@@ -113,7 +129,7 @@ impl TextFieldKind {
     /// цвет панели (`.panel:not(.flat)`).
     pub const fn fill(self, colors: &Colors) -> Srgb8 {
         match self {
-            TextFieldKind::Field => colors.surface,
+            TextFieldKind::Field | TextFieldKind::Palette => colors.surface,
             TextFieldKind::Filter => colors.panel,
         }
     }
@@ -124,6 +140,7 @@ impl TextFieldKind {
         match self {
             TextFieldKind::Field => theme.metrics.font.tab,
             TextFieldKind::Filter => theme.metrics.font.body,
+            TextFieldKind::Palette => theme.metrics.font.title,
         }
     }
 
@@ -294,6 +311,30 @@ impl TextField {
         )
     }
 
+    /// Поле запроса палитры с текстом `value` и плейсхолдером `placeholder`, вид
+    /// [`TextFieldKind::Palette`]. `on_intent` — как у [`TextField::new`].
+    pub fn palette(
+        app: &App,
+        theme: &AppTheme,
+        value: &str,
+        placeholder: &str,
+        on_intent: impl Fn(TextFieldIntent) + 'static,
+    ) -> TextField {
+        let state = TextFieldState {
+            value: value.to_owned(),
+            placeholder: placeholder.to_owned(),
+            editable: true,
+        };
+        TextField::of_kind(
+            app,
+            theme,
+            TextFieldKind::Palette,
+            state,
+            placeholder,
+            on_intent,
+        )
+    }
+
     fn of_kind(
         app: &App,
         theme: &AppTheme,
@@ -417,7 +458,7 @@ impl TextField {
         let enabled = Some(field.isEnabled());
         let whole = self.view.view();
         let (mut nodes, mut node) = match self.kind() {
-            TextFieldKind::Field => (
+            TextFieldKind::Field | TextFieldKind::Palette => (
                 Vec::new(),
                 inspect::node(id, "TextField", parent, whole, enabled, Some(state)),
             ),
@@ -650,6 +691,10 @@ fn paint(
             }
             layer::set_line(&raised.ring, Some((colors.line_2, LINE_WIDTH)));
             layer::set_corner(&raised.ring, radius + LINE_WIDTH);
+        }
+        None if !kind.metrics().line => {
+            layer::set_line(layer, None);
+            layer::set_radius(layer, 0.0);
         }
         None => {
             let line = if kind.metrics().focus_line && editing {
@@ -1068,6 +1113,22 @@ mod tests {
             (FIELD_PAD_X, 200.0 - 2.0 * FIELD_PAD_X)
         );
         assert_eq!(TextFieldKind::default(), TextFieldKind::Field);
+    }
+
+    #[test]
+    fn palette_query_spans_the_whole_box_with_the_title_size() {
+        let metrics = TextFieldKind::Palette.metrics();
+        assert!(!metrics.line && !metrics.raised && !metrics.focus_line);
+        assert_eq!(TextFieldKind::Palette.text_span(545.0), (0.0, 545.0));
+        let theme = AppTheme::for_cell(shellio_theme::Cell::ALL[0]);
+        assert_eq!(
+            TextFieldKind::Palette.font_size(&theme),
+            theme.metrics.font.title
+        );
+        assert_eq!(
+            TextFieldKind::Palette.fill(&theme.colors),
+            theme.colors.surface
+        );
     }
 
     #[test]

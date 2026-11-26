@@ -75,6 +75,10 @@ pub use command_palette::layout::{
     HintSpec as PaletteHintSpec, ListContent as PaletteListContent, PaletteLayout, PaletteSpec,
     RowParts as PaletteRowParts, layout as palette_layout, row_parts as palette_row_parts,
 };
+pub use command_palette::rows::{
+    CommandPaletteState, PLACEHOLDER as PALETTE_PLACEHOLDER, PaletteGroupSpec, PaletteRowSpec,
+};
+pub use command_palette::{CommandPalette, PaletteIntent, shadow_margin as palette_shadow_margin};
 pub use components::menu::{
     ItemChange, Menu, MenuButton, MenuEntry, MenuError, MenuIntent, MenuItem, MenuKey, MenuOp,
     MenuState, check_ids as check_menu_ids, diff as menu_diff,

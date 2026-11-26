@@ -3,3 +3,7 @@
 //! [`layout`].
 
 pub(crate) mod layout;
+pub(crate) mod rows;
+mod view;
+
+pub use view::{CommandPalette, PaletteIntent, shadow_margin};

@@ -9,4 +9,5 @@
 pub(crate) mod model;
 mod view;
 
+pub(crate) use view::RowViews;
 pub use view::{ListRowFacts, VirtualList, VirtualListFacts};

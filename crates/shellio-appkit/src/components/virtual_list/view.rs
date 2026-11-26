@@ -31,7 +31,7 @@ use objc2_app_kit::{
     NSUserInterfaceItemIdentification, NSView,
 };
 use objc2_foundation::{
-    NSIndexSet, NSInteger, NSMutableIndexSet, NSPoint, NSRange, NSRect, NSRunLoop,
+    NSEdgeInsets, NSIndexSet, NSInteger, NSMutableIndexSet, NSPoint, NSRange, NSRect, NSRunLoop,
     NSRunLoopCommonModes, NSSize, NSString,
 };
 use objc2_quartz_core::CADisplayLink;
@@ -279,10 +279,6 @@ impl VirtualList {
     }
 
     /// Список, строки которого показывает поставщик вида `views`.
-    #[expect(
-        dead_code,
-        reason = "поставщика подключает CommandPalette в срезе 3b-2"
-    )]
     pub(crate) fn with_row_views(
         app: &App,
         theme: &AppTheme,
@@ -538,6 +534,33 @@ impl VirtualList {
 
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
+    }
+
+    /// Виды ячеек видимых строк с номерами строк по порядку.
+    pub(crate) fn shown_views(&self) -> Vec<(usize, Retained<NSView>)> {
+        let range = self.visible_range();
+        let mut shown: Vec<(usize, Retained<NSView>)> = range
+            .filter_map(|index| {
+                let row = NSInteger::try_from(index).ok()?;
+                let row_view = self.table.rowViewAtRow_makeIfNecessary(row, false)?;
+                let view = row_view.viewAtColumn(0)?.downcast::<NSView>().ok()?;
+                Some((index, view))
+            })
+            .collect();
+        shown.sort_by_key(|(index, _)| *index);
+        shown
+    }
+
+    /// Поля списка сверху и снизу — отступ области прокрутки, а не строки таблицы.
+    pub(crate) fn set_insets(&self, top: f64, bottom: f64) {
+        let scroll = self.view.view();
+        scroll.setAutomaticallyAdjustsContentInsets(false);
+        scroll.setContentInsets(NSEdgeInsets {
+            top,
+            left: 0.0,
+            bottom,
+            right: 0.0,
+        });
     }
 
     /// Список и его видимые строки для `ui.inspect`: список (`<id>`) с ролью и именем таблицы и
