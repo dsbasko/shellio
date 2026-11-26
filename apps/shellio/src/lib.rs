@@ -11,6 +11,7 @@ pub mod bodies;
 pub mod calibration;
 pub mod gallery;
 pub mod history;
+pub mod input_sink;
 pub mod key_actions;
 pub mod key_router;
 pub mod keymap_service;
