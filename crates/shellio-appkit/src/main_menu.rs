@@ -43,9 +43,9 @@ pub struct PanelRow {
 pub type ZoneMenu = Option<(bool, [bool; 3])>;
 
 const ZONE_ITEMS: [(ZoneButton, &str); 3] = [
-    (ZoneButton::Navigator, "layout.visibility.navigator"),
-    (ZoneButton::Bottom, "layout.visibility.bottom"),
-    (ZoneButton::Side, "layout.visibility.side"),
+    (ZoneButton::Navigator, "layout.toggle.navigator"),
+    (ZoneButton::Bottom, "layout.toggle.bottom"),
+    (ZoneButton::Side, "layout.toggle.side"),
 ];
 
 /// Пункты меню «Оформление» по порядку: выбор, id пункта, заголовок.
@@ -443,7 +443,7 @@ mod tests {
             [(true, true), (true, false), (true, true)]
         );
         assert_eq!(
-            action_of("layout.visibility.side", &[]),
+            action_of("layout.toggle.side", &[]),
             Some(MenuAction::Zone(ZoneButton::Side))
         );
     }
