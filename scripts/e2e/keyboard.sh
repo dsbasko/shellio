@@ -72,7 +72,7 @@ ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zone
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
 STAGE=(1 2 2 3 5 2 4 1 6 8 9 9 8 7 9 9 6 5 9 9 9 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=7
+DONE_STAGE=8
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -100,6 +100,10 @@ K_B=11
 K_SLASH=44
 K_ENTER=36
 K_ESC=53
+K_TAB=48
+K_A=0
+K_C=8
+K_I=34
 
 REQUIRED=()
 STATUS=()
@@ -2030,8 +2034,9 @@ wait_mode() {
   done
 }
 
-# Опрос строки фильтра панели в ui.inspect: open — строка видна и её поле держит ввод, closed — строка скрыта или её
-# узла ещё нет (строка не открывалась) и ввода в поле нет; текст поля — в ROW_TEXT; чтение — <prefix>.stdout, иначе WHY.
+# Опрос строки фильтра панели в ui.inspect: open — строка видна и её поле держит ввод, closed — узел строки есть,
+# строка скрыта и ввода в поле нет, fresh — строка скрыта или её узла ещё нет (строка не открывалась); текст поля — в
+# ROW_TEXT; чтение — <prefix>.stdout, иначе WHY.
 ROW_TEXT=""
 wait_row() {
   local prefix="$1" panel="$2" want="$3" deadline seen="?" editing="?" id="layout.panel.$2.filter"
@@ -2043,11 +2048,11 @@ wait_row() {
       seen="$(comp "$prefix.stdout" "$id" visible 2>/dev/null || echo "?")"
       editing="$(comp "$prefix.stdout" "$id.input" state.text_field.editing 2>/dev/null || echo "?")"
       ROW_TEXT="$(comp "$prefix.stdout" "$id.input" state.text_field.value 2>/dev/null || true)"
-      if [[ "$want" == open ]]; then
-        [[ "$seen" != true || "$editing" != true ]] || return 0
-      else
-        [[ "$seen" == true || "$editing" == true ]] || return 0
-      fi
+      case "$want" in
+        open) [[ "$seen" != true || "$editing" != true ]] || return 0 ;;
+        closed) [[ "$seen" != false || "$editing" == true ]] || return 0 ;;
+        *) [[ "$seen" == true || "$editing" == true ]] || return 0 ;;
+      esac
     fi
     if (($(now_ms) >= deadline)); then
       WHY="за $MIRROR_MS мс строка фильтра: видна — $seen, ввод — $editing, ожидалось «${want}»"
@@ -2124,7 +2129,7 @@ fkey() {
 # строки считает сценарий по полному списку. Клавиши поля записей кольца не дают: закрытие судят строка, режим и
 # следующая клавиша с записью — второй / и j.
 item_filter() {
-  local item=filter dir="$run/filter" demo all typed want first text="ета" until
+  local item=filter dir="$run/filter" demo all typed want first text="ета" limit
   log "== $item"
   failures=()
   fresh_bench "$item" "$dir"
@@ -2135,7 +2140,7 @@ item_filter() {
   no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
   wait_key "$dir/first" "$demo" "!?" || fatal "$item: подготовка: $WHY"
   first="$KEY"
-  wait_row "$dir/start.row" "$demo" closed || fatal "$item: подготовка: $WHY"
+  wait_row "$dir/start.row" "$demo" fresh || fatal "$item: подготовка: $WHY"
   all="$(rows_with "$dir/start.row.stdout" "$demo" "")" || fatal "$item: подготовка: список не прочитан в ui.inspect"
   [[ "$(wc -w <<<"$all" | tr -d ' ')" -ge 4 ]] || fatal "$item: подготовка: в списке меньше четырёх строк: «${all}»"
   wait_filter "$dir/start.filter" "$demo" "" "$all" || fatal "$item: подготовка: $WHY"
@@ -2146,8 +2151,8 @@ item_filter() {
   fkey "$dir" letter "$K_B"
   typed=""
   if wait_row "$dir/letter.row" "$demo" open; then
-    until=$(($(now_ms) + MIRROR_MS))
-    while [[ -z "$ROW_TEXT" ]] && (($(now_ms) < until)); do
+    limit=$(($(now_ms) + MIRROR_MS))
+    while [[ -z "$ROW_TEXT" ]] && (($(now_ms) < limit)); do
       sleep "$POLL"
       wait_row "$dir/letter.row" "$demo" open || break
     done
@@ -2200,6 +2205,222 @@ item_filter() {
   conclude "$item" "«Демо: список»: / открывает строку фильтра (одна запись ui.receipts panel.filter с источником key, режим input, плашка «ВВОД»), буква «${typed:-?}» ставит data.filter query.panel и оставляет строки, чьё название её содержит; Enter закрывает строку, фильтр остаётся, режим — navigation; второй / открывает строку с тем же текстом одной записью кольца, Esc снимает фильтр и возвращает все строки; текст «${text}» командой CLI оставляет строки «${want}» из «${all}», Esc в открытой строке снимает фильтр; j после этого — одна запись list.down"
 }
 
+# Чтение ui.history: «точек до конца от курсора|область и панель точки под курсором|панели последних k точек».
+hist_fact() {
+  /usr/bin/perl -MJSON::PP -e '
+    my ($file, $k) = @ARGV;
+    open my $fh, "<", $file or exit 2;
+    local $/;
+    my $h = eval { JSON::PP->new->utf8->decode(<$fh>)->{ok}{ui}{history} };
+    exit 2 if $@ || ref $h ne "HASH" || ref $h->{points} ne "ARRAY" || !defined $h->{cursor};
+    my @p = @{ $h->{points} };
+    my $at = $p[$h->{cursor}] or exit 1;
+    my $from = @p > $k ? @p - $k : 0;
+    print $#p - $h->{cursor}, "|$at->{workbench} $at->{panel}|", join(" ", map { $_->{panel} } @p[$from .. $#p]), "\n";
+  ' "$1" "$2"
+}
+
+# Опрос места после перехода: открыта рабочая область bench (route tree), фокус её query.layout — panel, точка
+# ui.history под курсором — эта область и панель, от курсора до конца dist точек, панели последних точек — tail.
+# Чтения — <prefix>.tree.stdout, <prefix>.layout.stdout и <prefix>.history.stdout, иначе WHY.
+hwait() {
+  local prefix="$1" bench="$2" panel="$3" dist="$4" tail="$5" deadline k route="?" focus="?" fact="?"
+  WHY=""
+  k="$(wc -w <<<"$tail" | tr -d ' ')"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ctl "$profile" "$prefix.tree" --json --timeout "$CTL_TIMEOUT_MS" tree --all &&
+      layout_get "$profile" "$prefix.layout" "$bench" &&
+      ctl "$profile" "$prefix.history" --json --timeout "$CTL_TIMEOUT_MS" ui history get; then
+      route="$(jv "$prefix.tree.stdout" ok.value.route.workbench 2>/dev/null || echo "?")"
+      focus="$(focus_of "$prefix.layout.stdout" 2>/dev/null || echo "?")"
+      fact="$(hist_fact "$prefix.history.stdout" "$k" 2>/dev/null || echo "?")"
+      [[ "$route" != "$bench" || "$focus" != "$panel" || "$fact" != "$dist|$bench $panel|$tail" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс открытая область — ${route}, фокус — ${focus}, история — «${fact}»; ожидались область ${bench}, фокус ${panel}, история «$dist|$bench $panel|${tail}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Шаг истории клавишей: hstep <каталог> <имя> <действие> <аккорд> <исход> <область> <панель> <до конца> <хвост> —
+# одна запись кольца с источником key и исходом want (ok или not_applicable) и место по hwait.
+hstep() {
+  local dir="$1" name="$2" action="$3" chord="$4" want="$5"
+  shift 5
+  if ! act "$dir" "$name" "$action" "$chord"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  [[ "$OUTCOME" == "$want" ]] || failures+=("$name: исход действия $action — ${OUTCOME}, ожидался ${want}")
+  hwait "$dir/$name" "$@" || failures+=("$name: $WHY")
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# История переходов на терминалах (поле ввода при возврате берёт ввод себе и клавиши Navigation дальше не идут):
+# A → B → A клавишами, Ctrl-o и Ctrl-i, край вперёд, ветка C после возврата, закрытая цель, другая рабочая область.
+# История — на воркспейс и глубиной 100 точек, прежние пункты её уже наполнили: судятся хвост точек и расстояние
+# курсора от конца, а не номера. Шаг в другую область — одна запись кольца и две команды ядра, одной дельтой он
+# не судится.
+item_history() {
+  local item=history dir="$run/history" x a b c y d name back="$K_O+control" fwd="$K_I+control"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  x="$wb_a"
+  a="$p_center"
+  b="$p_right"
+  c="$p_bottom"
+  to_front "$dir" "$item"
+  step "$item" "$dir" jump-b panel.focus.right "$b" "$K_L"
+  step "$item" "$dir" jump-a panel.focus.left "$a" "$K_H"
+  hwait "$dir/start" "$x" "$a" 0 "$a $b $a" || fatal "$item: подготовка: $WHY"
+  log "$item: точек истории воркспейса $(jv "$dir/start.history.stdout" 'ok.ui.history.points[#]' || echo "?")"
+
+  hstep "$dir" back-b history.back "$back" ok "$x" "$b" 1 "$a $b $a"
+  hstep "$dir" forward-a history.forward "$fwd" ok "$x" "$a" 0 "$a $b $a"
+  hstep "$dir" forward-edge history.forward "$fwd" not_applicable "$x" "$a" 0 "$a $b $a"
+  hstep "$dir" back-b-again history.back "$back" ok "$x" "$b" 1 "$a $b $a"
+  if core_cmd "$profile" "$dir/branch" panel focus "$c" --all; then
+    hwait "$dir/branch-c" "$x" "$c" 0 "$a $b $c" || failures+=("ветка C: $WHY")
+  else
+    failures+=("ветка C: $WHY")
+  fi
+  to_front "$dir" "$item"
+  hstep "$dir" forward-cut history.forward "$fwd" not_applicable "$x" "$c" 0 "$a $b $c"
+  if core_cmd "$profile" "$dir/close-b" panel close "$b" --all; then
+    hwait "$dir/closed-b" "$x" "$c" 0 "$a $b $c" || failures+=("закрытие B: $WHY")
+  else
+    failures+=("закрытие B: $WHY")
+  fi
+  to_front "$dir" "$item"
+  hstep "$dir" back-over-closed history.back "$back" ok "$x" "$a" 2 "$a $b $c"
+  hstep "$dir" forward-over-closed history.forward "$fwd" ok "$x" "$c" 0 "$a $b $c"
+
+  mkdir -p "$dir/other"
+  bench_n=$((bench_n + 1))
+  name="b$bench_n-$$"
+  core_cmd "$profile" "$dir/other/new" workbench new --target "$project" "$name" --workspace "$ws" || fatal "$item: $WHY"
+  y="$(tree_id "$dir/other" bench "$name")" || fatal "$item: рабочая область $name не найдена в tree"
+  core_cmd "$profile" "$dir/other/open" workbench open --target "$y" --workspace "$ws" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/other/settle" "$y" "$REV" || fatal "$item: $WHY"
+  d="$(panels_of "$dir/other/settle.layout.stdout" terminal)"
+  [[ -n "$d" && "$d" != *" "* ]] || fatal "$item: в новой рабочей области нет одного терминала: «${d}»"
+  no_stubs "$dir/other/settle.layout.stdout" || fatal "$item: подготовка: $WHY"
+  hwait "$dir/other-d" "$y" "$d" 0 "$a $b $c $d" || failures+=("другая область: $WHY")
+  to_front "$dir" "$item"
+  hstep "$dir" back-other history.back "$back" ok "$x" "$c" 1 "$a $b $c $d"
+  hstep "$dir" forward-other history.forward "$fwd" ok "$y" "$d" 0 "$a $b $c $d"
+  conclude "$item" "терминалы без заглушек: l и h дают точки A → B → A; Ctrl-o возвращает к B, Ctrl-i — к A, Ctrl-i на конце — запись not_applicable без перехода; после Ctrl-o переход к C отсекает ветку вперёд (хвост A, B, C, Ctrl-i — not_applicable); закрытую B шаги назад и вперёд пропускают; Ctrl-o из другой рабочей области открывает прежнюю с фокусом на C, Ctrl-i возвращает; на каждую клавишу одна запись ui.receipts history.back или history.forward с источником key, место судят route tree, фокус query.layout и ui.history"
+}
+
+# Узлы ui.inspect с первым ответчиком окна: id через запятую, пусто — первый ответчик не узел (окно).
+responder_of() {
+  /usr/bin/perl -MJSON::PP -e '
+    open my $fh, "<", $ARGV[0] or exit 2;
+    local $/;
+    my $v = eval { JSON::PP->new->utf8->decode(<$fh>) };
+    exit 2 if $@ || ref $v->{ok}{ui}{inspect}{components} ne "ARRAY";
+    print join(",", map { $_->{id} } grep { $_->{first_responder} } @{ $v->{ok}{ui}{inspect}{components} }), "\n";
+  ' "$1"
+}
+
+# Наибольшее число нажатий Tab до поля: цепочка ключевых видов окна идёт от кнопок окна через полосы вкладок.
+TAB_MAX=40
+
+# «Демо: поле»: панель открывается с вводом в поле, Esc возвращает Navigation. Tab маршрутизатор в Navigation не
+# глотает: он идёт по цепочке ключевых видов окна и доходит до поля, поле с вводом переводит панель в Input. Затем
+# текст, Esc и клавиши с записью кольца: i (mode.input) и h (panel.focus.left). Клавиши поля, Tab и Esc записей не
+# дают — после всего хода в кольце ровно эти две.
+item_field_input() {
+  local item=field-input dir="$run/field-input" demo field start prev now deadline n chain="" reached=0 seen
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-native center
+  demo="$PANEL"
+  field="layout.panel.$demo.field"
+  wait_focus "$dir/open-demo.layout" "$demo" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
+  wait_mode "$dir/start.mode" input || fatal "$item: подготовка: $WHY"
+  receipts_last "$profile" "$dir/start.receipts" || fatal "$item: подготовка: $WHY"
+  start="$LAST"
+  to_front "$dir" "$item"
+
+  fkey "$dir" esc-open "$K_ESC"
+  wait_mode "$dir/esc-open.mode" navigation || failures+=("Esc после открытия: $WHY")
+  wait_inspect "$profile" "$dir/esc-open.field" "$field" state.text_field.editing false ||
+    failures+=("Esc после открытия: $WHY")
+  prev="$(responder_of "$dir/esc-open.field.stdout" 2>/dev/null || echo "?")"
+  [[ -z "$prev" ]] || failures+=("Esc после открытия: первый ответчик — «${prev}», ожидалось окно")
+
+  if ((${#failures[@]} == 0)); then
+    for ((n = 1; n <= TAB_MAX; n++)); do
+      fkey "$dir" "tab-$n" "$K_TAB"
+      deadline=$(($(now_ms) + MIRROR_MS))
+      now="$prev"
+      while [[ "$now" == "$prev" ]] && (($(now_ms) < deadline)); do
+        ui_read "$profile" "$dir/tab-$n" inspect && now="$(responder_of "$dir/tab-$n.stdout" 2>/dev/null || echo "$prev")"
+        [[ "$now" != "$prev" ]] || sleep "$POLL"
+      done
+      if [[ "$now" == "$prev" ]]; then
+        failures+=("Tab $n: первый ответчик за $MIRROR_MS мс не сменился: «${prev}»")
+        break
+      fi
+      seen=" $chain "
+      chain="${chain:+$chain }$now"
+      prev="$now"
+      if [[ "$now" == "$field" ]]; then
+        reached=$n
+        break
+      fi
+      if [[ "$seen" == *" $now "* ]]; then
+        failures+=("Tab $n: цепочка ключевых видов замкнулась на «${now}» без поля: ${chain}")
+        break
+      fi
+    done
+    printf '%s\n' "$chain" | tr ' ' '\n' >"$dir/tab-chain.txt"
+    ((reached > 0 || ${#failures[@]} > 0)) || failures+=("Tab: за $TAB_MAX нажатий поле ввод не получило: ${chain}")
+  fi
+
+  if ((reached > 0)); then
+    wait_mode "$dir/tab.mode" input || failures+=("Tab в поле: $WHY")
+    wait_inspect "$profile" "$dir/tab.field" "$field" state.text_field.editing true || failures+=("Tab в поле: $WHY")
+  fi
+  if ((reached > 0 && ${#failures[@]} == 0)); then
+    fkey "$dir" letter-a "$K_A"
+    fkey "$dir" letter-b "$K_B"
+    fkey "$dir" letter-c "$K_C"
+    wait_inspect "$profile" "$dir/typed.field" "$field" state.text_field.value abc || failures+=("ввод: $WHY")
+    wait_mode "$dir/typed.mode" input || failures+=("ввод: $WHY")
+    fkey "$dir" esc "$K_ESC"
+    wait_mode "$dir/esc.mode" navigation || failures+=("Esc: $WHY")
+    wait_inspect "$profile" "$dir/esc.field" "$field" state.text_field.editing false || failures+=("Esc: $WHY")
+    wait_focus "$dir/esc.layout" "$demo" || failures+=("Esc: $WHY")
+    if act "$dir" key-i mode.input "$K_I"; then
+      [[ "$OUTCOME" == ok ]] || failures+=("i: действие mode.input отказало: $OUTCOME")
+      wait_mode "$dir/key-i.mode" input || failures+=("i: $WHY")
+      once "$dir" key-i || failures+=("i: $WHY")
+    else
+      failures+=("i: $WHY")
+    fi
+    fkey "$dir" esc-i "$K_ESC"
+    wait_mode "$dir/esc-i.mode" navigation || failures+=("Esc после i: $WHY")
+    step "$item" "$dir" key-h panel.focus.left "$p_left" "$K_H"
+    if receipts_get "$profile" "$dir/all.receipts" "$start"; then
+      seen="$(jv "$dir/all.receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo "?") $(rc "$dir/all.receipts.stdout" 0 action) $(rc "$dir/all.receipts.stdout" 1 action)"
+      [[ "$seen" == "2 mode.input panel.focus.left" ]] ||
+        failures+=("записи кольца за весь ход — «${seen}», ожидались две: mode.input и panel.focus.left")
+    else
+      failures+=("ui.receipts не прочитан: $(oneline "$dir/all.receipts.stderr")")
+    fi
+  fi
+  conclude "$item" "«Демо: поле» открыта с вводом в поле; Esc — режим navigation и плашка «НАВИГАЦИЯ», первый ответчик — окно; Tab ${reached} раз по цепочке ключевых видов окна доводит ввод до поля — режим input, плашка «ВВОД»; клавиши a, b, c — текст поля «abc»; Esc — navigation, «НАВИГАЦИЯ», фокус query.layout в панели; i — одна запись ui.receipts mode.input с источником key и режим input, Esc и h — одна запись panel.focus.left; Tab, буквы и Esc записей кольца не дают"
+}
+
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
   log "== $item"
@@ -2234,6 +2455,8 @@ item_appearance_cycle
 item_relative_resize_cli
 item_key_and_menu_once
 item_filter
+item_history
+item_field_input
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
