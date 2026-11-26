@@ -2,13 +2,15 @@
 //! (ADR-0006). UI подключается портом [`owner::Ui`]: бинарь `shellio` даёт его из
 //! `shellio-appkit`, `shellio-owner-fixture` — без UI. Список регистраций плагинов — [`plugins`], чистая часть адаптера
 //! окна — [`scene`], [`bodies`] и [`receipts`], служба таблицы клавиш — [`keymap_service`], чистая часть
-//! маршрутизатора клавиш — [`key_router`], перевод действий таблицы в исполнение — [`key_actions`].
+//! маршрутизатора клавиш — [`key_router`], перевод действий таблицы в исполнение — [`key_actions`],
+//! правило точек истории переходов — [`history`].
 
 #![forbid(unsafe_code)]
 
 pub mod bodies;
 pub mod calibration;
 pub mod gallery;
+pub mod history;
 pub mod key_actions;
 pub mod key_router;
 pub mod keymap_service;

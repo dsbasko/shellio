@@ -36,6 +36,11 @@ impl<P> JumpList<P> {
         (!self.points.is_empty()).then_some(self.cursor)
     }
 
+    /// Точка по номеру для правки того, что в равенство точек не входит.
+    pub fn point_mut(&mut self, at: usize) -> Option<&mut P> {
+        self.points.get_mut(at)
+    }
+
     /// Назад к ближайшей точке, которую принимает `alive`: закрытые панели и панели вне видимых
     /// проектов пропускаются. Нет такой — курсор на месте.
     pub fn back(&mut self, alive: impl Fn(&P) -> bool) -> Option<&P> {
