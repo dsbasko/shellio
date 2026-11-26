@@ -20,12 +20,13 @@ use objc2_app_kit::{
     NSText, NSTextField, NSTextFieldDelegate, NSView, NSViewLayerContentsRedrawPolicy,
 };
 use objc2_foundation::{
-    NSAttributedString, NSDictionary, NSNotification, NSPoint, NSRect, NSSize, NSString,
+    NSAttributedString, NSDictionary, NSNotification, NSPoint, NSRange, NSRect, NSSize, NSString,
 };
 use objc2_quartz_core::CALayer;
 use shellio_theme::{AppTheme, Colors, Srgb8};
 
 use crate::app::App;
+use crate::chrome_bar::Frame;
 use crate::counters::{Live, counter};
 use crate::icon;
 use crate::inspect::{self, InspectNode, NodeState};
@@ -56,6 +57,8 @@ pub const FILTER_ICON: f64 = 13.0;
 pub const FILTER_GAP: f64 = 6.0;
 /// Ширина текста строки фильтра (`.pfilter input { width: 170px }`).
 pub const FILTER_INPUT_WIDTH: f64 = 170.0;
+/// Ширина узла каретки: системный индикатор вставки шире точки.
+const CARET_WIDTH: f64 = 2.0;
 /// Плейсхолдер и имя строки фильтра для доступности.
 pub const FILTER_PLACEHOLDER: &str = "Фильтр";
 /// Имя значка строки фильтра в наборе прототипа.
@@ -497,6 +500,37 @@ impl TextField {
         node.facts.first_responder = editor_is_first_responder(field);
         nodes.push(node);
         nodes
+    }
+
+    /// Точка вставки поля во время ввода — узел `id` без ключа сверки: прямоугольник каретки
+    /// (выделения, если оно не пустое) в системе координат окна поля. Снимок маскирует его в
+    /// сравнении стабильности: каретка мигает. Ввода нет — узла нет.
+    pub fn caret(&self, id: &str, parent: &str) -> Option<InspectNode> {
+        let field = self.field();
+        let editor = field.currentEditor()?;
+        let window = field.window()?;
+        let range = editor.selectedRange();
+        // SAFETY: field editor поля — `NSTextView`, он реализует
+        // `firstRectForCharacterRange:actualRange:` протокола `NSTextInputClient`: аргументы —
+        // `NSRange` и указатель на `NSRange`, который допускает NULL, результат — `NSRect` в
+        // координатах экрана.
+        let screen: NSRect = unsafe {
+            msg_send![
+                &*editor,
+                firstRectForCharacterRange: range,
+                actualRange: std::ptr::null_mut::<NSRange>()
+            ]
+        };
+        let rect = window.convertRectFromScreen(screen);
+        let width = rect.size.width.max(CARET_WIDTH);
+        let x = rect.origin.x + (rect.size.width - width) / 2.0;
+        Some(inspect::rect_node(
+            id,
+            "Caret",
+            parent,
+            inspect::object_id(&*editor),
+            Frame::new(x, rect.origin.y, width, rect.size.height),
+        ))
     }
 
     /// Подложка поля для размещения в иерархии.

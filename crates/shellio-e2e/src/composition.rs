@@ -325,6 +325,170 @@ pub fn pair_changed(previous: &WindowView, window: &WindowView) -> Option<String
     (!same).then(|| format!("окно палитры между снимками изменилось: {before:?} → {now:?}"))
 }
 
+/// Поле тени палитры в точках: наибольшее `blur + |y|` токена тени, как у окна палитры.
+pub const SHADOW_MARGIN: f64 = 66.0;
+/// Отступ полосы поверхности от края плашки внутрь и полос тени от её края наружу: линия
+/// плашки и сглаживание края в пробу не входят.
+const EDGE_INSET: f64 = 2.0;
+/// Глубина полос тени от края плашки, точки.
+const SHADOW_DEPTH: f64 = 8.0;
+
+/// Контрольные пиксели снимка композиции: снимок области окна владельца до открытия палитры
+/// (`base`) и после (`now`), плашка `plate` и её заливка `fill` — из паспорта ячейки (кадр в
+/// точках окна, начало сверху слева), а не из `ui.inspect`: продукт не судит сам себя.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Controls {
+    /// Медиана полосы у левого края плашки внутри неё.
+    pub surface: Rgb,
+    pub expected: Rgb,
+    /// Затемнение полос под нижним и над верхним краем плашки: средняя яркость основы минус
+    /// средняя яркость снимка, уровни 0–255.
+    pub below: f64,
+    pub above: f64,
+    /// Пиксели полос фона за полем тени слева и справа от плашки, изменившиеся больше допуска,
+    /// и их общее число.
+    pub background_moved: u64,
+    pub background_pixels: u64,
+}
+
+/// Снятые значения и вердикт: поверхность — заливка паспорта в допуске; тень падает вниз —
+/// под плашкой строго темнее основы и темнее, чем над ней; фон за полем тени не затемнён и не
+/// изменился. Нарушение — дефект продукта; снимок не той области — ошибка исполнения.
+pub fn judge_controls(
+    plate: Rect,
+    fill: Rgb,
+    scale: f64,
+    (width, height): (u32, u32),
+    base: impl Fn(u32, u32) -> Option<Rgb>,
+    now: impl Fn(u32, u32) -> Option<Rgb>,
+    tolerance: u8,
+) -> (Option<Controls>, Result<(), PairFault>) {
+    let strip = |rect: Rect| -> Vec<(u32, u32)> {
+        let x0 = (rect.x * scale).round().max(0.0) as u32;
+        let y0 = (rect.y * scale).round().max(0.0) as u32;
+        let x1 = ((rect.x + rect.width) * scale)
+            .round()
+            .min(f64::from(width)) as u32;
+        let y1 = ((rect.y + rect.height) * scale)
+            .round()
+            .min(f64::from(height)) as u32;
+        (y0..y1)
+            .flat_map(|y| (x0..x1).map(move |x| (x, y)))
+            .collect()
+    };
+    let read = |image: &dyn Fn(u32, u32) -> Option<Rgb>, (x, y): (u32, u32)| {
+        image(x, y).ok_or_else(|| {
+            PairFault::Execution(format!("пиксель {x}×{y} за кадром снимка композиции"))
+        })
+    };
+    let run = || -> Result<Controls, PairFault> {
+        let mid = plate.y + plate.height * 0.45;
+        let surface_points = strip(Rect::new(
+            plate.x + EDGE_INSET,
+            mid,
+            EDGE_INSET,
+            plate.height * 0.1,
+        ));
+        if surface_points.is_empty() {
+            return Err(PairFault::Execution(
+                "полоса поверхности палитры вне снимка".to_owned(),
+            ));
+        }
+        let mut channels = [Vec::new(), Vec::new(), Vec::new()];
+        for &point in &surface_points {
+            let p = read(&now, point)?;
+            channels[0].push(p.r);
+            channels[1].push(p.g);
+            channels[2].push(p.b);
+        }
+        let median = |values: &mut Vec<u8>| {
+            values.sort_unstable();
+            values[values.len() / 2]
+        };
+        let surface = Rgb::new(
+            median(&mut channels[0]),
+            median(&mut channels[1]),
+            median(&mut channels[2]),
+        );
+        let darkening = |rect: Rect| -> Result<f64, PairFault> {
+            let points = strip(rect);
+            if points.is_empty() {
+                return Err(PairFault::Execution(format!(
+                    "полоса тени {rect:?} вне снимка"
+                )));
+            }
+            let mut sum = 0.0;
+            for &point in &points {
+                sum += luminance(read(&base, point)?) - luminance(read(&now, point)?);
+            }
+            Ok(sum / points.len() as f64)
+        };
+        let shadow_x = plate.x + plate.width * 0.25;
+        let below = darkening(Rect::new(
+            shadow_x,
+            plate.y + plate.height + EDGE_INSET,
+            plate.width * 0.5,
+            SHADOW_DEPTH,
+        ))?;
+        let above = darkening(Rect::new(
+            shadow_x,
+            plate.y - EDGE_INSET - SHADOW_DEPTH,
+            plate.width * 0.5,
+            SHADOW_DEPTH,
+        ))?;
+        let margin = SHADOW_MARGIN + EDGE_INSET;
+        let right = plate.x + plate.width + margin;
+        let mut background = strip(Rect::new(0.0, plate.y, plate.x - margin, plate.height));
+        background.extend(strip(Rect::new(
+            right,
+            plate.y,
+            f64::from(width) / scale - right,
+            plate.height,
+        )));
+        let mut moved = 0;
+        for &point in &background {
+            if read(&base, point)?.max_delta(read(&now, point)?) > tolerance {
+                moved += 1;
+            }
+        }
+        Ok(Controls {
+            surface,
+            expected: fill,
+            below,
+            above,
+            background_moved: moved,
+            background_pixels: background.len() as u64,
+        })
+    };
+    let controls = match run() {
+        Ok(controls) => controls,
+        Err(fault) => return (None, Err(fault)),
+    };
+    let verdict = if controls.surface.max_delta(fill) > tolerance {
+        Err(PairFault::Product(format!(
+            "поверхность палитры {:?}, а не заливка паспорта {fill:?}",
+            controls.surface
+        )))
+    } else if controls.below <= 0.0 || controls.below <= controls.above {
+        Err(PairFault::Product(format!(
+            "тень не падает вниз: затемнение под плашкой {:.2}, над ней {:.2}",
+            controls.below, controls.above
+        )))
+    } else if controls.background_moved > 0 {
+        Err(PairFault::Product(format!(
+            "фон за полем тени изменился: пикселей {} из {}",
+            controls.background_moved, controls.background_pixels
+        )))
+    } else {
+        Ok(())
+    };
+    (Some(controls), verdict)
+}
+
+fn luminance(p: Rgb) -> f64 {
+    (f64::from(p.r) + f64::from(p.g) + f64::from(p.b)) / 3.0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -472,6 +636,105 @@ mod tests {
         assert_eq!(
             judge_pair(&window_json(true), &aside, 2.0, Expect::Open),
             Ok(())
+        );
+    }
+
+    /// Снимок 1180×720 при масштабе 1: фон 200, плашка паспорта `palette-groups`, тень с
+    /// затемнением `below` под плашкой (66 точек) и `above` над ней (30 точек), фон за полем тени
+    /// затемнён на `dim`.
+    fn shot(fill: Rgb, below: u8, above: u8, dim: u8) -> impl Fn(u32, u32) -> Option<Rgb> {
+        move |x, y| {
+            if x >= 1180 || y >= 720 {
+                return None;
+            }
+            let (x, y) = (f64::from(x), f64::from(y));
+            let inside_x = (270.0..910.0).contains(&x);
+            Some(if inside_x && (46.0..606.0).contains(&y) {
+                fill
+            } else if inside_x && (606.0..672.0).contains(&y) {
+                Rgb::new(200 - below, 200 - below, 200 - below)
+            } else if inside_x && (16.0..46.0).contains(&y) {
+                Rgb::new(200 - above, 200 - above, 200 - above)
+            } else if (204.0..976.0).contains(&x) {
+                Rgb::new(200, 200, 200)
+            } else {
+                Rgb::new(200 - dim, 200 - dim, 200 - dim)
+            })
+        }
+    }
+
+    const PLATE: Rect = Rect {
+        x: 270.0,
+        y: 46.0,
+        width: 640.0,
+        height: 560.0,
+    };
+    const FILL: Rgb = Rgb {
+        r: 250,
+        g: 249,
+        b: 246,
+    };
+
+    fn judge(
+        now: impl Fn(u32, u32) -> Option<Rgb>,
+        size: (u32, u32),
+    ) -> (Option<Controls>, Result<(), PairFault>) {
+        judge_controls(
+            PLATE,
+            FILL,
+            1.0,
+            size,
+            shot(Rgb::new(200, 200, 200), 0, 0, 0),
+            now,
+            3,
+        )
+    }
+
+    #[test]
+    fn palette_over_an_undimmed_window_with_a_shadow_below_passes() {
+        let (controls, verdict) = judge(shot(FILL, 20, 5, 0), (1180, 720));
+        assert_eq!(verdict, Ok(()));
+        let controls = controls.expect("значения сняты");
+        assert_eq!(controls.surface, FILL);
+        assert!((controls.below - 20.0).abs() < 1e-9 && (controls.above - 5.0).abs() < 1e-9);
+        assert_eq!(controls.background_moved, 0);
+        assert!(controls.background_pixels > 0);
+    }
+
+    #[test]
+    fn shadow_falling_up_dimmed_background_or_foreign_surface_is_a_product_fault() {
+        let product = |verdict: Result<(), PairFault>, needle: &str| {
+            assert!(
+                matches!(&verdict, Err(PairFault::Product(why)) if why.contains(needle)),
+                "{verdict:?}"
+            );
+        };
+        // Дефект 3b-3: тень вверх — над плашкой темнее, чем под ней.
+        product(
+            judge(shot(FILL, 5, 20, 0), (1180, 720)).1,
+            "тень не падает вниз",
+        );
+        product(
+            judge(shot(FILL, 0, 0, 0), (1180, 720)).1,
+            "тень не падает вниз",
+        );
+        product(
+            judge(shot(FILL, 20, 5, 40), (1180, 720)).1,
+            "фон за полем тени",
+        );
+        product(
+            judge(shot(Rgb::new(200, 200, 200), 20, 5, 0), (1180, 720)).1,
+            "поверхность палитры",
+        );
+    }
+
+    #[test]
+    fn snapshot_of_a_smaller_region_is_an_execution_error() {
+        let (controls, verdict) = judge(shot(FILL, 20, 5, 0), (1180, 300));
+        assert!(controls.is_none());
+        assert!(
+            matches!(verdict, Err(PairFault::Execution(_))),
+            "{verdict:?}"
         );
     }
 

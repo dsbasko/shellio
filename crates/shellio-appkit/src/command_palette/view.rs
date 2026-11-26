@@ -1071,6 +1071,8 @@ impl CommandPalette {
                 .into_iter()
                 .map(|node| node.with_ck("palette.query")),
         );
+        // Каретка без ключа сверки: паспорт её не знает, снимок маскирует её прямоугольник.
+        nodes.extend(self.query.caret("palette.query.caret", "palette.query"));
         nodes.push(
             self.escape
                 .node("palette.escape", "palette.header")

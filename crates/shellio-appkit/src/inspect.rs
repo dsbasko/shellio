@@ -465,6 +465,41 @@ pub(crate) fn node(
     }
 }
 
+/// Узел прямоугольника без собственного вида: кадр `frame` — в точках окна, свойств и состояния
+/// нет.
+pub(crate) fn rect_node(
+    id: &str,
+    class: &'static str,
+    parent: &str,
+    object: u64,
+    frame: Frame,
+) -> InspectNode {
+    InspectNode {
+        id: id.to_owned(),
+        class,
+        object,
+        parent: Some(parent.to_owned()),
+        ck: None,
+        facts: ViewFacts {
+            frame,
+            visible: frame.width > 0.0 && frame.height > 0.0,
+            first_responder: false,
+            enabled: None,
+            role: None,
+            label: None,
+            help: None,
+            selected: None,
+            expanded: None,
+            animation_keys: 0,
+        },
+        style: None,
+        truncated: None,
+        under: None,
+        behind: None,
+        state: None,
+    }
+}
+
 /// Часть кнопки, которую рисует её ячейка: у ячейки вида нет, кадр — её прямоугольник в окне.
 fn button_part(
     id: &str,
