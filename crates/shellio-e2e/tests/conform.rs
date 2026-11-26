@@ -1611,52 +1611,11 @@ fn coverage_recorded(inspect: &str) -> (Option<i32>, Value) {
     ])
 }
 
-/// Запись окна `p15` снята до подсказки «поиск» строки статуса, которую паспорт ждёт с палитрой
-/// P1.6: её узлы дописываются по образцу второй подсказки, пока срез 3 задачи 4 плана
-/// `command-overlays` не переснимет запись.
+/// Запись окна `p15` со строкой статуса мира P1.6: подсказка «поиск» есть.
 fn p15_inspect() -> Value {
     let path = recorded("p15-light-normal.inspect.json");
     let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
-    let mut tree: Value = serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"));
-    let nodes = tree["ok"]["ui"]["inspect"]["components"]
-        .as_array_mut()
-        .unwrap_or_else(|| panic!("в записи нет узлов"));
-    let at = nodes
-        .iter()
-        .rposition(|n| {
-            n["ck"]
-                .as_str()
-                .is_some_and(|ck| ck.starts_with("status.hint.2"))
-        })
-        .unwrap_or_else(|| panic!("в записи нет второй подсказки"));
-    let added: Vec<Value> = [
-        ("status.hint.3", "status", "StatusHint", Value::Null),
-        (
-            "status.hint.3.key",
-            "status.hint.3",
-            "KeyBadge",
-            json!("⌘K"),
-        ),
-        (
-            "status.hint.3.label",
-            "status.hint.3",
-            "Label",
-            json!("поиск"),
-        ),
-    ]
-    .into_iter()
-    .map(|(ck, parent, class, label)| {
-        let mut node = nodes[at].clone();
-        node["id"] = json!(ck);
-        node["ck"] = json!(ck);
-        node["parent"] = json!(parent);
-        node["class"] = json!(class);
-        node["label"] = label;
-        node
-    })
-    .collect();
-    nodes.splice(at + 1..at + 1, added);
-    tree
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Пункт `ck-coverage`: на записи настоящего окна состав сцены найден и у каждого сверяемого узла

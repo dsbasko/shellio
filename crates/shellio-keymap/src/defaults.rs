@@ -32,13 +32,14 @@ enum Ctx {
     Input,
 }
 
-const HOST: [(Ctx, &str, &str, Option<&str>); 48] = [
+const HOST: [(Ctx, &str, &str, Option<&str>); 50] = [
     (Ctx::Global, "Cmd-w", "window.close", None),
     (Ctx::Global, "Cmd-q", "app.quit", None),
     (Ctx::Global, "Cmd-0", "layout.toggle.navigator", None),
     (Ctx::Global, "Cmd-j", "layout.toggle.bottom", None),
     (Ctx::Global, "Cmd-Alt-0", "layout.toggle.side", None),
     (Ctx::Global, "Cmd-Alt-t", "ui.appearance.cycle", None),
+    (Ctx::Global, "Cmd-k", "palette.open", None),
     (Ctx::Input, "Ctrl-\\", "mode.navigation", None),
     (Ctx::Navigation, "Ctrl-\\", "mode.toggle", None),
     (Ctx::Navigation, "i", "mode.input", None),
@@ -84,6 +85,7 @@ const HOST: [(Ctx, &str, &str, Option<&str>); 48] = [
     ),
     (Ctx::Navigation, "<leader>z j", "layout.toggle.bottom", None),
     (Ctx::Navigation, "<leader>z l", "layout.toggle.side", None),
+    (Ctx::Navigation, "<leader><leader>", "palette.open", None),
     (Ctx::Navigation, "Ctrl-o", "history.back", None),
     (Ctx::Navigation, "Ctrl-i", "history.forward", None),
 ];

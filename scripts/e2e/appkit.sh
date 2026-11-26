@@ -1984,7 +1984,7 @@ ax_compare() {
     my $a = $read->($ax);
     my %fixture = (
       "chrome.workspace" => ["AXButton", "Воркспейс: $workspace"],
-      "chrome.search" => ["AXGroup", "Поиск и команды"],
+      "chrome.search" => ["AXButton", "Поиск и команды"],
       "chrome.zone.left" => ["AXButton", "Навигация"],
       "chrome.zone.bottom" => ["AXButton", "Нижняя зона"],
       "chrome.zone.right" => ["AXButton", "Правая зона"],

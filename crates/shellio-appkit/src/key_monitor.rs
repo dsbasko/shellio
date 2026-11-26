@@ -104,13 +104,15 @@ pub enum MonitorEvent {
     },
     /// Смена модификаторов: не клавиша.
     FlagsChanged,
-    /// Нажатие любой кнопки мыши.
-    MouseDown,
+    /// Нажатие любой кнопки мыши в окне с номером `window` (0 — вне окон приложения).
+    MouseDown {
+        window: i64,
+    },
     ScrollWheel,
 }
 
-/// Ответ монитору. Поглотить можно только нажатие и отпускание клавиши: остальные события идут
-/// AppKit при любом ответе.
+/// Ответ монитору. Поглотить можно нажатие и отпускание клавиши и нажатие мыши: остальные события
+/// идут AppKit при любом ответе.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
     /// Событие идёт AppKit без изменений.
@@ -292,8 +294,8 @@ enum Kind {
 impl Kind {
     fn swallowable(self) -> bool {
         match self {
-            Kind::KeyDown | Kind::KeyUp => true,
-            Kind::FlagsChanged | Kind::MouseDown | Kind::ScrollWheel => false,
+            Kind::KeyDown | Kind::KeyUp | Kind::MouseDown => true,
+            Kind::FlagsChanged | Kind::ScrollWheel => false,
         }
     }
 }
@@ -350,7 +352,9 @@ fn read(kind: Kind, event: &NSEvent) -> MonitorEvent {
             key_code: event.keyCode(),
         },
         Kind::FlagsChanged => MonitorEvent::FlagsChanged,
-        Kind::MouseDown => MonitorEvent::MouseDown,
+        Kind::MouseDown => MonitorEvent::MouseDown {
+            window: event.windowNumber() as i64,
+        },
         Kind::ScrollWheel => MonitorEvent::ScrollWheel,
     }
 }
@@ -395,11 +399,14 @@ mod tests {
     }
 
     #[test]
-    fn only_key_events_can_be_swallowed() {
+    fn key_and_mouse_down_events_can_be_swallowed() {
         assert!(Kind::KeyDown.swallowable());
         assert!(Kind::KeyUp.swallowable());
+        assert!(
+            Kind::MouseDown.swallowable(),
+            "щелчок вне палитры не доходит до слоя под ней"
+        );
         assert!(!Kind::FlagsChanged.swallowable());
-        assert!(!Kind::MouseDown.swallowable());
         assert!(!Kind::ScrollWheel.swallowable());
     }
 

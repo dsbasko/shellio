@@ -534,7 +534,8 @@ impl OwnerWindow {
                 plugin: panel.as_ref().map(|panel| panel.plugin.as_str()),
                 panel_hints: &[],
                 input_receiver: panel.as_ref().is_some_and(|panel| panel.input),
-                palette: false,
+                // Палитра есть у обычного окна: галерея её не открывает.
+                palette: self.palette.is_some(),
             },
         );
         let (prefix, hints) = match text {
@@ -1698,7 +1699,12 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         MonitorEvent::KeyDown(stroke) => return on_key_down(app, stroke),
         MonitorEvent::KeyUp { key_code } => with_router(|router| router.key_up(KeyCode(key_code))),
         MonitorEvent::FlagsChanged => with_router(|router| router.flags_changed()),
-        MonitorEvent::MouseDown => {
+        MonitorEvent::MouseDown { window } => {
+            // Щелчок вне окна открытой палитры закрывает её и до слоя под ней не доходит.
+            if palette_outside(window) {
+                defer(|_| close_overlay(OverlayKind::Palette));
+                return Verdict::Swallow;
+            }
             with_router(|router| router.cancel(Cancel::MouseDown));
             let seen = status_serial();
             defer(move |_| forget_status(seen));
@@ -1713,6 +1719,17 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         Some(Decision::Swallow | Decision::Overlay { .. } | Decision::Close(_)) => Verdict::Swallow,
         Some(Decision::Pass | Decision::Run(_) | Decision::Replay { .. }) | None => Verdict::Pass,
     }
+}
+
+/// Палитра открыта, а окно `window` — не её окно.
+fn palette_outside(window: i64) -> bool {
+    let open = OVERLAY.with(|state| state.borrow().kind == Some(OverlayKind::Palette));
+    open && with_window(|owner| {
+        owner
+            .palette
+            .as_ref()
+            .is_some_and(|palette| palette.is_open() && palette.number() != window)
+    }) == Some(true)
 }
 
 /// Строка статуса показала сообщение.
@@ -1752,7 +1769,12 @@ fn forget_status(seen: u64) {
 /// Кто держит ввод сейчас для решения маршрутизатора и признак строки фильтра.
 fn current_focus(app: &App) -> (Focus<ModeReceiver>, bool) {
     let facts = app.key_focus();
+    // Поле ключевого окна палитры — поле наложения, а не поле панели.
+    let overlay_field = facts.responder == KeyResponder::Field
+        && with_window(|owner| owner.palette.as_ref().is_some_and(CommandPalette::is_key))
+            == Some(true);
     let typing = match facts.responder {
+        KeyResponder::Field if overlay_field => None,
         KeyResponder::Field => field_owner(),
         KeyResponder::None
         | KeyResponder::Other
@@ -1767,6 +1789,7 @@ fn current_focus(app: &App) -> (Focus<ModeReceiver>, bool) {
         responder: match facts.responder {
             KeyResponder::None => Responder::None,
             KeyResponder::Other => Responder::Body,
+            KeyResponder::Field if overlay_field => Responder::OverlayField,
             KeyResponder::Field => Responder::Field,
             KeyResponder::TabStrip => Responder::TabStrip,
             KeyResponder::Button => Responder::Button,
@@ -2160,6 +2183,9 @@ fn strip_keys() -> StripKeys {
 fn on_resize(app: &App) {
     let schedule = with_window(|owner| {
         owner.render_layout(app);
+        if let Some(palette) = owner.palette.as_ref() {
+            palette.follow(&owner.window);
+        }
         owner.layout.is_some() && owner.viewport.request()
     });
     if schedule == Some(true) {
@@ -2850,6 +2876,11 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
     match command {
         // Тела панелей скрытого окна неактивны.
         UiCommand::WindowClose => {
+            // Скрытое окно наложения не держит: модальный слой закрывается с возвратом источника.
+            let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+            if let Some(kind) = open {
+                close_overlay(kind);
+            }
             with_window(|owner| {
                 owner.window.hide();
                 owner.render_layout(app);
@@ -2885,6 +2916,8 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
     let tag = source.map(|source| Sent::action(kind.keymap_name(), source));
     let shown = with_window(|owner| owner.window.is_visible() && owner.gallery.is_none());
     if shown != Some(true) {
+        // Слой, открытый решением клавиши, без вида не остаётся: иначе он забирал бы клавиши.
+        close_overlay(kind);
         return note_receipt(tag, Ending::NotApplicable);
     }
     app.discard_composition();
@@ -3370,6 +3403,11 @@ fn on_intent(app: &App, intent: ChromeIntent) {
         }
         // Меню воркспейса появится вместе с источником в P1.7.
         ChromeIntent::WorkspaceMenu => {}
+        ChromeIntent::Search => handle(
+            app,
+            UiCommand::OverlayOpen(OverlayKind::Palette),
+            Some(ReceiptSource::Button),
+        ),
         ChromeIntent::Zone(button) => handle(
             app,
             UiCommand::LayoutToggle(zone_target(button)),

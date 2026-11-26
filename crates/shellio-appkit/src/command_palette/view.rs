@@ -20,7 +20,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use objc2_quartz_core::CALayer;
-use shellio_theme::AppTheme;
+use shellio_theme::{AppTheme, Shadow};
 
 use super::layout::{
     self as geometry, BORDER, GROUP_TITLE, HintSpec, PaletteLayout, PaletteSpec, ROW, ROW_ICON,
@@ -440,6 +440,16 @@ impl PaletteRowView {
 }
 
 /// Подпись `field` с местом набора `frame`: поле шире набора на поля ячейки.
+/// Тень токена в слое тени палитры. Смещение тени Core Animation в окне палитры идёт по оси Y
+/// вверх, и переворот геометрии слоя-хоста его не меняет (замер на живом окне): сдвиг CSS вниз
+/// ставится с обратным знаком.
+fn down(token: Shadow) -> Shadow {
+    Shadow {
+        y: -token.y,
+        ..token
+    }
+}
+
 fn place_label(field: &NSTextField, frame: Frame) {
     field.setFrame(
         Frame::new(
@@ -711,12 +721,32 @@ impl CommandPalette {
     /// Показывает палитру над окном `parent` с размером содержимого `content` (точки, начало
     /// окна — нижний левый угол экрана), делает её key и ставит ввод в поле запроса.
     pub fn open(&self, parent: &crate::window::MainWindow) {
+        if !self.fit(parent) {
+            return;
+        }
         let window = parent.ns_window();
-        let frame = window.frame();
+        if self.panel.parentWindow().is_none() {
+            // SAFETY: окно палитры держит палитра дольше связи, связь снимается при закрытии.
+            unsafe { window.addChildWindow_ordered(&self.panel, NSWindowOrderingMode::Above) };
+        }
+        self.panel.makeKeyAndOrderFront(None);
+        self.query.focus();
+    }
+
+    /// Окно владельца сменило размер: открытая палитра встаёт по нему, key не меняется.
+    pub fn follow(&self, parent: &crate::window::MainWindow) {
+        if self.is_open() {
+            self.fit(parent);
+        }
+    }
+
+    /// Раскладка и кадр окна палитры по кадру окна владельца; `false` — раскладки нет.
+    fn fit(&self, parent: &crate::window::MainWindow) -> bool {
+        let frame = parent.ns_window().frame();
         self.window.set((frame.size.width, frame.size.height));
         self.place();
         let Some(layout) = self.layout.borrow().clone() else {
-            return;
+            return false;
         };
         let margin = shadow_margin(&self.theme.get());
         let plate = layout.panel;
@@ -725,14 +755,8 @@ impl CommandPalette {
             frame.origin.y + frame.size.height - plate.y - plate.height - margin,
         );
         let size = NSSize::new(plate.width + 2.0 * margin, plate.height + 2.0 * margin);
-        self.panel
-            .setFrame_display(NSRect::new(origin, size), false);
-        if self.panel.parentWindow().is_none() {
-            // SAFETY: окно палитры держит палитра дольше связи, связь снимается при закрытии.
-            unsafe { window.addChildWindow_ordered(&self.panel, NSWindowOrderingMode::Above) };
-        }
-        self.panel.makeKeyAndOrderFront(None);
-        self.query.focus();
+        self.panel.setFrame_display(NSRect::new(origin, size), true);
+        true
     }
 
     /// Убирает палитру с экрана и возвращает key окну владельца, если оно видно.
@@ -781,7 +805,7 @@ impl CommandPalette {
             for (shadow, token) in self.shadows.iter().zip(theme.shadow) {
                 layer::set_fill(shadow, colors.surface);
                 layer::set_corner(shadow, radius);
-                layer::set_shadow(shadow, token);
+                layer::set_shadow(shadow, down(token));
             }
             if let Some(plate) = self.plate.layer() {
                 layer::set_fill(&plate, colors.surface);
@@ -971,9 +995,17 @@ impl CommandPalette {
     /// перевод в окно владельца — срез 4 задачи 4 плана `command-overlays`.
     pub fn inspect(&self) -> Vec<InspectNode> {
         let mut nodes = Vec::new();
-        let plate = inspect::node("palette", "CommandPalette", None, &self.plate, None, None)
+        let mut plate = inspect::node("palette", "CommandPalette", None, &self.plate, None, None)
             .with_ck("palette")
             .with_shadow_layers(&self.shadows, &self.ring);
+        // Слои хранят сдвиг с обратным знаком (`down`): чтение отдаёт его, как в CSS.
+        if let Some(style) = plate.style.as_mut() {
+            for shadow in &mut style.shadow {
+                if shadow.y != 0.0 {
+                    shadow.y = -shadow.y;
+                }
+            }
+        }
         nodes.push(plate);
         nodes.push(
             inspect::node(

@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAccessibility, NSAccessibilityGroupRole, NSAccessibilityToggleSubrole,
+    NSAccessibility, NSAccessibilityButtonRole, NSAccessibilityToggleSubrole,
     NSAutoresizingMaskOptions, NSButton, NSCellImagePosition, NSControl, NSEvent, NSFont,
     NSFontWeightMedium, NSFontWeightRegular, NSImageView, NSLineBreakMode, NSResponder,
     NSTextField, NSView, NSViewLayerContentsRedrawPolicy, NSWindow, NSWindowButton,
@@ -327,6 +327,8 @@ pub enum ChromeIntent {
     AppearanceCycle,
     /// Кнопка группы зон.
     Zone(ZoneButton),
+    /// Кнопка «⌘K поиск»: палитра команд.
+    Search,
 }
 
 /// Кнопка группы зон заголовка и пункт меню «Вид» (ADR-0024).
@@ -1124,10 +1126,19 @@ define_class!(
             false
         }
 
-        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Неактивный образец до P1.6:
-        // нажатие поглощается и не двигает окно.
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Нажатие открывает палитру
+        // и окно не двигает.
         #[unsafe(method(mouseDown:))]
-        fn mouse_down(&self, _event: &NSEvent) {}
+        fn mouse_down(&self, _event: &NSEvent) {
+            self.press();
+        }
+
+        // SAFETY: селектор и результат — как у `accessibilityPerformPress` NSAccessibility:
+        // `AXPress` поля открывает палитру, как нажатие указателем.
+        #[unsafe(method(accessibilityPerformPress))]
+        fn accessibility_perform_press(&self) -> bool {
+            self.press()
+        }
 
         // SAFETY: селектор, аргумент и результат — как у `hitTest:` NSView. Подписи внутри поля
         // нажатий не получают: адресат — всё поле.
@@ -1183,9 +1194,16 @@ impl SearchView {
         view.addSubview(parts.key.view());
         view.setAccessibilityElement(true);
         // SAFETY: роль доступности — неизменяемая константа AppKit.
-        view.setAccessibilityRole(Some(unsafe { NSAccessibilityGroupRole }));
+        view.setAccessibilityRole(Some(unsafe { NSAccessibilityButtonRole }));
         view.setAccessibilityLabel(Some(&NSString::from_str("Поиск и команды")));
         view
+    }
+
+    fn press(&self) -> bool {
+        self.ivars()
+            .owner
+            .call(|model| (model.on_intent)(ChromeIntent::Search))
+            .is_some()
     }
 
     fn place(&self) {

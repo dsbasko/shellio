@@ -117,12 +117,19 @@ fn navigation_shows_panels_then_tabs_or_input_then_search() {
         hints(&keymap, &query()),
         pairs(&[("h j k l", "панели"), ("1 2 3", "вкладки")])
     );
-    // Палитры нет в таблице: подсказки «поиск» нет, даже если действие названо.
+    // Палитра в таблице по умолчанию: самая короткая клавиша — `Cmd-k`, а не `Space Space`.
     let named = HintQuery {
         palette: true,
         ..query()
     };
-    assert_eq!(hints(&keymap, &named).len(), 2);
+    assert_eq!(
+        hints(&keymap, &named),
+        pairs(&[
+            ("h j k l", "панели"),
+            ("1 2 3", "вкладки"),
+            ("Cmd-k", "поиск")
+        ])
+    );
 
     let typing = HintQuery {
         input_receiver: true,
@@ -132,29 +139,27 @@ fn navigation_shows_panels_then_tabs_or_input_then_search() {
         hints(&keymap, &typing),
         pairs(&[("h j k l", "панели"), ("i", "ввод")])
     );
-
-    let palette = with(
-        "[global]\n\"Cmd-k\" = \"palette.open\"\n[navigation]\n\"<leader><leader>\" = \"palette.open\"\n",
-    );
-    assert_eq!(
-        hints(&palette, &named),
-        pairs(&[
-            ("h j k l", "панели"),
-            ("1 2 3", "вкладки"),
-            ("Cmd-k", "поиск")
-        ])
-    );
     let both = HintQuery {
         palette: true,
         input_receiver: true,
         ..query()
     };
     assert_eq!(
-        hints(&palette, &both),
+        hints(&keymap, &both),
         pairs(&[("h j k l", "панели"), ("i", "ввод"), ("Cmd-k", "поиск")])
     );
+
+    // Обе привязки сняты: подсказки «поиск» нет, даже если действие зарегистрировано.
+    let unbound = with("[global]\n\"Cmd-k\" = false\n[navigation]\n\"<leader><leader>\" = false\n");
+    assert_eq!(hints(&unbound, &named).len(), 2);
+    // Остался только лидер — подсказка называет его.
+    let leader = with("[global]\n\"Cmd-k\" = false\n");
+    assert_eq!(
+        hints(&leader, &named).last(),
+        pairs(&[("Space Space", "поиск")]).last()
+    );
     // Действие не зарегистрировано — клавиша в таблице подсказки не даёт.
-    assert_eq!(hints(&palette, &query()).len(), 2);
+    assert_eq!(hints(&keymap, &query()).len(), 2);
 }
 
 #[test]
