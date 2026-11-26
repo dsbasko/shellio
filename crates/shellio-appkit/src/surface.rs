@@ -232,11 +232,17 @@ impl Surface {
         piece::place(surface, piece.into().ns_view(), frame, Some(overlay));
     }
 
-    /// Вид `view` — верхний из поставленных под слой фокуса.
+    /// Ставит компонент в подложку над слоем фокуса с кадром `frame` в точках подложки, начало
+    /// сверху слева: слой фокуса его не тонирует, подложка обрезает его по своему радиусу.
+    pub fn place_above<'a>(&self, piece: impl Into<Piece<'a>>, frame: Frame) {
+        piece::place(self.view.view(), piece.into().ns_view(), frame, None);
+    }
+
+    /// Вид `view` — верхний в подложке, над слоем фокуса.
     pub(crate) fn is_top(&self, view: &NSView) -> bool {
         let subviews = self.view.view().subviews();
         let count = subviews.count();
-        count >= 2 && std::ptr::eq(&*subviews.objectAtIndex(count - 2), view)
+        count >= 1 && std::ptr::eq(&*subviews.objectAtIndex(count - 1), view)
     }
 
     /// Подложка для `ui.inspect`.

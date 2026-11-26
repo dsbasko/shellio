@@ -117,6 +117,15 @@ impl TextFieldKind {
         }
     }
 
+    /// Кегль текста и плейсхолдера. Поле формы — кегль `.field`, строка фильтра наследует кегль
+    /// текста панели: паспорт `panel-filter` несёт у `<input>` 13 точек.
+    pub const fn font_size(self, theme: &AppTheme) -> f64 {
+        match self {
+            TextFieldKind::Field => theme.metrics.font.tab,
+            TextFieldKind::Filter => theme.metrics.font.body,
+        }
+    }
+
     /// Начало и ширина текста в подложке шириной `width`.
     pub fn text_span(self, width: f64) -> (f64, f64) {
         let metrics = self.metrics();
@@ -479,7 +488,9 @@ impl TextField {
         let theme = self.view.rust().theme.get();
         let field = self.field();
         field.setTextColor(Some(&layer::ns_color(theme.colors.text)));
-        field.setFont(Some(&NSFont::systemFontOfSize(theme.metrics.font.tab)));
+        field.setFont(Some(&NSFont::systemFontOfSize(
+            self.kind().font_size(&theme),
+        )));
         self.apply_placeholder();
         let view = self.view.view();
         if let Some(icon) = &view.ivars().icon {
@@ -494,7 +505,7 @@ impl TextField {
         let theme = model.theme.get();
         let text = NSString::from_str(&model.shown.borrow().placeholder);
         let color = layer::ns_color(theme.colors.text_3);
-        let font = NSFont::systemFontOfSize(theme.metrics.font.tab);
+        let font = NSFont::systemFontOfSize(model.kind.font_size(&theme));
         // SAFETY: ключи атрибутов — неизменяемые строки AppKit, живущие весь процесс.
         let keys = unsafe { [NSForegroundColorAttributeName, NSFontAttributeName] };
         let values: [&AnyObject; 2] = [color.as_ref(), font.as_ref()];
@@ -1014,6 +1025,16 @@ mod tests {
             assert_eq!(
                 TextFieldKind::Filter.text_span(width),
                 (FIELD_PAD_X + FILTER_ICON + FILTER_GAP, FILTER_INPUT_WIDTH)
+            );
+            assert_eq!(
+                TextFieldKind::Filter.font_size(&theme),
+                13.0,
+                "кегль `<input>` в паспорте `panel-filter`"
+            );
+            assert_eq!(
+                TextFieldKind::Field.font_size(&theme),
+                12.5,
+                "кегль `.field`"
             );
         }
         assert_eq!(

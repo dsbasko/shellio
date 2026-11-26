@@ -142,9 +142,11 @@ impl Plate {
         );
     }
 
-    /// Ставит строку фильтра `field` над телом с кадром `frame` в точках плитки под слоем фокуса.
-    /// Строка держится правого верхнего угла плитки, когда та меняет размер. Строка, которая уже
-    /// стоит здесь верхней, только получает кадр: ввод в ней не прерывается.
+    /// Ставит строку фильтра `field` с кадром `frame` в точках плитки над телом, строкой вкладок
+    /// и слоем фокуса: у `.pfilter` прототипа `z-index` выше вуали `.panel::after`, тон и вуаль
+    /// плитки строку не красят. Строка держится правого верхнего угла плитки, когда та меняет
+    /// размер. Строка, которая уже стоит здесь верхней, только получает кадр: ввод в ней не
+    /// прерывается.
     pub fn place_over(&self, field: &TextField, frame: Frame) {
         let view = field.ns_view();
         let surface = self.surface.ns_view();
@@ -157,7 +159,7 @@ impl Plate {
                 view.setFrame(rect);
             }
         } else {
-            self.surface.place(field, frame);
+            self.surface.place_above(field, frame);
         }
         view.setAutoresizingMask(
             NSAutoresizingMaskOptions::ViewMinXMargin | NSAutoresizingMaskOptions::ViewMaxYMargin,
