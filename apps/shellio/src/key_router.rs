@@ -130,6 +130,11 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         }
     }
 
+    /// Получатели в режиме `Input`: по ним окно красит плитку с фокусом и линию под вкладкой.
+    pub fn inputs(&self) -> impl Iterator<Item = &R> {
+        self.input.keys()
+    }
+
     /// Режим панели задаёт окно: первым ответчиком стало поле или перестало им быть.
     pub fn set_mode(&mut self, receiver: R, mode: Mode) {
         match mode {
@@ -909,6 +914,11 @@ mod tests {
         assert_eq!(router.exit_armed(), None);
         assert_eq!(router.mode(&FIELD), Mode::Navigation);
         assert_eq!(router.mode(&LIST), Mode::Input);
+        assert_eq!(
+            router.inputs().collect::<Vec<_>>(),
+            [&LIST],
+            "тон режима «ВВОД» получает одна панель"
+        );
 
         // Повтор пары вернул `Input` получателю: поле с вводом ожидание уже не трогает.
         let mut router = Router::default();

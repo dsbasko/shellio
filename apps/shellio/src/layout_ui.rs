@@ -14,7 +14,7 @@
 //! ней скрыт и жив.
 
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -143,6 +143,8 @@ pub struct LayoutUi {
     factories: Option<Factories>,
     /// Окно было видимо при последней доставке.
     visible: bool,
+    /// Панели в режиме `Input`: тон плитки с фокусом и линия под её вкладкой берут цвет режима.
+    input: BTreeSet<PanelId>,
 }
 
 impl LayoutUi {
@@ -229,6 +231,7 @@ impl LayoutUi {
             registry,
             factories,
             visible: false,
+            input: BTreeSet::new(),
         }
     }
 
@@ -311,6 +314,55 @@ impl LayoutUi {
                 .find(|(_, view)| view.holds_field())
                 .map(|(&panel, _)| panel)
         })
+    }
+
+    /// Состояние строки вкладок плитки с режимом её активной панели.
+    fn strip(
+        &self,
+        zone: Zone,
+        index: usize,
+        count: usize,
+        slot: &PlateSlot,
+        bench: &Bench,
+        zoomed: bool,
+    ) -> TabStripState {
+        let mut state = strip_state(&self.registry, zone, index, count, slot, bench, zoomed);
+        state.mode = plate_mode(&self.input, slot.active);
+        state
+    }
+
+    /// Панели в режиме `Input` по маршрутизатору клавиш: строки вкладок показанных плиток получают
+    /// режим своей активной панели. `true` — набор изменился.
+    pub fn set_input_panels(&mut self, panels: BTreeSet<PanelId>) -> bool {
+        if self.input == panels {
+            return false;
+        }
+        self.input = panels;
+        let Some(bench) = self.scene.as_ref().and_then(|scene| scene.bench.as_ref()) else {
+            return true;
+        };
+        for (key, slot) in &bench.plates {
+            let Some(plate) = self.plates.get(key) else {
+                continue;
+            };
+            let count = bench.layout.zones.get(key.zone).parts.len();
+            let state = self.strip(key.zone, key.index, count, slot, bench, false);
+            if let Err(error) = plate.set_state(state) {
+                shellio::owner::say_err(format_args!(
+                    "shellio: режим строки вкладок части {key:?} не обновлён: {error:?}"
+                ));
+            }
+        }
+        if let (Some(zoomed), Some(zoom)) = (&bench.zoomed, &self.zoom) {
+            let slot = zoom_slot(bench, zoomed);
+            let state = self.strip(Zone::Center, 0, 1, &slot, bench, true);
+            if let Err(error) = zoom.set_state(state) {
+                shellio::owner::say_err(format_args!(
+                    "shellio: режим строки вкладок развёрнутой панели не обновлён: {error:?}"
+                ));
+            }
+        }
+        true
     }
 
     /// Режим панели на первом ответчике: `input` ставит ввод в предпочтительный вид её показанного
@@ -865,15 +917,7 @@ impl LayoutUi {
             return;
         };
         let count = bench.layout.zones.get(key.zone).parts.len();
-        let state = strip_state(
-            &self.registry,
-            key.zone,
-            key.index,
-            count,
-            slot,
-            bench,
-            false,
-        );
+        let state = self.strip(key.zone, key.index, count, slot, bench, false);
         let intent = self.tab_intent(PlateRef::Part(key));
         match Plate::new(app, &self.theme, self.motion, state, intent) {
             Ok(plate) => {
@@ -975,15 +1019,7 @@ impl LayoutUi {
                     )));
                 }
                 let count = bench.layout.zones.get(key.zone).parts.len();
-                let state = strip_state(
-                    &self.registry,
-                    key.zone,
-                    key.index,
-                    count,
-                    slot,
-                    bench,
-                    false,
-                );
+                let state = self.strip(key.zone, key.index, count, slot, bench, false);
                 if let Err(error) = plate.set_state(state) {
                     shellio::owner::say_err(format_args!(
                         "shellio: строка вкладок части {key:?} не обновлена: {error:?}"
@@ -994,13 +1030,8 @@ impl LayoutUi {
 
         match (bench, zoomed) {
             (Some(bench), Some(zoomed)) => {
-                let slot = PlateSlot {
-                    tabs: vec![zoomed.active],
-                    active: zoomed.active,
-                    frame: Some(zoomed.clone()),
-                    focused: bench.focus == Some(zoomed.active),
-                };
-                let state = strip_state(&self.registry, Zone::Center, 0, 1, &slot, bench, true);
+                let slot = zoom_slot(bench, zoomed);
+                let state = self.strip(Zone::Center, 0, 1, &slot, bench, true);
                 if self.zoom.is_none() {
                     let intent = self.tab_intent(PlateRef::Zoom);
                     match Plate::new(app, &self.theme, self.motion, state.clone(), intent) {
@@ -1648,7 +1679,6 @@ fn strip_state(
         .any(|tab| tab.id == active)
         .then_some(active);
     state.focused = slot.focused;
-    state.mode = KeyMode::Navigation;
     state.actions = scene::panel_menu(&bench.layout, slot.active)
         .into_iter()
         .map(|row| match row {
@@ -1657,6 +1687,26 @@ fn strip_state(
         })
         .collect();
     state
+}
+
+/// Плитка развёрнутой панели: одна вкладка на всю область зон.
+fn zoom_slot(bench: &Bench, zoomed: &shellio_layout::PartFrame<PanelId>) -> PlateSlot {
+    PlateSlot {
+        tabs: vec![zoomed.active],
+        active: zoomed.active,
+        frame: Some(zoomed.clone()),
+        focused: bench.focus == Some(zoomed.active),
+    }
+}
+
+/// Режим плитки — режим её активной панели (ADR-0024): плитка с фокусом и линия под активной
+/// вкладкой берут его цвет.
+fn plate_mode(input: &BTreeSet<PanelId>, active: PanelId) -> KeyMode {
+    if input.contains(&active) {
+        KeyMode::Input
+    } else {
+        KeyMode::Navigation
+    }
 }
 
 fn part_view(zone: Zone, index: usize, slot: &PlateSlot, zoomed: bool) -> PartNodeView {
@@ -2159,6 +2209,18 @@ mod tests {
                 outer.height - 36.0
             ),
             "кадр вложенного узла — кадр тела плюс его смещение"
+        );
+    }
+
+    #[test]
+    fn plate_takes_the_mode_of_its_active_panel() {
+        let input = BTreeSet::from([panel(2)]);
+        assert_eq!(plate_mode(&input, panel(2)), KeyMode::Input);
+        assert_eq!(plate_mode(&input, panel(1)), KeyMode::Navigation);
+        assert_eq!(
+            plate_mode(&BTreeSet::new(), panel(2)),
+            KeyMode::Navigation,
+            "панель, о которой маршрутизатор не знает, в Навигации"
         );
     }
 

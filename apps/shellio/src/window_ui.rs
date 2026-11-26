@@ -17,7 +17,7 @@
 //! состояние изнутри вызова AppKit нет.
 
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 
@@ -414,6 +414,9 @@ impl OwnerWindow {
             sync_keys(focus, typing, |panel| {
                 state.is_none_or(|state| state.panels.contains_key(&panel))
             });
+            if let Some(panels) = input_panels() {
+                layout.set_input_panels(panels);
+            }
             state.is_some_and(|state| open_workbench(state).is_some())
         });
         self.menu.set_open_enabled(open);
@@ -1352,6 +1355,37 @@ fn follow_field() {
         let receiver = typing.map(ModeReceiver::Panel);
         with_router(|router| router.follow_field(receiver.as_ref()));
     }
+    show_modes();
+}
+
+/// Панели в режиме `Input` по маршрутизатору. `None` — маршрутизатор занят.
+fn input_panels() -> Option<BTreeSet<PanelId>> {
+    with_router(|router| {
+        router
+            .inputs()
+            .map(|receiver| match receiver {
+                ModeReceiver::Panel(panel) => *panel,
+            })
+            .collect()
+    })
+}
+
+/// Тон плитки с фокусом и линия под активной вкладкой по режиму панели (ADR-0024). Вызывается
+/// после каждой смены режима: клавишей режим меняет само решение маршрутизатора, и согласование
+/// с полем после него расхождения уже не видит.
+fn show_modes() {
+    let Some(panels) = input_panels() else {
+        return;
+    };
+    with_window(|owner| {
+        let changed = owner
+            .layout
+            .as_mut()
+            .is_some_and(|layout| layout.set_input_panels(panels));
+        if changed {
+            owner.bump();
+        }
+    });
 }
 
 /// Приложение перестало быть активным: ожидание второго аккорда выхода и набранный префикс сняты.
