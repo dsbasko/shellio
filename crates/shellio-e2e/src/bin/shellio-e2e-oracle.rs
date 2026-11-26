@@ -22,6 +22,7 @@ use shellio_conformance::mask::Mask;
 use shellio_conformance::passport::Passport;
 use shellio_conformance::registry::Registry;
 use shellio_e2e::calibrate::{self, ChromeCell, Measured, Plan};
+use shellio_e2e::composition::{self, Expect, PairFault};
 use shellio_e2e::conform::{self, Mismatch, Product, Snapshot, Tolerances, Unjudged};
 use shellio_e2e::css::{Appearance, Contrast, Layer, Palette};
 use shellio_e2e::expect::{self, Geometry};
@@ -45,6 +46,8 @@ const USAGE: &str = "\
                              --registry <registry.toml> --calibration <calibration.json>
                              [--previous-window <ui.window.json> --previous-png <снимок sRGB>
                               --elapsed-ms <мс>]
+  shellio-e2e-oracle region --window <ui.window.json>
+  shellio-e2e-oracle pair --window <ui.window.json> --listed <окна экрана.json> --palette open|closed
   shellio-e2e-oracle coverage --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
                               --registry <registry.toml>
   shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
@@ -61,6 +64,13 @@ conform сверяет паспорт прототипа с продуктом: 
 Отчёт JSON перечисляет расхождения; поле снимка, которое стадия не судила, — код 1. С --previous-*
 снимок принимается, когда поколение ui.window между двумя снимками то же и ни один пиксель окна не
 изменился больше допуска; иначе код 4 с тем же \"retry\".
+region печатает область снимка композиции `x,y,w,h` для screencapture -R: кадр главного окна
+ui.window в точках экрана с началом вверху слева основного экрана. pair сверяет пару окон
+владельца со списком окон экрана (массив CGWindowListCopyWindowInfo спереди назад): код 1 —
+снимок не годится (чужое окно над областью, другой экран или масштаб, кадры не совпали), код 3 —
+дефект палитры (позади владельца, нет после открытия, видима после закрытия); причина — в stdout.
+У conform каретка поля запроса палитры (узел palette.query.caret) в паре снимков не сравнивается,
+а окно палитры между снимками должно остаться тем же.
 coverage судит только ключи сверки: состав сцены, узел продукта у каждого видимого элемента
 паспорта, элемент паспорта у каждого узла с ключом, ключи продукта — из таблицы ключей и без
 повторов. Калибровка и снимок не нужны; отчёт той же формы, что у conform.
@@ -97,6 +107,8 @@ struct Args {
     materials: Option<PathBuf>,
     raw: Option<PathBuf>,
     out: Option<PathBuf>,
+    listed: Option<PathBuf>,
+    palette: Option<Expect>,
 }
 
 enum Command {
@@ -106,6 +118,8 @@ enum Command {
     Conform(Args),
     Coverage(Args),
     Calibrate(Args),
+    Region(Args),
+    Pair(Args),
     Help,
 }
 
@@ -143,6 +157,14 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "--materials" => parsed.materials = Some(value()?.into()),
             "--raw" => parsed.raw = Some(value()?.into()),
             "--out" => parsed.out = Some(value()?.into()),
+            "--listed" => parsed.listed = Some(value()?.into()),
+            "--palette" => {
+                parsed.palette = Some(match value()?.as_str() {
+                    "open" => Expect::Open,
+                    "closed" => Expect::Closed,
+                    other => return Err(format!("--palette: open или closed, а не {other:?}")),
+                });
+            }
             "--tab" => parsed.tab = Some(value()?),
             "--layer" => {
                 let text = value()?;
@@ -198,7 +220,34 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "{command}: --chrome, --product, --materials, --raw и --out принимает только calibrate"
         ));
     }
+    let pair_flags = parsed.listed.is_some() || parsed.palette.is_some();
+    if pair_flags && command != "pair" {
+        return Err(format!(
+            "{command}: --listed и --palette принимает только pair"
+        ));
+    }
     match command.as_str() {
+        "region" | "pair" => {
+            let foreign = parsed.expect.is_some()
+                || parsed.inspect.is_some()
+                || parsed.png.is_some()
+                || parsed.generation.is_some()
+                || underline_only
+                || stable[0]
+                || passport_flags
+                || parsed.calibration.is_some()
+                || calibrate_flags.contains(&true);
+            if foreign {
+                return Err(format!("{command}: лишний аргумент"));
+            }
+            required("--window", parsed.window.is_some())?;
+            if command == "region" {
+                return Ok(Command::Region(parsed));
+            }
+            required("--listed", parsed.listed.is_some())?;
+            required("--palette", parsed.palette.is_some())?;
+            Ok(Command::Pair(parsed))
+        }
         "calibrate" => {
             let foreign = parsed.expect.is_some()
                 || parsed.inspect.is_some()
@@ -537,7 +586,8 @@ fn run_conform(args: &Args) -> Result<ConformReport, Error> {
             image: previous_image,
             elapsed_ms: args.elapsed_ms.unwrap_or_default(),
         };
-        if let Some((reason, again)) = frame_unsettled(&pair, &window, &inspect, &image)? {
+        let mask = composition::caret_mask(&inspect, &geometry);
+        if let Some((reason, again)) = frame_unsettled(&pair, &window, &inspect, &image, &mask)? {
             return Ok(ConformReport {
                 verdict: Verdict::Generation,
                 state: Some(state),
@@ -745,6 +795,57 @@ fn calibrate_command(args: &Args) -> u8 {
     }
 }
 
+fn region_command(args: &Args) -> u8 {
+    let region = read_text(args.window.as_ref(), "ui.window")
+        .and_then(|text| expect::parse_window(&text))
+        .and_then(|window| composition::region_of(&window))
+        .and_then(composition::region_arg);
+    match region {
+        Ok(text) => {
+            println!("{text}");
+            0
+        }
+        Err(error) => {
+            eprintln!("shellio-e2e-oracle region: {error}");
+            EXIT_ERROR
+        }
+    }
+}
+
+fn pair_command(args: &Args) -> u8 {
+    let inputs = read_text(args.window.as_ref(), "ui.window")
+        .and_then(|text| expect::parse_window(&text))
+        .and_then(|window| {
+            let listed =
+                composition::parse_listed(&read_text(args.listed.as_ref(), "окна экрана")?)?;
+            Ok((window, listed))
+        });
+    let (window, listed) = match inputs {
+        Ok(inputs) => inputs,
+        Err(error) => {
+            println!("{error}");
+            return EXIT_ERROR;
+        }
+    };
+    let expect = args.palette.unwrap_or(Expect::Open);
+    match composition::judge_pair(
+        &window,
+        &listed,
+        window.backing_scale_factor.max(0.0),
+        expect,
+    ) {
+        Ok(()) => 0,
+        Err(PairFault::Execution(reason)) => {
+            println!("{reason}");
+            EXIT_ERROR
+        }
+        Err(PairFault::Product(reason)) => {
+            println!("{reason}");
+            EXIT_MISMATCH
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let code = match parse(std::env::args().skip(1)) {
         Ok(Command::Compare(args)) => compare_command(&args),
@@ -753,6 +854,8 @@ fn main() -> ExitCode {
         Ok(Command::Conform(args)) => conform_command(&args, run_conform),
         Ok(Command::Coverage(args)) => conform_command(&args, run_coverage),
         Ok(Command::Calibrate(args)) => calibrate_command(&args),
+        Ok(Command::Region(args)) => region_command(&args),
+        Ok(Command::Pair(args)) => pair_command(&args),
         Ok(Command::Help) => {
             print!("{USAGE}");
             0

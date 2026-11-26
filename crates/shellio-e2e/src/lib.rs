@@ -15,6 +15,7 @@
 #![forbid(unsafe_code)]
 
 pub mod calibrate;
+pub mod composition;
 pub mod conform;
 pub mod css;
 pub mod expect;
@@ -216,23 +217,21 @@ pub fn frame_unsettled(
     window: &WindowView,
     inspect: &InspectView,
     image: &Image,
+    mask: &[PixelRect],
 ) -> Result<Option<(String, bool)>, Error> {
     let mut reason = generations_differ(previous, window, inspect, image)?;
     if reason.is_none() {
-        let (mut moved, mut worst) = (0_u64, 0_u8);
-        for y in 0..image.height {
-            for x in 0..image.width {
-                let (Some(before), Some(now)) = (previous.image.pixel(x, y), image.pixel(x, y))
-                else {
-                    return Err(Error::new(format!("пиксель {x}×{y} за кадром снимка")));
-                };
-                let delta = before.rgb.max_delta(now.rgb);
-                if delta > TOLERANCE {
-                    moved += 1;
-                    worst = worst.max(delta);
-                }
-            }
-        }
+        reason = composition::pair_changed(previous.window, window);
+    }
+    if reason.is_none() {
+        let pixel = |image: &Image, x: u32, y: u32| image.pixel(x, y).map(|p| p.rgb);
+        let (moved, worst) = composition::moved_pixels(
+            (image.width, image.height),
+            |x, y| pixel(previous.image, x, y),
+            |x, y| pixel(image, x, y),
+            mask,
+            TOLERANCE,
+        )?;
         if moved > 0 {
             reason = Some(format!(
                 "между снимками изменилось пикселей: {moved}, наибольшая разница канала {worst}"

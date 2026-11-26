@@ -91,6 +91,37 @@ pub struct WindowView {
     lightness: AxisValue<Appearance>,
     contrast: AxisValue<Contrast>,
     pub generation: u64,
+    /// PID владельца; у старых записей поля нет.
+    #[serde(default)]
+    pub pid: Option<u32>,
+    /// Экраны в порядке `NSScreen.screens`: первый — основной.
+    #[serde(default)]
+    pub screens: Vec<ScreenView>,
+    /// Окна владельца: главное и палитра.
+    #[serde(default)]
+    pub windows: Vec<OwnedWindow>,
+}
+
+/// Экран из `ui.window.screens`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct ScreenView {
+    pub index: u32,
+    /// Кадр в точках AppKit, начало внизу слева основного экрана.
+    pub frame: Rect,
+    pub backing_scale_factor: f64,
+}
+
+/// Окно владельца из `ui.window.windows`.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct OwnedWindow {
+    /// `main` или `palette`.
+    pub role: String,
+    pub window_number: i64,
+    /// Кадр `NSWindow.frame` в точках AppKit, начало внизу слева основного экрана.
+    pub frame: Rect,
+    pub backing_scale_factor: f64,
+    pub visible: bool,
+    pub screen: Option<u32>,
 }
 
 impl WindowView {
@@ -288,6 +319,11 @@ impl Geometry {
             content,
             pixels: png,
         })
+    }
+
+    /// Размер снимка в пикселях.
+    pub fn pixels(&self) -> (u32, u32) {
+        self.pixels
     }
 
     /// Кадр в точках окна (начало внизу слева) — в точках снимка (начало сверху слева).
