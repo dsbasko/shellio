@@ -158,6 +158,12 @@ const HOST_ACTIONS: [(&str, HostArgs); 50] = [
 
 const PANEL_OPEN: &str = "panel.open.";
 
+/// Имена действий хоста: по ним тест перевода действий проверяет, что у каждого есть исполнение.
+#[cfg(test)]
+pub(crate) fn host_action_names() -> impl Iterator<Item = &'static str> {
+    HOST_ACTIONS.iter().map(|(name, _)| *name)
+}
+
 fn only_keys(args: &Value, allowed: &[&str]) -> Result<(), String> {
     let Some(object) = args.as_object() else {
         return Err("аргументы — таблица".to_owned());

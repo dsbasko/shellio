@@ -1071,7 +1071,11 @@ pub fn panel_menu<P: Copy + Ord>(layout: &Layout<P>, panel: P) -> Vec<MenuRow> {
 /// в момент выбора. `None` — плитки, панели или соседней части уже нет.
 pub fn menu_command(scene: &Scene, plate: PlateRef, item: PanelMenuItem) -> Option<Command> {
     let bench = scene.bench.as_ref()?;
-    let panel = plate_panel(bench, plate)?;
+    item_command(bench, plate_panel(bench, plate)?, item)
+}
+
+/// Тот же пункт для панели `panel`: им же действует клавиша пункта у панели с фокусом.
+pub fn item_command(bench: &Bench, panel: PanelId, item: PanelMenuItem) -> Option<Command> {
     match item {
         PanelMenuItem::Part(edge) => {
             let Location::Part { zone, part, .. } = bench.layout.locate(panel)? else {
