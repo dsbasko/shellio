@@ -286,6 +286,33 @@ pub fn menu_chords(keymap: &Keymap, actions: &[&str]) -> BTreeMap<String, MenuCh
         .collect()
 }
 
+/// Клавиши кнопок строки вкладок и заглушки «Развернуть» из таблицы `keymap`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ButtonKeys {
+    /// `layout.split` с осью `row`.
+    pub row: Option<String>,
+    /// `layout.split` с осью `stack`.
+    pub stack: Option<String>,
+    /// `layout.zoom`.
+    pub zoom: Option<String>,
+}
+
+/// Клавиши кнопок из таблицы `keymap`: первая последовательность действия в контекстах
+/// `navigation` и `global`, записанная целиком (`Ctrl-w v`).
+pub fn button_keys(keymap: &Keymap) -> ButtonKeys {
+    let contexts = [Context::Navigation, Context::Global];
+    let key = |action: &str, args: Option<Value>| {
+        keymap
+            .key_for(&contexts, action, args.as_ref())
+            .map(ToString::to_string)
+    };
+    ButtonKeys {
+        row: key("layout.split", Some(serde_json::json!({ "axis": "row" }))),
+        stack: key("layout.split", Some(serde_json::json!({ "axis": "stack" }))),
+        zoom: key("layout.zoom", None),
+    }
+}
+
 /// Имена действий пунктов меню: постоянные пункты `fixed` и `panel.open.<plugin>` строк «Открыть
 /// панель» по плагинам `plugins`.
 pub fn menu_actions(fixed: &[&str], plugins: &[&str]) -> Vec<String> {
@@ -465,6 +492,43 @@ mod tests {
                 .count(),
             1,
             "клавишу получает только названный плагин"
+        );
+    }
+
+    #[test]
+    fn button_keys_follow_the_table() {
+        let actions = Actions::of(Arc::new(registry()));
+        let defaults = Keymap::defaults(actions.panels()).unwrap();
+        assert_eq!(
+            button_keys(&defaults),
+            ButtonKeys {
+                row: Some("Ctrl-w v".to_owned()),
+                stack: Some("Ctrl-w s".to_owned()),
+                zoom: Some("Ctrl-w z".to_owned()),
+            }
+        );
+
+        // Новая таблица: снятая клавиша уходит из подписи, новая приходит, нетронутая остаётся.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keymap.toml");
+        std::fs::write(
+            &path,
+            r#"[navigation]
+"Ctrl-w z" = false
+"Ctrl-w v" = false
+"Ctrl-w |" = { action = "layout.split", args = { axis = "row" } }
+"#,
+        )
+        .unwrap();
+        let next = crate::keymap_service::load(&defaults, &path, &actions).unwrap();
+        assert_eq!(next.diagnostics(), []);
+        assert_eq!(
+            button_keys(&next),
+            ButtonKeys {
+                row: Some("Ctrl-w |".to_owned()),
+                stack: Some("Ctrl-w s".to_owned()),
+                zoom: None,
+            }
         );
     }
 

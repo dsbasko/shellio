@@ -82,6 +82,10 @@ MIN_W=200
 MIN_H=120
 # Подсказка кнопок строки вкладок до P1.6 (ADR-0032).
 NO_KEY="Клавиша не назначена"
+# Клавиши кнопок строки вкладок по таблице keymap по умолчанию: профиль прогона своего keymap.toml не несёт.
+KEY_SPLIT_ROW="Ctrl-w v"
+KEY_SPLIT_STACK="Ctrl-w s"
+KEY_ZOOM="Ctrl-w z"
 # Клавиши System Events: Escape, Return и Down.
 KEY_ESC=53
 KEY_RETURN=36
@@ -2312,10 +2316,11 @@ item_zoom_restore() {
   conclude "$item" "«Развернуть панель» строки «${strip}»: панель $panel на всю область зон с отступом $GAP, частей не показано, «Разделить» нет ни в ui.inspect, ни по AX; «Вернуть раскладку» вернул кадры побайтно, созданных ShellioPanelView не прибавилось ($before), кадры совпали с ui.inspect и AX"
 }
 
-# Кнопки строк вкладок центра и правой зоны по AX и ui.inspect: название — действие, AXHelp — «Клавиша не
-# назначена», значок «Разделить» соответствует оси зоны.
+# Кнопки строк вкладок центра и правой зоны по AX и ui.inspect: название — действие, AXHelp — действующая клавиша
+# действия (деление по оси зоны, разворот), у «Действия панели» действия keymap нет — «Клавиша не назначена»;
+# значок «Разделить» соответствует оси зоны.
 item_tooltips_ax() {
-  local item=tooltips-ax dir="$run/tooltips-ax" zone strip axis want symbols="" symbol
+  local item=tooltips-ax dir="$run/tooltips-ax" zone strip axis want symbols="" symbol key
   failures=()
   log "== $item"
   read_all "$profile" "$dir" now "$wb" "$owner_pid" || fatal "условие пункта: $WHY"
@@ -2324,35 +2329,38 @@ item_tooltips_ax() {
       fatal "условие пункта: зона $zone не показана"
     strip="$(strip_label "$zone" 0 "$(parts_count "$dir/now.layout.stdout" "$zone")")"
     case "$zone" in
-      center) axis=columns want="Разделить: части рядом" symbol=splitCols ;;
-      right) axis=rows want="Разделить: одна над другой" symbol=splitRows ;;
+      center) axis=columns want="Разделить: части рядом" symbol=splitCols key="$KEY_SPLIT_ROW" ;;
+      right) axis=rows want="Разделить: одна над другой" symbol=splitRows key="$KEY_SPLIT_STACK" ;;
     esac
     strip_buttons "$owner_pid" "$strip" "$dir/$zone.buttons" || {
       failures+=("$WHY")
       continue
     }
-    /usr/bin/perl -CA -Mutf8 -MJSON::PP -e 'my ($want, $help) = @ARGV; local $/; my $b = JSON::PP->new->utf8->decode(<STDIN>);
+    /usr/bin/perl -CA -Mutf8 -MJSON::PP -e 'my ($want, @help) = @ARGV; local $/; my $b = JSON::PP->new->utf8->decode(<STDIN>);
       my @names = map { $_->{description} } @$b;
-      my @bad = grep { ($_->{help} // "") ne $help } @$b;
-      exit !(join("|", @names) eq "$want|Развернуть панель|Действия панели" && !@bad)' "$want" "$NO_KEY" \
-      <"$dir/$zone.buttons.json" ||
-      failures+=("AX «${strip}»: кнопки $(oneline "$dir/$zone.buttons.json"), ожидались «${want}», «Развернуть панель», «Действия панели» с AXHelp «${NO_KEY}»")
+      my @got = map { $_->{help} // "" } @$b;
+      exit !(join("|", @names) eq "$want|Развернуть панель|Действия панели" && join("|", @got) eq join("|", @help))' \
+      "$want" "$key" "$KEY_ZOOM" "$NO_KEY" <"$dir/$zone.buttons.json" ||
+      failures+=("AX «${strip}»: кнопки $(oneline "$dir/$zone.buttons.json"), ожидались «${want}» с AXHelp «${key}», «Развернуть панель» с «${KEY_ZOOM}», «Действия панели» с «${NO_KEY}»")
     local id="layout.part.$zone.0.tabs"
     [[ "$(comp "$dir/now.inspect.stdout" "$id" state.tab_strip.axis || echo ?)" == "$axis" ]] ||
       failures+=("ui.inspect $id: ось $(comp "$dir/now.inspect.stdout" "$id" state.tab_strip.axis || echo ?), а не $axis")
     [[ "$(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?)" == "$symbol" ]] ||
       failures+=("ui.inspect $id: значок «Разделить» $(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?), а не $symbol")
-    /usr/bin/perl -CA -MJSON::PP -e 'my ($id, $help) = @ARGV; local $/;
+    /usr/bin/perl -CA -MJSON::PP -e 'my ($id, $split, $zoom, $menu) = @ARGV; local $/;
       my ($n) = grep { $_->{id} eq $id } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{inspect}{components}};
       exit 1 unless $n;
-      for (@{$n->{state}{tab_strip}{buttons}}) { exit 1 unless $_->{help} eq $help && $_->{hint} eq "$_->{label}  $help" }' \
-      "$id" "$NO_KEY" <"$dir/now.inspect.stdout" ||
-      failures+=("ui.inspect $id: подсказка кнопки не «<действие>  ${NO_KEY}» или help не «${NO_KEY}»")
+      my %help = (split => $split, zoom => $zoom, menu => $menu);
+      my @b = @{$n->{state}{tab_strip}{buttons}};
+      exit 1 unless join("|", map { $_->{id} } @b) eq "split|zoom|menu";
+      for (@b) { exit 1 unless $_->{help} eq $help{$_->{id}} && $_->{hint} eq "$_->{label}  $help{$_->{id}}" }' \
+      "$id" "$key" "$KEY_ZOOM" "$NO_KEY" <"$dir/now.inspect.stdout" ||
+      failures+=("ui.inspect $id: подсказки кнопок не «<действие>  <клавиша>» с клавишами «${key}», «${KEY_ZOOM}», «${NO_KEY}»")
     symbols="${symbols:+$symbols, }$zone — $(comp "$dir/now.inspect.stdout" "$id" 'state.tab_strip.buttons[id=split].symbol' || echo ?)"
   done
   [[ "$(comp "$dir/now.inspect.stdout" layout.part.center.0.tabs 'state.tab_strip.buttons[id=split].symbol' || echo a)" != "$(comp "$dir/now.inspect.stdout" layout.part.right.0.tabs 'state.tab_strip.buttons[id=split].symbol' || echo a)" ]] ||
     failures+=("значок «Разделить» в центре и сбоку одинаковый")
-  conclude "$item" "строки вкладок центра и правой зоны: по AX кнопки «Разделить: части рядом» и «Разделить: одна над другой», «Развернуть панель», «Действия панели» с AXHelp «${NO_KEY}»; ui.inspect — подсказки «<действие>  ${NO_KEY}», значки «Разделить» по оси: $symbols"
+  conclude "$item" "строки вкладок центра и правой зоны: по AX кнопки «Разделить: части рядом» и «Разделить: одна над другой», «Развернуть панель», «Действия панели» с AXHelp «${KEY_SPLIT_ROW}» и «${KEY_SPLIT_STACK}», «${KEY_ZOOM}», «${NO_KEY}»; ui.inspect — подсказки «<действие>  <клавиша>» с теми же клавишами, значки «Разделить» по оси: $symbols"
 }
 
 # Части зоны zone по кадрам query.layout по порядку: строки «номер ширина высота stub» тела каждой части.

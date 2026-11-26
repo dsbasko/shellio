@@ -20,9 +20,10 @@
 # состояние получает новый профиль и нового владельца.
 #
 # Шаги клавиатуры идут в порядке рецепта вместе с командами: key — аккорды записи keymap по одному через
-# System Events (key code с модификаторами, владелец на переднем плане); keymap — текст шага пишется в
+# System Events (key code с модификаторами, владелец на переднем плане), после последнего аккорда шага — запись
+# ui.receipts исполненного действия не дольше KEY_GRACE_MS; keymap — текст шага пишется в
 # config/keymap.toml профиля и применяется командой keymap reload; focus_field — panel focus активной панели части,
-# клавиша Tab и first_responder поля этой панели в ui.inspect; filter — ui filter с текстом шага. Шаг, который
+# first_responder поля этой панели в ui.inspect, клавиша Tab — только если панель сама фокус полю не отдала; filter — ui filter с текстом шага. Шаг, который
 # продукт не исполнил (отказ команды, поле без фокуса), — fail пункта, а не пропуск.
 #
 # Шаги split_refused, open_menu и open_picker — нажатия в окне, а не команды: штатным CLI шаг только переводит
@@ -89,6 +90,8 @@ SETTLE_MS=3000
 # Фоновый AXPress меню «…» ждёт закрытия меню: срок его выхода, секунды.
 MENU_OSA_S=20
 KEY_ESC=53
+# Срок ожидания следа клавиши шага рецепта: записи кольца квитанций и фокуса в поле без Tab.
+KEY_GRACE_MS=1000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
@@ -1174,7 +1177,9 @@ recipe_plan() {
       my ($op, $zone) = ($s->{op}, $s->{zone});
       fail("шаг $op — нажатие в окне, в рецепте он должен быть последним") if $press{$op} && $n != @steps;
       if ($op eq "key") {
-        for my $name (split / /, $s->{keys} // "") {
+        my @names = split / /, $s->{keys} // "";
+        for my $at (0 .. $#names) {
+          my $name = $names[$at];
           my ($rest, @mods) = ($name);
           while ($rest =~ /^(Cmd|Ctrl|Alt|Shift)-(.+)$/) { push @mods, $MOD{$1}; $rest = $2 }
           my $code = $CODE{$rest};
@@ -1183,7 +1188,8 @@ recipe_plan() {
           fail("аккорд $name не разобран") unless defined $code;
           my %seen;
           @mods = grep { !$seen{$_}++ } @mods;
-          print "!key $code " . (@mods ? join(",", @mods) : "-") . " $name\n";
+          # Действие исполняет только последний аккорд шага: прежние — набранный префикс.
+          print "!key $code " . (@mods ? join(",", @mods) : "-") . " $name " . ($at == $#names ? "last" : "prefix") . "\n";
         }
         exit 0;
       }
@@ -1371,17 +1377,38 @@ se_chord() {
 # или «!filter». Отказ — причина в WHY и род в STEP_KIND: fail — продукт шаг не исполнил, broken — ошибка
 # исполнения.
 keyboard_step() {
-  local line="$1" recipe="$2" n="$3" dir="$4" prefix="$5" kind code mods name panel text deadline node
+  local line="$1" recipe="$2" n="$3" dir="$4" prefix="$5" kind code mods name place panel text deadline node before
   STEP_KIND=broken
   WHY=""
-  read -r kind code mods name <<<"$line"
+  read -r kind code mods name place <<<"$line"
   case "$kind" in
     '!key')
       front_ok "$owner_pid" "$dir" || return 1
+      before=""
+      if [[ "$place" == last ]]; then
+        ui_read "$profile" "$prefix.receipts-before" receipts &&
+          before="$(jv "$prefix.receipts-before.stdout" ok.ui.receipts.last || true)"
+        [[ "$before" =~ ^[0-9]+$ ]] || {
+          WHY="ui.receipts перед аккордом $name не прочитан: $(oneline "$prefix.receipts-before.stdout")"
+          return 1
+        }
+      fi
       se_chord "$code" "$mods" "$prefix.keys.log" || {
         WHY="аккорд $name не отправлен: $(oneline "$prefix.keys.log")"
         return 1
       }
+      # Исполненное клавишей действие пишет запись кольца квитанций при завершении: следующий шаг читает
+      # раскладку после неё. Клавиша, которую маршрутизатор пропустил (Esc в поле), записи не оставляет: её
+      # ждут не дольше KEY_GRACE_MS.
+      if [[ -n "$before" ]]; then
+        deadline=$(($(now_ms) + KEY_GRACE_MS))
+        until ui_read "$profile" "$prefix.receipts" receipts &&
+          [[ "$(jv "$prefix.receipts.stdout" ok.ui.receipts.last || echo 0)" =~ ^[0-9]+$ ]] &&
+          (($(jv "$prefix.receipts.stdout" ok.ui.receipts.last) > before)); do
+          (($(now_ms) < deadline)) || break
+          sleep "$POLL"
+        done
+      fi
       ;;
     '!keymap')
       mkdir -p "$profile/config"
@@ -1400,10 +1427,19 @@ keyboard_step() {
       panel="$code"
       node="ok.ui.inspect.components[id=layout.panel.$panel.field].first_responder"
       front_ok "$owner_pid" "$dir" || return 1
-      se_chord 48 - "$prefix.keys.log" || {
-        WHY="Tab не отправлен: $(oneline "$prefix.keys.log")"
-        return 1
-      }
+      # Панель, взявшая фокус, сама отдаёт его своему полю: Tab нужен только виду, который этого не сделал, а у
+      # поля с фокусом он увёл бы фокус дальше.
+      deadline=$(($(now_ms) + KEY_GRACE_MS))
+      until ui_read "$profile" "$prefix" inspect && [[ "$(jv "$prefix.stdout" "$node" || echo ?)" == true ]]; do
+        if (($(now_ms) >= deadline)); then
+          se_chord 48 - "$prefix.keys.log" || {
+            WHY="Tab не отправлен: $(oneline "$prefix.keys.log")"
+            return 1
+          }
+          break
+        fi
+        sleep "$POLL"
+      done
       deadline=$(($(now_ms) + MIRROR_MS))
       until ui_read "$profile" "$prefix" inspect && [[ "$(jv "$prefix.stdout" "$node" || echo ?)" == true ]]; do
         if (($(now_ms) >= deadline)); then

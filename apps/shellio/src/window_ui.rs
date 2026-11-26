@@ -16,7 +16,7 @@
 //! состояние синхронно: они ставят работу в очередь главного потока, поэтому повторного входа в
 //! состояние изнутри вызова AppKit нет.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, VecDeque};
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
@@ -81,6 +81,9 @@ thread_local! {
     static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
     /// Сообщение ошибки keymap, показанное последним снимком: исправный снимок убирает его.
     static KEYMAP_NOTE: RefCell<Option<String>> = const { RefCell::new(None) };
+    /// Номер последнего показанного сообщения строки статуса. Ячейка своя: обработчик монитора
+    /// читает его, не заимствуя окно.
+    static STATUS_SERIAL: Cell<u64> = const { Cell::new(0) };
     /// Панель с фокусом видимого окна для решения о клавише. Пишет её отрисовка раскладки:
     /// обработчик монитора работает внутри AppKit и окно не заимствует.
     static KEY_PANEL: RefCell<Option<PanelFocus<ModeReceiver>>> = const { RefCell::new(None) };
@@ -411,6 +414,9 @@ impl OwnerWindow {
     /// Сообщение строки статуса; `None` убирает его.
     fn show_status(&self, message: Option<&str>) {
         if let Some(status) = &self.status {
+            if message.is_some() {
+                mark_status();
+            }
             status.set_message(message);
         }
     }
@@ -435,6 +441,7 @@ impl OwnerWindow {
         let previous = KEYMAP_NOTE.with(|slot| slot.replace(note.clone()));
         match note {
             Some(note) if note != shown && (fresh || previous.as_ref() != Some(&note)) => {
+                mark_status();
                 status.set_message(Some(&note));
                 true
             }
@@ -1554,7 +1561,8 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         MonitorEvent::FlagsChanged => with_router(|router| router.flags_changed()),
         MonitorEvent::MouseDown => {
             with_router(|router| router.cancel(Cancel::MouseDown));
-            defer(|_| forget_status());
+            let seen = status_serial();
+            defer(move |_| forget_status(seen));
             None
         }
         MonitorEvent::ScrollWheel => {
@@ -1568,9 +1576,28 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
     }
 }
 
-/// Следующее действие пользователя в окне — клавиша, принятая маршрутизатором, или нажатие
-/// указателя — убирает сообщение строки статуса. Команды CLI его не трогают.
-fn forget_status() {
+/// Строка статуса показала сообщение.
+fn mark_status() {
+    STATUS_SERIAL.with(|serial| serial.set(serial.get() + 1));
+}
+
+fn status_serial() -> u64 {
+    STATUS_SERIAL.with(Cell::get)
+}
+
+/// Событие пользователя снимает только то сообщение, которое было на экране в его момент:
+/// сообщение, показанное самим событием до отложенного снятия, остаётся.
+fn outlived(seen: u64, now: u64) -> bool {
+    seen == now
+}
+
+/// Следующее действие пользователя в окне — любая клавиша или нажатие указателя — убирает
+/// сообщение строки статуса, которое было показано до него (`seen` — номер сообщения в момент
+/// события). Команды CLI его не трогают.
+fn forget_status(seen: u64) {
+    if !outlived(seen, status_serial()) {
+        return;
+    }
     with_window(|owner| {
         if owner
             .status
@@ -1584,7 +1611,9 @@ fn forget_status() {
 }
 
 fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
+    let seen = status_serial();
     let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
+        defer(move |_| forget_status(seen));
         return Verdict::Pass;
     };
     let facts = app.key_focus();
@@ -1613,18 +1642,22 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
     let decision =
         with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, stroke));
     match decision {
-        Some(Decision::Pass) | None => Verdict::Pass,
+        // Пропущенная клавиша идёт получателю штатно, сообщение она снимает, как любая другая.
+        Some(Decision::Pass) | None => {
+            defer(move |_| forget_status(seen));
+            Verdict::Pass
+        }
         // Поглощённая клавиша меняет набранный префикс: строка статуса показывает его.
         Some(Decision::Swallow) => {
-            defer(|_| {
-                forget_status();
+            defer(move |_| {
+                forget_status(seen);
                 show_modes();
             });
             Verdict::Swallow
         }
         Some(Decision::Run(action)) => {
             defer(move |app| {
-                forget_status();
+                forget_status(seen);
                 run_key(app, action);
                 show_modes();
             });
@@ -1641,7 +1674,10 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             if app.key_focus().responder == KeyResponder::Field {
                 event.replay(app);
             }
-            defer(|_| follow_field());
+            defer(move |_| {
+                forget_status(seen);
+                follow_field();
+            });
             Verdict::Swallow
         }
     }
@@ -1853,17 +1889,11 @@ fn strip_keys() -> StripKeys {
         let Some(snapshot) = slot.borrow().clone() else {
             return StripKeys::default();
         };
-        let contexts = [Context::Navigation, Context::Global];
-        let key = |action: &str, args: Option<serde_json::Value>| {
-            snapshot
-                .keymap
-                .key_for(&contexts, action, args.as_ref())
-                .map(ToString::to_string)
-        };
+        let keys = key_actions::button_keys(&snapshot.keymap);
         StripKeys {
-            row: key("layout.split", Some(serde_json::json!({ "axis": "row" }))),
-            stack: key("layout.split", Some(serde_json::json!({ "axis": "stack" }))),
-            zoom: key("layout.zoom", None),
+            row: keys.row,
+            stack: keys.stack,
+            zoom: keys.zoom,
         }
     })
 }
@@ -2472,6 +2502,16 @@ mod tests {
         for id in ["caption", "caption.message"] {
             assert_eq!(status_keyed(node(id, true, Some("текст"))).ck, None, "{id}");
         }
+    }
+
+    #[test]
+    fn user_event_clears_only_the_message_shown_before_it() {
+        let seen = status_serial();
+        assert!(outlived(seen, status_serial()));
+        // Событие само показало сообщение до отложенного снятия: оно остаётся.
+        mark_status();
+        assert!(!outlived(seen, status_serial()));
+        assert!(outlived(status_serial(), status_serial()));
     }
 
     #[test]
