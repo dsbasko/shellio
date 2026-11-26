@@ -1594,3 +1594,81 @@ fn binary_judges_the_window_pair_against_the_required_scale() -> Result<()> {
     );
     Ok(())
 }
+
+/// Контрольные пиксели через бинарь: паспорт `palette-groups/light-normal` (плашка 270, 46,
+/// 640×560, заливка 250, 249, 246) и эталон провода `ui.window` (1180×720 при масштабе 2).
+#[test]
+fn binary_judges_palette_control_pixels_with_exit_codes() -> Result<()> {
+    let passport = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../conformance/passports/palette-groups/light-normal.json"
+    );
+    let window = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../shellio-control/tests/wire/response.ok.ui.window.windows.json"
+    );
+    let dir = tempfile::tempdir()?;
+    let dir = dir.path();
+    let gray = |v: u8| Rgb::new(v, v, v);
+    let mut base = Canvas::new(2.0);
+    base.fill(top(0.0, 0.0, WIDTH, HEIGHT), gray(200));
+    let palette = |below: u8, above: u8| -> Result<Vec<u8>> {
+        let mut now = Canvas::new(2.0);
+        now.fill(top(0.0, 0.0, WIDTH, HEIGHT), gray(200));
+        now.fill(top(270.0, 16.0, 640.0, 30.0), gray(200 - above));
+        now.fill(top(270.0, 606.0, 640.0, 66.0), gray(200 - below));
+        now.fill(top(270.0, 46.0, 640.0, 560.0), Rgb::new(250, 249, 246));
+        encode(&now, Tag::Srgb)
+    };
+    let base = write(dir, "base.png", &encode(&base, Tag::Srgb)?)?;
+    let down = write(dir, "down.png", &palette(20, 5)?)?;
+    let up = write(dir, "up.png", &palette(5, 20)?)?;
+    let mut small = Canvas::new(1.0);
+    small.fill(top(0.0, 0.0, WIDTH, HEIGHT), gray(200));
+    let small = write(dir, "small.png", &encode(&small, Tag::Srgb)?)?;
+    let controls = |png: &str| {
+        oracle(&[
+            "controls",
+            "--passport",
+            passport,
+            "--window",
+            window,
+            "--base",
+            &base,
+            "--png",
+            png,
+        ])
+    };
+    let (code, stdout, _) = controls(&down)?;
+    assert_eq!(code, 0, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["verdict"], "pass");
+    assert_eq!(report["controls"]["surface"], json!([250, 249, 246]));
+    assert_eq!(report["controls"]["below"], 20.0);
+    let (code, stdout, _) = controls(&up)?;
+    assert_eq!(code, 3, "{stdout}");
+    let report: serde_json::Value = serde_json::from_str(&stdout)?;
+    assert_eq!(report["verdict"], "mismatch");
+    assert_eq!(report["controls"]["above"], 20.0);
+    let (code, stdout, _) = controls(&small)?;
+    assert_eq!(code, 1, "{stdout}");
+    assert!(serde_json::from_str::<serde_json::Value>(&stdout)?["controls"].is_null());
+    assert_eq!(
+        oracle(&[
+            "controls",
+            "--passport",
+            passport,
+            "--window",
+            window,
+            "--png",
+            &down
+        ])?
+        .0,
+        2
+    );
+    assert_eq!(
+        oracle(&["region", "--window", window, "--base", &base])?.0,
+        2
+    );
+    Ok(())
+}

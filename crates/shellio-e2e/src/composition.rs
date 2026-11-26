@@ -445,6 +445,11 @@ pub fn judge_controls(
             f64::from(width) / scale - right,
             plate.height,
         )));
+        if background.is_empty() {
+            return Err(PairFault::Execution(
+                "полос фона за полем тени нет в снимке".to_owned(),
+            ));
+        }
         let mut moved = 0;
         for &point in &background {
             if read(&base, point)?.max_delta(read(&now, point)?) > tolerance {
@@ -734,6 +739,35 @@ mod tests {
         assert!(controls.is_none());
         assert!(
             matches!(verdict, Err(PairFault::Execution(_))),
+            "{verdict:?}"
+        );
+    }
+
+    #[test]
+    fn plate_whose_shadow_field_covers_the_snapshot_width_is_an_execution_error() {
+        // Плашка шире снимка без полей тени: полос фона нет, `pass` без них не выносится.
+        let plate = Rect::new(40.0, 46.0, 1100.0, 560.0);
+        let (controls, verdict) = judge_controls(
+            plate,
+            FILL,
+            1.0,
+            (1180, 720),
+            |_, _| Some(Rgb::new(200, 200, 200)),
+            |x, y| {
+                let inside = (40..1140).contains(&x) && (46..606).contains(&y);
+                Some(if inside {
+                    FILL
+                } else if (40..1140).contains(&x) && (606..672).contains(&y) {
+                    Rgb::new(180, 180, 180)
+                } else {
+                    Rgb::new(200, 200, 200)
+                })
+            },
+            3,
+        );
+        assert!(controls.is_none());
+        assert!(
+            matches!(&verdict, Err(PairFault::Execution(why)) if why.contains("полос фона")),
             "{verdict:?}"
         );
     }

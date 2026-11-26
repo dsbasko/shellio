@@ -49,6 +49,8 @@ const USAGE: &str = "\
   shellio-e2e-oracle region --window <ui.window.json>
   shellio-e2e-oracle pair --window <ui.window.json> --listed <окна экрана.json> --palette open|closed
                           --scale <масштаб экрана>
+  shellio-e2e-oracle controls --passport <passports/состояние/ячейка.json> --window <ui.window.json>
+                              --base <снимок области до открытия> --png <снимок области>
   shellio-e2e-oracle coverage --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
                               --registry <registry.toml>
   shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
@@ -73,6 +75,11 @@ ui.window в точках экрана с началом вверху слева
 дефект палитры (позади владельца, нет после открытия, видима после закрытия); причина — в stdout.
 У conform каретка поля запроса палитры (узел palette.query.caret) в паре снимков не сравнивается,
 а окно палитры между снимками должно остаться тем же.
+controls судит контрольные пиксели снимка композиции: плашка palette и её заливка — из паспорта
+ячейки, снимки --base (до открытия палитры) и --png — область главного окна ui.window при его
+масштабе. Поверхность — заливка паспорта, тень падает вниз, фон за полем тени не изменился. Отчёт
+JSON со снятыми значениями печатается при любом исходе: код 0 — в допуске, 3 — дефект продукта,
+1 — снимки не годятся (размер, нет плашки или полос фона).
 coverage судит только ключи сверки: состав сцены, узел продукта у каждого видимого элемента
 паспорта, элемент паспорта у каждого узла с ключом, ключи продукта — из таблицы ключей и без
 повторов. Калибровка и снимок не нужны; отчёт той же формы, что у conform.
@@ -112,6 +119,7 @@ struct Args {
     listed: Option<PathBuf>,
     palette: Option<Expect>,
     scale: Option<f64>,
+    base: Option<PathBuf>,
 }
 
 enum Command {
@@ -123,6 +131,7 @@ enum Command {
     Calibrate(Args),
     Region(Args),
     Pair(Args),
+    Controls(Args),
     Help,
 }
 
@@ -161,6 +170,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "--raw" => parsed.raw = Some(value()?.into()),
             "--out" => parsed.out = Some(value()?.into()),
             "--listed" => parsed.listed = Some(value()?.into()),
+            "--base" => parsed.base = Some(value()?.into()),
             "--scale" => {
                 let text = value()?;
                 let scale = text
@@ -212,10 +222,19 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
         ));
     }
     let passport_flags = parsed.passport.is_some() || parsed.registry.is_some();
-    if passport_flags && command != "conform" && command != "coverage" {
+    if parsed.registry.is_some() && command != "conform" && command != "coverage" {
         return Err(format!(
-            "{command}: --passport и --registry принимают только conform и coverage"
+            "{command}: --registry принимают только conform и coverage"
         ));
+    }
+    if parsed.passport.is_some() && !matches!(command.as_str(), "conform" | "coverage" | "controls")
+    {
+        return Err(format!(
+            "{command}: --passport принимают только conform, coverage и controls"
+        ));
+    }
+    if parsed.base.is_some() && command != "controls" {
+        return Err(format!("{command}: --base принимает только controls"));
     }
     if parsed.calibration.is_some() && command != "conform" {
         return Err(format!("{command}: --calibration принимает только conform"));
@@ -239,6 +258,27 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
         ));
     }
     match command.as_str() {
+        "controls" => {
+            let foreign = parsed.expect.is_some()
+                || parsed.inspect.is_some()
+                || parsed.generation.is_some()
+                || underline_only
+                || stable[0]
+                || parsed.registry.is_some()
+                || parsed.calibration.is_some()
+                || calibrate_flags.contains(&true)
+                || pair_flags;
+            if foreign {
+                return Err(
+                    "controls: принимает только --passport, --window, --base и --png".to_owned(),
+                );
+            }
+            required("--passport", parsed.passport.is_some())?;
+            required("--window", parsed.window.is_some())?;
+            required("--base", parsed.base.is_some())?;
+            required("--png", parsed.png.is_some())?;
+            Ok(Command::Controls(parsed))
+        }
         "region" | "pair" => {
             let foreign = parsed.expect.is_some()
                 || parsed.inspect.is_some()
@@ -857,6 +897,139 @@ fn pair_command(args: &Args) -> u8 {
     }
 }
 
+/// Отчёт подкоманды `controls`: вердикт, причина и снятые значения, если они сняты.
+#[derive(Debug, serde::Serialize)]
+struct ControlsReport {
+    verdict: Verdict,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    controls: Option<ControlsValues>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct ControlsValues {
+    surface: [u8; 3],
+    expected: [u8; 3],
+    below: f64,
+    above: f64,
+    background_moved: u64,
+    background_pixels: u64,
+}
+
+impl From<composition::Controls> for ControlsValues {
+    fn from(c: composition::Controls) -> Self {
+        ControlsValues {
+            surface: [c.surface.r, c.surface.g, c.surface.b],
+            expected: [c.expected.r, c.expected.g, c.expected.b],
+            below: c.below,
+            above: c.above,
+            background_moved: c.background_moved,
+            background_pixels: c.background_pixels,
+        }
+    }
+}
+
+/// Элемент плашки палитры в паспорте ячейки.
+const PALETTE_CK: &str = "palette";
+
+fn run_controls(args: &Args) -> Result<ControlsReport, Error> {
+    let path = args
+        .passport
+        .as_ref()
+        .ok_or_else(|| Error::new("нет пути паспорта"))?;
+    let passport = Passport::parse(
+        &path.display().to_string(),
+        &read_text(Some(path), "паспорт")?,
+    )
+    .map_err(|e| Error::new(e.to_string()))?;
+    let plate = passport
+        .elements
+        .iter()
+        .find(|e| e.ck == PALETTE_CK && e.visible)
+        .ok_or_else(|| Error::new(format!("в паспорте нет видимого элемента {PALETTE_CK}")))?;
+    let fill = plate
+        .fill
+        .filter(|f| (f.a - 1.0).abs() < f64::EPSILON)
+        .ok_or_else(|| Error::new(format!("у {PALETTE_CK} паспорта нет непрозрачной заливки")))?;
+    let window = expect::parse_window(&read_text(args.window.as_ref(), "ui.window")?)?;
+    let scale = window.backing_scale_factor;
+    if (passport.window.width - window.frame.width).abs() > 1.0
+        || (passport.window.height - window.frame.height).abs() > 1.0
+        || (passport.window.dpr - scale).abs() > f64::EPSILON
+    {
+        return Err(Error::new(format!(
+            "окно {}×{} при масштабе {scale}, а паспорт — {}×{} при {}",
+            window.frame.width,
+            window.frame.height,
+            passport.window.width,
+            passport.window.height,
+            passport.window.dpr
+        )));
+    }
+    let size = (
+        (window.frame.width * scale).round() as u32,
+        (window.frame.height * scale).round() as u32,
+    );
+    let base = read_image(args.base.as_ref())?;
+    let now = read_image(args.png.as_ref())?;
+    for (what, image) in [("основа", &base), ("снимок", &now)] {
+        if (image.width, image.height) != size {
+            return Err(Error::new(format!(
+                "{what} {}×{} пикселей, а область окна — {}×{}",
+                image.width, image.height, size.0, size.1
+            )));
+        }
+    }
+    let pixel = |image: &png::Image, x: u32, y: u32| image.pixel(x, y).map(|p| p.rgb);
+    let (controls, verdict) = composition::judge_controls(
+        expect::Rect::new(plate.frame.x, plate.frame.y, plate.frame.w, plate.frame.h),
+        shellio_e2e::css::Rgb::new(fill.r, fill.g, fill.b),
+        scale,
+        size,
+        |x, y| pixel(&base, x, y),
+        |x, y| pixel(&now, x, y),
+        shellio_e2e::TOLERANCE,
+    );
+    let (verdict, reason) = match verdict {
+        Ok(()) => (Verdict::Pass, None),
+        Err(PairFault::Product(why)) => (Verdict::Mismatch, Some(why)),
+        Err(PairFault::Execution(why)) => (Verdict::Error, Some(why)),
+    };
+    Ok(ControlsReport {
+        verdict,
+        reason,
+        controls: controls.map(ControlsValues::from),
+    })
+}
+
+fn controls_command(args: &Args) -> u8 {
+    let report = run_controls(args).unwrap_or_else(|error| ControlsReport {
+        verdict: Verdict::Error,
+        reason: Some(error.to_string()),
+        controls: None,
+    });
+    if let Err(error) = print_json(&report) {
+        eprintln!("shellio-e2e-oracle: {error}");
+        return EXIT_ERROR;
+    }
+    let reason = report.reason.as_deref().unwrap_or("");
+    match report.verdict {
+        Verdict::Pass => {
+            eprintln!("shellio-e2e-oracle: контрольные пиксели палитры в допуске");
+            0
+        }
+        Verdict::Mismatch => {
+            eprintln!("shellio-e2e-oracle: контрольные пиксели вне допуска — {reason}");
+            EXIT_MISMATCH
+        }
+        Verdict::Generation | Verdict::Error => {
+            eprintln!("shellio-e2e-oracle: ошибка исполнения — {reason}");
+            EXIT_ERROR
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let code = match parse(std::env::args().skip(1)) {
         Ok(Command::Compare(args)) => compare_command(&args),
@@ -867,6 +1040,7 @@ fn main() -> ExitCode {
         Ok(Command::Calibrate(args)) => calibrate_command(&args),
         Ok(Command::Region(args)) => region_command(&args),
         Ok(Command::Pair(args)) => pair_command(&args),
+        Ok(Command::Controls(args)) => controls_command(&args),
         Ok(Command::Help) => {
             print!("{USAGE}");
             0
