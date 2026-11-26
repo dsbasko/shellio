@@ -178,9 +178,11 @@ impl History {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use shellio_core::{
-        Panel, PluginId, Project, ProjectId, Route, TERMINAL_PLUGIN, Title, UnixMillis, Workbench,
-        Workspace,
+        Change, Delivery, Event, Mirror, MirrorStep, Panel, PluginId, Project, ProjectId, Revision,
+        Route, Snapshot, TERMINAL_PLUGIN, Title, UnixMillis, Workbench, Workspace,
     };
     use shellio_keymap::JUMP_DEPTH;
     use shellio_layout::Layout;
@@ -470,6 +472,54 @@ mod tests {
             .step(&fixture.state, HistoryStep::Forward, NAV)
             .unwrap();
         assert_eq!(forward.panel, other);
+    }
+
+    /// Закрытие приходит зеркалу одним событием ядра — раскладка и удаление панели вместе:
+    /// наблюдение после доставки видит запасной фокус и точки не добавляет.
+    #[test]
+    fn closing_delivered_to_the_mirror_adds_no_point() {
+        let mut fixture = fixture();
+        let (a, b) = (fixture.terminal, fixture.navigator);
+        let c = open_panel(&mut fixture, 12);
+        let workbench = fixture.workbench;
+        let mut history = History::default();
+        for panel in [a, b, c] {
+            focus(&mut fixture, panel);
+            history.observe(&fixture.state, NAV);
+        }
+        let start = Revision::default().next();
+        let mut mirror = Mirror::from_snapshot(Snapshot {
+            revision: start,
+            state: Arc::new(fixture.state.clone()),
+        });
+        history.observe(mirror.state(), NAV);
+        assert_eq!(panels(&history, mirror.state()), [a, b, c]);
+
+        close(&mut fixture, c);
+        let closed = Delivery::Event(Event {
+            revision: start.next(),
+            changes: vec![
+                Change::LayoutSet {
+                    workbench,
+                    layout: fixture.state.layouts[&workbench].clone(),
+                },
+                Change::PanelRemove { panel: c },
+            ],
+        });
+        assert_eq!(mirror.apply(closed), MirrorStep::Applied);
+        assert_eq!(mirror.state(), &fixture.state, "зеркало пришло к закрытию");
+        let fallback = mirror.state().layouts[&workbench].focused().unwrap();
+        assert_ne!(fallback, c);
+        history.observe(mirror.state(), NAV);
+        assert_eq!(panels(&history, mirror.state()), [a, b, c]);
+        assert_eq!(cursor(&history, mirror.state()), Some(2));
+
+        // Шаг назад от запасного фокуса закрытую панель и нынешнее место пропускает.
+        let back = history
+            .step(mirror.state(), HistoryStep::Back, NAV)
+            .unwrap();
+        assert_ne!(back.panel, c);
+        assert_ne!(back.panel, fallback);
     }
 
     #[test]
