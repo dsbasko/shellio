@@ -1039,9 +1039,14 @@ name_of() {
   esac
 }
 
-# Владелец основного профиля на переднем плане, иначе ошибка исполнения: клавиши System Events идут переднему.
+# Владелец основного профиля на переднем плане и его окно показано, иначе ошибка исполнения: клавиши System Events
+# идут переднему, а без окна ни одна клавиша пункта записи не даст (окно мог закрыть внешний ввод).
 to_front() {
   front_ok "$owner_pid" "$1" || fatal "$2: $WHY"
+  ui_read "$profile" "$1/front-window" window ||
+    fatal "$2: ui.window не прочитан: $(oneline "$1/front-window.stdout") $(oneline "$1/front-window.stderr")"
+  [[ "$(jv "$1/front-window.stdout" ok.ui.window.visible || echo "?")" == true ]] ||
+    fatal "$2: окно владельца закрыто до пункта: клавиши пункта ему не дойдут"
 }
 
 # Опрос ui.window: выбор оформления — want; чтение — <prefix>.stdout, иначе WHY.
