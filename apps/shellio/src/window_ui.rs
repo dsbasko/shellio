@@ -34,12 +34,13 @@ use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
-    App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyMonitor, KeyResponder,
-    KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow,
-    MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PanelRow, Regime,
-    SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
-    TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
-    Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts, late_callbacks,
+    App, ChromeIntent, ChromeState, CountKind, FieldFocus, Frame, InspectNode, KeyMonitor,
+    KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread,
+    MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState,
+    PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus,
+    TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath,
+    TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts,
+    late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -77,7 +78,7 @@ thread_local! {
     static CORE: RefCell<Option<CoreLink>> = const { RefCell::new(None) };
     /// Маршрутизатор клавиш: режимы панелей, набранный префикс и автомат аккорда выхода. Ячейка
     /// своя, а не поле окна: решение о клавише принимается и тогда, когда окно уже занято.
-    static ROUTER: RefCell<KeyRouter<ModeReceiver, KeyStroke>> = RefCell::new(KeyRouter::default());
+    static ROUTER: RefCell<KeyRouter<ModeReceiver, Pressed>> = RefCell::new(KeyRouter::default());
     /// Действующая таблица keymap: целый снимок службы, заменяется одной доставкой. Ячейка своя по
     /// той же причине, что у маршрутизатора.
     static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
@@ -98,6 +99,13 @@ thread_local! {
     static INPUT_SINK: RefCell<InputSink> = const { RefCell::new(InputSink::new()) };
     /// Монитор клавиш живёт до выхода процесса, как окно.
     static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
+}
+
+/// Исходное нажатие, которое автомат аккорда выхода хранит для повтора. `in_filter` — в момент
+/// нажатия ввод держала строка фильтра панели получателя: второй аккорд вернёт ввод в неё.
+struct Pressed {
+    stroke: KeyStroke,
+    in_filter: bool,
 }
 
 /// Ядро для главного потока: вход размера окна и команды без ожидания, исход — задачей runtime.
@@ -1496,9 +1504,16 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
 }
 
 /// Ставит монитор клавиш и наблюдателя ввода в полях. Оба вызываются изнутри AppKit: наблюдатель
-/// только ставит согласование режимов в очередь главного потока.
+/// только ставит согласование фокуса и режимов в очередь главного потока.
 fn install_keys(app: &App) {
-    app.on_field_focus(|_| defer(|_| follow_field()));
+    app.on_field_focus(|focus| {
+        defer(move |app| {
+            if focus == FieldFocus::Began {
+                focus_typing(app);
+            }
+            follow_field();
+        });
+    });
     match KeyMonitor::install(app, on_key_event) {
         Some(monitor) => {
             KEY_MONITOR.with(|slot| *slot.borrow_mut() = Some(ManuallyDrop::new(monitor)));
@@ -1508,7 +1523,7 @@ fn install_keys(app: &App) {
 }
 
 /// Маршрутизатор без повторного входа: занятый пропускает работу, событие идёт AppKit.
-fn with_router<T>(work: impl FnOnce(&mut KeyRouter<ModeReceiver, KeyStroke>) -> T) -> Option<T> {
+fn with_router<T>(work: impl FnOnce(&mut KeyRouter<ModeReceiver, Pressed>) -> T) -> Option<T> {
     ROUTER.with(|router| {
         router
             .try_borrow_mut()
@@ -1552,6 +1567,38 @@ fn follow_field() {
         with_router(|router| router.follow_field(receiver.as_ref()));
     }
     show_modes();
+}
+
+/// Ввод встал в поле панели без фокуса — обходом `Tab`, доступностью или щелчком в строку фильтра:
+/// фокус раскладки переходит к этой панели той же командой, что щелчок в её тело.
+fn focus_typing(app: &App) {
+    let command = with_window(|owner| {
+        let layout = owner.layout.as_ref()?;
+        scene::focus_command(layout.scene()?, layout.typing()?)
+    })
+    .flatten();
+    if let Some(command) = command {
+        send_ui(app, command, None);
+    }
+}
+
+/// Поле с вводом обычного окна для решения о клавише: панель-владелец поля и признак строки
+/// фильтра. Владелец берётся из окна, а не из записи отрисовки: фокус раскладки следует за полем
+/// командой ядра и может ещё не прийти.
+fn field_owner() -> Option<(PanelFocus<ModeReceiver>, bool)> {
+    with_window(|owner| {
+        if owner.gallery.is_some() {
+            return None;
+        }
+        let layout = owner.layout.as_ref()?;
+        let focus = layout.key_focus()?;
+        let in_filter = match focus.receiver {
+            ModeReceiver::Panel(panel) => layout.filter_typing() == Some(panel),
+            ModeReceiver::GalleryInput(_) => false,
+        };
+        Some((focus, in_filter))
+    })
+    .flatten()
 }
 
 /// Панели в режиме `Input` по маршрутизатору. `None` — маршрутизатор занят.
@@ -1656,6 +1703,17 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         return Verdict::Pass;
     };
     let facts = app.key_focus();
+    let typing = match facts.responder {
+        KeyResponder::Field => field_owner(),
+        KeyResponder::None
+        | KeyResponder::Other
+        | KeyResponder::TabStrip
+        | KeyResponder::Button => None,
+    };
+    let (panel, in_filter) = match typing {
+        Some((panel, in_filter)) => (Some(panel), in_filter),
+        None => (KEY_PANEL.with(|slot| slot.borrow().clone()), false),
+    };
     let focus = Focus {
         responder: match facts.responder {
             KeyResponder::None => Responder::None,
@@ -1665,7 +1723,7 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             KeyResponder::Button => Responder::Button,
         },
         composing: facts.composing,
-        panel: KEY_PANEL.with(|slot| slot.borrow().clone()),
+        panel,
     };
     let mods = stroke.mods();
     let chord = Chord::new(
@@ -1678,8 +1736,9 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         },
     );
     let repeat = stroke.repeat();
+    let pressed = Pressed { stroke, in_filter };
     let decision =
-        with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, stroke));
+        with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, pressed));
     match decision {
         // Пропущенная клавиша идёт получателю штатно, сообщение она снимает, как любая другая.
         Some(Decision::Pass) | None => {
@@ -1702,17 +1761,18 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             });
             Verdict::Swallow
         }
-        // Получатель снова держит ввод, пара идёт ему напрямую, мимо очереди событий.
+        // Получатель снова держит ввод там, где держал его до первого аккорда, пара идёт ему
+        // напрямую, мимо очереди событий.
         Some(Decision::Replay { receiver, event }) => {
             match receiver {
                 ModeReceiver::Panel(panel) => {
                     with_window(|owner| {
                         if let Some(layout) = owner.layout.as_ref() {
-                            layout.set_input(panel, true);
+                            layout.resume_input(panel, event.in_filter);
                         }
                     });
                     if app.key_focus().responder == KeyResponder::Field {
-                        event.replay(app);
+                        event.stroke.replay(app);
                     }
                 }
                 // Пара идёт виду приёмника, пока он первый ответчик: запись панели с фокусом
@@ -1724,7 +1784,7 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
                             .is_some_and(|focus| focus.receiver == receiver)
                     });
                     if focused && generation == sink_generation() {
-                        event.replay(app);
+                        event.stroke.replay(app);
                     }
                 }
             }

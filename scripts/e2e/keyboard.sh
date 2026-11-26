@@ -2083,9 +2083,32 @@ wait_mode() {
   done
 }
 
-# Опрос строки фильтра панели в ui.inspect: open — строка видна и её поле держит ввод, closed — узел строки есть,
-# строка скрыта и ввода в поле нет, fresh — строка скрыта или её узла ещё нет (строка не открывалась); текст поля — в
-# ROW_TEXT; чтение — <prefix>.stdout, иначе WHY.
+# Опрос ui.mode панели: «режим|панель|выход|панель ожидания второго аккорда» равно want, «нет» — панели нет; чтение —
+# <prefix>.stdout, иначе WHY.
+pmode_wait() {
+  local prefix="$1" want="$2" deadline got="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ctl "$profile" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" ui mode get; then
+      got="$(/usr/bin/perl -MJSON::PP -e 'local $/; my $m = eval { JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{mode} };
+        exit 1 unless ref $m eq "HASH";
+        my $p = sub { my $r = shift; ref $r eq "HASH" && defined $r->{panel} ? $r->{panel} : "нет" };
+        print join("|", $m->{mode} // "?", $m->{panel} // "нет", $m->{exit} // "?", $p->($m->{exit_receiver})), "\n"' \
+        <"$prefix.stdout" 2>/dev/null || echo "?")"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс ui.mode — «${got}», ожидалось «${want}» (режим|панель|выход|панель ожидания)"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос строки фильтра панели в ui.inspect: open — строка видна и её поле держит ввод, idle — строка видна без ввода,
+# closed — узел строки есть, строка скрыта и ввода в поле нет, fresh — строка скрыта или её узла ещё нет (строка не
+# открывалась); текст поля — в ROW_TEXT; чтение — <prefix>.stdout, иначе WHY.
 ROW_TEXT=""
 wait_row() {
   local prefix="$1" panel="$2" want="$3" deadline seen="?" editing="?" id="layout.panel.$2.filter"
@@ -2099,6 +2122,7 @@ wait_row() {
       ROW_TEXT="$(comp "$prefix.stdout" "$id.input" state.text_field.value 2>/dev/null || true)"
       case "$want" in
         open) [[ "$seen" != true || "$editing" != true ]] || return 0 ;;
+        idle) [[ "$seen" != true || "$editing" == true ]] || return 0 ;;
         closed) [[ "$seen" != false || "$editing" == true ]] || return 0 ;;
         *) [[ "$seen" == true || "$editing" == true ]] || return 0 ;;
       esac
@@ -2173,12 +2197,12 @@ fkey() {
 }
 
 # Фильтр «Демо: список»: /, буква, Enter, второй /, Esc клавишами; затем непустое сужение — текст кириллицей командой
-# CLI в открытую строку и Esc клавишей в ней. Буква под латинским источником названий списка (кириллица) не находит:
+# CLI в открытую строку и Esc клавишей в ней; затем аккорд выхода в открытой строке. Буква под латинским источником названий списка (кириллица) не находит:
 # ход клавишами судит текст фильтра и пустой список, а строки между нулём и всеми — ход с текстом CLI. Ожидаемые
 # строки считает сценарий по полному списку. Клавиши поля записей кольца не дают: закрытие судят строка, режим и
 # следующая клавиша с записью — второй / и j.
 item_filter() {
-  local item=filter dir="$run/filter" demo all typed want first text="ета" limit
+  local item=filter dir="$run/filter" demo all typed want first text="ета" limit chord seen
   log "== $item"
   failures=()
   fresh_bench "$item" "$dir"
@@ -2244,6 +2268,42 @@ item_filter() {
     failures+=("ui filter: $WHY")
   fi
 
+  # Аккорд выхода в строке фильтра: первый Ctrl-\ — navigation, строка открыта без ввода; второй возвращает ввод в
+  # строку, а не в тело списка, и следующая буква доходит до неё. Второй аккорд записи кольца не даёт: записи с
+  # первого аккорда до j — mode.navigation и list.down.
+  chord=""
+  fopen "$dir" chord-open "$demo" ""
+  if act "$dir" chord-first mode.navigation "$K_BACKSLASH+control"; then
+    chord="$BEFORE"
+    [[ "$OUTCOME" == ok ]] || failures+=("первый Ctrl-\\ в строке: действие mode.navigation отказало: $OUTCOME")
+    pmode_wait "$dir/chord-first.mode" "navigation|$demo|armed|$demo" || failures+=("первый Ctrl-\\ в строке: $WHY")
+    wait_row "$dir/chord-first.row" "$demo" idle || failures+=("первый Ctrl-\\ в строке: $WHY")
+    once "$dir" chord-first || failures+=("первый Ctrl-\\ в строке: $WHY")
+    if ! key "$dir/keys.log" "$K_BACKSLASH" control; then
+      failures+=("второй Ctrl-\\ в строке не отправлен: $(tail -n 1 "$dir/keys.log")")
+    else
+      pmode_wait "$dir/chord-second.mode" "input|$demo|idle|нет" || failures+=("второй Ctrl-\\ в строке: $WHY")
+      if ! wait_row "$dir/chord-second.row" "$demo" open; then
+        failures+=("второй Ctrl-\\ в строке: $WHY")
+      elif [[ -n "$ROW_TEXT" ]]; then
+        failures+=("второй Ctrl-\\ в строке: текст строки «${ROW_TEXT}», ожидался пустой")
+      elif [[ -n "$typed" ]]; then
+        fkey "$dir" chord-letter "$K_B"
+        limit=$(($(now_ms) + MIRROR_MS))
+        while wait_row "$dir/chord-letter.row" "$demo" open && [[ -z "$ROW_TEXT" ]] && (($(now_ms) < limit)); do
+          sleep "$POLL"
+        done
+        [[ "$ROW_TEXT" == "$typed" ]] ||
+          failures+=("буква после второго Ctrl-\\: текст строки «${ROW_TEXT}», ожидался «${typed}»")
+      fi
+    fi
+  else
+    failures+=("первый Ctrl-\\ в строке: $WHY")
+  fi
+  fkey "$dir" chord-esc "$K_ESC"
+  wait_row "$dir/chord-esc.row" "$demo" closed || failures+=("Esc после аккорда: $WHY")
+  wait_mode "$dir/chord-esc.mode" navigation || failures+=("Esc после аккорда: $WHY")
+
   if act "$dir" key-j list.down "$K_J"; then
     [[ "$OUTCOME" == ok ]] || failures+=("j после фильтра: действие list.down отказало: $OUTCOME")
     wait_key "$dir/key-j.panel" "$demo" "!$first" || failures+=("j после фильтра: $WHY")
@@ -2251,7 +2311,16 @@ item_filter() {
   else
     failures+=("j после фильтра: $WHY")
   fi
-  conclude "$item" "«Демо: список»: / открывает строку фильтра (одна запись ui.receipts panel.filter с источником key, режим input, плашка «ВВОД»), буква «${typed:-?}» ставит data.filter query.panel и оставляет строки, чьё название её содержит; Enter закрывает строку, фильтр остаётся, режим — navigation; второй / открывает строку с тем же текстом одной записью кольца, Esc снимает фильтр и возвращает все строки; текст «${text}» командой CLI оставляет строки «${want}» из «${all}», Esc в открытой строке снимает фильтр; j после этого — одна запись list.down"
+  if [[ -n "$chord" ]]; then
+    if receipts_get "$profile" "$dir/chord.receipts" "$chord"; then
+      seen="$(jv "$dir/chord.receipts.stdout" 'ok.ui.receipts.receipts[#]' || echo "?") $(rc "$dir/chord.receipts.stdout" 0 action) $(rc "$dir/chord.receipts.stdout" 1 action)"
+      [[ "$seen" == "2 mode.navigation list.down" ]] ||
+        failures+=("записи кольца с первого Ctrl-\\ до j — «${seen}», ожидались две: mode.navigation и list.down")
+    else
+      failures+=("ui.receipts не прочитан: $(oneline "$dir/chord.receipts.stderr")")
+    fi
+  fi
+  conclude "$item" "«Демо: список»: / открывает строку фильтра (одна запись ui.receipts panel.filter с источником key, режим input, плашка «ВВОД»), буква «${typed:-?}» ставит data.filter query.panel и оставляет строки, чьё название её содержит; Enter закрывает строку, фильтр остаётся, режим — navigation; второй / открывает строку с тем же текстом одной записью кольца, Esc снимает фильтр и возвращает все строки; текст «${text}» командой CLI оставляет строки «${want}» из «${all}», Esc в открытой строке снимает фильтр; в открытой строке первый Ctrl-\\ — запись mode.navigation, режим navigation, выход armed, строка видна без ввода, второй — режим input, выход idle, ввод снова в строке, буква доходит до неё, записи кольца нет; j после этого — одна запись list.down"
 }
 
 # Чтение ui.history: «точек до конца от курсора|область и панель точки под курсором|панели последних k точек».
@@ -2379,12 +2448,47 @@ responder_of() {
 # Наибольшее число нажатий Tab до поля: цепочка ключевых видов окна идёт от кнопок окна через полосы вкладок.
 TAB_MAX=40
 
+# Tab по цепочке ключевых видов окна до узла target: tab_until <каталог> <имя> <узел> <первый ответчик до Tab>
+# <подпись>. Число нажатий — в TABS (0 — не дошёл, причина — в failures), цепочка — <каталог>/<имя>-chain.txt.
+TABS=0
+tab_until() {
+  local dir="$1" name="$2" target="$3" prev="$4" label="$5" n now deadline seen chain="" before="${#failures[@]}"
+  TABS=0
+  for ((n = 1; n <= TAB_MAX; n++)); do
+    fkey "$dir" "$name-$n" "$K_TAB"
+    deadline=$(($(now_ms) + MIRROR_MS))
+    now="$prev"
+    while [[ "$now" == "$prev" ]] && (($(now_ms) < deadline)); do
+      ui_read "$profile" "$dir/$name-$n" inspect && now="$(responder_of "$dir/$name-$n.stdout" 2>/dev/null || echo "$prev")"
+      [[ "$now" != "$prev" ]] || sleep "$POLL"
+    done
+    if [[ "$now" == "$prev" ]]; then
+      failures+=("$label $n: первый ответчик за $MIRROR_MS мс не сменился: «${prev}»")
+      break
+    fi
+    seen=" $chain "
+    chain="${chain:+$chain }$now"
+    prev="$now"
+    if [[ "$now" == "$target" ]]; then
+      TABS=$n
+      break
+    fi
+    if [[ "$seen" == *" $now "* ]]; then
+      failures+=("$label $n: цепочка ключевых видов замкнулась на «${now}» без поля: ${chain}")
+      break
+    fi
+  done
+  printf '%s\n' "$chain" | tr ' ' '\n' >"$dir/$name-chain.txt"
+  ((TABS > 0 || ${#failures[@]} > before)) || failures+=("$label: за $TAB_MAX нажатий поле ввод не получило: ${chain}")
+}
+
 # «Демо: поле»: панель открывается с вводом в поле, Esc возвращает Navigation. Tab маршрутизатор в Navigation не
 # глотает: он идёт по цепочке ключевых видов окна и доходит до поля, поле с вводом переводит панель в Input. Затем
 # текст, Esc и клавиши с записью кольца: i (mode.input) и h (panel.focus.left). Клавиши поля, Tab и Esc записей не
-# дают — после всего хода в кольце ровно эти две.
+# дают — после всего хода в кольце ровно эти две. Затем поле панели без фокуса: Tab из терминала слева доводит ввод
+# до поля, фокус раскладки переходит к «Демо: поле», аккорд выхода снимает ввод с этого поля и возвращает его.
 item_field_input() {
-  local item=field-input dir="$run/field-input" demo field start prev now deadline n chain="" reached=0 seen
+  local item=field-input dir="$run/field-input" demo field start prev reached=0 cross=0 seen value=""
   log "== $item"
   failures=()
   fresh_bench "$item" "$dir"
@@ -2407,32 +2511,8 @@ item_field_input() {
   [[ -z "$prev" ]] || failures+=("Esc после открытия: первый ответчик — «${prev}», ожидалось окно")
 
   if ((${#failures[@]} == 0)); then
-    for ((n = 1; n <= TAB_MAX; n++)); do
-      fkey "$dir" "tab-$n" "$K_TAB"
-      deadline=$(($(now_ms) + MIRROR_MS))
-      now="$prev"
-      while [[ "$now" == "$prev" ]] && (($(now_ms) < deadline)); do
-        ui_read "$profile" "$dir/tab-$n" inspect && now="$(responder_of "$dir/tab-$n.stdout" 2>/dev/null || echo "$prev")"
-        [[ "$now" != "$prev" ]] || sleep "$POLL"
-      done
-      if [[ "$now" == "$prev" ]]; then
-        failures+=("Tab $n: первый ответчик за $MIRROR_MS мс не сменился: «${prev}»")
-        break
-      fi
-      seen=" $chain "
-      chain="${chain:+$chain }$now"
-      prev="$now"
-      if [[ "$now" == "$field" ]]; then
-        reached=$n
-        break
-      fi
-      if [[ "$seen" == *" $now "* ]]; then
-        failures+=("Tab $n: цепочка ключевых видов замкнулась на «${now}» без поля: ${chain}")
-        break
-      fi
-    done
-    printf '%s\n' "$chain" | tr ' ' '\n' >"$dir/tab-chain.txt"
-    ((reached > 0 || ${#failures[@]} > 0)) || failures+=("Tab: за $TAB_MAX нажатий поле ввод не получило: ${chain}")
+    tab_until "$dir" tab "$field" "$prev" Tab
+    reached=$TABS
   fi
 
   if ((reached > 0)); then
@@ -2467,7 +2547,47 @@ item_field_input() {
       failures+=("ui.receipts не прочитан: $(oneline "$dir/all.receipts.stderr")")
     fi
   fi
-  conclude "$item" "«Демо: поле» открыта с вводом в поле; Esc — режим navigation и плашка «НАВИГАЦИЯ», первый ответчик — окно; Tab ${reached} раз по цепочке ключевых видов окна доводит ввод до поля — режим input, плашка «ВВОД»; клавиши a, b, c — текст поля «abc»; Esc — navigation, «НАВИГАЦИЯ», фокус query.layout в панели; i — одна запись ui.receipts mode.input с источником key и режим input, Esc и h — одна запись panel.focus.left; Tab, буквы и Esc записей кольца не дают"
+
+  # Поле панели без фокуса: фокус на терминале слева, Tab доводит ввод до поля «Демо: поле».
+  if ((reached > 0 && ${#failures[@]} == 0)); then
+    if ui_read "$profile" "$dir/cross.start" inspect; then
+      prev="$(responder_of "$dir/cross.start.stdout" 2>/dev/null || echo "?")"
+      tab_until "$dir" cross-tab "$field" "$prev" "Tab из терминала"
+      cross=$TABS
+    else
+      failures+=("Tab из терминала: ui.inspect не прочитан")
+    fi
+  fi
+  if ((cross > 0)); then
+    wait_focus "$dir/cross.layout" "$demo" || failures+=("Tab из терминала: $WHY")
+    pmode_wait "$dir/cross.mode" "input|$demo|idle|нет" || failures+=("Tab из терминала: $WHY")
+    if act "$dir" cross-first mode.navigation "$K_BACKSLASH+control"; then
+      [[ "$OUTCOME" == ok ]] || failures+=("первый Ctrl-\\ в поле: действие mode.navigation отказало: $OUTCOME")
+      pmode_wait "$dir/cross-first.mode" "navigation|$demo|armed|$demo" || failures+=("первый Ctrl-\\ в поле: $WHY")
+      wait_inspect "$profile" "$dir/cross-first.field" "$field" state.text_field.editing false ||
+        failures+=("первый Ctrl-\\ в поле: $WHY")
+      once "$dir" cross-first || failures+=("первый Ctrl-\\ в поле: $WHY")
+      if key "$dir/keys.log" "$K_BACKSLASH" control; then
+        pmode_wait "$dir/cross-second.mode" "input|$demo|idle|нет" || failures+=("второй Ctrl-\\ в поле: $WHY")
+        if wait_inspect "$profile" "$dir/cross-second.field" "$field" state.text_field.editing true; then
+          # Esc выше сбросил черновик поля: буква после второго аккорда дописывается к тому, что в поле сейчас.
+          value="$(comp "$dir/cross-second.field.stdout" "$field" state.text_field.value 2>/dev/null || true)"
+          fkey "$dir" cross-letter "$K_A"
+          wait_inspect "$profile" "$dir/cross-letter.field" "$field" state.text_field.value "${value}a" ||
+            failures+=("буква после второго Ctrl-\\: $WHY")
+        else
+          failures+=("второй Ctrl-\\ в поле: $WHY")
+        fi
+      else
+        failures+=("второй Ctrl-\\ в поле не отправлен: $(tail -n 1 "$dir/keys.log")")
+      fi
+    else
+      failures+=("первый Ctrl-\\ в поле: $WHY")
+    fi
+    fkey "$dir" cross-esc "$K_ESC"
+    wait_mode "$dir/cross-esc.mode" navigation || failures+=("Esc после аккорда: $WHY")
+  fi
+  conclude "$item" "«Демо: поле» открыта с вводом в поле; Esc — режим navigation и плашка «НАВИГАЦИЯ», первый ответчик — окно; Tab ${reached} раз по цепочке ключевых видов окна доводит ввод до поля — режим input, плашка «ВВОД»; клавиши a, b, c — текст поля «abc»; Esc — navigation, «НАВИГАЦИЯ», фокус query.layout в панели; i — одна запись ui.receipts mode.input с источником key и режим input, Esc и h — одна запись panel.focus.left; Tab, буквы и Esc записей кольца не дают. Из терминала слева Tab ${cross} раз доводит ввод до поля — фокус query.layout переходит к «Демо: поле», ui.mode называет её в режиме input; первый Ctrl-\\ — запись mode.navigation, выход armed у неё, поле без ввода; второй — режим input, выход idle, ввод снова в поле, буква a дописывается в поле"
 }
 
 # --- keymap.toml и источник ввода ---

@@ -105,6 +105,12 @@ enum FilterStep {
     Close { clear: bool },
 }
 
+/// Второй аккорд выхода возвращает ввод в строку фильтра, только если перед первым он шёл в ней и
+/// строка всё ещё открыта: ввод из поля тела в открытую строку не уходит.
+fn resumes_in_row(in_filter: bool, row_open: bool) -> bool {
+    in_filter && row_open
+}
+
 /// `Enter` закрывает строку и оставляет фильтр, `Esc` закрывает её и снимает фильтр.
 fn filter_step(intent: TextFieldIntent) -> FilterStep {
     match intent {
@@ -336,16 +342,22 @@ impl LayoutUi {
         self.bodies.intent(panel, intent)
     }
 
-    /// Панель с фокусом для действий `mode.*` и признак получателя ввода её плагина.
+    /// Панель для действий `mode.*` и клавиш и признак получателя ввода её плагина: панель, чьё
+    /// поле держит ввод, иначе панель с фокусом. Поле панели без фокуса держит ввод, когда обход
+    /// `Tab` довёл ввод до поля, а команда фокуса ещё в пути, и когда фокус ушёл командой на панель,
+    /// которая ввод себе не берёт, а строка фильтра прежней панели его не отдала.
     pub fn mode_target(&self) -> Option<(PanelId, bool)> {
-        scene::mode_target(self.scene.as_ref()?, &self.registry)
+        let scene = self.scene.as_ref()?;
+        self.typing()
+            .and_then(|panel| scene::panel_target(scene, &self.registry, panel))
+            .or_else(|| scene::mode_target(scene, &self.registry))
     }
 
-    /// Панель с фокусом для решения о клавише: получатель ввода, плагин её контекста keymap и
-    /// признак получателя ввода. `None` — вид панели с фокусом не показан.
+    /// Панель для решения о клавише ([`Self::mode_target`]): получатель ввода, плагин её контекста
+    /// keymap и признак получателя ввода. `None` — вид панели не показан.
     pub fn key_focus(&self) -> Option<PanelFocus<ModeReceiver>> {
         let scene = self.scene.as_ref()?;
-        let (panel, input) = scene::mode_target(scene, &self.registry)?;
+        let (panel, input) = self.mode_target()?;
         let plugin = scene.bench.as_ref()?.views.get(&panel)?.plugin.to_string();
         Some(PanelFocus {
             receiver: ModeReceiver::Panel(panel),
@@ -457,6 +469,20 @@ impl LayoutUi {
         }
     }
 
+    /// Ввод панели после второго аккорда выхода. `in_filter` — перед первым аккордом ввод шёл в
+    /// строке фильтра панели: он возвращается в неё, пока строка открыта над показанным телом.
+    /// Иначе — как `mode.input` ([`Self::set_input`]).
+    pub fn resume_input(&self, panel: PanelId, in_filter: bool) {
+        let row = self
+            .filters
+            .get(&panel)
+            .filter(|row| resumes_in_row(in_filter, row.open && self.bodies.active(panel)));
+        if row.is_some_and(|row| row.field.focus()) {
+            return;
+        }
+        self.set_input(panel, true);
+    }
+
     /// Запрос действия `name` плагина для панели с фокусом, вызванного клавишей: `args` привязки
     /// или аргументы её вида.
     pub fn key_request(
@@ -545,7 +571,7 @@ impl LayoutUi {
     }
 
     /// Панель, в чьей открытой строке фильтра идёт ввод.
-    fn filter_typing(&self) -> Option<PanelId> {
+    pub fn filter_typing(&self) -> Option<PanelId> {
         self.filters
             .iter()
             .find(|(_, row)| row.open && row.field.is_editing())
@@ -554,9 +580,11 @@ impl LayoutUi {
 
     /// Строки фильтра по последней сцене: открытая строка панели с показанным телом стоит у
     /// правого верхнего угла её плитки поверх строки вкладок, остальные скрыты. `typing` — панель, строка которой держит ввод: перестановка
-    /// плитки его сбрасывает, строка получает его обратно.
+    /// плитки его сбрасывает, строка получает его обратно, пока фокус на её панели. Фокус, ушедший
+    /// с панели, ввод строке не возвращает: иначе ввод в поле панели без фокуса вернул бы фокус к ней.
     fn place_filters(&mut self, typing: Option<PanelId>) {
         let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
+        let typing = typing.filter(|&panel| bench.and_then(|bench| bench.focus) == Some(panel));
         let size = filter_size(&self.theme);
         for (panel, row) in &self.filters {
             let place = bench
@@ -1823,6 +1851,16 @@ mod tests {
             filter_step(TextFieldIntent::Changed("ета".into())),
             FilterStep::Text("ета".into())
         );
+    }
+
+    /// Второй аккорд выхода возвращает ввод в строку фильтра, только когда перед первым ввод шёл в
+    /// ней и строка открыта; ввод тела в открытую строку не уходит.
+    #[test]
+    fn second_exit_chord_resumes_in_the_row_only_when_the_row_held_input() {
+        assert!(resumes_in_row(true, true));
+        assert!(!resumes_in_row(true, false));
+        assert!(!resumes_in_row(false, true));
+        assert!(!resumes_in_row(false, false));
     }
 
     /// Каждый ключ сверки, который назначают заголовок, строка статуса и раскладка, есть в

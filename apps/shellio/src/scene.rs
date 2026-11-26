@@ -153,9 +153,12 @@ pub fn intent_target(scene: &Scene, registry: &Registry, intent: &ViewIntent) ->
 /// Панель, на которую действует `mode.*`: панель с фокусом, если её вид показан. Второе значение —
 /// у её плагина есть получатель режима `Input`.
 pub fn mode_target(scene: &Scene, registry: &Registry) -> Option<(PanelId, bool)> {
-    let bench = scene.bench.as_ref()?;
-    let panel = bench.focus?;
-    let slot = bench.views.get(&panel)?;
+    panel_target(scene, registry, scene.bench.as_ref()?.focus?)
+}
+
+/// Панель `panel`, если её вид показан, и признак получателя режима `Input` у её плагина.
+pub fn panel_target(scene: &Scene, registry: &Registry, panel: PanelId) -> Option<(PanelId, bool)> {
+    let slot = scene.bench.as_ref()?.views.get(&panel)?;
     if !slot.shown() {
         return None;
     }
