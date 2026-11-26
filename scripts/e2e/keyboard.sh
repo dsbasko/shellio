@@ -70,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 4 2 4 1 5 5 6 6 5 5 6 6 5 5 6 6 6 0)
+STAGE=(1 2 2 3 5 2 4 1 5 5 6 6 5 5 6 6 5 5 6 6 6 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=3
+DONE_STAGE=4
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -84,6 +84,9 @@ K_T=17
 K_V=9
 K_S=1
 K_X=7
+K_Z=6
+K_0=29
+K_SPACE=49
 K_1=18
 K_2=19
 K_3=20
@@ -1438,7 +1441,7 @@ keymap_file() {
       [[ "$has" != "$want" ]] || return 0
     fi
     if (($(now_ms) >= deadline)); then
-      WHY="за $KEYMAP_MS мс query.keymap после правки keymap.toml: строка «$seq» — ${has:-не прочитана}, ожидалось $want"
+      WHY="за $KEYMAP_MS мс query.keymap после правки keymap.toml: строка «${seq}» — ${has:-не прочитана}, ожидалось $want"
       return 1
     fi
     sleep "$POLL"
@@ -1461,7 +1464,7 @@ refused_split() {
   [[ "$OUTCOME" == invalid_argument ]] ||
     failures+=("$name: исход записи кольца — $OUTCOME, ожидался отказ invalid_argument")
   if wait_status "$dir/$name.status" shown; then
-    [[ "$STATUS_TEXT" == "$text" ]] || failures+=("$name: сообщение строки статуса «$STATUS_TEXT», ожидалось «$text»")
+    [[ "$STATUS_TEXT" == "$text" ]] || failures+=("$name: сообщение строки статуса «${STATUS_TEXT}», ожидалось «${text}»")
   else
     failures+=("$name: $WHY")
   fi
@@ -1594,6 +1597,81 @@ item_list_owns_keys() {
   conclude "$item" "«Демо: список» в центре, слева и снизу — терминалы: k и j ведут выбор query.panel $last → ${prev:-?} → $last, j на последней строке и h оставляют выбор $last (следующий k уводит на ${prev:-?}), фокус query.layout остаётся в списке; на каждую клавишу одна запись ui.receipts list.* с источником key без отказа"
 }
 
+# Отметка кнопки зоны с названием label: значение AX-переключателя кнопки окна владельца — в MARK («нет» — кнопки
+# с таким названием нет); вывод — <prefix>.stdout, иначе WHY.
+MARK=""
+zone_mark() {
+  local prefix="$1" label="$2"
+  WHY=""
+  MARK=""
+  osascript -l JavaScript -e "
+    const p = Application('System Events').processes.whose({unixId: $owner_pid})[0];
+    const b = p.windows[0].buttons.whose({description: '$label'});
+    b.length ? String(b[0].attributes.byName('AXValue').value()) : 'нет'" >"$prefix.stdout" 2>"$prefix.stderr" || {
+    WHY="AX кнопки «${label}» не прочитан: $(oneline "$prefix.stderr")"
+    return 1
+  }
+  MARK="$(tr -d '[:space:]' <"$prefix.stdout")"
+}
+
+# Клавиши видимости зоны дважды: zstep <каталог> <имя> <действие> <поле hidden> <название кнопки> <аккорд>… — первое
+# нажатие скрывает, второе показывает; на каждое одна запись кольца, одна дельта ядра, layout.hidden по ожиданию,
+# название третьей кнопки в ui.inspect и отметка AX кнопки (true — зона показана, false — скрыта).
+zstep() {
+  local dir="$1" name="$2" action="$3" field="$4" label="$5" round want mark
+  shift 5
+  for round in hide show; do
+    want='$l->{hidden}{'"$field"'}'
+    mark=false
+    if [[ "$round" == show ]]; then
+      want="!$want"
+      mark=true
+    fi
+    kstep "$dir" "$name-$round" "$action" "layout.hidden.$field после $round" "$want" "$@"
+    if ui_read "$profile" "$dir/$name-$round.inspect" inspect; then
+      [[ "$(comp "$dir/$name-$round.inspect.stdout" "$ZONE_NODE" label 2>/dev/null || echo ?)" == "$ZONE_LABEL" ]] ||
+        failures+=("$name-$round: третья кнопка в ui.inspect — «$(comp "$dir/$name-$round.inspect.stdout" "$ZONE_NODE" label 2>/dev/null || echo ?)», ожидалась «${ZONE_LABEL}»")
+    else
+      failures+=("$name-$round: ui.inspect не прочитан")
+    fi
+    if zone_mark "$dir/$name-$round.mark-ax" "$label"; then
+      [[ "$MARK" == "$mark" ]] || failures+=("$name-$round: отметка AX кнопки «${label}» — $MARK, ожидалась $mark")
+    else
+      failures+=("$name-$round: $WHY")
+    fi
+  done
+}
+
+# Cmd-0, Cmd-j, Cmd-Alt-0 и Space z h, j, l в двух раскладках: правая зона занята — третья кнопка «Правая зона»
+# и цель side — правая зона; правая пуста, плитка левой занята — «Левая зона» и плитка. Клавиши идут при фокусе в
+# теле панели центра.
+ZONE_NODE=chrome.zone.right
+ZONE_LABEL=""
+item_zones_toggle() {
+  local item=zones-toggle dir="$run/zones-toggle"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  ZONE_LABEL="Правая зона"
+  zstep "$dir" cmd-0 layout.toggle.navigator navigator "Навигация" "$K_0+command"
+  zstep "$dir" cmd-j layout.toggle.bottom bottom "Нижняя зона" "$K_J+command"
+  zstep "$dir" cmd-alt-0 layout.toggle.side right "Правая зона" "$K_0+command+option"
+  zstep "$dir" space-z-h layout.toggle.navigator navigator "Навигация" "$K_SPACE" "$K_Z" "$K_H"
+  zstep "$dir" space-z-j layout.toggle.bottom bottom "Нижняя зона" "$K_SPACE" "$K_Z" "$K_J"
+  zstep "$dir" space-z-l layout.toggle.side right "Правая зона" "$K_SPACE" "$K_Z" "$K_L"
+  # Вторая раскладка: правая зона пуста, плитка левой занята.
+  core_cmd "$profile" "$dir/close-right" panel close "$p_right" --all || fatal "$item: $WHY"
+  core_cmd "$profile" "$dir/focus-center" panel focus "$p_center" --all || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/two" "$wb_a" "$REV" || fatal "$item: $WHY"
+  [[ "$(parts_of "$dir/two.layout.stdout" right)" == 0 && "$(parts_of "$dir/two.layout.stdout" left)" == 1 ]] ||
+    fatal "$item: подготовка второй раскладки: частей справа $(parts_of "$dir/two.layout.stdout" right), слева $(parts_of "$dir/two.layout.stdout" left)"
+  ZONE_LABEL="Левая зона"
+  zstep "$dir" two-cmd-alt-0 layout.toggle.side plate "Левая зона" "$K_0+command+option"
+  zstep "$dir" two-space-z-l layout.toggle.side plate "Левая зона" "$K_SPACE" "$K_Z" "$K_L"
+  conclude "$item" "правая зона занята: Cmd-0, Cmd-j, Cmd-Alt-0 и Space z h, j, l скрывают и показывают колонку навигатора, нижнюю и правую зоны, третья кнопка — «Правая зона»; правая пуста, плитка левой занята: Cmd-Alt-0 и Space z l скрывают и показывают плитку, третья кнопка — «Левая зона»; на каждое нажатие одна запись ui.receipts layout.toggle.* с источником key, одна дельта events --since, layout.hidden и отметка AX кнопки по ожиданию"
+}
+
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
@@ -1623,6 +1701,7 @@ item_list_owns_keys
 item_move_and_split
 item_wrong_axis
 item_tabs
+item_zones_toggle
 item_appearance_cycle
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
