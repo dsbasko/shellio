@@ -210,6 +210,10 @@ struct RowIvars {
     icon_name: RefCell<String>,
     /// Ширины набора названия, пояснения и плашек для раскладки частей.
     widths: Cell<(f64, f64)>,
+    /// Заливка выбора под строкой: её рисует строка таблицы, а не этот вид.
+    selection: Cell<Option<style::Rgba>>,
+    /// Название группы до прописных: текст заголовка паспорта (прописные даёт CSS).
+    group: RefCell<String>,
     header: bool,
 }
 
@@ -254,6 +258,8 @@ impl PaletteRowView {
             keys: RefCell::new(Vec::new()),
             icon_name: RefCell::new(String::new()),
             widths: Cell::new((0.0, 0.0)),
+            selection: Cell::new(None),
+            group: RefCell::new(String::new()),
             header,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
@@ -275,14 +281,17 @@ impl PaletteRowView {
         });
         let color = layer::ns_color(theme.colors.text_3);
         let size = theme.metrics.font.caption;
-        self.ivars()
-            .title
-            .setAttributedStringValue(&style::spaced_text(
-                &title.to_uppercase(),
-                &font,
-                &color,
-                size * GROUP_SPACING,
-            ));
+        let field = &self.ivars().title;
+        // Шрифт и цвет поля — те же, что у строки с интервалом: чтение берёт их у поля.
+        field.setFont(Some(&font));
+        field.setTextColor(Some(&color));
+        title.clone_into(&mut self.ivars().group.borrow_mut());
+        field.setAttributedStringValue(&style::spaced_text(
+            &title.to_uppercase(),
+            &font,
+            &color,
+            size * GROUP_SPACING,
+        ));
         self.place();
     }
 
@@ -316,6 +325,11 @@ impl PaletteRowView {
             .icon
             .setImage(icon::image(&spec.icon, ROW_ICON, &description).as_deref());
         let ink = if selected { colors.text } else { colors.text_2 };
+        ivars.selection.set(
+            selected
+                .then(|| style::rgba(&layer::ns_color(colors.selection)))
+                .flatten(),
+        );
         ivars.icon.setContentTintColor(Some(&layer::ns_color(ink)));
         {
             let mut keys = ivars.keys.borrow_mut();
@@ -396,6 +410,9 @@ impl PaletteRowView {
                 (frame.width - 2.0 * ROW_INSET).max(0.0),
                 frame.height,
             );
+            let style = row.style.get_or_insert_with(style::Style::default);
+            style.radius = Some(SELECTION_RADIUS);
+            style.fill = ivars.selection.get();
         }
         let whole = self.visibleRect().size.height >= self.bounds().size.height;
         let mut nodes = vec![row];
@@ -406,6 +423,7 @@ impl PaletteRowView {
             nodes[0] =
                 inspect::typeset_node(ck, "PaletteGroupTitle", parent, &ivars.title).with_ck(ck);
             nodes[0].facts.frame = inspect::frame_of(self.convertRect_toView(self.bounds(), None));
+            nodes[0].facts.label = Some(ivars.group.borrow().clone());
             return nodes;
         }
         let color = ivars
@@ -1116,13 +1134,31 @@ impl CommandPalette {
             .with_ck("palette.list"),
         );
         let state = self.state.borrow();
+        let mut group = 0;
         for (index, view) in self.list.shown_views() {
             let Some(view) = view.downcast_ref::<PaletteRowView>() else {
                 continue;
             };
-            if let Some(ck) = rows::row_ck(&state, index) {
-                nodes.extend(view.nodes(&ck, "palette.list"));
+            let Some(place) = rows::row_place(&state, index) else {
+                continue;
+            };
+            let group_ck = place.group_ck();
+            // Группа — узел паспорта без своего вида: рамку даёт первый видимый вид её строки.
+            if place.group != group {
+                group = place.group;
+                let frame = inspect::frame_of(view.convertRect_toView(view.bounds(), None));
+                nodes.push(
+                    inspect::rect_node(
+                        &group_ck,
+                        "PaletteGroup",
+                        "palette.list",
+                        inspect::object_id(self.list.ns_view()),
+                        place.group_frame(frame),
+                    )
+                    .with_ck(group_ck.clone()),
+                );
             }
+            nodes.extend(view.nodes(&place.ck(), &group_ck));
         }
         if !self.empty.isHidden() {
             let mut empty =

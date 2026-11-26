@@ -109,6 +109,27 @@ pub fn key_badges(keys: &[String]) -> Vec<String> {
     badges
 }
 
+/// Подписи плашек клавиш строки палитры (правило `K.keyChips` прототипа): как [`key_badges`], но
+/// каждый знак `⌥⇧⌘` — отдельная плашка перед клавишей.
+pub fn chip_badges(keys: &[String]) -> Vec<String> {
+    const SIGNS: [char; 3] = ['⌥', '⇧', '⌘'];
+    key_badges(keys)
+        .into_iter()
+        .flat_map(|badge| {
+            let key = badge.trim_start_matches(SIGNS);
+            if key.is_empty() || key.len() == badge.len() {
+                return vec![badge];
+            }
+            let mut chips: Vec<String> = badge[..badge.len() - key.len()]
+                .chars()
+                .map(String::from)
+                .collect();
+            chips.push(key.to_owned());
+            chips
+        })
+        .collect()
+}
+
 /// Подсказка строки статуса: клавиши по одной и подпись.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatusHint {
@@ -820,5 +841,17 @@ mod tests {
         assert_eq!(keys(&["Ctrl-\\"]), ["Ctrl", "\\"]);
         assert_eq!(keys(&["Ctrl-Shift-Esc"]), ["Ctrl", "⇧esc"]);
         assert_eq!(keys(&["-", "Ctrl--"]), ["-", "Ctrl", "-"]);
+    }
+
+    #[test]
+    fn chip_badges_split_every_sign() {
+        let chips =
+            |keys: &[&str]| chip_badges(&keys.iter().map(|k| (*k).to_owned()).collect::<Vec<_>>());
+        assert_eq!(chips(&["Cmd-Alt-t"]), ["⌥", "⌘", "T"]);
+        assert_eq!(chips(&["Cmd-q"]), ["⌘", "Q"]);
+        assert_eq!(chips(&["Ctrl-\\"]), ["Ctrl", "\\"]);
+        assert_eq!(chips(&["Ctrl-w", "v"]), ["Ctrl", "w", "v"]);
+        assert_eq!(chips(&["Ctrl-Shift-Esc"]), ["Ctrl", "⇧", "esc"]);
+        assert_eq!(chips(&["Esc", "h"]), ["esc", "h"]);
     }
 }

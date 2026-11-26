@@ -138,7 +138,7 @@ pub use runloop::{
 pub use split_view::{
     Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
 };
-pub use status_line::{StatusHint, StatusLine, key_badges};
+pub use status_line::{StatusHint, StatusLine, chip_badges, key_badges};
 pub use style::{
     FontFacts, IconFacts, Padding, Rgba, ShadowFacts, Side, Style, css_weight, seen_fill,
 };

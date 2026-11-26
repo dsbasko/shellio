@@ -5,7 +5,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use super::layout::ListContent;
+use super::layout::{GROUP_TITLE, ListContent, ROW};
+use crate::chrome_bar::Frame;
 use crate::components::virtual_list::model::{ListState, Row, RowKind};
 
 /// Плейсхолдер поля запроса (прототип, `overlays.js`).
@@ -116,20 +117,55 @@ pub fn list_content(state: &CommandPaletteState) -> ListContent {
     )
 }
 
-/// Ключ сверки строки списка с номером `index`: заголовок — `palette.group.{n}.title`, строка —
-/// `palette.group.{n}.row.{m}`. Номера групп — по показанным группам, с единицы.
-pub fn row_ck(state: &CommandPaletteState, index: usize) -> Option<String> {
+/// Место строки списка в показанных группах: номер группы и номер строки в ней с единицы, у
+/// заголовка группы строки нет.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RowPlace {
+    pub group: usize,
+    pub row: Option<usize>,
+    /// Число строк группы.
+    pub rows: usize,
+}
+
+impl RowPlace {
+    /// Ключ сверки группы — `palette.group.{n}`.
+    pub fn group_ck(&self) -> String {
+        format!("palette.group.{}", self.group)
+    }
+
+    /// Ключ сверки строки: заголовок — `palette.group.{n}.title`, строка — `palette.group.{n}.row.{m}`.
+    pub fn ck(&self) -> String {
+        match self.row {
+            None => format!("{}.title", self.group_ck()),
+            Some(row) => format!("{}.row.{row}", self.group_ck()),
+        }
+    }
+
+    /// Рамка группы по рамке вида строки `view` в точках окна (начало внизу слева): от верха
+    /// заголовка до низа последней строки, без отсечения областью списка, как узел паспорта.
+    pub fn group_frame(&self, view: Frame) -> Frame {
+        let above = self
+            .row
+            .map_or(0.0, |row| GROUP_TITLE + (row - 1) as f64 * ROW);
+        let height = GROUP_TITLE + self.rows as f64 * ROW;
+        let top = view.y + view.height + above;
+        Frame::new(view.x, top - height, view.width, height)
+    }
+}
+
+/// Место строки списка с номером `index`. Номера групп — по показанным группам, с единицы.
+pub fn row_place(state: &CommandPaletteState, index: usize) -> Option<RowPlace> {
     let mut at = 0;
     for (number, (_, group)) in shown_groups(state).enumerate() {
-        let group_ck = format!("palette.group.{}", number + 1);
-        if index == at {
-            return Some(format!("{group_ck}.title"));
+        let rows = group.rows.len();
+        if index < at + 1 + rows {
+            return Some(RowPlace {
+                group: number + 1,
+                row: (index > at).then(|| index - at),
+                rows,
+            });
         }
-        at += 1;
-        if index < at + group.rows.len() {
-            return Some(format!("{group_ck}.row.{}", index - at + 1));
-        }
-        at += group.rows.len();
+        at += 1 + rows;
     }
     None
 }
@@ -257,7 +293,9 @@ mod tests {
     #[test]
     fn row_keys_number_shown_groups_from_one() {
         let palette = state();
-        let keys: Vec<Option<String>> = (0..6).map(|index| row_ck(&palette, index)).collect();
+        let keys: Vec<Option<String>> = (0..6)
+            .map(|index| row_place(&palette, index).map(|place| place.ck()))
+            .collect();
         assert_eq!(
             keys,
             [
@@ -270,6 +308,10 @@ mod tests {
             ]
         );
         assert_eq!(
+            row_place(&palette, 4).map(|place| place.group_ck()),
+            Some("palette.group.2".to_owned())
+        );
+        assert_eq!(
             key_ck("palette.footer.hint.2", 0, 1),
             "palette.footer.hint.2.key"
         );
@@ -278,5 +320,29 @@ mod tests {
             "palette.footer.hint.1.key.2"
         );
         assert_eq!(palette.row("app.quit").map(|row| row.keys.len()), Some(1));
+    }
+
+    /// Группа «Панели» `palette-groups`: верх 497,390625 в строках окна высотой 720, шесть строк.
+    /// Рамка не обрезается концом списка, видна ли её вторая строка или только заголовок.
+    #[test]
+    fn group_frame_spans_title_and_every_row() {
+        let window = 720.0;
+        let flip = |y: f64, height: f64| window - y - height;
+        let title = RowPlace {
+            group: 2,
+            row: None,
+            rows: 6,
+        };
+        let second = RowPlace {
+            row: Some(2),
+            ..title
+        };
+        let expected = Frame::new(271.0, flip(497.390625, 236.0), 638.0, 236.0);
+        let title_view = Frame::new(271.0, flip(497.390625, GROUP_TITLE), 638.0, GROUP_TITLE);
+        let row_view = Frame::new(271.0, flip(563.390625, ROW), 638.0, ROW);
+        for frame in [title.group_frame(title_view), second.group_frame(row_view)] {
+            assert!((frame.y - expected.y).abs() < 1e-9, "{frame:?}");
+            assert_eq!((frame.x, frame.width, frame.height), (271.0, 638.0, 236.0));
+        }
     }
 }

@@ -288,13 +288,14 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
         })
         .map(|manifest| panel_rows(manifest, facts.resolve))
         .unwrap_or_default();
+    // Порядок создания панелей, как `Object.values(St.panels)` прототипа: id панели — UUIDv7, и
+    // `views` по id идут в порядке создания, а не в порядке зон раскладки.
     let open = bench
         .map(|bench| {
             bench
-                .layout
-                .panels()
-                .filter_map(|panel| {
-                    let slot = bench.views.get(&panel)?;
+                .views
+                .iter()
+                .filter_map(|(&panel, slot)| {
                     let place = bench.layout.locate(panel)?;
                     // Навигатор без хрома в «Панели» не входит (`def.chromeless`).
                     if place == Location::Navigator
@@ -558,6 +559,24 @@ mod tests {
             .find(|manifest| manifest.id == "demo-native")
             .unwrap();
         assert_eq!(pair.open[0].icon, native.icon);
+
+        // «Панели» идут в порядке создания, а не в порядке раскладки: список создан позже поля,
+        // но стоит перед ним.
+        let list: PanelId = id(21);
+        fixture.state.panels.insert(
+            list,
+            Panel {
+                id: list,
+                workbench: fixture.workbench,
+                plugin: PluginId::new("demo-list").unwrap(),
+                title: Title::new("Демо: список").unwrap(),
+                created_at: UnixMillis(0),
+            },
+        );
+        let center = &mut layout_mut(&mut fixture).zones.center.parts;
+        center.insert(1, Part::single(list, SHARE_TOTAL));
+        let order = source_of(&fixture, terminal);
+        assert_eq!(titles(&order.open), ["Демо: поле", "Демо: список"]);
     }
 
     #[test]

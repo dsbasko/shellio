@@ -41,7 +41,7 @@ use shellio_appkit::{
     MenuState, MonitorEvent, NodeState, PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow,
     Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
     TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
-    Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts, key_badges, late_callbacks,
+    Verdict, VirtualListFacts, ZoneButton, ZoneSide, chip_badges, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -3111,7 +3111,7 @@ fn show_palette() {
     });
 }
 
-/// Состояние вида палитры из модели: подписи плашек клавиш — по правилу строки статуса.
+/// Состояние вида палитры из модели: подписи плашек клавиш — по правилу `K.keyChips` прототипа.
 fn palette_spec(palette: &Palette) -> CommandPaletteState {
     let view = palette.view();
     CommandPaletteState {
@@ -3146,7 +3146,7 @@ fn palette_row_spec(row: &PaletteRow) -> PaletteRowSpec {
         icon: row.icon.clone(),
         title: row.title.clone(),
         detail: row.detail.clone(),
-        keys: key_badges(&chords),
+        keys: chip_badges(&chords),
     }
 }
 
