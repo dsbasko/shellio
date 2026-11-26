@@ -542,34 +542,45 @@ pub fn relative(frame: Rect, origin: Rect) -> Rect {
     }
 }
 
-/// Отступы строки фильтра хоста от правого и верхнего края тела панели в плитке
-/// (`.pfilter { right: 10px; top: 6px }` прототипа).
+/// Отступы строки фильтра хоста от правого и верхнего внутреннего края плитки
+/// (`.pfilter { right: 10px; top: 6px }` прототипа: строка стоит поверх правого края строки
+/// вкладок и её кнопок).
 pub const FILTER_RIGHT: f64 = 10.0;
 pub const FILTER_TOP: f64 = 6.0;
 /// Отступ строки фильтра от боковых краёв тела колонки навигатора
 /// (`.side .pfilter { left: 2px; right: 2px; top: 0 }` прототипа).
 pub const FILTER_COLUMN_SIDE: f64 = 2.0;
 
-/// Кадр строки фильтра хоста поверх тела `body` панели на месте `host`; `size` — собственный
-/// размер строки. Строка лежит над телом и места у него не забирает. В плитке она стоит у правого
-/// верхнего угла тела, в колонке навигатора тянется во всю ширину тела. Тело уже строки сжимает
-/// её до своей ширины: за край тела строка не выходит.
-pub fn filter_rect(host: Host, body: Rect, size: (f64, f64)) -> Rect {
+/// Внутренний прямоугольник плитки части: строка вкладок `tab_strip` и тело `body` под ней, без
+/// линии плитки.
+pub fn plate_inner(tab_strip: Rect, body: Rect) -> Rect {
+    Rect {
+        height: (body.bottom() - tab_strip.y).max(tab_strip.height),
+        ..tab_strip
+    }
+}
+
+/// Кадр строки фильтра хоста на месте `host`; `size` — собственный размер строки. Строка лежит
+/// поверх содержимого и места у него не забирает. В плитке `area` — её внутренний прямоугольник
+/// ([`plate_inner`]): строка стоит у его правого верхнего угла, поверх строки вкладок. В колонке
+/// навигатора `area` — тело панели, строка тянется во всю его ширину. Прямоугольник уже строки
+/// сжимает её до своей ширины: за его край строка не выходит.
+pub fn filter_rect(host: Host, area: Rect, size: (f64, f64)) -> Rect {
     let (width, height) = size;
-    let height = height.min(body.height);
+    let height = height.min(area.height);
     match host {
         Host::Navigator => Rect {
-            x: body.x + FILTER_COLUMN_SIDE.min(body.width / 2.0),
-            y: body.y,
-            width: (body.width - 2.0 * FILTER_COLUMN_SIDE).max(0.0),
+            x: area.x + FILTER_COLUMN_SIDE.min(area.width / 2.0),
+            y: area.y,
+            width: (area.width - 2.0 * FILTER_COLUMN_SIDE).max(0.0),
             height,
         },
         Host::Part(_) | Host::Zoom => {
-            let width = width.min(body.width);
-            let right = FILTER_RIGHT.min(body.width - width);
+            let width = width.min(area.width);
+            let right = FILTER_RIGHT.min(area.width - width);
             Rect {
-                x: body.right() - right - width,
-                y: body.y + FILTER_TOP.min(body.height - height),
+                x: area.right() - right - width,
+                y: area.y + FILTER_TOP.min(area.height - height),
                 width,
                 height,
             }
@@ -3192,28 +3203,55 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn filter_row_sits_at_the_top_right_of_a_plate_body() {
-        let body = Rect {
-            x: 300.0,
-            y: 80.0,
-            width: 400.0,
-            height: 300.0,
+    fn filter_row_sits_at_the_top_right_of_a_plate_over_its_tab_strip() {
+        // Строка вкладок и тело правой части в паспорте `panel-filter`.
+        let tab_strip = Rect {
+            x: 803.0,
+            y: 47.0,
+            width: 370.0,
+            height: 34.0,
         };
+        let body = Rect {
+            x: 803.0,
+            y: 81.0,
+            width: 370.0,
+            height: 606.0,
+        };
+        let inner = plate_inner(tab_strip, body);
+        assert_eq!(
+            inner,
+            Rect {
+                x: 803.0,
+                y: 47.0,
+                width: 370.0,
+                height: 640.0,
+            }
+        );
         let size = (205.0, 26.0);
         let part = Host::Part(PartKey {
-            zone: Zone::Center,
+            zone: Zone::Right,
             index: 0,
         });
         for host in [part, Host::Zoom] {
-            let row = filter_rect(host, body, size);
-            assert_eq!((row.width, row.height), size);
-            assert_eq!(body.right() - row.right(), FILTER_RIGHT);
-            assert_eq!(row.y - body.y, FILTER_TOP);
+            let row = filter_rect(host, inner, size);
+            assert_eq!(
+                row,
+                Rect {
+                    x: 958.0,
+                    y: 53.0,
+                    width: 205.0,
+                    height: 26.0,
+                },
+                "кадр подложки строки в паспорте"
+            );
+            assert_eq!(inner.right() - row.right(), FILTER_RIGHT);
+            assert_eq!(row.y - inner.y, FILTER_TOP);
+            assert!(row.y < body.y, "строка стоит поверх строки вкладок");
         }
     }
 
     #[test]
-    fn filter_row_never_leaves_a_small_body() {
+    fn filter_row_never_leaves_a_small_plate() {
         let size = (205.0, 26.0);
         let narrow = Rect {
             x: 10.0,

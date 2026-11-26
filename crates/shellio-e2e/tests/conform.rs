@@ -264,6 +264,95 @@ fn mirror_of_every_passport_has_no_mismatch() {
     }
 }
 
+/// Зеркало паспорта `panel-filter`, где текст строки фильтра — узел продукта: класс
+/// `FilterInput`, `label` — имя для доступности, показанное лежит в состоянии поля.
+fn filter_mirror(passport: &Passport, value: &str, placeholder: &str) -> Value {
+    let mut tree = mirror(passport);
+    let input = node(&mut tree, FILTER_INPUT_KEY);
+    input["class"] = json!("FilterInput");
+    input["label"] = json!("Фильтр");
+    input["state"] = json!({"text_field": {
+        "value": value,
+        "placeholder": placeholder,
+        "editable": true,
+        "editing": true,
+    }});
+    tree
+}
+
+const FILTER_INPUT_KEY: &str = "zone.right.part.1.filter.input";
+
+#[test]
+fn filter_row_text_is_read_from_the_field_state_in_every_cell() {
+    for cell in CELLS {
+        let passport = passport("panel-filter", cell);
+        let shown = run(
+            "panel-filter",
+            &passport,
+            &filter_mirror(&passport, "альфа", "Фильтр"),
+        );
+        assert_eq!(shown.mismatches, [], "значение поля, {cell}");
+        let empty = run(
+            "panel-filter",
+            &passport,
+            &filter_mirror(&passport, "", "альфа"),
+        );
+        assert_eq!(empty.mismatches, [], "плейсхолдер пустого поля, {cell}");
+        let other = run(
+            "panel-filter",
+            &passport,
+            &filter_mirror(&passport, "бета", "альфа"),
+        );
+        let mismatch = only(&other, FILTER_INPUT_KEY, Field::Text);
+        assert_eq!(
+            (mismatch.expected.as_str(), mismatch.actual.as_str()),
+            ("альфа", "бета"),
+            "{cell}"
+        );
+    }
+}
+
+#[test]
+fn filter_row_text_without_field_state_is_a_text_mismatch() {
+    let passport = passport("panel-filter", CELLS[0]);
+    let mut tree = filter_mirror(&passport, "альфа", "Фильтр");
+    let input = node(&mut tree, FILTER_INPUT_KEY);
+    input["label"] = json!("альфа");
+    input["state"] = Value::Null;
+    let report = run("panel-filter", &passport, &tree);
+    let mismatch = only(&report, FILTER_INPUT_KEY, Field::Text);
+    assert_eq!(
+        mismatch.actual, "",
+        "подпись для доступности текстом не служит"
+    );
+}
+
+#[test]
+fn filter_row_bar_is_judged_by_three_shadows_and_no_layer_line() {
+    for cell in CELLS {
+        let passport = passport("panel-filter", cell);
+        let bar = "zone.right.part.1.filter";
+        // Подложка с линией слоя и без теней: кольцо паспорта — запись тени, а не линия.
+        let mut tree = filter_mirror(&passport, "альфа", "Фильтр");
+        let style = &mut node(&mut tree, bar)["style"];
+        let ring = style["shadow"][2]["color"].clone();
+        style["shadow"] = json!([]);
+        style["line_color"] = ring;
+        style["line_width"] = json!(1.0);
+        style["line_sides"] = json!(["top", "right", "bottom", "left"]);
+        let report = run("panel-filter", &passport, &tree);
+        let mut got = fields(&report, bar);
+        got.sort_by_key(|field| format!("{field:?}"));
+        assert_eq!(got, [Field::LineWidth, Field::Shadow], "{cell}");
+        assert_eq!(
+            report.mismatches.len(),
+            2,
+            "{cell}: {:#?}",
+            report.mismatches
+        );
+    }
+}
+
 #[test]
 fn snapshot_stage_gets_pseudo_masks_and_system_buttons() {
     let passport = passport("layout-all-zones", "dark-normal");

@@ -46,6 +46,9 @@ pub const FOCUS_LINE_WIDTH: f64 = 2.0;
 
 /// Отступ текста строки фильтра от её края по вертикали (`.pfilter { padding: 3px 8px }`).
 pub const FILTER_PAD_Y: f64 = 3.0;
+/// Поле текста строки фильтра выше строки текста на точку сверху и снизу: кадр `<input>` в
+/// паспорте `panel-filter` — 20 точек при межстрочном интервале 18.
+pub const FILTER_INPUT_PAD_Y: f64 = 1.0;
 /// Сторона значка строки фильтра и промежуток между ним и текстом (`.pfilter { gap: 6px }`).
 pub const FILTER_ICON: f64 = 13.0;
 pub const FILTER_GAP: f64 = 6.0;
@@ -109,12 +112,12 @@ impl TextFieldKind {
 }
 
 /// Размер строки фильтра: отступы, значок, промежуток и текст шириной [`FILTER_INPUT_WIDTH`];
-/// высота — одна строка текста с отступами. Линия подложки лежит внутри этого размера.
+/// высота — поле одной строки текста с отступами. Линия подложки лежит внутри этого размера.
 pub fn filter_size(theme: &AppTheme) -> (f64, f64) {
     let metrics = TextFieldKind::Filter.metrics();
     (
         2.0 * metrics.pad_x + metrics.icon + metrics.gap + FILTER_INPUT_WIDTH,
-        theme.metrics.line_height.body + 2.0 * metrics.pad_y,
+        theme.metrics.line_height.body + 2.0 * (FILTER_INPUT_PAD_Y + metrics.pad_y),
     )
 }
 
@@ -903,7 +906,11 @@ mod tests {
             let theme = AppTheme::for_cell(cell);
             let (width, height) = filter_size(&theme);
             assert_eq!(width, 205.0);
-            assert_eq!(height, theme.metrics.line_height.body + 2.0 * FILTER_PAD_Y);
+            assert_eq!(height, 26.0, "высота подложки в паспорте `panel-filter`");
+            assert_eq!(
+                height,
+                theme.metrics.line_height.body + 2.0 * (FILTER_INPUT_PAD_Y + FILTER_PAD_Y)
+            );
             assert_eq!(
                 TextFieldKind::Filter.text_span(width),
                 (FIELD_PAD_X + FILTER_ICON + FILTER_GAP, FILTER_INPUT_WIDTH)

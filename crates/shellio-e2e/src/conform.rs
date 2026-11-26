@@ -35,6 +35,10 @@ pub const BUNDLED_FONTS: &str = "/Contents/Resources/Fonts/";
 /// Класс узла подписи `NSButton`: его кадр — место заголовка в ячейке, а не набор текста.
 pub const BUTTON_TITLE: &str = "ButtonTitle";
 
+/// Класс узла текста строки фильтра: показанный текст несёт состояние поля, а `label` — имя
+/// для доступности.
+pub const FILTER_INPUT: &str = "FilterInput";
+
 /// Допуски калибровки.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Tolerances {
@@ -133,8 +137,19 @@ struct MenuView {
     items: Vec<MenuItemView>,
 }
 
+/// Состояние поля: показанное значение и плейсхолдер.
+#[derive(Debug, Clone, Deserialize)]
+struct TextFieldView {
+    #[serde(default)]
+    value: String,
+    #[serde(default)]
+    placeholder: String,
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 struct StateView {
+    #[serde(default)]
+    text_field: Option<TextFieldView>,
     #[serde(default)]
     tab_strip: Option<TabStripView>,
     #[serde(default)]
@@ -172,6 +187,22 @@ pub struct Node {
 #[derive(Debug, Clone, Copy, Deserialize)]
 struct ContentSize {
     height: f64,
+}
+
+impl Node {
+    /// Текст, который показывает узел. У текста строки фильтра это значение поля, а без него —
+    /// плейсхолдер: так же паспорт читает `<input>`. У остальных узлов — подпись.
+    fn shown_text(&self) -> Option<&str> {
+        if self.class != FILTER_INPUT {
+            return self.label.as_deref();
+        }
+        let field = self.state.as_ref()?.text_field.as_ref()?;
+        Some(if field.value.is_empty() {
+            &field.placeholder
+        } else {
+            &field.value
+        })
+    }
 }
 
 /// Дерево `ui.inspect` продукта.
@@ -654,12 +685,13 @@ impl Judge<'_> {
         }
         self.frame(element, node);
         if let Some(text) = &element.text {
-            if node.label.as_deref() != Some(text.as_str()) {
+            let shown = node.shown_text();
+            if shown != Some(text.as_str()) {
                 self.fail(
                     ck,
                     Field::Text,
                     text.clone(),
-                    node.label.clone().unwrap_or_default(),
+                    shown.unwrap_or_default().to_owned(),
                     None,
                 );
             }

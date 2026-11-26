@@ -364,8 +364,8 @@ impl LayoutUi {
             .map(|(&panel, _)| panel)
     }
 
-    /// Строки фильтра по последней сцене: открытая строка стоит над показанным телом своей панели
-    /// в её плитке, остальные скрыты. `typing` — панель, строка которой держит ввод: перестановка
+    /// Строки фильтра по последней сцене: открытая строка панели с показанным телом стоит у
+    /// правого верхнего угла её плитки поверх строки вкладок, остальные скрыты. `typing` — панель, строка которой держит ввод: перестановка
     /// плитки его сбрасывает, строка получает его обратно.
     fn place_filters(&mut self, typing: Option<PanelId>) {
         let bench = self.scene.as_ref().and_then(|scene| scene.bench.as_ref());
@@ -375,17 +375,18 @@ impl LayoutUi {
                 .filter(|_| row.open && self.bodies.active(*panel))
                 .and_then(|bench| {
                     let slot = bench.views.get(panel)?;
-                    let body = slot.body?;
-                    let (plate, origin) = match slot.host {
+                    slot.body?;
+                    let (plate, part) = match slot.host {
                         Host::Navigator => return None,
                         Host::Part(key) => (
                             self.plates.get(&key)?,
-                            bench.plates.get(&key)?.frame.as_ref()?.frame,
+                            bench.plates.get(&key)?.frame.as_ref()?,
                         ),
-                        Host::Zoom => (self.zoom.as_ref()?, bench.zoomed.as_ref()?.frame),
+                        Host::Zoom => (self.zoom.as_ref()?, bench.zoomed.as_ref()?),
                     };
-                    let rect = scene::filter_rect(slot.host, body, size);
-                    Some((plate, frame(scene::relative(rect, origin))))
+                    let inner = scene::plate_inner(part.tab_strip, part.body);
+                    let rect = scene::filter_rect(slot.host, inner, size);
+                    Some((plate, frame(scene::relative(rect, part.frame))))
                 });
             match place {
                 Some((plate, frame)) => {
