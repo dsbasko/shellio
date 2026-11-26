@@ -504,7 +504,17 @@ impl PluginView for View {
         handled(intent)
     }
 
+    fn resolve_args(&self, action: &str) -> Option<Value> {
+        resolve(action)
+    }
+
     fn close_view(&mut self) {}
+}
+
+/// `args` действия, вызванного клавишей без своих `args`. Без ввода исполнимо только «назад»:
+/// остальным действиям нужны значения, которых у вида нет.
+fn resolve(action: &str) -> Option<Value> {
+    (action == BACK).then(|| json!({}))
 }
 
 #[cfg(test)]
@@ -1068,6 +1078,22 @@ mod tests {
             "намерения проверены в каждом представлении"
         );
         assert!(sent > 0);
+    }
+
+    #[test]
+    fn key_without_args_runs_only_back() {
+        let model = shellio_plugin_api::DynModel::new(Model);
+        let data = serde_json::to_string(&state("c", &["a"], false)).unwrap();
+        for spec in MANIFEST.commands {
+            match resolve(spec.name) {
+                Some(args) => {
+                    assert_eq!(spec.name, BACK);
+                    model.command(&data, spec.name, Some(args)).unwrap();
+                }
+                None => assert_ne!(spec.name, BACK),
+            }
+        }
+        assert_eq!(resolve("demo-list.unknown"), None);
     }
 
     #[test]
