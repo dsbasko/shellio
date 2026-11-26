@@ -13,11 +13,11 @@ use std::time::Duration;
 use serde_json::Value;
 use shellio_control::{
     CLI_TIMEOUT, CellContrast, CellMotion, Contrast, GalleryCommand, GalleryFocus, GalleryStrip,
-    KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
+    KeymapRequest, Lightness, Motion, PaletteCategory, TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, HistoryStep, ListAction, ModeAction, PanelId, ProjectId, Revision,
-    SplitAxis, ToggleTarget, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, Command, HistoryStep, ListAction, ModeAction, OverlayKind, PanelId,
+    ProjectId, Revision, SplitAxis, ToggleTarget, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Dimension, Direction, Edge, Hideable, Zone};
 
@@ -72,6 +72,12 @@ pub const USAGE: &str = "\
   ui filter [<текст>]
   ui mode <navigation|input|toggle|get>
   ui history <back|forward|get>
+  ui overlay
+  ui palette open [--query <текст>] [--category <all|cmd|panel>]
+  ui palette close
+  ui hints <open|close>
+  ui cmdline <open|close>
+  ui cmdline run <текст>
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -208,11 +214,13 @@ enum Flag {
     Width,
     Height,
     Panel,
+    Query,
+    Category,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 27] = [
+    const ALL: [Self; 29] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -239,6 +247,8 @@ impl Flag {
         Self::Width,
         Self::Height,
         Self::Panel,
+        Self::Query,
+        Self::Category,
         Self::Help,
     ];
 
@@ -270,6 +280,8 @@ impl Flag {
             Self::Width => "--width",
             Self::Height => "--height",
             Self::Panel => "--panel",
+            Self::Query => "--query",
+            Self::Category => "--category",
             Self::Help => "--help",
         }
     }
@@ -295,7 +307,9 @@ impl Flag {
             | Self::Motion
             | Self::Axis
             | Self::By
-            | Self::Panel => true,
+            | Self::Panel
+            | Self::Query
+            | Self::Category => true,
             Self::Json
             | Self::All
             | Self::Follow
@@ -332,7 +346,9 @@ impl Flag {
             | Self::By
             | Self::Width
             | Self::Height
-            | Self::Panel => false,
+            | Self::Panel
+            | Self::Query
+            | Self::Category => false,
         }
     }
 
@@ -1224,6 +1240,74 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::History(step))))
+        }
+        "ui overlay" => {
+            given.only(call, &[])?;
+            operands::<0>(call, rest)?;
+            Ok(Action::Ui(UiRequest::Overlay))
+        }
+        "ui palette" => {
+            given.only(call, &[Flag::Query, Flag::Category])?;
+            let [verb] = operands(call, rest)?;
+            let query = given.value(Flag::Query).map(str::to_owned);
+            let category = given
+                .value(Flag::Category)
+                .map(|value| {
+                    PaletteCategory::parse(value).ok_or_else(|| {
+                        usage(format!(
+                            "--category: ожидается all, cmd или panel, получено «{value}»"
+                        ))
+                    })
+                })
+                .transpose()?;
+            match verb.as_str() {
+                "open" if query.is_none() && category.is_none() => Ok(Action::Ui(
+                    UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Palette)),
+                )),
+                "open" => Ok(Action::Ui(UiRequest::PaletteOpen { query, category })),
+                "close" if query.is_none() && category.is_none() => {
+                    Ok(Action::Ui(UiRequest::OverlayClose(OverlayKind::Palette)))
+                }
+                "close" => Err(usage(format!(
+                    "{call} close: --query и --category не применимы"
+                ))),
+                _ => Err(usage(format!(
+                    "{call}: ожидается open или close, получено «{verb}»"
+                ))),
+            }
+        }
+        "ui hints" => {
+            given.only(call, &[])?;
+            let [verb] = operands(call, rest)?;
+            match verb.as_str() {
+                "open" => Ok(Action::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                    OverlayKind::Hints,
+                )))),
+                "close" => Ok(Action::Ui(UiRequest::OverlayClose(OverlayKind::Hints))),
+                _ => Err(usage(format!(
+                    "{call}: ожидается open или close, получено «{verb}»"
+                ))),
+            }
+        }
+        "ui cmdline" => {
+            given.only(call, &[])?;
+            match rest {
+                [verb] if verb == "open" => Ok(Action::Ui(UiRequest::Command(
+                    UiCommand::OverlayOpen(OverlayKind::Cmdline),
+                ))),
+                [verb] if verb == "close" => {
+                    Ok(Action::Ui(UiRequest::OverlayClose(OverlayKind::Cmdline)))
+                }
+                [verb, text] if verb == "run" => {
+                    Ok(Action::Ui(UiRequest::CmdlineRun { text: text.clone() }))
+                }
+                [verb, ..] if verb == "run" => {
+                    Err(usage(format!("{call} run: ожидается один текст строки")))
+                }
+                _ => Err(usage(format!(
+                    "{call}: ожидается open, close или run <текст>"
+                ))),
+            }
         }
         "ui filter" => {
             given.only(call, &[])?;
@@ -2983,6 +3067,90 @@ mod tests {
         for (args, expected) in cases {
             let message = refused(args);
             assert!(message.contains(expected), "{args:?}: {message}");
+        }
+    }
+
+    #[test]
+    fn overlay_calls_parse_into_their_requests() {
+        assert_eq!(
+            action_of(&["ui", "overlay"]),
+            Action::Ui(UiRequest::Overlay)
+        );
+        assert_eq!(
+            action_of(&["ui", "palette", "open"]),
+            Action::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                OverlayKind::Palette
+            )))
+        );
+        assert_eq!(
+            action_of(&[
+                "ui",
+                "palette",
+                "open",
+                "--query",
+                "тема",
+                "--category",
+                "cmd"
+            ]),
+            Action::Ui(UiRequest::PaletteOpen {
+                query: Some("тема".into()),
+                category: Some(PaletteCategory::Commands),
+            })
+        );
+        assert_eq!(
+            action_of(&["ui", "palette", "open", "--query", ""]),
+            Action::Ui(UiRequest::PaletteOpen {
+                query: Some(String::new()),
+                category: None,
+            })
+        );
+        assert_eq!(
+            action_of(&["ui", "palette", "close"]),
+            Action::Ui(UiRequest::OverlayClose(OverlayKind::Palette))
+        );
+        assert_eq!(
+            action_of(&["ui", "hints", "open"]),
+            Action::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                OverlayKind::Hints
+            )))
+        );
+        assert_eq!(
+            action_of(&["ui", "hints", "close"]),
+            Action::Ui(UiRequest::OverlayClose(OverlayKind::Hints))
+        );
+        assert_eq!(
+            action_of(&["ui", "cmdline", "open"]),
+            Action::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                OverlayKind::Cmdline
+            )))
+        );
+        assert_eq!(
+            action_of(&["ui", "cmdline", "close"]),
+            Action::Ui(UiRequest::OverlayClose(OverlayKind::Cmdline))
+        );
+        assert_eq!(
+            action_of(&["ui", "cmdline", "run", "theme dark"]),
+            Action::Ui(UiRequest::CmdlineRun {
+                text: "theme dark".into()
+            })
+        );
+        for (args, part) in [
+            (&["ui", "overlay", "get"][..], "ui overlay"),
+            (&["ui", "palette"], "ui palette"),
+            (&["ui", "palette", "toggle"], "open или close"),
+            (
+                &["ui", "palette", "open", "--category", "files"],
+                "all, cmd или panel",
+            ),
+            (&["ui", "palette", "close", "--query", "x"], "не применимы"),
+            (&["ui", "hints", "open", "--query", "x"], "не применим"),
+            (&["ui", "hints", "run"], "open или close"),
+            (&["ui", "cmdline"], "open, close или run"),
+            (&["ui", "cmdline", "run"], "один текст"),
+            (&["ui", "cmdline", "run", "a", "b"], "один текст"),
+        ] {
+            let message = refused(args);
+            assert!(message.contains(part), "{args:?}: {message}");
         }
     }
 }

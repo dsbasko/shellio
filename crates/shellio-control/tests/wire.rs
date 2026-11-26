@@ -32,6 +32,10 @@ use shellio_control::{
     StyleView,
 };
 use shellio_control::{
+    CmdlineOutcome, CmdlineRunView, OverlaySourceView, OverlayView, OverlayViewKind,
+    PaletteCategory, PaletteGroupView, PaletteRowView, PaletteStateView,
+};
+use shellio_control::{
     ExitChordState, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
     ModeReceiver, ModeView, PanelMode,
 };
@@ -44,9 +48,9 @@ use shellio_core::test_support::{
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
     EventsSince, FsRootResolver, HistoryStep, IdGen, LayoutView, ListAction, ModeAction,
-    OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Query, Reply, ReplyValue, Revision,
-    Route, Snapshot, State, StatusView, Title, ToggleTarget, TreeScope, TreeView, UiCommand,
-    UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
+    OpenOutcome, OverlayKind, PanelId, PanelStatus, PanelView, PluginsView, Query, Reply,
+    ReplyValue, Revision, Route, Snapshot, State, StatusView, Title, ToggleTarget, TreeScope,
+    TreeView, UiCommand, UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -243,6 +247,23 @@ fn request_golden_static(request: &Request) -> &'static str {
             HistoryStep::Back => "request.ui.history_back",
             HistoryStep::Forward => "request.ui.history_forward",
         },
+        RequestBody::Ui(UiRequest::Overlay) => "request.ui.overlay",
+        RequestBody::Ui(
+            UiRequest::PaletteOpen { .. }
+            | UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Palette)),
+        ) => "request.ui.palette_open",
+        RequestBody::Ui(UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Hints))) => {
+            "request.ui.hints_open"
+        }
+        RequestBody::Ui(UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Cmdline))) => {
+            "request.ui.cmdline_open"
+        }
+        RequestBody::Ui(UiRequest::OverlayClose(kind)) => match kind {
+            OverlayKind::Palette => "request.ui.palette_close",
+            OverlayKind::Hints => "request.ui.hints_close",
+            OverlayKind::Cmdline => "request.ui.cmdline_close",
+        },
+        RequestBody::Ui(UiRequest::CmdlineRun { .. }) => "request.ui.cmdline_run",
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -376,6 +397,45 @@ fn requests() -> Vec<Request> {
         request(
             56,
             RequestBody::Ui(UiRequest::Gallery(GalleryCommand::InputReset)),
+        ),
+        // `command-overlays`, задача 3: наложения модального слоя.
+        request(57, RequestBody::Ui(UiRequest::Overlay)),
+        request(
+            58,
+            RequestBody::Ui(UiRequest::PaletteOpen {
+                query: Some("тема".into()),
+                category: Some(PaletteCategory::Commands),
+            }),
+        ),
+        request(
+            59,
+            RequestBody::Ui(UiRequest::OverlayClose(OverlayKind::Palette)),
+        ),
+        request(
+            60,
+            RequestBody::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                OverlayKind::Hints,
+            ))),
+        ),
+        request(
+            61,
+            RequestBody::Ui(UiRequest::OverlayClose(OverlayKind::Hints)),
+        ),
+        request(
+            62,
+            RequestBody::Ui(UiRequest::Command(UiCommand::OverlayOpen(
+                OverlayKind::Cmdline,
+            ))),
+        ),
+        request(
+            63,
+            RequestBody::Ui(UiRequest::OverlayClose(OverlayKind::Cmdline)),
+        ),
+        request(
+            64,
+            RequestBody::Ui(UiRequest::CmdlineRun {
+                text: "theme dark".into(),
+            }),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
@@ -652,6 +712,8 @@ fn response_golden(response: &Response) -> &'static str {
             UiReply::Mode(_) => "response.ok.ui.mode",
             UiReply::History(_) => "response.ok.ui.history",
             UiReply::InputJournal(_) => "response.ok.ui.input_journal",
+            UiReply::Overlay(_) => "response.ok.ui.overlay",
+            UiReply::Cmdline(_) => "response.ok.ui.cmdline",
             UiReply::Inspect(inspect)
                 if inspect
                     .components
@@ -799,6 +861,11 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(51, OkValue::Ui(UiReply::Mode(mode_view()))),
         ok(53, OkValue::Ui(UiReply::History(history_view()))),
         ok(55, OkValue::Ui(UiReply::InputJournal(input_journal_view()))),
+        ok(57, OkValue::Ui(UiReply::Overlay(Box::new(overlay_view())))),
+        ok(
+            64,
+            OkValue::Ui(UiReply::Cmdline(Box::new(cmdline_run_view()))),
+        ),
         // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
         // не меняется.
         ok(
@@ -1209,6 +1276,57 @@ fn inspect_view() -> InspectView {
             own: false,
         }],
         gallery: None,
+    }
+}
+
+fn overlay_view() -> OverlayView {
+    let (panel, _, _) = layout_ids();
+    OverlayView {
+        pid: 4242,
+        kind: Some(OverlayViewKind::Palette),
+        source: Some(OverlaySourceView {
+            panel: Some(panel),
+            receiver: Some(ModeReceiver::Panel(panel)),
+            mode: PanelMode::Input,
+            field: true,
+        }),
+        palette: Some(PaletteStateView {
+            query: "тема".into(),
+            category: PaletteCategory::Commands,
+            groups: vec![PaletteGroupView {
+                title: "Команды".into(),
+                rows: vec![
+                    PaletteRowView {
+                        id: "ui.appearance.dark".into(),
+                        title: "Тёмная тема".into(),
+                        detail: "Оформление".into(),
+                        key: None,
+                    },
+                    PaletteRowView {
+                        id: "ui.appearance.cycle".into(),
+                        title: "Сменить тему".into(),
+                        detail: "Оформление".into(),
+                        key: Some("Cmd-Alt-t".into()),
+                    },
+                ],
+            }],
+            selected: Some("ui.appearance.dark".into()),
+            matched: 2,
+        }),
+        hints: None,
+        cmdline: None,
+        which_key: None,
+    }
+}
+
+fn cmdline_run_view() -> CmdlineRunView {
+    CmdlineRunView {
+        pid: 4242,
+        text: "theme dark".into(),
+        outcome: CmdlineOutcome::Run,
+        action: Some("ui.appearance.dark".into()),
+        args: None,
+        message: None,
     }
 }
 
@@ -2083,7 +2201,7 @@ fn assert_malformed(line: &str, id: Option<u64>, reason: &str) {
     assert_rejected(line, ControlErrorCode::MalformedRequest, id, reason);
 }
 
-const HELLO: &str = r#"{"protocol":5,"client":"test"}"#;
+const HELLO: &str = r#"{"protocol":6,"client":"test"}"#;
 const ID: &str = "00000000-0000-0000-0000-000000000001";
 
 #[test]
@@ -2094,7 +2212,7 @@ fn extra_field_is_malformed_and_keeps_id() {
         "unknown field `extra`",
     );
     assert_malformed(
-        r#"{"id":1,"hello":{"protocol":5,"client":"test","extra":1}}"#,
+        r#"{"id":1,"hello":{"protocol":6,"client":"test","extra":1}}"#,
         Some(1),
         "unknown field `extra`",
     );
@@ -2252,6 +2370,8 @@ fn ui_replies_answer_only_their_request() {
         ("mode", UiReply::Mode(mode_view())),
         ("history", UiReply::History(history_view())),
         ("input_journal", UiReply::InputJournal(input_journal_view())),
+        ("overlay", UiReply::Overlay(Box::new(overlay_view()))),
+        ("cmdline", UiReply::Cmdline(Box::new(cmdline_run_view()))),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -2277,6 +2397,25 @@ fn ui_replies_answer_only_their_request() {
         (UiRequest::Mode, "mode"),
         (UiRequest::History, "history"),
         (UiRequest::InputJournal, "input_journal"),
+        (UiRequest::Overlay, "overlay"),
+        (
+            UiRequest::CmdlineRun {
+                text: "zoom".into(),
+            },
+            "cmdline",
+        ),
+        (
+            UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Palette)),
+            "accepted",
+        ),
+        (
+            UiRequest::PaletteOpen {
+                query: None,
+                category: Some(PaletteCategory::Panels),
+            },
+            "accepted",
+        ),
+        (UiRequest::OverlayClose(OverlayKind::Hints), "accepted"),
         (UiRequest::Gallery(GalleryCommand::InputReset), "accepted"),
         (
             UiRequest::Command(UiCommand::History(HistoryStep::Forward)),
@@ -2791,7 +2930,7 @@ fn assert_response_rejected(line: &str, reason: &str) {
     }
 }
 
-const HELLO_REPLY: &str = r#"{"protocol":5,"server":"0.1.0","pid":1,"owner":"ready"}"#;
+const HELLO_REPLY: &str = r#"{"protocol":6,"server":"0.1.0","pid":1,"owner":"ready"}"#;
 const LEAVING: &str = r#"{"code":"owner_leaving","message":"","retryable":true,"details":{}}"#;
 
 #[test]
@@ -2826,8 +2965,8 @@ fn ok_value_is_strict() {
     for ok in [
         r#"{"status":{}}"#.to_owned(),
         format!(r#"{{"hello":{HELLO_REPLY},"extra":1}}"#),
-        r#"{"hello":{"protocol":5,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
-        r#"{"hello":{"protocol":5,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
+        r#"{"hello":{"protocol":6,"server":"0.1.0","pid":1,"owner":"ready","extra":1}}"#.to_owned(),
+        r#"{"hello":{"protocol":6,"server":"0.1.0","pid":1,"owner":"starting"}}"#.to_owned(),
         r#"{"launch":{"activation":"requested","refused":[{"arg":"x","reason":"busy"}]}}"#
             .to_owned(),
         r#"{"launch":{"activation":"done","refused":[]}}"#.to_owned(),

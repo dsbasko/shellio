@@ -15,12 +15,15 @@ use crate::model::{DynModel, PanelModel};
 /// нынешней или будущей. Тест ядра сверяет со списком каждое имя команды хоста.
 pub const HOST_NAMESPACES: &[&str] = &[
     "app",
+    "cmdline",
     "gallery",
+    "hints",
     "history",
     "keymap",
     "layout",
     "list",
     "mode",
+    "palette",
     "panel",
     "project",
     "query",

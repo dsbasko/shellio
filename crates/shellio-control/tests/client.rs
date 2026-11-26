@@ -435,7 +435,7 @@ async fn hello_refusal_is_the_outcome_without_request() -> TestResult {
         let hello = peer.read_line().await?.ok_or("hello не пришёл")?;
         let hello: serde_json::Value = serde_json::from_str(&hello)?;
         assert_eq!(hello["hello"]["protocol"], PROTOCOL, "{hello}");
-        assert_eq!(PROTOCOL, 5);
+        assert_eq!(PROTOCOL, 6);
         let refusal = serde_json::json!({"id": 1, "error": {
             "code": "protocol_mismatch",
             "message": "версия протокола 5 не поддерживается, сервер поддерживает 4",

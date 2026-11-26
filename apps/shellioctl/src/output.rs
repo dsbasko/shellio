@@ -13,7 +13,9 @@ use shellio_control::{
     Motion, OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply,
     WindowView, encode_line,
 };
-use shellio_control::{HistoryView, InputJournalView, ModeReceiver, ModeView};
+use shellio_control::{
+    CmdlineRunView, HistoryView, InputJournalView, ModeReceiver, ModeView, OverlayView,
+};
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
     StatusView, TreeView,
@@ -409,6 +411,8 @@ fn ui_text(reply: &UiReply) -> String {
         ),
         UiReply::Mode(mode) => mode_text(mode),
         UiReply::History(history) => history_text(history),
+        UiReply::Overlay(overlay) => overlay_text(overlay),
+        UiReply::Cmdline(run) => cmdline_text(run),
         UiReply::InputJournal(journal) => input_journal_text(journal),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
@@ -477,6 +481,87 @@ fn input_journal_text(view: &InputJournalView) -> String {
 }
 
 /// История переходов активного воркспейса: итог и по строке на точку, текущая отмечена `*`.
+/// Открытое наложение, его источник и состав.
+fn overlay_text(view: &OverlayView) -> String {
+    let Some(kind) = view.kind else {
+        return format!("наложение: нет, PID {}\n", view.pid);
+    };
+    let mut out = format!("наложение: {}, PID {}\n", kind.as_str(), view.pid);
+    if let Some(source) = &view.source {
+        let panel = source
+            .panel
+            .map_or_else(|| "нет".to_owned(), |panel| panel.to_string());
+        let field = if source.field { ", поле" } else { "" };
+        out.push_str(&format!(
+            "источник: панель {panel}, режим {}{field}\n",
+            source.mode.as_str()
+        ));
+    }
+    if let Some(palette) = &view.palette {
+        out.push_str(&format!(
+            "запрос «{}», категория {}, совпадений {}\n",
+            palette.query,
+            palette.category.as_str(),
+            palette.matched
+        ));
+        for group in &palette.groups {
+            out.push_str(&format!("{}\n", group.title));
+            for row in &group.rows {
+                let mark = if palette.selected.as_deref() == Some(row.id.as_str()) {
+                    '*'
+                } else {
+                    ' '
+                };
+                let key = row.key.as_deref().unwrap_or("");
+                out.push_str(&format!("{mark} {} ({}) {key}\n", row.title, row.id));
+            }
+        }
+    }
+    if let Some(hints) = &view.hints {
+        out.push_str(&format!(
+            "набрано «{}», меток {}\n",
+            hints.typed,
+            hints.labels.len()
+        ));
+        for label in &hints.labels {
+            out.push_str(&format!("  {}: {}\n", label.text, label.target));
+        }
+    }
+    if let Some(cmdline) = &view.cmdline {
+        out.push_str(&format!(":{}\n", cmdline.text));
+    }
+    if let Some(which) = &view.which_key {
+        let title = which.title.as_deref().unwrap_or("");
+        out.push_str(&format!("префикс {} {title}\n", which.prefix.join(" ")));
+        for item in &which.items {
+            let group = if item.group { " +" } else { "" };
+            out.push_str(&format!("  {} {}{group}\n", item.key, item.label));
+        }
+    }
+    out
+}
+
+/// Исход строки `:`.
+fn cmdline_text(run: &CmdlineRunView) -> String {
+    let mut out = format!(
+        ":{} — {}, PID {}\n",
+        run.text,
+        run.outcome.as_str(),
+        run.pid
+    );
+    if let Some(action) = &run.action {
+        let args = run
+            .args
+            .as_ref()
+            .map_or_else(String::new, |args| format!(" {args}"));
+        out.push_str(&format!("действие: {action}{args}\n"));
+    }
+    if let Some(message) = &run.message {
+        out.push_str(&format!("{message}\n"));
+    }
+    out
+}
+
 fn history_text(view: &HistoryView) -> String {
     let workspace = view
         .workspace

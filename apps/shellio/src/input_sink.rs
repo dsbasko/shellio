@@ -187,7 +187,10 @@ mod tests {
                     self.sink.accept(*receiver, mode, *event);
                     self.sink.accept(*receiver, mode, event.released());
                 }
-                Decision::Swallow | Decision::Run(_) => {}
+                Decision::Swallow
+                | Decision::Run(_)
+                | Decision::Overlay { .. }
+                | Decision::Close(_) => {}
             }
             decision
         }

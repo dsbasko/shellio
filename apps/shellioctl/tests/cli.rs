@@ -27,14 +27,17 @@ use shellio_control::{
     SHUTDOWN_GRACE, SOCKET_FILE, Server, ServerConfig, UiGate, UiHandler, UiRefusal, UiReply,
     UiRequest, WithoutUi,
 };
+use shellio_control::{
+    CmdlineOutcome, CmdlineRunView, OverlayView, OverlayViewKind, PaletteCategory, PaletteStateView,
+};
 use shellio_core::test_support::{
     ManualClock as CoreClock, MemoryPersist, SequentialIds, TestMigrate, TestPlugin, registry,
     registry_of,
 };
 use shellio_core::{
     CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, HistoryStep, IdGen,
-    LayoutView, ModeAction, OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply,
-    ReplyValue, Revision, Route, TreeView, UiCommand, UnixMillis, WorkbenchId, WorkspaceId,
+    LayoutView, ModeAction, OpenOutcome, OverlayKind, PanelId, PanelStatus, PanelView, PluginsView,
+    Reply, ReplyValue, Revision, Route, TreeView, UiCommand, UnixMillis, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
 use shellio_plugin_api::{Cardinality, Registry};
@@ -1414,6 +1417,176 @@ async fn ui_history_reaches_the_owner() -> TestResult {
         text.stdout
     );
     assert_eq!(revision(&dir).await?, before, "история ревизию не меняет");
+    owner.stop().await
+}
+
+/// Порт UI с одним наложением: открытия и закрытия меняют его, `ui.overlay` читает,
+/// `cmdline.run` отвечает исходом.
+#[derive(Clone, Default)]
+struct OverlayUi {
+    open: Arc<Mutex<Option<(OverlayKind, String, PaletteCategory)>>>,
+}
+
+impl UiHandler for OverlayUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let mut open = self
+            .open
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let accepted = |request: &UiRequest| {
+            Ok(UiReply::Accepted(Accepted {
+                command: request.name().to_owned(),
+                pid: std::process::id(),
+                generation: 1,
+            }))
+        };
+        let reply = match &request {
+            UiRequest::Command(UiCommand::OverlayOpen(kind)) if gate.begin() => {
+                *open = Some((*kind, String::new(), PaletteCategory::All));
+                accepted(&request)
+            }
+            UiRequest::PaletteOpen { query, category } if gate.begin() => {
+                *open = Some((
+                    OverlayKind::Palette,
+                    query.clone().unwrap_or_default(),
+                    category.unwrap_or(PaletteCategory::All),
+                ));
+                accepted(&request)
+            }
+            UiRequest::OverlayClose(kind) if gate.begin() => {
+                if open.as_ref().is_some_and(|(open, _, _)| open == kind) {
+                    *open = None;
+                }
+                accepted(&request)
+            }
+            UiRequest::Overlay if gate.begin() => Ok(UiReply::Overlay(Box::new(OverlayView {
+                pid: std::process::id(),
+                kind: open.as_ref().map(|(kind, _, _)| match kind {
+                    OverlayKind::Palette => OverlayViewKind::Palette,
+                    OverlayKind::Hints => OverlayViewKind::Hints,
+                    OverlayKind::Cmdline => OverlayViewKind::Cmdline,
+                }),
+                source: None,
+                palette: open.as_ref().and_then(|(kind, query, category)| {
+                    (*kind == OverlayKind::Palette).then(|| PaletteStateView {
+                        query: query.clone(),
+                        category: *category,
+                        groups: Vec::new(),
+                        selected: None,
+                        matched: 0,
+                    })
+                }),
+                hints: None,
+                cmdline: None,
+                which_key: None,
+            }))),
+            UiRequest::CmdlineRun { text } if gate.begin() => {
+                *open = None;
+                Ok(UiReply::Cmdline(Box::new(CmdlineRunView {
+                    pid: std::process::id(),
+                    text: text.clone(),
+                    outcome: CmdlineOutcome::Unknown,
+                    action: None,
+                    args: None,
+                    message: Some(format!("Неизвестная команда: {text}")),
+                })))
+            }
+            _ => Err(UiRefusal::NoUi),
+        };
+        ready(reply)
+    }
+}
+
+/// Наложения отдельным процессом: открытия и закрытия доходят до порта UI под своими именами,
+/// `ui overlay` читает открытое, `ui cmdline run` получает исход, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_overlay_calls_reach_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let owner = Owner::start_with(&dir, OverlayUi::default()).await?;
+    let before = revision(&dir).await?;
+    let frame = async |args: &[&str]| -> TestResult<UiReply> {
+        match dir.run(args).await?.expect(0)?.frame()? {
+            Response::Ok {
+                value: OkValue::Ui(reply),
+                ..
+            } => Ok(reply),
+            other => Err(format!("{args:?}: ожидался ответ ui, получено {other:?}").into()),
+        }
+    };
+    let overlay = async || -> TestResult<OverlayView> {
+        match frame(&["ui", "overlay", "--json"]).await? {
+            UiReply::Overlay(view) => Ok(*view),
+            other => Err(format!("ui overlay: получено {other:?}").into()),
+        }
+    };
+    assert_eq!(overlay().await?.kind, None);
+
+    for (args, name) in [
+        (&["ui", "palette", "open", "--json"][..], "palette.open"),
+        (&["ui", "hints", "open", "--json"], "hints.open"),
+        (&["ui", "hints", "close", "--json"], "hints.close"),
+        (&["ui", "cmdline", "open", "--json"], "cmdline.open"),
+        (&["ui", "cmdline", "close", "--json"], "cmdline.close"),
+        (
+            &[
+                "ui",
+                "palette",
+                "open",
+                "--query",
+                "тема",
+                "--category",
+                "panel",
+                "--json",
+            ],
+            "palette.open",
+        ),
+    ] {
+        match frame(args).await? {
+            UiReply::Accepted(accepted) => assert_eq!(accepted.command, name, "{args:?}"),
+            other => {
+                return Err(format!("{args:?}: ожидалась квитанция, получено {other:?}").into());
+            }
+        }
+    }
+    let view = overlay().await?;
+    assert_eq!(view.kind, Some(OverlayViewKind::Palette));
+    let palette = view.palette.ok_or("нет состава палитры")?;
+    assert_eq!(palette.query, "тема");
+    assert_eq!(palette.category, PaletteCategory::Panels);
+    let text = dir.run(&["ui", "overlay"]).await?.expect(0)?;
+    assert!(
+        text.stdout.starts_with("наложение: palette, PID "),
+        "{}",
+        text.stdout
+    );
+    assert!(
+        text.stdout.contains("запрос «тема», категория panel"),
+        "{}",
+        text.stdout
+    );
+
+    match frame(&["ui", "cmdline", "run", "нет такой", "--json"]).await? {
+        UiReply::Cmdline(run) => {
+            assert_eq!(run.outcome, CmdlineOutcome::Unknown);
+            assert_eq!(run.text, "нет такой");
+        }
+        other => return Err(format!("ui cmdline run: получено {other:?}").into()),
+    }
+    let text = dir
+        .run(&["ui", "cmdline", "run", "zoom"])
+        .await?
+        .expect(0)?;
+    assert!(
+        text.stdout.starts_with(":zoom — unknown, PID "),
+        "{}",
+        text.stdout
+    );
+    assert_eq!(overlay().await?.kind, None);
+    assert_eq!(revision(&dir).await?, before, "наложения ревизию не меняют");
     owner.stop().await
 }
 

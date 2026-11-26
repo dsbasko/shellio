@@ -5,7 +5,7 @@
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
 //! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode`, `history`,
-//! `input_journal` или `accepted`.
+//! `overlay`, `cmdline`, `input_journal` или `accepted`.
 //!
 //! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
 //! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
@@ -16,8 +16,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 use shellio_core::{
-    AppearanceChoice, HistoryStep, ListAction, ModeAction, OpenOutcome, PanelId, PanelStatus,
-    Revision, ToggleTarget, UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, HistoryStep, ListAction, ModeAction, OpenOutcome, OverlayKind, PanelId,
+    PanelStatus, Revision, ToggleTarget, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{SizeClass, Zone};
 
@@ -63,6 +63,48 @@ pub enum UiRequest {
     /// наименьшего размера окна поднимается до него, верхний левый угол остаётся на месте. Итог
     /// читает `ui.window`.
     WindowSize { width: u32, height: u32 },
+    /// `ui.overlay`: открытое наложение, его источник и состав. Чтение ничего не меняет.
+    Overlay,
+    /// `palette.open` с запросом или категорией. Тот же запрос без них — действие
+    /// [`UiCommand::OverlayOpen`].
+    PaletteOpen {
+        query: Option<String>,
+        category: Option<PaletteCategory>,
+    },
+    /// Служебное закрытие `palette.close`, `hints.close` или `cmdline.close` без имени keymap:
+    /// источник восстанавливается, как при `Esc`.
+    OverlayClose(OverlayKind),
+    /// `cmdline.run`: выполнить текст командной строки, как `Enter` в её поле.
+    CmdlineRun { text: String },
+}
+
+/// Категория выдачи палитры на проводе и в CLI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PaletteCategory {
+    #[serde(rename = "all")]
+    All,
+    #[serde(rename = "cmd")]
+    Commands,
+    #[serde(rename = "panel")]
+    Panels,
+}
+
+impl PaletteCategory {
+    pub const ALL: [Self; 3] = [Self::All, Self::Commands, Self::Panels];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Commands => "cmd",
+            Self::Panels => "panel",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|category| category.as_str() == value)
+    }
 }
 
 /// Контраст в запросе `ui.cell`.
@@ -284,6 +326,12 @@ impl UiRequest {
             Self::Gallery(command) => command.name(),
             Self::Cell { .. } => "ui.cell",
             Self::WindowSize { .. } => "ui.window.size",
+            Self::Overlay => "ui.overlay",
+            Self::PaletteOpen { .. } => OverlayKind::Palette.keymap_name(),
+            Self::OverlayClose(OverlayKind::Palette) => "palette.close",
+            Self::OverlayClose(OverlayKind::Hints) => "hints.close",
+            Self::OverlayClose(OverlayKind::Cmdline) => "cmdline.close",
+            Self::CmdlineRun { .. } => "cmdline.run",
         }
     }
 
@@ -296,12 +344,16 @@ impl UiRequest {
             | Self::Receipts { .. }
             | Self::Mode
             | Self::History
+            | Self::Overlay
             | Self::InputJournal => false,
             Self::Command(_)
             | Self::Filter { .. }
             | Self::Gallery(_)
             | Self::Cell { .. }
-            | Self::WindowSize { .. } => true,
+            | Self::WindowSize { .. }
+            | Self::PaletteOpen { .. }
+            | Self::OverlayClose(_)
+            | Self::CmdlineRun { .. } => true,
         }
     }
 
@@ -316,11 +368,15 @@ impl UiRequest {
                 | (Self::Mode, UiReply::Mode(_))
                 | (Self::History, UiReply::History(_))
                 | (Self::InputJournal, UiReply::InputJournal(_))
+                | (Self::Overlay, UiReply::Overlay(_))
+                | (Self::CmdlineRun { .. }, UiReply::Cmdline(_))
                 | (
                     Self::Command(_)
                         | Self::Filter { .. }
                         | Self::Gallery(_)
-                        | Self::WindowSize { .. },
+                        | Self::WindowSize { .. }
+                        | Self::PaletteOpen { .. }
+                        | Self::OverlayClose(_),
                     UiReply::Accepted(_)
                 )
                 | (Self::Cell { .. }, UiReply::Cell(_))
@@ -376,6 +432,21 @@ struct UiCellArgs {
 struct WindowSizeArgs {
     width: u32,
     height: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PaletteOpenArgs {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    query: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    category: Option<PaletteCategory>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CmdlineRunArgs {
+    text: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -493,6 +564,22 @@ enum WireUiRequest {
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
     WindowSize(WindowSizeArgs),
+    #[serde(rename = "ui.overlay")]
+    Overlay(NoArgs),
+    #[serde(rename = "palette.open")]
+    PaletteOpen(PaletteOpenArgs),
+    #[serde(rename = "palette.close")]
+    PaletteClose(NoArgs),
+    #[serde(rename = "hints.open")]
+    HintsOpen(NoArgs),
+    #[serde(rename = "hints.close")]
+    HintsClose(NoArgs),
+    #[serde(rename = "cmdline.open")]
+    CmdlineOpen(NoArgs),
+    #[serde(rename = "cmdline.run")]
+    CmdlineRun(CmdlineRunArgs),
+    #[serde(rename = "cmdline.close")]
+    CmdlineClose(NoArgs),
     #[serde(rename = "gallery.cell")]
     GalleryCell(CellArgs),
     #[serde(rename = "gallery.motion")]
@@ -601,6 +688,24 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
                 Self::WindowSize { width, height }
             }
+            WireUiRequest::Overlay(NoArgs {}) => Self::Overlay,
+            WireUiRequest::PaletteOpen(PaletteOpenArgs {
+                query: None,
+                category: None,
+            }) => Self::Command(UiCommand::OverlayOpen(OverlayKind::Palette)),
+            WireUiRequest::PaletteOpen(PaletteOpenArgs { query, category }) => {
+                Self::PaletteOpen { query, category }
+            }
+            WireUiRequest::PaletteClose(NoArgs {}) => Self::OverlayClose(OverlayKind::Palette),
+            WireUiRequest::HintsOpen(NoArgs {}) => {
+                Self::Command(UiCommand::OverlayOpen(OverlayKind::Hints))
+            }
+            WireUiRequest::HintsClose(NoArgs {}) => Self::OverlayClose(OverlayKind::Hints),
+            WireUiRequest::CmdlineOpen(NoArgs {}) => {
+                Self::Command(UiCommand::OverlayOpen(OverlayKind::Cmdline))
+            }
+            WireUiRequest::CmdlineRun(CmdlineRunArgs { text }) => Self::CmdlineRun { text },
+            WireUiRequest::CmdlineClose(NoArgs {}) => Self::OverlayClose(OverlayKind::Cmdline),
             WireUiRequest::GalleryCell(CellArgs {
                 appearance,
                 contrast,
@@ -700,6 +805,22 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
             }
+            UiRequest::Overlay => Self::Overlay(NoArgs {}),
+            UiRequest::Command(UiCommand::OverlayOpen(kind)) => match kind {
+                OverlayKind::Palette => Self::PaletteOpen(PaletteOpenArgs {
+                    query: None,
+                    category: None,
+                }),
+                OverlayKind::Hints => Self::HintsOpen(NoArgs {}),
+                OverlayKind::Cmdline => Self::CmdlineOpen(NoArgs {}),
+            },
+            UiRequest::PaletteOpen { query, category } => {
+                Self::PaletteOpen(PaletteOpenArgs { query, category })
+            }
+            UiRequest::OverlayClose(OverlayKind::Palette) => Self::PaletteClose(NoArgs {}),
+            UiRequest::OverlayClose(OverlayKind::Hints) => Self::HintsClose(NoArgs {}),
+            UiRequest::OverlayClose(OverlayKind::Cmdline) => Self::CmdlineClose(NoArgs {}),
+            UiRequest::CmdlineRun { text } => Self::CmdlineRun(CmdlineRunArgs { text }),
             UiRequest::Gallery(command) => match command {
                 GalleryCommand::Cell {
                     appearance,
@@ -751,8 +872,189 @@ pub enum UiReply {
     History(HistoryView),
     /// Журнал приёмника ввода галереи: ответ `gallery.input.journal`.
     InputJournal(InputJournalView),
+    /// Открытое наложение: ответ `ui.overlay`.
+    Overlay(Box<OverlayView>),
+    /// Исход строки `:`: ответ `cmdline.run`.
+    Cmdline(Box<CmdlineRunView>),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
+}
+
+/// Вид открытого наложения в `ui.overlay`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverlayViewKind {
+    Palette,
+    Hints,
+    Cmdline,
+    /// Подсказка набранного префикса: не модальна и ввода не держит.
+    WhichKey,
+}
+
+impl OverlayViewKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Palette => "palette",
+            Self::Hints => "hints",
+            Self::Cmdline => "cmdline",
+            Self::WhichKey => "which_key",
+        }
+    }
+}
+
+/// Источник модального наложения: ему возвращаются фокус и режим при отмене.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OverlaySourceView {
+    /// Панель с фокусом в момент открытия; `null` — панели не было.
+    pub panel: Option<PanelId>,
+    /// Получатель ввода источника; `null` — панели не было.
+    pub receiver: Option<ModeReceiver>,
+    /// Режим панели-источника в момент открытия.
+    pub mode: PanelMode,
+    /// Ввод держало поле панели.
+    pub field: bool,
+}
+
+/// Строка палитры.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteRowView {
+    pub id: String,
+    pub title: String,
+    pub detail: String,
+    /// Запись клавиши действия; `null` — привязки нет.
+    pub key: Option<String>,
+}
+
+/// Группа строк палитры по порядку выдачи.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteGroupView {
+    pub title: String,
+    pub rows: Vec<PaletteRowView>,
+}
+
+/// Состав открытой палитры.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteStateView {
+    pub query: String,
+    pub category: PaletteCategory,
+    pub groups: Vec<PaletteGroupView>,
+    /// `id` выбранной строки; `null` — строк нет.
+    pub selected: Option<String>,
+    /// Число совпадений до предела строк.
+    pub matched: usize,
+}
+
+/// Метка `f`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HintLabelView {
+    pub text: String,
+    /// Ключ сверки цели в `ui.inspect`.
+    pub target: String,
+    /// Кадр цели в окне владельца.
+    pub frame: Rect,
+}
+
+/// Состав открытых меток.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HintsStateView {
+    /// Набранная часть метки.
+    pub typed: String,
+    /// Метки, совпавшие с набранной частью.
+    pub labels: Vec<HintLabelView>,
+}
+
+/// Состав открытой командной строки.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CmdlineStateView {
+    pub text: String,
+}
+
+/// Продолжение набранного префикса.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WhichItemView {
+    pub key: String,
+    pub label: String,
+    /// У продолжения есть более длинные последовательности.
+    pub group: bool,
+}
+
+/// Подсказка which-key.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WhichKeyView {
+    pub prefix: Vec<String>,
+    pub title: Option<String>,
+    pub items: Vec<WhichItemView>,
+}
+
+/// Ответ `ui.overlay` (ADR-0007, «Уточнено в P1.6 (планирование): наложения»). Ключ состава есть
+/// только у открытого вида.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OverlayView {
+    /// PID владельца.
+    pub pid: u32,
+    /// Открытое наложение; `null` — его нет.
+    pub kind: Option<OverlayViewKind>,
+    /// Источник модального наложения.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<OverlaySourceView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub palette: Option<PaletteStateView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hints: Option<HintsStateView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cmdline: Option<CmdlineStateView>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub which_key: Option<WhichKeyView>,
+}
+
+/// Исход строки `:`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CmdlineOutcome {
+    /// Пустая строка: ничего не выполнено.
+    Empty,
+    /// Действие передано своему обработчику.
+    Run,
+    /// Ни грамматика, ни откат: сообщение в строке статуса.
+    Unknown,
+}
+
+impl CmdlineOutcome {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Empty => "empty",
+            Self::Run => "run",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+/// Ответ `cmdline.run`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CmdlineRunView {
+    /// PID владельца.
+    pub pid: u32,
+    pub text: String,
+    pub outcome: CmdlineOutcome,
+    /// Имя действия keymap при исходе `run`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args: Option<serde_json::Value>,
+    /// Сообщение строки статуса при исходе `unknown`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// Ответ `ui.cell`: оси окна с источниками, как в `ui.window`.
@@ -1895,6 +2197,60 @@ mod tests {
             ),
             (UiRequest::History, "ui.history", false),
             (UiRequest::InputJournal, "gallery.input.journal", false),
+            (UiRequest::Overlay, "ui.overlay", false),
+            (
+                UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Palette)),
+                "palette.open",
+                true,
+            ),
+            (
+                UiRequest::PaletteOpen {
+                    query: Some("тема".into()),
+                    category: Some(PaletteCategory::Commands),
+                },
+                "palette.open",
+                true,
+            ),
+            (
+                UiRequest::PaletteOpen {
+                    query: None,
+                    category: Some(PaletteCategory::Panels),
+                },
+                "palette.open",
+                true,
+            ),
+            (
+                UiRequest::OverlayClose(OverlayKind::Palette),
+                "palette.close",
+                true,
+            ),
+            (
+                UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Hints)),
+                "hints.open",
+                true,
+            ),
+            (
+                UiRequest::OverlayClose(OverlayKind::Hints),
+                "hints.close",
+                true,
+            ),
+            (
+                UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Cmdline)),
+                "cmdline.open",
+                true,
+            ),
+            (
+                UiRequest::OverlayClose(OverlayKind::Cmdline),
+                "cmdline.close",
+                true,
+            ),
+            (
+                UiRequest::CmdlineRun {
+                    text: "theme dark".into(),
+                },
+                "cmdline.run",
+                true,
+            ),
             (
                 UiRequest::Gallery(GalleryCommand::InputReset),
                 "gallery.input.reset",
@@ -2462,5 +2818,111 @@ mod tests {
         assert!(gate.cancel());
         assert!(gate.cancel());
         assert!(!gate.begin(), "отменённая работа не начинается");
+    }
+
+    #[test]
+    fn overlay_requests_and_replies_keep_their_wire_shape() {
+        // `palette.open` без аргументов — действие keymap, с ними — запрос палитры.
+        assert_eq!(
+            serde_json::from_value::<UiRequest>(json!({"palette.open": {}})).unwrap(),
+            UiRequest::Command(UiCommand::OverlayOpen(OverlayKind::Palette))
+        );
+        assert_eq!(
+            serde_json::from_value::<UiRequest>(
+                json!({"palette.open": {"query": "тема", "category": "panel"}})
+            )
+            .unwrap(),
+            UiRequest::PaletteOpen {
+                query: Some("тема".into()),
+                category: Some(PaletteCategory::Panels),
+            }
+        );
+        for bad in [
+            json!({"palette.open": {"category": "files"}}),
+            json!({"hints.open": {"x": 1}}),
+            json!({"cmdline.run": {}}),
+            json!({"palette.close": {"query": ""}}),
+        ] {
+            assert!(
+                serde_json::from_value::<UiRequest>(bad.clone()).is_err(),
+                "{bad}"
+            );
+        }
+        for category in PaletteCategory::ALL {
+            assert_eq!(PaletteCategory::parse(category.as_str()), Some(category));
+        }
+
+        let closed = OverlayView {
+            pid: 7,
+            kind: None,
+            source: None,
+            palette: None,
+            hints: None,
+            cmdline: None,
+            which_key: None,
+        };
+        assert_eq!(
+            serde_json::to_value(UiReply::Overlay(Box::new(closed.clone()))).unwrap(),
+            json!({"overlay": {"pid": 7, "kind": null}})
+        );
+        let panel: PanelId =
+            serde_json::from_value(json!("00000000-0000-0000-0000-000000000003")).unwrap();
+        let open = OverlayView {
+            kind: Some(OverlayViewKind::Palette),
+            source: Some(OverlaySourceView {
+                panel: Some(panel),
+                receiver: Some(ModeReceiver::Panel(panel)),
+                mode: PanelMode::Input,
+                field: true,
+            }),
+            palette: Some(PaletteStateView {
+                query: String::new(),
+                category: PaletteCategory::All,
+                groups: vec![PaletteGroupView {
+                    title: "Команды".into(),
+                    rows: vec![PaletteRowView {
+                        id: "ui.appearance.dark".into(),
+                        title: "Тёмная тема".into(),
+                        detail: String::new(),
+                        key: None,
+                    }],
+                }],
+                selected: Some("ui.appearance.dark".into()),
+                matched: 1,
+            }),
+            ..closed
+        };
+        let json = serde_json::to_value(UiReply::Overlay(Box::new(open.clone()))).unwrap();
+        assert_eq!(json["overlay"]["kind"], "palette");
+        assert_eq!(json["overlay"]["source"]["mode"], "input");
+        assert_eq!(json["overlay"]["palette"]["category"], "all");
+        assert_eq!(
+            serde_json::from_value::<UiReply>(json).unwrap(),
+            UiReply::Overlay(Box::new(open.clone()))
+        );
+        assert!(UiRequest::Overlay.answered_by(&UiReply::Overlay(Box::new(open.clone()))));
+        assert!(!UiRequest::Mode.answered_by(&UiReply::Overlay(Box::new(open))));
+
+        let run = CmdlineRunView {
+            pid: 7,
+            text: "нет такой".into(),
+            outcome: CmdlineOutcome::Unknown,
+            action: None,
+            args: None,
+            message: Some("Неизвестная команда: нет такой".into()),
+        };
+        let request = UiRequest::CmdlineRun {
+            text: "нет такой".into(),
+        };
+        assert!(request.answered_by(&UiReply::Cmdline(Box::new(run.clone()))));
+        assert!(!request.answered_by(&UiReply::Accepted(Accepted {
+            command: "cmdline.run".into(),
+            pid: 7,
+            generation: 1,
+        })));
+        assert_eq!(
+            serde_json::to_value(UiReply::Cmdline(Box::new(run))).unwrap()["cmdline"]["outcome"],
+            "unknown"
+        );
     }
 }

@@ -1,0 +1,13 @@
+{
+  "id": 64,
+  "ok": {
+    "ui": {
+      "cmdline": {
+        "pid": 4242,
+        "text": "theme dark",
+        "outcome": "run",
+        "action": "ui.appearance.dark"
+      }
+    }
+  }
+}

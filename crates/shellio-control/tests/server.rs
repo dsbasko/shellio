@@ -392,7 +392,7 @@ async fn hello_must_come_first() -> TestResult {
     assert_eq!(
         reply,
         json!({"id": 4, "ok": {"hello": {
-            "protocol": 5, "server": SERVER, "pid": PID, "owner": "ready"
+            "protocol": 6, "server": SERVER, "pid": PID, "owner": "ready"
         }}})
     );
     let again = peer.call_value(&hello(5)).await?;
@@ -412,11 +412,11 @@ async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
 
-    assert_eq!(PROTOCOL, 5);
-    let wrong = json!({"id": 1, "hello": {"protocol": 4, "client": "test"}}).to_string();
+    assert_eq!(PROTOCOL, 6);
+    let wrong = json!({"id": 1, "hello": {"protocol": 5, "client": "test"}}).to_string();
     let error = control_error(Some(1), peer.call(&wrong).await?)?;
     assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
-    assert_eq!(error.detail("supported"), Some(&json!([5])));
+    assert_eq!(error.detail("supported"), Some(&json!([6])));
 
     let created = json!({"id": 5, "command": {"cmd": "workspace.create", "title": "Работа"},
         "scope": "all"});
@@ -448,7 +448,7 @@ async fn protocol_mismatch_keeps_connection_without_greeting() -> TestResult {
 async fn request_of_exactly_limit_is_served() -> TestResult {
     let fixture = Fixture::start().await?;
     let mut peer = fixture.connect().await?;
-    let head = r#"{"id":1,"hello":{"protocol":5,"client":""#;
+    let head = r#"{"id":1,"hello":{"protocol":6,"client":""#;
     let tail = r#""}}"#;
     let padding = "a".repeat(REQUEST_LINE_LIMIT - head.len() - tail.len());
     let line = format!("{head}{padding}{tail}");

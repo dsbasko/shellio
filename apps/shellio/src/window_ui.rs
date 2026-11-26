@@ -26,7 +26,7 @@ use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::history::{History, Jump};
 use shellio::input_sink::{self, InputSink, KeyKind, KeyRecord};
 use shellio::key_actions::{self, KeyAction};
-use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
+use shellio::key_router::{Action, Decision, Focus, KeyRouter, Modal, PanelFocus, Responder};
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::WindowMode;
 use shellio::owner;
@@ -44,17 +44,19 @@ use shellio_appkit::{
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
-    CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    ExitChordState, GalleryCommand, GalleryView, HistoryPoint, HistoryView, InputEventKind,
-    InputEventView, InputJournalView, InspectView, InstanceKind, InstanceView, LateCallbackView,
-    ListRowView, MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView, PanelMode,
-    ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
-    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
-    TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
+    CellMotion, CellView, ChromeView, CmdlineOutcome, CmdlineRunView, CmdlineStateView,
+    ColorSpaceView, ComponentState, ComponentView, ExitChordState, GalleryCommand, GalleryView,
+    HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
+    InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView,
+    MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
+    OverlayViewKind, PaletteCategory, PaletteStateView, PanelMode, ReceiptSource, Rect,
+    RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView,
+    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView,
+    UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
-    MirrorStep, ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
+    MirrorStep, ModeAction, OverlayKind, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_keymap::{
     Cancel, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints,
@@ -99,6 +101,29 @@ thread_local! {
     static INPUT_SINK: RefCell<InputSink> = const { RefCell::new(InputSink::new()) };
     /// Монитор клавиш живёт до выхода процесса, как окно.
     static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
+    /// Состав открытого наложения; открыто ли оно, решает маршрутизатор.
+    static OVERLAY: RefCell<OverlayState> = RefCell::new(OverlayState::default());
+}
+
+/// Состав открытого наложения до его вида: запрос и категория палитры, набранная часть меток,
+/// текст командной строки. Строки палитры и цели меток строят задачи их видов.
+#[derive(Debug, Default)]
+struct OverlayState {
+    kind: Option<OverlayKind>,
+    query: String,
+    category: Option<PaletteCategory>,
+    typed: String,
+    text: String,
+}
+
+impl OverlayState {
+    fn fresh(kind: OverlayKind) -> Self {
+        Self {
+            kind: Some(kind),
+            category: Some(PaletteCategory::All),
+            ..Self::default()
+        }
+    }
 }
 
 /// Исходное нажатие, которое автомат аккорда выхода хранит для повтора. `in_filter` — в момент
@@ -1013,8 +1038,12 @@ impl OwnerWindow {
     }
 
     fn accepted(&self, command: UiCommand) -> UiReply {
+        self.accepted_named(command.name())
+    }
+
+    fn accepted_named(&self, command: &str) -> UiReply {
         UiReply::Accepted(Accepted {
-            command: command.name().to_owned(),
+            command: command.to_owned(),
             pid: std::process::id(),
             generation: self.generation.get(),
         })
@@ -1657,7 +1686,7 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         }
     };
     match decision {
-        Some(Decision::Swallow) => Verdict::Swallow,
+        Some(Decision::Swallow | Decision::Overlay { .. } | Decision::Close(_)) => Verdict::Swallow,
         Some(Decision::Pass | Decision::Run(_) | Decision::Replay { .. }) | None => Verdict::Pass,
     }
 }
@@ -1696,12 +1725,8 @@ fn forget_status(seen: u64) {
     });
 }
 
-fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
-    let seen = status_serial();
-    let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
-        defer(move |_| forget_status(seen));
-        return Verdict::Pass;
-    };
+/// Кто держит ввод сейчас для решения маршрутизатора и признак строки фильтра.
+fn current_focus(app: &App) -> (Focus<ModeReceiver>, bool) {
     let facts = app.key_focus();
     let typing = match facts.responder {
         KeyResponder::Field => field_owner(),
@@ -1725,6 +1750,16 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         composing: facts.composing,
         panel,
     };
+    (focus, in_filter)
+}
+
+fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
+    let seen = status_serial();
+    let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
+        defer(move |_| forget_status(seen));
+        return Verdict::Pass;
+    };
+    let (focus, in_filter) = current_focus(app);
     let mods = stroke.mods();
     let chord = Chord::new(
         KeyCode(stroke.key_code()),
@@ -1758,6 +1793,17 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
                 forget_status(seen);
                 run_key(app, action);
                 show_modes();
+            });
+            Verdict::Swallow
+        }
+        Some(Decision::Overlay { kind, chord }) => {
+            defer(move |_| on_overlay_key(kind, chord));
+            Verdict::Swallow
+        }
+        Some(Decision::Close(modal)) => {
+            defer(move |_| {
+                forget_status(seen);
+                restore_source(modal);
             });
             Verdict::Swallow
         }
@@ -1800,9 +1846,19 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
 /// Действие привязки, исполненное клавишей: тот же обработчик, что у меню, кнопки и CLI, и ровно
 /// одна запись кольца квитанций с источником `key`.
 fn run_key(app: &App, action: Action) {
-    const KEY: ReceiptSource = ReceiptSource::Key;
+    run_action(app, action, Some(ReceiptSource::Key));
+}
+
+/// Действие keymap по имени: клавиша, палитра и строка `:`. `source` — источник записи кольца
+/// квитанций; без него, как у CLI, записи нет.
+fn run_action(app: &App, action: Action, source: Option<ReceiptSource>) {
     let name = action.name.as_str();
-    let not_applicable = || record_receipt(Sent::action(name, KEY), Ending::NotApplicable);
+    let not_applicable = || {
+        note_receipt(
+            source.map(|source| Sent::action(name, source)),
+            Ending::NotApplicable,
+        )
+    };
     let refused = |text: &str| {
         with_window(|owner| owner.show_status(Some(text)));
         not_applicable();
@@ -1816,9 +1872,11 @@ fn run_key(app: &App, action: Action) {
         None => return refused(&format!("«{name}» не выполнено: такого действия нет")),
     };
     match path {
-        KeyAction::Ui(UiCommand::Mode(mode)) => on_mode_key(mode),
-        KeyAction::Ui(command) => handle(app, command, Some(KEY)),
-        KeyAction::Filter(text) => on_filter(app, Some(&text), Some(KEY)),
+        KeyAction::Ui(UiCommand::Mode(mode)) if source == Some(ReceiptSource::Key) => {
+            on_mode_key(mode);
+        }
+        KeyAction::Ui(command) => handle(app, command, source),
+        KeyAction::Filter(text) => on_filter(app, Some(&text), source),
         KeyAction::Layout(layout) => {
             let command = with_window(|owner| {
                 if !owner.window.is_visible() {
@@ -1830,8 +1888,8 @@ fn run_key(app: &App, action: Action) {
             .flatten();
             match command {
                 Some(command) => {
-                    let sent = Sent::command(name, &command, KEY);
-                    send_ui(app, command, Some(sent));
+                    let sent = source.map(|source| Sent::command(name, &command, source));
+                    send_ui(app, command, sent);
                 }
                 None => not_applicable(),
             }
@@ -1844,8 +1902,8 @@ fn run_key(app: &App, action: Action) {
             });
             match command.filter(|_| visible) {
                 Some(command) => {
-                    let sent = Sent::command(name, &command, KEY);
-                    send_ui(app, command, Some(sent));
+                    let sent = source.map(|source| Sent::command(name, &command, source));
+                    send_ui(app, command, sent);
                 }
                 None => not_applicable(),
             }
@@ -1868,14 +1926,19 @@ fn run_key(app: &App, action: Action) {
                         let state = mirror.as_ref().map(Mirror::state);
                         bodies::request_command(state, panel, request)
                     });
-                    send_ui(app, command, Some(Sent::action(name, KEY)));
+                    send_ui(
+                        app,
+                        command,
+                        source.map(|source| Sent::action(name, source)),
+                    );
                 }
                 Some(Err(refusal)) => refused(&refusal.text(name)),
                 None => not_applicable(),
             }
         }
         KeyAction::Reload => {
-            if !reload_keymap(|| record_receipt(Sent::action(RELOAD, KEY), Ending::Done)) {
+            let tag = source.map(|source| Sent::action(RELOAD, source));
+            if !reload_keymap(move || note_receipt(tag, Ending::Done)) {
                 not_applicable();
             }
         }
@@ -2688,6 +2751,35 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         UiRequest::WindowSize { width, height } => {
             with_window(|owner| owner.set_window_size(app, name, width, height))
         }
+        UiRequest::Overlay => overlay_view().map(|view| UiReply::Overlay(Box::new(view))),
+        UiRequest::PaletteOpen { query, category } => with_window(|_| ()).and_then(|()| {
+            let command = UiCommand::OverlayOpen(OverlayKind::Palette);
+            handle(app, command, None);
+            OVERLAY.with(|state| {
+                let mut state = state.borrow_mut();
+                if state.kind == Some(OverlayKind::Palette) {
+                    if let Some(query) = query {
+                        state.query = query;
+                    }
+                    if category.is_some() {
+                        state.category = category;
+                    }
+                    let typed = !state.query.is_empty();
+                    with_router(|router| router.set_typed(typed));
+                }
+            });
+            with_window(|owner| {
+                owner.bump();
+                owner.accepted(command)
+            })
+        }),
+        UiRequest::OverlayClose(kind) => with_window(|_| ()).and_then(|()| {
+            close_overlay(kind);
+            with_window(|owner| owner.accepted_named(name))
+        }),
+        UiRequest::CmdlineRun { text } => with_window(|_| ())
+            .and_then(|()| cmdline_run(app, text))
+            .map(|run| UiReply::Cmdline(Box::new(run))),
         UiRequest::Gallery(_) => None,
     };
     reply.ok_or(UiRefusal::NoUi)
@@ -2729,6 +2821,236 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
         UiCommand::PanelFilter => on_filter(app, None, source),
         UiCommand::Mode(action) => on_mode(action, source),
         UiCommand::History(step) => on_history(step, source),
+        UiCommand::OverlayOpen(kind) => on_overlay_open(app, kind, source),
+    }
+}
+
+/// Действие `*.open`: модальный слой маршрутизатора получает наложение с источником, составление
+/// IME снимается без коммита. С клавиши слой уже открыт самим решением. Скрытое окно и галерея
+/// наложений не получают.
+fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) {
+    let tag = source.map(|source| Sent::action(kind.keymap_name(), source));
+    let shown = with_window(|owner| owner.window.is_visible() && owner.gallery.is_none());
+    if shown != Some(true) {
+        return note_receipt(tag, Ending::NotApplicable);
+    }
+    app.discard_composition();
+    let (focus, _) = current_focus(app);
+    let open = with_router(|router| {
+        router.open(kind, &focus);
+        router.modal().map(|modal| modal.kind)
+    })
+    .flatten();
+    if open != Some(kind) {
+        return note_receipt(tag, Ending::NotApplicable);
+    }
+    OVERLAY.with(|state| {
+        let mut state = state.borrow_mut();
+        if state.kind != Some(kind) {
+            *state = OverlayState::fresh(kind);
+        }
+    });
+    with_window(|owner| {
+        owner.show_hints();
+        owner.bump();
+    });
+    note_receipt(tag, Ending::Done);
+}
+
+/// Служебное закрытие наложения вида `kind`: как `Esc`, источник восстанавливается. Другое
+/// открытое наложение не трогается.
+fn close_overlay(kind: OverlayKind) {
+    let modal = with_router(|router| {
+        if router.modal().is_some_and(|modal| modal.kind == kind) {
+            router.close()
+        } else {
+            None
+        }
+    })
+    .flatten();
+    if let Some(modal) = modal {
+        restore_source(modal);
+    }
+}
+
+/// Наложение закрыто без действия: состав забыт, источнику возвращаются фокус и режим. Закрытая
+/// с тех пор панель не трогается: маршрутизатор уже снял её из источника.
+fn restore_source(modal: Modal<ModeReceiver>) {
+    OVERLAY.with(|state| *state.borrow_mut() = OverlayState::default());
+    if let Some(ModeReceiver::Panel(panel)) = modal.source.receiver {
+        with_window(|owner| {
+            if let Some(layout) = owner.layout.as_ref() {
+                layout.set_input(panel, modal.source.mode == Mode::Input);
+            }
+        });
+    }
+    follow_field();
+    with_window(|owner| owner.bump());
+}
+
+/// Наложение закрыто перед своим действием: состав забыт, источник не восстанавливается.
+fn dismiss_overlay() {
+    if with_router(|router| router.dismiss()).flatten().is_some() {
+        OVERLAY.with(|state| *state.borrow_mut() = OverlayState::default());
+        follow_field();
+        with_window(|owner| owner.bump());
+    }
+}
+
+/// Клавиша управления открытым наложением. `Tab` и `Shift-Tab` перебирают категории палитры.
+/// Набор меток без совпадений закрывает их без действия: целей меток до их вида нет.
+fn on_overlay_key(kind: OverlayKind, chord: Chord) {
+    let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+    if open != Some(kind) {
+        return;
+    }
+    let tab = Chord::parse("Tab").ok();
+    let back = Chord::parse("Shift-Tab").ok();
+    match kind {
+        OverlayKind::Palette => OVERLAY.with(|state| {
+            let mut state = state.borrow_mut();
+            let order = PaletteCategory::ALL;
+            let at = state
+                .category
+                .and_then(|category| order.iter().position(|known| *known == category))
+                .unwrap_or(0);
+            if Some(chord) == tab {
+                state.category = Some(order[(at + 1) % order.len()]);
+            } else if Some(chord) == back {
+                state.category = Some(order[(at + order.len() - 1) % order.len()]);
+            }
+        }),
+        OverlayKind::Hints => {
+            if chord.types_text() {
+                close_overlay(OverlayKind::Hints);
+            }
+        }
+        OverlayKind::Cmdline => {}
+    }
+    with_window(|owner| owner.bump());
+}
+
+/// Чтение `ui.overlay`. `None` — окна нет.
+fn overlay_view() -> Option<OverlayView> {
+    with_window(|_| ())?;
+    let modal = with_router(|router| router.modal().cloned()).flatten();
+    Some(OVERLAY.with(|state| {
+        let state = state.borrow();
+        let kind = modal.as_ref().map(|modal| modal.kind);
+        OverlayView {
+            pid: std::process::id(),
+            kind: kind.map(|kind| match kind {
+                OverlayKind::Palette => OverlayViewKind::Palette,
+                OverlayKind::Hints => OverlayViewKind::Hints,
+                OverlayKind::Cmdline => OverlayViewKind::Cmdline,
+            }),
+            source: modal.as_ref().map(|modal| OverlaySourceView {
+                panel: match modal.source.receiver {
+                    Some(ModeReceiver::Panel(panel)) => Some(panel),
+                    Some(ModeReceiver::GalleryInput(_)) | None => None,
+                },
+                receiver: modal.source.receiver,
+                mode: wire_panel_mode(modal.source.mode),
+                field: modal.source.field,
+            }),
+            palette: (kind == Some(OverlayKind::Palette)).then(|| PaletteStateView {
+                query: state.query.clone(),
+                category: state.category.unwrap_or(PaletteCategory::All),
+                groups: Vec::new(),
+                selected: None,
+                matched: 0,
+            }),
+            hints: (kind == Some(OverlayKind::Hints)).then(|| HintsStateView {
+                typed: state.typed.clone(),
+                labels: Vec::new(),
+            }),
+            cmdline: (kind == Some(OverlayKind::Cmdline)).then(|| CmdlineStateView {
+                text: state.text.clone(),
+            }),
+            which_key: None,
+        }
+    }))
+}
+
+/// `cmdline.run`: текст строки `:` по грамматике. Открытая строка закрывается до действия,
+/// источник не восстанавливается; действие идёт обработчиком клавиши без записи кольца.
+/// Неизвестная команда называется в строке статуса.
+fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
+    let resolved = shellio_keymap::resolve_cmdline(&text, &[]);
+    let mut view = CmdlineRunView {
+        pid: std::process::id(),
+        text: text.clone(),
+        outcome: CmdlineOutcome::Empty,
+        action: None,
+        args: None,
+        message: None,
+    };
+    let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+    if open == Some(OverlayKind::Cmdline) {
+        dismiss_overlay();
+    }
+    match resolved {
+        shellio_keymap::Cmdline::Empty => {}
+        shellio_keymap::Cmdline::Command(command) => {
+            let action = cmdline_action(command);
+            view.outcome = CmdlineOutcome::Run;
+            view.action = Some(action.name.clone());
+            view.args.clone_from(&action.args);
+            run_action(app, action, None);
+        }
+        shellio_keymap::Cmdline::Fallback(row) => {
+            let action = Action {
+                name: row.action.clone(),
+                args: row.args.clone(),
+            };
+            view.outcome = CmdlineOutcome::Run;
+            view.action = Some(action.name.clone());
+            view.args.clone_from(&action.args);
+            run_action(app, action, None);
+        }
+        shellio_keymap::Cmdline::Unknown(unknown) => {
+            let key = KEYMAP.with(|slot| {
+                let slot = slot.borrow();
+                let keymap = &slot.as_ref()?.keymap;
+                keymap
+                    .bindings()
+                    .iter()
+                    .find(|binding| binding.action == OverlayKind::Palette.keymap_name())
+                    .map(|binding| binding.sequence.to_string())
+            });
+            let message = shellio_keymap::unknown_message(&unknown, key.as_deref());
+            with_window(|owner| {
+                owner.show_status(Some(&message));
+                owner.bump();
+            });
+            mark_status();
+            view.outcome = CmdlineOutcome::Unknown;
+            view.message = Some(message);
+        }
+    }
+    Some(view)
+}
+
+/// Действие keymap команды грамматики `:`.
+fn cmdline_action(command: shellio_keymap::CmdlineCommand) -> Action {
+    use shellio_keymap::{Axis, CmdlineCommand, Theme};
+    let plain = |name: &str| Action {
+        name: name.to_owned(),
+        args: None,
+    };
+    match command {
+        CmdlineCommand::Close => plain("panel.close"),
+        CmdlineCommand::Zoom => plain("layout.zoom"),
+        CmdlineCommand::Split(axis) => Action {
+            name: "layout.split".to_owned(),
+            args: Some(serde_json::json!({ "axis": match axis {
+                Axis::Row => "row",
+                Axis::Stack => "stack",
+            } })),
+        },
+        CmdlineCommand::Theme(Theme::Light) => plain("ui.appearance.light"),
+        CmdlineCommand::Theme(Theme::Dark) => plain("ui.appearance.dark"),
+        CmdlineCommand::Theme(Theme::System) => plain("ui.appearance.system"),
     }
 }
 

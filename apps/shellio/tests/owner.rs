@@ -1474,12 +1474,12 @@ async fn previous_protocol_client_is_refused_by_the_owner() {
             .unwrap();
         Response::parse(reader.next_line().await.unwrap().unwrap()).unwrap()
     };
-    assert_eq!(PROTOCOL, 5);
-    let old = serde_json::json!({"id": 1, "hello": {"protocol": 4, "client": "old"}});
+    assert_eq!(PROTOCOL, 6);
+    let old = serde_json::json!({"id": 1, "hello": {"protocol": 5, "client": "old"}});
     match call(old).await {
         Response::Error { error, .. } => {
             assert_eq!(error.code(), ControlErrorCode::ProtocolMismatch);
-            assert_eq!(error.detail("supported"), Some(&serde_json::json!([5])));
+            assert_eq!(error.detail("supported"), Some(&serde_json::json!([6])));
         }
         other => panic!("ожидался protocol_mismatch, получено {other:?}"),
     }

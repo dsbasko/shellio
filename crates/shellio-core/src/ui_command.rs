@@ -218,6 +218,37 @@ impl HistoryStep {
     }
 }
 
+/// Наложение модального слоя клавиш: палитра, метки `f` и командная строка `:` (ADR-0010,
+/// «Уточнено в P1.6 (планирование): наложения»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum OverlayKind {
+    Palette,
+    Hints,
+    Cmdline,
+}
+
+impl OverlayKind {
+    pub const ALL: [Self; 3] = [Self::Palette, Self::Hints, Self::Cmdline];
+
+    /// Операнд `shellioctl ui <наложение>` и первый сегмент имени действия.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Palette => "palette",
+            Self::Hints => "hints",
+            Self::Cmdline => "cmdline",
+        }
+    }
+
+    /// Имя действия открытия в keymap и на проводе.
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Palette => "palette.open",
+            Self::Hints => "hints.open",
+            Self::Cmdline => "cmdline.open",
+        }
+    }
+}
+
 /// Действие интерфейса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UiCommand {
@@ -241,12 +272,15 @@ pub enum UiCommand {
     Mode(ModeAction),
     /// Шаг по истории переходов активного воркспейса.
     History(HistoryStep),
+    /// Открыть наложение модального слоя. Запрос, категория и служебное закрытие идут
+    /// отдельными запросами `ui` без имени keymap.
+    OverlayOpen(OverlayKind),
 }
 
 impl UiCommand {
     /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия, каждое
-    /// движение списка, каждое действие режима и каждый шаг истории.
-    pub const ALL: [Self; 26] = [
+    /// движение списка, каждое действие режима, каждый шаг истории и каждое наложение.
+    pub const ALL: [Self; 29] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
@@ -273,6 +307,9 @@ impl UiCommand {
         Self::Mode(ModeAction::Toggle),
         Self::History(HistoryStep::Back),
         Self::History(HistoryStep::Forward),
+        Self::OverlayOpen(OverlayKind::Palette),
+        Self::OverlayOpen(OverlayKind::Hints),
+        Self::OverlayOpen(OverlayKind::Cmdline),
     ];
 
     /// Имя команды в управляющем API.
@@ -286,7 +323,8 @@ impl UiCommand {
             | Self::List(_)
             | Self::PanelFilter
             | Self::Mode(_)
-            | Self::History(_) => self.keymap_name(),
+            | Self::History(_)
+            | Self::OverlayOpen(_) => self.keymap_name(),
         }
     }
 
@@ -308,6 +346,7 @@ impl UiCommand {
             Self::PanelFilter => "panel.filter",
             Self::Mode(action) => action.keymap_name(),
             Self::History(step) => step.keymap_name(),
+            Self::OverlayOpen(kind) => kind.keymap_name(),
         }
     }
 
@@ -354,6 +393,9 @@ mod tests {
             ("mode.toggle", "mode.toggle"),
             ("history.back", "history.back"),
             ("history.forward", "history.forward"),
+            ("palette.open", "palette.open"),
+            ("hints.open", "hints.open"),
+            ("cmdline.open", "cmdline.open"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {
@@ -364,6 +406,15 @@ mod tests {
         let unique: BTreeSet<_> = UiCommand::ALL.map(UiCommand::keymap_name).into();
         assert_eq!(unique.len(), UiCommand::ALL.len(), "имена keymap различны");
         assert_eq!(UiCommand::from_keymap_name("ui.appearance.set"), None);
+        // Служебное закрытие и запуск строки `:` — не действия keymap.
+        for service in [
+            "palette.close",
+            "hints.close",
+            "cmdline.run",
+            "cmdline.close",
+        ] {
+            assert_eq!(UiCommand::from_keymap_name(service), None, "{service}");
+        }
     }
 
     #[test]

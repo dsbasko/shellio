@@ -1,0 +1,44 @@
+{
+  "id": 57,
+  "ok": {
+    "ui": {
+      "overlay": {
+        "pid": 4242,
+        "kind": "palette",
+        "source": {
+          "panel": "00000000-0000-0000-0000-000000000003",
+          "receiver": {
+            "panel": "00000000-0000-0000-0000-000000000003"
+          },
+          "mode": "input",
+          "field": true
+        },
+        "palette": {
+          "query": "тема",
+          "category": "cmd",
+          "groups": [
+            {
+              "title": "Команды",
+              "rows": [
+                {
+                  "id": "ui.appearance.dark",
+                  "title": "Тёмная тема",
+                  "detail": "Оформление",
+                  "key": null
+                },
+                {
+                  "id": "ui.appearance.cycle",
+                  "title": "Сменить тему",
+                  "detail": "Оформление",
+                  "key": "Cmd-Alt-t"
+                }
+              ]
+            }
+          ],
+          "selected": "ui.appearance.dark",
+          "matched": 2
+        }
+      }
+    }
+  }
+}

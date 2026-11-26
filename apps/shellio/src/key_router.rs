@@ -5,11 +5,14 @@
 //! зависит следующее решение, меняется внутри самого решения: набранный префикс, режим панели и
 //! автомат аккорда выхода. На одно событие приходится не больше одного действия.
 //!
-//! Модальный слой наложений встаёт перед таблицей вместе с самими наложениями.
+//! Модальный слой наложений (палитра, метки, командная строка) стоит перед таблицей: пока
+//! наложение открыто, клавиши получает оно, под него не проходит ничего, кроме `Cmd-q` и `Cmd-w`.
+//! Открытие и закрытие клавишей меняют слой в самом решении.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
+use shellio_core::OverlayKind;
 use shellio_keymap::{Cancel, Chord, Context, ExitChord, KeyCode, KeyDown, Keymap, Lookup, Mode};
 
 /// Перевести панель с фокусом в `Navigation`.
@@ -21,6 +24,24 @@ pub const MODE_TOGGLE: &str = "mode.toggle";
 
 const SPACE: KeyCode = KeyCode(0x31);
 const ENTER: KeyCode = KeyCode(0x24);
+const ESCAPE: KeyCode = KeyCode(0x35);
+
+/// Действия, которые действуют и при открытом наложении.
+const THROUGH_OVERLAY: [&str; 2] = ["app.quit", "window.close"];
+
+/// Клавиши управления наложением, пока ввод держит его поле: выбор, выполнение и категории.
+/// Остальное поле редактирует само.
+const OVERLAY_KEYS: [&str; 9] = [
+    "Up",
+    "Down",
+    "Enter",
+    "Tab",
+    "Shift-Tab",
+    "Ctrl-n",
+    "Ctrl-p",
+    "Ctrl-j",
+    "Ctrl-k",
+];
 
 /// Кто держит ввод в ключевом окне в момент события.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,6 +56,8 @@ pub enum Responder {
     TabStrip,
     /// Кнопка с кольцом фокуса: `Space` и `Enter` нажимают её.
     Button,
+    /// Поле открытого наложения: запрос палитры или строка `:`.
+    OverlayField,
 }
 
 /// Панель с фокусом видимой части открытой рабочей области.
@@ -74,6 +97,30 @@ pub enum Decision<R, E> {
     Run(Action),
     /// Второй аккорд выхода: получатель получает сохранённую пару, его режим уже `Input`.
     Replay { receiver: R, event: E },
+    /// Клавиша открытого наложения: её обрабатывает само наложение.
+    Overlay { kind: OverlayKind, chord: Chord },
+    /// Клавиша закрыла наложение: источнику возвращаются фокус и режим.
+    Close(Modal<R>),
+}
+
+/// Кому возвращаются фокус и режим, когда наложение закрыто без действия.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OverlaySource<R> {
+    /// Получатель панели с фокусом; `None` — панели не было или она закрыта.
+    pub receiver: Option<R>,
+    /// Режим панели в момент открытия.
+    pub mode: Mode,
+    /// Ввод держало поле панели.
+    pub field: bool,
+}
+
+/// Открытое модальное наложение.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Modal<R> {
+    pub kind: OverlayKind,
+    pub source: OverlaySource<R>,
+    /// В поле наложения есть текст: повторный аккорд открытия его не закрывает.
+    pub typed: bool,
 }
 
 /// `R` — получатель ввода панели, `E` — исходное событие нажатия для повтора.
@@ -85,6 +132,7 @@ pub struct KeyRouter<R, E> {
     input: BTreeMap<R, ()>,
     /// Клавиши, чьё нажатие получателю не ушло: их отпускание он тоже не получает.
     held: BTreeSet<KeyCode>,
+    modal: Option<Modal<R>>,
 }
 
 impl<R, E> Default for KeyRouter<R, E> {
@@ -94,6 +142,7 @@ impl<R, E> Default for KeyRouter<R, E> {
             exit: ExitChord::default(),
             input: BTreeMap::new(),
             held: BTreeSet::new(),
+            modal: None,
         }
     }
 }
@@ -106,8 +155,23 @@ fn native(responder: Responder, chord: Chord) -> bool {
         Responder::TabStrip | Responder::Button => {
             bare && (chord.key == SPACE || chord.key == ENTER)
         }
-        Responder::None | Responder::Body => false,
+        Responder::None | Responder::Body | Responder::OverlayField => false,
     }
+}
+
+/// Наложение, которое открывает действие.
+pub fn overlay_of(action: &str) -> Option<OverlayKind> {
+    OverlayKind::ALL
+        .into_iter()
+        .find(|kind| kind.keymap_name() == action)
+}
+
+/// Клавиша управления наложением, а не правка его поля.
+fn overlay_key(chord: Chord) -> bool {
+    OVERLAY_KEYS
+        .iter()
+        .filter_map(|name| Chord::parse(name).ok())
+        .any(|key| key == chord)
 }
 
 /// Действует ли привязка у этой панели: режим `Input` есть только у панели с получателем ввода.
@@ -156,6 +220,10 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
     /// второго аккорда не снимает; расхождение — чужая смена ответчика, она ожидание снимает.
     /// `true` — режимы изменились.
     pub fn follow_field(&mut self, typing: Option<&R>) -> bool {
+        // Поле наложения держит ввод вместо поля источника: режим источника ждёт закрытия.
+        if self.modal.is_some() {
+            return false;
+        }
         let agrees = match typing {
             Some(receiver) => self.input.len() == 1 && self.input.contains_key(receiver),
             None => self.input.is_empty(),
@@ -191,6 +259,99 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         self.exit.receiver()
     }
 
+    /// Открытое модальное наложение.
+    pub fn modal(&self) -> Option<&Modal<R>> {
+        self.modal.as_ref()
+    }
+
+    /// Источник наложения по тому, кто держит ввод в момент открытия.
+    pub fn source_of(&self, focus: &Focus<R>) -> OverlaySource<R> {
+        let receiver = focus.panel.as_ref().map(|panel| panel.receiver.clone());
+        OverlaySource {
+            mode: receiver
+                .as_ref()
+                .map_or(Mode::Navigation, |receiver| self.mode(receiver)),
+            field: focus.responder == Responder::Field && receiver.is_some(),
+            receiver,
+        }
+    }
+
+    /// Открыть наложение. Открытие снимает ожидание аккорда выхода и префикс. Открытое того же
+    /// вида не меняется, другое вид заменяет: его источник остаётся источником нового.
+    /// `true` — наложение открыто этим вызовом.
+    pub fn open(&mut self, kind: OverlayKind, focus: &Focus<R>) -> bool {
+        if self.modal.as_ref().is_some_and(|modal| modal.kind == kind) {
+            return false;
+        }
+        let source = match self.modal.take() {
+            Some(previous) => previous.source,
+            None => self.source_of(focus),
+        };
+        self.cancel(Cancel::Overlay);
+        self.modal = Some(Modal {
+            kind,
+            source,
+            typed: false,
+        });
+        true
+    }
+
+    /// Закрыть открытое наложение: источнику возвращается режим. Первого ответчика возвращает
+    /// окно по [`OverlaySource`]. `None` — наложения не было.
+    pub fn close(&mut self) -> Option<Modal<R>> {
+        let modal = self.modal.take()?;
+        if let Some(receiver) = &modal.source.receiver {
+            self.set_mode(receiver.clone(), modal.source.mode);
+        }
+        Some(modal)
+    }
+
+    /// Закрыть наложение перед его действием: действие само решает, где окажутся фокус и режим,
+    /// поэтому источник не восстанавливается.
+    pub fn dismiss(&mut self) -> Option<Modal<R>> {
+        self.modal.take()
+    }
+
+    /// В поле наложения появился текст или поле опустело.
+    pub fn set_typed(&mut self, typed: bool) {
+        if let Some(modal) = self.modal.as_mut() {
+            modal.typed = typed;
+        }
+    }
+
+    /// Клавиша при открытом наложении: `Cmd-q` и `Cmd-w` действуют, `Esc` и повторный аккорд
+    /// открытия при пустом поле закрывают, клавиши управления получает наложение, текст — его
+    /// поле. Под наложение не проходит ничего.
+    fn decide_modal(&mut self, keymap: &Keymap, focus: &Focus<R>, chord: Chord) -> Decision<R, E> {
+        let Some(modal) = self.modal.as_ref() else {
+            return Decision::Pass;
+        };
+        let kind = modal.kind;
+        if let Lookup::Exact(binding) = keymap.lookup(&[Context::Global], &[chord]) {
+            if THROUGH_OVERLAY.contains(&binding.action.as_str()) {
+                return Decision::Run(Action {
+                    name: binding.action.clone(),
+                    args: binding.args.clone(),
+                });
+            }
+            // Повторный аккорд открытия закрывает пустое наложение; при тексте его получает
+            // наложение, а не поле.
+            if overlay_of(&binding.action) == Some(kind) {
+                if modal.typed {
+                    return Decision::Overlay { kind, chord };
+                }
+                return self.close().map_or(Decision::Swallow, Decision::Close);
+            }
+        }
+        if chord.key == ESCAPE && chord.mods == shellio_keymap::Mods::NONE {
+            return self.close().map_or(Decision::Swallow, Decision::Close);
+        }
+        if focus.responder == Responder::OverlayField && !overlay_key(chord) {
+            return Decision::Pass;
+        }
+        Decision::Overlay { kind, chord }
+    }
+
     /// Режим, по которому разбирается событие: поле с вводом — всегда `Input`.
     fn effective(&self, focus: &Focus<R>) -> Mode {
         if focus.responder == Responder::Field {
@@ -221,7 +382,11 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
                     self.held.remove(&chord.key);
                 }
             }
-            Decision::Swallow | Decision::Run(_) | Decision::Replay { .. } => {
+            Decision::Swallow
+            | Decision::Run(_)
+            | Decision::Replay { .. }
+            | Decision::Overlay { .. }
+            | Decision::Close(_) => {
                 self.held.insert(chord.key);
             }
         }
@@ -239,6 +404,9 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         if focus.composing {
             return Decision::Pass;
         }
+        if self.modal.is_some() {
+            return self.decide_modal(keymap, focus, chord);
+        }
         match self.exit.key_down(chord, repeat) {
             KeyDown::Swallow => return Decision::Swallow,
             KeyDown::Replay { receiver, event } => {
@@ -255,7 +423,11 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         let mode = self.effective(focus);
         let contexts = match focus.responder {
             Responder::None => vec![Context::Global],
-            Responder::Body | Responder::Field | Responder::TabStrip | Responder::Button => {
+            Responder::Body
+            | Responder::Field
+            | Responder::TabStrip
+            | Responder::Button
+            | Responder::OverlayField => {
                 let plugin = focus.panel.as_ref().map(|panel| panel.plugin.as_str());
                 Keymap::contexts(mode, plugin)
             }
@@ -345,6 +517,9 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
                 _ => {}
             }
         }
+        if let Some(kind) = overlay_of(action) {
+            self.open(kind, focus);
+        }
         Decision::Run(Action {
             name: action.to_owned(),
             args,
@@ -390,6 +565,7 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
     /// Остаются только получатели, для которых `alive` истинно: остальные закрыты.
     pub fn retain(&mut self, alive: impl Fn(&R) -> bool) {
         self.input.retain(|receiver, ()| alive(receiver));
+        self.forget_source(&alive);
         if let Some(receiver) = self.exit.receiver().cloned()
             && !alive(&receiver)
         {
@@ -397,10 +573,24 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         }
     }
 
-    /// Панель закрыта: её режим и её ожидание второго аккорда забыты.
+    /// Панель закрыта: её режим и её ожидание второго аккорда забыты, источником наложения она
+    /// больше не считается.
     pub fn closed(&mut self, receiver: &R) {
         self.input.remove(receiver);
         self.exit.receiver_closed(receiver);
+        self.forget_source(|source| source != receiver);
+    }
+
+    fn forget_source(&mut self, alive: impl Fn(&R) -> bool) {
+        if let Some(modal) = self.modal.as_mut()
+            && modal
+                .source
+                .receiver
+                .as_ref()
+                .is_some_and(|source| !alive(source))
+        {
+            modal.source.receiver = None;
+        }
     }
 }
 
@@ -1028,5 +1218,283 @@ mod tests {
         ));
         assert!(!router.follow_field(Some(&FIELD)));
         assert_eq!(router.mode(&FIELD), Mode::Input);
+    }
+
+    /// Таблица с привязками наложений из `keymap.toml`.
+    fn overlay_keymap() -> Keymap {
+        let file = r#"
+[global]
+"Cmd-k" = "palette.open"
+[navigation]
+"<leader> <leader>" = "palette.open"
+"f" = "hints.open"
+":" = "cmdline.open"
+"#;
+        let any = |_: &Context, _: &str, _: Option<&Value>| Ok(());
+        let base = keymap();
+        let panels = [
+            PanelKeys {
+                plugin: "demo-list".to_owned(),
+                list_keys: true,
+                defaults: Vec::new(),
+            },
+            PanelKeys {
+                plugin: "demo-native".to_owned(),
+                list_keys: false,
+                defaults: Vec::new(),
+            },
+        ];
+        let table = base.apply(Some(file), &panels, &any).unwrap();
+        assert!(table.diagnostics().is_empty(), "{:?}", table.diagnostics());
+        table
+    }
+
+    fn press(
+        router: &mut Router,
+        table: &Keymap,
+        focus: &Focus<u8>,
+        key: &'static str,
+    ) -> Decision<u8, &'static str> {
+        router.key_down(table, focus, chord(key), false, key)
+    }
+
+    fn opened(kind: OverlayKind) -> Decision<u8, &'static str> {
+        ran(kind.keymap_name())
+    }
+
+    #[test]
+    fn opening_chord_opens_the_modal_layer_inside_the_decision() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), "f"),
+            opened(OverlayKind::Hints)
+        );
+        assert_eq!(
+            router.modal().map(|modal| modal.kind),
+            Some(OverlayKind::Hints)
+        );
+        // Следующая быстрая клавиша уже идёт наложению, а не списку под ним.
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), "a"),
+            Decision::Overlay {
+                kind: OverlayKind::Hints,
+                chord: chord("a"),
+            }
+        );
+        // `Space Space` открывает палитру из `Navigation`; закрытие возвращает источник.
+        assert!(matches!(
+            press(&mut router, &table, &body(LIST), "Esc"),
+            Decision::Close(_)
+        ));
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), "Space"),
+            Decision::Swallow
+        );
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), "Space"),
+            opened(OverlayKind::Palette)
+        );
+        assert!(router.pending().is_empty());
+    }
+
+    #[test]
+    fn keys_under_an_open_overlay_never_reach_the_layer_below() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        press(&mut router, &table, &body(TERMINAL), "Cmd-k");
+        for key in [
+            "j", "Ctrl-w", "l", "Cmd-0", "i", "Enter", "Ctrl-\\", "Space",
+        ] {
+            assert!(
+                matches!(
+                    press(&mut router, &table, &body(TERMINAL), key),
+                    Decision::Overlay { .. }
+                ),
+                "{key}"
+            );
+        }
+        assert!(
+            router.pending().is_empty(),
+            "префикс под палитрой не копится"
+        );
+        assert_eq!(router.exit_armed(), None);
+        assert_eq!(router.mode(&TERMINAL), Mode::Navigation);
+        // `Cmd-q` и `Cmd-w` действуют и при открытом наложении, наложение остаётся.
+        assert_eq!(
+            press(&mut router, &table, &body(TERMINAL), "Cmd-q"),
+            ran("app.quit")
+        );
+        assert_eq!(
+            press(&mut router, &table, &body(TERMINAL), "Cmd-w"),
+            ran("window.close")
+        );
+        assert_eq!(
+            router.modal().map(|modal| modal.kind),
+            Some(OverlayKind::Palette)
+        );
+    }
+
+    #[test]
+    fn overlay_field_keeps_its_text_and_gives_control_keys_to_the_overlay() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        press(&mut router, &table, &body(LIST), "Cmd-k");
+        let field = Focus {
+            responder: Responder::OverlayField,
+            composing: false,
+            panel: None,
+        };
+        // Пробел и буквы — текст запроса: `Space Space` палитру не закрывает и не открывает.
+        for key in ["Space", "Space", "j", "f", "Backspace", "Left", "Cmd-a"] {
+            assert_eq!(
+                press(&mut router, &table, &field, key),
+                Decision::Pass,
+                "{key}"
+            );
+        }
+        for key in [
+            "Up",
+            "Down",
+            "Enter",
+            "Tab",
+            "Shift-Tab",
+            "Ctrl-n",
+            "Ctrl-p",
+        ] {
+            assert!(
+                matches!(
+                    press(&mut router, &table, &field, key),
+                    Decision::Overlay { .. }
+                ),
+                "{key}"
+            );
+        }
+        // При тексте в поле повторный `Cmd-k` палитру не закрывает, при пустом — закрывает.
+        router.set_typed(true);
+        assert!(matches!(
+            press(&mut router, &table, &field, "Cmd-k"),
+            Decision::Overlay { .. }
+        ));
+        router.set_typed(false);
+        assert!(matches!(
+            press(&mut router, &table, &field, "Cmd-k"),
+            Decision::Close(_)
+        ));
+        assert_eq!(router.modal(), None);
+    }
+
+    #[test]
+    fn closing_returns_the_source_mode_and_the_field() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        // Палитра из поля во `Input`: поле наложения забирает ввод, режим источника ждёт.
+        router.follow_field(Some(&FIELD));
+        let field = focus(Responder::Field, FIELD);
+        assert_eq!(
+            press(&mut router, &table, &field, "Cmd-k"),
+            opened(OverlayKind::Palette)
+        );
+        assert!(!router.follow_field(None), "согласование ждёт закрытия");
+        assert_eq!(router.mode(&FIELD), Mode::Input);
+        let Decision::Close(modal) = press(&mut router, &table, &field, "Esc") else {
+            panic!("Esc закрывает палитру");
+        };
+        assert_eq!(
+            modal.source,
+            OverlaySource {
+                receiver: Some(FIELD),
+                mode: Mode::Input,
+                field: true,
+            }
+        );
+        assert_eq!(router.mode(&FIELD), Mode::Input);
+
+        // Из списка в `Navigation` — обратно в `Navigation`.
+        let mut router = Router::default();
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), ":"),
+            opened(OverlayKind::Cmdline)
+        );
+        let modal = router.close().unwrap();
+        assert_eq!(modal.source.receiver, Some(LIST));
+        assert_eq!(modal.source.mode, Mode::Navigation);
+        assert!(!modal.source.field);
+        assert_eq!(router.close(), None, "закрыто один раз");
+    }
+
+    #[test]
+    fn opening_drops_the_prefix_and_the_exit_chord() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        router.set_mode(FIELD, Mode::Input);
+        assert_eq!(
+            press(&mut router, &table, &body(FIELD), "Ctrl-\\"),
+            ran("mode.navigation")
+        );
+        assert_eq!(router.exit_armed(), Some(&FIELD));
+        assert_eq!(
+            press(&mut router, &table, &body(FIELD), "Ctrl-w"),
+            Decision::Swallow
+        );
+        // Открытие не клавишей (CLI, кнопка заголовка) снимает то же самое.
+        assert!(router.open(OverlayKind::Palette, &body(FIELD)));
+        assert_eq!(router.exit_armed(), None);
+        assert!(router.pending().is_empty());
+        assert!(
+            !router.open(OverlayKind::Palette, &body(FIELD)),
+            "уже открыта"
+        );
+        // Другое наложение заменяет открытое и наследует его источник.
+        assert!(router.open(OverlayKind::Hints, &body(LIST)));
+        assert_eq!(
+            router
+                .modal()
+                .map(|modal| (modal.kind, modal.source.receiver)),
+            Some((OverlayKind::Hints, Some(FIELD)))
+        );
+    }
+
+    #[test]
+    fn composition_keeps_its_keys_even_with_an_overlay() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        router.open(OverlayKind::Cmdline, &body(LIST));
+        let mut composing = focus(Responder::OverlayField, LIST);
+        composing.composing = true;
+        assert_eq!(
+            press(&mut router, &table, &composing, "Esc"),
+            Decision::Pass
+        );
+        assert_eq!(
+            press(&mut router, &table, &composing, "Enter"),
+            Decision::Pass
+        );
+        assert!(router.modal().is_some());
+    }
+
+    #[test]
+    fn closed_source_panel_is_not_restored() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        press(&mut router, &table, &body(LIST), "Cmd-k");
+        router.closed(&LIST);
+        assert_eq!(router.close().unwrap().source.receiver, None);
+
+        press(&mut router, &table, &body(FIELD), "Cmd-k");
+        router.retain(|receiver| *receiver != FIELD);
+        assert_eq!(router.dismiss().unwrap().source.receiver, None);
+        assert_eq!(router.modal(), None);
+    }
+
+    #[test]
+    fn key_up_of_an_overlay_key_stays_with_the_overlay() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        press(&mut router, &table, &body(LIST), "f");
+        press(&mut router, &table, &body(LIST), "a");
+        assert_eq!(router.key_up(chord("a").key), Decision::Swallow);
+        press(&mut router, &table, &body(LIST), "Esc");
+        assert_eq!(router.key_up(chord("Esc").key), Decision::Swallow);
     }
 }

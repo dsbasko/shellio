@@ -15,7 +15,7 @@ use objc2_app_kit::{
     NSApplication, NSButton, NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSResponder,
     NSText,
 };
-use objc2_foundation::NSObjectProtocol;
+use objc2_foundation::{NSNotFound, NSObjectProtocol, NSRange, NSString};
 
 use crate::App;
 
@@ -207,6 +207,50 @@ impl App {
                 composing: false,
             },
         }
+    }
+}
+
+impl App {
+    /// Снять составление IME у первого ответчика ключевого окна без коммита (ADR-0010, «Уточнено
+    /// в P0.3»): размеченный текст заменяется пустым, метод ввода сбрасывает своё состояние.
+    /// `true` — составление было и снято.
+    pub fn discard_composition(&self) -> bool {
+        let Some(window) = NSApplication::sharedApplication(self.mtm()).keyWindow() else {
+            return false;
+        };
+        let Some(responder) = window.firstResponder() else {
+            return false;
+        };
+        if !composing(&responder)
+            || !responder.respondsToSelector(sel!(setMarkedText:selectedRange:replacementRange:))
+            || !responder.respondsToSelector(sel!(unmarkText))
+        {
+            return false;
+        }
+        let empty = NSString::new();
+        let none = NSRange::new(NSNotFound as usize, 0);
+        // SAFETY: ответчик с размеченным текстом реализует `NSTextInputClient`: оба метода есть
+        // (проверено выше), аргументы — строка и диапазоны по протоколу.
+        unsafe {
+            let _: () = msg_send![
+                &*responder,
+                setMarkedText: &*empty,
+                selectedRange: NSRange::new(0, 0),
+                replacementRange: none
+            ];
+            let _: () = msg_send![&*responder, unmarkText];
+        }
+        if responder.respondsToSelector(sel!(inputContext)) {
+            // SAFETY: `inputContext` без аргументов возвращает `NSTextInputContext` или nil, у
+            // контекста есть `discardMarkedText`.
+            unsafe {
+                let context: Option<Retained<AnyObject>> = msg_send![&*responder, inputContext];
+                if let Some(context) = context {
+                    let _: () = msg_send![&*context, discardMarkedText];
+                }
+            }
+        }
+        true
     }
 }
 

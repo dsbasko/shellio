@@ -1,0 +1,9 @@
+{
+  "id": 58,
+  "ui": {
+    "palette.open": {
+      "query": "тема",
+      "category": "cmd"
+    }
+  }
+}

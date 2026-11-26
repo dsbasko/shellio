@@ -103,8 +103,10 @@ enum HostArgs {
 
 /// Действия хоста с именем keymap (ADR-0007 и ADR-0010, «Уточнено в P1.6 (планирование)»). Имена
 /// `panel.open.<plugin>` строятся по реестру.
-const HOST_ACTIONS: [(&str, HostArgs); 50] = [
+const HOST_ACTIONS: [(&str, HostArgs); 53] = [
     ("app.quit", HostArgs::None),
+    ("cmdline.open", HostArgs::None),
+    ("hints.open", HostArgs::None),
     ("history.back", HostArgs::None),
     ("history.forward", HostArgs::None),
     ("keymap.reload", HostArgs::None),
@@ -133,6 +135,7 @@ const HOST_ACTIONS: [(&str, HostArgs); 50] = [
     ("mode.input", HostArgs::None),
     ("mode.navigation", HostArgs::None),
     ("mode.toggle", HostArgs::None),
+    ("palette.open", HostArgs::None),
     ("panel.close", HostArgs::None),
     ("panel.filter", HostArgs::FilterText),
     ("panel.focus.down", HostArgs::None),
@@ -683,9 +686,16 @@ mod tests {
                 "{action} {args:?}"
             );
         }
-        // Чтения и служебные запросы — не имена keymap, как и действие будущей палитры.
+        // Открытия наложений — имена keymap, служебные закрытие и запуск строки `:` — нет.
+        for action in ["palette.open", "hints.open", "cmdline.open"] {
+            assert_eq!(check(action, None), Ok(()), "{action}");
+        }
+        // Чтения и служебные запросы — не имена keymap.
         for action in [
-            "palette.open",
+            "palette.close",
+            "hints.close",
+            "cmdline.run",
+            "ui.overlay",
             "panel.open.none",
             "demo-list.none",
             "query.keymap",

@@ -57,7 +57,7 @@ pub use root::{FsRootResolver, ResolvedRoot, RootError, RootKey, RootKind, RootR
 pub use title::{Title, TitleError};
 pub use tree::{TreeProject, TreeRoot, TreeScope, TreeView, TreeWorkbench, TreeWorkspace};
 pub use ui_command::{
-    AppearanceChoice, HistoryStep, ListAction, ModeAction, ToggleTarget, UiCommand,
+    AppearanceChoice, HistoryStep, ListAction, ModeAction, OverlayKind, ToggleTarget, UiCommand,
 };
 pub use wire::{Event, Reply, ReplyValue};
 
