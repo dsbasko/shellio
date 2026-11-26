@@ -244,8 +244,13 @@ impl Palette {
                 if !ids.insert(candidate.id.as_str()) {
                     continue;
                 }
+                // Привязка действия, аргументы которого даёт вид, записана без `args`.
+                let bound = match candidate.args {
+                    Args::View(_) => None,
+                    _ => args.as_ref(),
+                };
                 let keys = keymap
-                    .key_for(&source.contexts, &candidate.action, args.as_ref())
+                    .key_for(&source.contexts, &candidate.action, bound)
                     .map(ToString::to_string);
                 rows.push(PaletteRow {
                     id: candidate.id.clone(),
@@ -428,6 +433,12 @@ mod tests {
                     Context::Panel("demo-list".to_owned()),
                     "o",
                     "demo-list.details",
+                    None,
+                ),
+                bind(
+                    Context::Panel("demo-native".to_owned()),
+                    "s",
+                    "demo-native.set",
                     None,
                 ),
             ],
@@ -759,12 +770,15 @@ mod tests {
 
         let with = PaletteSource {
             panel: vec![apply(Some(json!({"text": "черновик"})))],
+            contexts: Keymap::contexts(crate::keymap::Mode::Navigation, Some("demo-native")),
             ..source()
         };
         let palette = Palette::new(&with, &keymap(), "Применить", Category::All);
         let row = palette.selected_row().unwrap();
         assert_eq!(row.id, "demo-native.set");
         assert_eq!(row.args, Some(json!({"text": "черновик"})));
+        // Клавиша — привязка действия без `args`, аргументы строки — от вида.
+        assert_eq!(row.keys.as_deref(), Some("s"));
         assert_eq!(palette.rows()[0].args, None);
     }
 

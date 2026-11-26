@@ -80,8 +80,9 @@ pub struct WhichKey {
 
 /// Продолжения набранного `pending` в контекстах `contexts` сверху вниз, как их решит
 /// маршрутизатор: аккорд, после которого таблица ждёт ещё, — группа, иначе конечная команда с
-/// названием из `title` или именем действия. Порядок — первое появление аккорда по контекстам и
-/// строкам таблицы. `None` — префикса нет или продолжать нечем.
+/// названием из `title`. Привязка, у которой `title` названия не дал, скрыта, как `hidden`
+/// прототипа: она не даёт ни конечной команды, ни группы. Порядок — первое появление аккорда по
+/// контекстам и строкам таблицы. `None` — префикса нет или продолжать нечем.
 pub fn which_key(
     keymap: &Keymap,
     contexts: &[Context],
@@ -99,6 +100,7 @@ pub fn which_key(
                 && chords.len() > pending.len()
                 && chords.starts_with(pending)
                 && !next.contains(&chords[pending.len()])
+                && title(binding).is_some()
             {
                 next.push(chords[pending.len()]);
             }
@@ -110,10 +112,7 @@ pub fn which_key(
         .filter_map(|chord| {
             let typed: Vec<Chord> = pending.iter().copied().chain([chord]).collect();
             let (label, group) = match keymap.lookup(contexts, &typed) {
-                Lookup::Exact(binding) => (
-                    title(binding).unwrap_or_else(|| binding.action.clone()),
-                    false,
-                ),
+                Lookup::Exact(binding) => (title(binding)?, false),
                 Lookup::Prefix => (
                     group_title(leader, &typed).unwrap_or(OTHER).to_owned(),
                     true,
@@ -162,7 +161,9 @@ mod tests {
                 Some(Value::String(axis)) if axis == "row" => "Разделить: рядом",
                 _ => "Разделить: одна над другой",
             },
-            _ => return None,
+            // Скрытые, как `size.*` прототипа.
+            "layout.grow" | "layout.shrink" | "layout.wider" | "layout.narrower" => return None,
+            action => action,
         };
         Some(title.to_owned())
     }
@@ -230,8 +231,7 @@ mod tests {
         assert_eq!(
             keys,
             [
-                "h", "j", "k", "l", "H", "J", "K", "L", "v", "s", "q", "o", "=", "z", "+", "-",
-                ">", "<"
+                "h", "j", "k", "l", "H", "J", "K", "L", "v", "s", "q", "o", "=", "z"
             ]
         );
         assert!(found.items.iter().all(|item| !item.group));
@@ -239,8 +239,14 @@ mod tests {
         assert_eq!(item("v").label, "Разделить: рядом");
         assert_eq!(item("s").label, "Разделить: одна над другой");
         assert_eq!(item("z").label, "Развернуть панель");
-        // Без названия — имя действия.
         assert_eq!(item("q").label, "panel.close");
+        // Продолжения без названия скрыты.
+        assert!(
+            found
+                .items
+                .iter()
+                .all(|item| !"+-><".contains(item.key.as_str()))
+        );
     }
 
     #[test]
@@ -288,6 +294,25 @@ mod tests {
         assert_eq!(item.label, "Развернуть панель");
         assert!(!item.group);
         assert!(found.items.iter().all(|item| item.key != "z"));
+    }
+
+    #[test]
+    fn a_group_of_hidden_bindings_is_not_shown() {
+        let hidden = [PanelKeys {
+            plugin: "demo-native".to_owned(),
+            list_keys: false,
+            defaults: vec![KeyDefault {
+                sequence: "<leader>q x".to_owned(),
+                action: "layout.grow".to_owned(),
+            }],
+        }];
+        let keymap = Keymap::defaults(&hidden).unwrap();
+        let found = which_key(&keymap, &nav(), &chords(&keymap, "Space"), &titles).unwrap();
+        assert_eq!(items(&found), [("z", "Зоны", true)]);
+        assert_eq!(
+            which_key(&keymap, &nav(), &chords(&keymap, "Space q"), &titles),
+            None
+        );
     }
 
     #[test]
