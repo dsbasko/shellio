@@ -16,8 +16,8 @@ use shellio_control::{
     KeymapRequest, Lightness, Motion, TreeMutation, UiRequest,
 };
 use shellio_core::{
-    AppearanceChoice, Command, ListAction, ModeAction, PanelId, ProjectId, Revision, SplitAxis,
-    ToggleTarget, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
+    AppearanceChoice, Command, HistoryStep, ListAction, ModeAction, PanelId, ProjectId, Revision,
+    SplitAxis, ToggleTarget, TreeScope, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Dimension, Direction, Edge, Hideable, Zone};
 
@@ -71,6 +71,7 @@ pub const USAGE: &str = "\
   ui list <down|up|top|bottom|page-down|page-up|collapse|expand|activate>
   ui filter [<текст>]
   ui mode <navigation|input|toggle|get>
+  ui history <back|forward|get>
   window close
   app quit
   gallery cell <light|dark|auto> <normal|increased|auto>
@@ -1209,6 +1210,19 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::Mode(action))))
+        }
+        "ui history" => {
+            given.only(call, &[])?;
+            let [value] = operands(call, rest)?;
+            if value == "get" {
+                return Ok(Action::Ui(UiRequest::History));
+            }
+            let step = HistoryStep::parse(&value).ok_or_else(|| {
+                usage(format!(
+                    "{call}: ожидается back, forward или get, получено «{value}»"
+                ))
+            })?;
+            Ok(Action::Ui(UiRequest::Command(UiCommand::History(step))))
         }
         "ui filter" => {
             given.only(call, &[])?;
@@ -2742,6 +2756,16 @@ mod tests {
             action_of(&["ui", "mode", "get"]),
             Action::Ui(UiRequest::Mode)
         );
+        assert_eq!(
+            action_of(&["ui", "history", "get"]),
+            Action::Ui(UiRequest::History)
+        );
+        for step in HistoryStep::ALL {
+            assert_eq!(
+                action_of(&["ui", "history", step.as_str()]),
+                Action::Ui(UiRequest::Command(UiCommand::History(step)))
+            );
+        }
         for action in ModeAction::ALL {
             assert_eq!(
                 action_of(&["ui", "mode", action.as_str()]),
@@ -2755,6 +2779,9 @@ mod tests {
                 "navigation, input, toggle или get",
             ),
             (&["ui", "mode", "get", "--all"], "не применим"),
+            (&["ui", "history"][..], "ui history"),
+            (&["ui", "history", "undo"], "back, forward или get"),
+            (&["ui", "history", "get", "--all"], "не применим"),
         ] {
             let message = refused(args);
             assert!(message.contains(part), "{args:?}: {message}");

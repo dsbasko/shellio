@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
+use shellio::history::{History, Jump};
 use shellio::key_actions::{self, KeyAction};
 use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
@@ -42,16 +43,16 @@ use shellio_appkit::{
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
     CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    ExitChordState, GalleryCommand, GalleryView, InspectView, InstanceKind, InstanceView,
-    LateCallbackView, ListRowView, MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView,
-    PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView,
-    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
-    TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView,
-    WindowView,
+    ExitChordState, GalleryCommand, GalleryView, HistoryPoint, HistoryView, InspectView,
+    InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView,
+    MenuView, ModeReceiver, ModeView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
+    Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
+    VirtualListView, WindowView,
 };
 use shellio_core::{
-    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
-    ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
+    AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
+    MirrorStep, ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_keymap::{
     Cancel, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints,
@@ -90,6 +91,8 @@ thread_local! {
     /// Панель с фокусом видимого окна для решения о клавише. Пишет её отрисовка раскладки:
     /// обработчик монитора работает внутри AppKit и окно не заимствует.
     static KEY_PANEL: RefCell<Option<PanelFocus<ModeReceiver>>> = const { RefCell::new(None) };
+    /// История переходов воркспейсов (ADR-0010): точки по доставкам зеркала, в базу не пишется.
+    static HISTORY: RefCell<History> = RefCell::new(History::default());
     /// Монитор клавиш живёт до выхода процесса, как окно.
     static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
 }
@@ -1768,8 +1771,6 @@ fn run_key(app: &App, action: Action) {
                 not_applicable();
             }
         }
-        // История переходов встаёт вместе со своим состоянием главного потока.
-        KeyAction::History(_) => not_applicable(),
     }
 }
 
@@ -1835,6 +1836,8 @@ pub fn deliver(app: &App, delivery: Delivery) -> MirrorStep {
         (step, projection)
     });
     if let Some(projection) = projection {
+        // До отрисовки: она согласует режимы с полем и сбросила бы режим оставленной панели.
+        observe_history();
         with_window(|owner| {
             owner.project(projection);
             owner.render_layout(app);
@@ -2215,6 +2218,148 @@ fn mode_view() -> Option<ModeView> {
     })
 }
 
+fn wire_panel_mode(mode: Mode) -> PanelMode {
+    match mode {
+        Mode::Navigation => PanelMode::Navigation,
+        Mode::Input => PanelMode::Input,
+    }
+}
+
+/// Режим панели по маршрутизатору; занятый маршрутизатор — `Navigation`.
+fn panel_mode(panel: PanelId) -> Mode {
+    with_router(|router| router.mode(&ModeReceiver::Panel(panel))).unwrap_or(Mode::Navigation)
+}
+
+/// Точки истории по состоянию зеркала после применённой доставки.
+fn observe_history() {
+    MIRROR.with(|mirror| {
+        if let Some(mirror) = mirror.borrow().as_ref() {
+            HISTORY.with(|history| history.borrow_mut().observe(mirror.state(), panel_mode));
+        }
+    });
+}
+
+/// Действие `history.*`: шаг по истории активного воркспейса штатными командами ядра. Цель в
+/// открытой рабочей области — одна `panel.focus`, в другой — `panel.focus`, затем `workbench.open`:
+/// фокус открытой области между ними не меняется. Скрытое окно, галерея, отсутствие ядра и
+/// история без цели — действовать не на что. Курсор встаёт на цель до ответа ядра, отказ его
+/// возвращает.
+fn on_history(step: HistoryStep, source: Option<ReceiptSource>) {
+    let tag = source.map(|source| Sent::action(step.keymap_name(), source));
+    let shown =
+        with_window(|owner| owner.window.is_visible() && owner.layout.is_some()) == Some(true);
+    let linked = CORE.with(|slot| slot.borrow().is_some());
+    let jump = (shown && linked)
+        .then(|| {
+            MIRROR.with(|mirror| {
+                let mirror = mirror.borrow();
+                let state = mirror.as_ref()?.state();
+                let jump =
+                    HISTORY.with(|history| history.borrow_mut().jump(state, step, panel_mode))?;
+                Some((jump, open_workbench(state)))
+            })
+        })
+        .flatten();
+    let Some((jump, open)) = jump else {
+        return note_receipt(tag, Ending::NotApplicable);
+    };
+    with_window(|owner| owner.show_status(None));
+    let focus = Command::PanelFocus {
+        panel: Some(jump.point.panel),
+        workbench: None,
+        direction: None,
+    };
+    let next = (open != Some(jump.point.workbench)).then_some(Command::WorkbenchOpen {
+        workbench: jump.point.workbench,
+    });
+    let sent = focus.clone();
+    request_jump(focus, move |app, outcome| match (outcome, next) {
+        (Ok(_), Some(next)) => {
+            let sent = next.clone();
+            request_jump(next, move |app, outcome| {
+                finish_jump(app, &jump, tag, &sent, outcome);
+            });
+        }
+        (outcome, _) => finish_jump(app, &jump, tag, &sent, outcome),
+    });
+}
+
+/// Команда шага истории: исход приходит в очередь главного потока.
+fn request_jump(
+    command: Command,
+    done: impl FnOnce(&App, Result<Reply, Failure>) + Send + 'static,
+) {
+    CORE.with(|slot| match slot.borrow().as_ref() {
+        Some(link) => link.request(command, move |outcome| {
+            defer(move |app| done(app, outcome));
+        }),
+        None => defer(move |app| done(app, Err(Failure::NoCore))),
+    });
+}
+
+/// Конец шага истории: одна запись кольца квитанций. Отказ возвращает курсор и показывает причину
+/// в строке статуса.
+fn finish_jump(
+    app: &App,
+    jump: &Jump,
+    tag: Option<Sent>,
+    sent: &Command,
+    outcome: Result<Reply, Failure>,
+) {
+    let failure = match outcome {
+        Ok(reply) => return note_receipt(tag, Ending::Reply(&reply)),
+        Err(failure) => failure,
+    };
+    HISTORY.with(|history| history.borrow_mut().undo(jump));
+    match failure {
+        Failure::Core(error) => {
+            on_refused(app, sent, &error);
+            note_receipt(tag, Ending::Refused(&error));
+        }
+        Failure::NoReply | Failure::NoCore => {
+            note_receipt(tag, Ending::NoReply);
+            owner::say_err(format_args!(
+                "shellio: {} отклонена: ядро не ответило",
+                sent.name()
+            ));
+            with_window(|owner| owner.show_status(Some("Ядро не ответило")));
+            refresh_layout(app);
+        }
+    }
+}
+
+/// Чтение `ui.history`: точки активного воркспейса и курсор. `None` — окна нет.
+fn history_view() -> Option<HistoryView> {
+    with_window(|_| ())?;
+    Some(MIRROR.with(|mirror| {
+        let mirror = mirror.borrow();
+        let state = mirror.as_ref().map(Mirror::state);
+        HISTORY.with(|history| {
+            let history = history.borrow();
+            let list = state
+                .and_then(|state| history.of_active(state))
+                .map(|(_, list)| list);
+            HistoryView {
+                pid: std::process::id(),
+                workspace: state.and_then(|state| state.window.active_workspace),
+                points: list
+                    .map(|list| {
+                        list.points()
+                            .iter()
+                            .map(|point| HistoryPoint {
+                                workbench: point.workbench,
+                                panel: point.panel,
+                                mode: wire_panel_mode(point.mode),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                cursor: list.and_then(|list| list.cursor()),
+            }
+        })
+    }))
+}
+
 /// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`.
 fn on_filter_row(panel: PanelId, intent: TextFieldIntent) {
     with_window(|owner| {
@@ -2300,6 +2445,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
             }))
         }),
         UiRequest::Mode => mode_view().map(UiReply::Mode),
+        UiRequest::History => history_view().map(UiReply::History),
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {
@@ -2360,6 +2506,7 @@ pub fn handle(app: &App, command: UiCommand, source: Option<ReceiptSource>) {
         UiCommand::List(action) => on_list(action, source),
         UiCommand::PanelFilter => on_filter(app, None, source),
         UiCommand::Mode(action) => on_mode(action, source),
+        UiCommand::History(step) => on_history(step, source),
     }
 }
 

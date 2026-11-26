@@ -4,7 +4,8 @@
 //!
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
-//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode` или `accepted`.
+//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode`, `history` или
+//! `accepted`.
 //!
 //! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
 //! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
@@ -15,8 +16,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 use shellio_core::{
-    AppearanceChoice, ListAction, ModeAction, OpenOutcome, PanelId, PanelStatus, Revision,
-    ToggleTarget, UiCommand, WorkbenchId,
+    AppearanceChoice, HistoryStep, ListAction, ModeAction, OpenOutcome, PanelId, PanelStatus,
+    Revision, ToggleTarget, UiCommand, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{SizeClass, Zone};
 
@@ -39,6 +40,9 @@ pub enum UiRequest {
     Receipts { after: Option<u64> },
     /// `ui.mode`: режим панели с фокусом и автомат аккорда выхода. Чтение ничего не меняет.
     Mode,
+    /// `ui.history`: точки истории переходов активного воркспейса и курсор. Чтение ничего не
+    /// меняет.
+    History,
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
     /// `panel.filter` с полем `text`: текст фильтра панели с фокусом, пустой снимает фильтр. Тот
@@ -263,6 +267,7 @@ impl UiRequest {
             Self::Stats => "ui.stats",
             Self::Receipts { .. } => "ui.receipts",
             Self::Mode => "ui.mode",
+            Self::History => "ui.history",
             Self::Command(command) => command.name(),
             Self::Filter { .. } => UiCommand::PanelFilter.name(),
             Self::Gallery(command) => command.name(),
@@ -274,9 +279,12 @@ impl UiRequest {
     /// Изменяет ли запрос состояние: начатый изменяющий запрос не повторяется.
     pub const fn is_mutation(&self) -> bool {
         match self {
-            Self::Window | Self::Inspect | Self::Stats | Self::Receipts { .. } | Self::Mode => {
-                false
-            }
+            Self::Window
+            | Self::Inspect
+            | Self::Stats
+            | Self::Receipts { .. }
+            | Self::Mode
+            | Self::History => false,
             Self::Command(_)
             | Self::Filter { .. }
             | Self::Gallery(_)
@@ -294,6 +302,7 @@ impl UiRequest {
                 | (Self::Stats, UiReply::Stats(_))
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
                 | (Self::Mode, UiReply::Mode(_))
+                | (Self::History, UiReply::History(_))
                 | (
                     Self::Command(_)
                         | Self::Filter { .. }
@@ -461,6 +470,12 @@ enum WireUiRequest {
     ModeInput(NoArgs),
     #[serde(rename = "mode.toggle")]
     ModeToggle(NoArgs),
+    #[serde(rename = "ui.history")]
+    History(NoArgs),
+    #[serde(rename = "history.back")]
+    HistoryBack(NoArgs),
+    #[serde(rename = "history.forward")]
+    HistoryForward(NoArgs),
     #[serde(rename = "ui.cell")]
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
@@ -558,6 +573,13 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::ModeToggle(NoArgs {}) => {
                 Self::Command(UiCommand::Mode(ModeAction::Toggle))
             }
+            WireUiRequest::History(NoArgs {}) => Self::History,
+            WireUiRequest::HistoryBack(NoArgs {}) => {
+                Self::Command(UiCommand::History(HistoryStep::Back))
+            }
+            WireUiRequest::HistoryForward(NoArgs {}) => {
+                Self::Command(UiCommand::History(HistoryStep::Forward))
+            }
             WireUiRequest::Cell(UiCellArgs { contrast, motion }) => Self::Cell { contrast, motion },
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
                 Self::WindowSize { width, height }
@@ -647,6 +669,11 @@ impl From<UiRequest> for WireUiRequest {
                 ModeAction::Input => Self::ModeInput(NoArgs {}),
                 ModeAction::Toggle => Self::ModeToggle(NoArgs {}),
             },
+            UiRequest::History => Self::History(NoArgs {}),
+            UiRequest::Command(UiCommand::History(step)) => match step {
+                HistoryStep::Back => Self::HistoryBack(NoArgs {}),
+                HistoryStep::Forward => Self::HistoryForward(NoArgs {}),
+            },
             UiRequest::Cell { contrast, motion } => Self::Cell(UiCellArgs { contrast, motion }),
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
@@ -697,6 +724,8 @@ pub enum UiReply {
     Cell(CellView),
     /// Режим панели с фокусом: ответ `ui.mode`.
     Mode(ModeView),
+    /// История переходов активного воркспейса: ответ `ui.history`.
+    History(HistoryView),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
 }
@@ -773,6 +802,30 @@ pub struct ModeView {
     /// Получатель, которому второй аккорд вернёт пару; ключа нет, пока автомат в `idle`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exit_receiver: Option<ModeReceiver>,
+}
+
+/// Точка истории переходов.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryPoint {
+    pub workbench: WorkbenchId,
+    pub panel: PanelId,
+    /// Режим, в котором панель была оставлена.
+    pub mode: PanelMode,
+}
+
+/// Ответ `ui.history` (ADR-0007, «Уточнено в P1.6 (планирование)»): история активного воркспейса.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryView {
+    /// PID владельца.
+    pub pid: u32,
+    /// Активный воркспейс; `null` — его нет.
+    pub workspace: Option<WorkspaceId>,
+    /// Точки по порядку переходов, не больше 100.
+    pub points: Vec<HistoryPoint>,
+    /// Номер текущей точки в `points` с нуля; `null` — история пуста.
+    pub cursor: Option<usize>,
 }
 
 /// Квитанции действий главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI» и «Уточнено
@@ -1766,6 +1819,12 @@ mod tests {
                 "mode.toggle",
                 true,
             ),
+            (UiRequest::History, "ui.history", false),
+            (
+                UiRequest::Command(UiCommand::History(HistoryStep::Back)),
+                "history.back",
+                true,
+            ),
             (
                 UiRequest::Filter {
                     text: "вид".into()
@@ -2145,6 +2204,63 @@ mod tests {
         assert_eq!(serde_json::from_value::<ModeView>(json).unwrap(), armed);
         assert!(UiRequest::Mode.answered_by(&UiReply::Mode(armed.clone())));
         assert!(!UiRequest::Window.answered_by(&UiReply::Mode(armed)));
+    }
+
+    #[test]
+    fn history_requests_and_reply_have_stable_frames() {
+        for step in HistoryStep::ALL {
+            let frame = json!({ UiCommand::History(step).name(): {} });
+            let request: UiRequest = serde_json::from_value(frame.clone()).unwrap();
+            assert_eq!(request, UiRequest::Command(UiCommand::History(step)));
+            assert_eq!(serde_json::to_value(&request).unwrap(), frame);
+        }
+        let read: UiRequest = serde_json::from_value(json!({"ui.history": {}})).unwrap();
+        assert_eq!(read, UiRequest::History);
+        assert_eq!(
+            serde_json::to_value(&read).unwrap(),
+            json!({"ui.history": {}})
+        );
+        assert!(serde_json::from_value::<UiRequest>(json!({"ui.history": {"step": 1}})).is_err());
+
+        let empty = HistoryView {
+            pid: 7,
+            workspace: None,
+            points: Vec::new(),
+            cursor: None,
+        };
+        let json = serde_json::to_value(UiReply::History(empty.clone())).unwrap();
+        assert_eq!(
+            json,
+            json!({"history": {"pid": 7, "workspace": null, "points": [], "cursor": null}})
+        );
+        assert_eq!(
+            serde_json::from_value::<UiReply>(json).unwrap(),
+            UiReply::History(empty.clone())
+        );
+        let workspace = "00000000-0000-0000-0000-000000000001";
+        let workbench = "00000000-0000-0000-0000-000000000002";
+        let panel = "00000000-0000-0000-0000-000000000003";
+        let one = HistoryView {
+            workspace: Some(serde_json::from_value(json!(workspace)).unwrap()),
+            points: vec![HistoryPoint {
+                workbench: serde_json::from_value(json!(workbench)).unwrap(),
+                panel: serde_json::from_value(json!(panel)).unwrap(),
+                mode: PanelMode::Input,
+            }],
+            cursor: Some(0),
+            ..empty
+        };
+        let json = serde_json::to_value(&one).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "pid": 7, "workspace": workspace, "cursor": 0,
+                "points": [{"workbench": workbench, "panel": panel, "mode": "input"}]
+            })
+        );
+        assert_eq!(serde_json::from_value::<HistoryView>(json).unwrap(), one);
+        assert!(UiRequest::History.answered_by(&UiReply::History(one.clone())));
+        assert!(!UiRequest::Mode.answered_by(&UiReply::History(one)));
     }
 
     #[test]

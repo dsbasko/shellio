@@ -17,8 +17,8 @@ use serde_json::{Value, json};
 use shellio_control::test_support::ManualClock;
 use shellio_control::{
     Accepted, Axis, AxisSource, CellContrast, CellMotion, CellView, ComponentView, Contrast,
-    ExitChordState, FontView, InspectView, Lightness, ModeReceiver, ModeView, Motion, PanelMode,
-    Rect, Size, StyleView,
+    ExitChordState, FontView, HistoryPoint, HistoryView, InspectView, Lightness, ModeReceiver,
+    ModeView, Motion, PanelMode, Rect, Size, StyleView,
 };
 use shellio_control::{
     Activation, ControlErrorCode, LOCK_FILE, Launch, LaunchHandler, LaunchReceipt, OkValue,
@@ -31,9 +31,9 @@ use shellio_core::test_support::{
     registry_of,
 };
 use shellio_core::{
-    CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, IdGen, LayoutView,
-    ModeAction, OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply, ReplyValue,
-    Revision, Route, TreeView, UiCommand, UnixMillis, WorkbenchId, WorkspaceId,
+    CommandValue, Core, CoreError, ErrorCode, EventsSince, FsRootResolver, HistoryStep, IdGen,
+    LayoutView, ModeAction, OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Reply,
+    ReplyValue, Revision, Route, TreeView, UiCommand, UnixMillis, WorkbenchId, WorkspaceId,
 };
 use shellio_layout::{Viewport, Zone};
 use shellio_plugin_api::{Cardinality, Registry};
@@ -1300,6 +1300,119 @@ async fn ui_mode_reaches_the_owner() -> TestResult {
         assert_eq!(get().await?.mode, mode, "после ui mode {action}");
     }
     assert_eq!(revision(&dir).await?, before, "режим ревизию не меняет");
+    owner.stop().await
+}
+
+/// Порт UI с историей из трёх точек: `history.*` двигает курсор, `ui.history` его читает.
+#[derive(Clone)]
+struct HistoryUi {
+    points: Vec<HistoryPoint>,
+    cursor: Arc<Mutex<usize>>,
+}
+
+impl UiHandler for HistoryUi {
+    fn ui(
+        &self,
+        request: UiRequest,
+        gate: UiGate,
+    ) -> impl Future<Output = Result<UiReply, UiRefusal>> + Send {
+        let mut cursor = self
+            .cursor
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let reply = match request {
+            UiRequest::Command(UiCommand::History(step)) if gate.begin() => {
+                *cursor = match step {
+                    HistoryStep::Back => cursor.saturating_sub(1),
+                    HistoryStep::Forward => (*cursor + 1).min(self.points.len() - 1),
+                };
+                Ok(UiReply::Accepted(Accepted {
+                    command: request.name().to_owned(),
+                    pid: std::process::id(),
+                    generation: 1,
+                }))
+            }
+            UiRequest::History if gate.begin() => Ok(UiReply::History(HistoryView {
+                pid: std::process::id(),
+                workspace: None,
+                points: self.points.clone(),
+                cursor: Some(*cursor),
+            })),
+            _ => Err(UiRefusal::NoUi),
+        };
+        ready(reply)
+    }
+}
+
+/// `ui history` отдельным процессом: шаги `history.*` доходят до порта UI под именем keymap, `get`
+/// читает точки и курсор, ревизия ядра прежняя.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ui_history_reaches_the_owner() -> TestResult {
+    let dir = Dir::new()?;
+    let workbench: WorkbenchId = "019a8f2e-0000-7000-8000-000000000b01".parse()?;
+    let points: Vec<HistoryPoint> = ["0b02", "0b03", "0b04"]
+        .into_iter()
+        .map(|tail| -> TestResult<HistoryPoint> {
+            Ok(HistoryPoint {
+                workbench,
+                panel: format!("019a8f2e-0000-7000-8000-00000000{tail}").parse()?,
+                mode: PanelMode::Navigation,
+            })
+        })
+        .collect::<TestResult<_>>()?;
+    let ui = HistoryUi {
+        points: points.clone(),
+        cursor: Arc::new(Mutex::new(2)),
+    };
+    let owner = Owner::start_with(&dir, ui).await?;
+    let before = revision(&dir).await?;
+    let get = async || -> TestResult<HistoryView> {
+        match dir
+            .run(&["ui", "history", "get", "--json"])
+            .await?
+            .expect(0)?
+            .frame()?
+        {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::History(view)),
+                ..
+            } => Ok(view),
+            other => Err(format!("ui history get: ожидалась история, получено {other:?}").into()),
+        }
+    };
+    let first = get().await?;
+    assert_eq!(first.points, points);
+    assert_eq!(first.cursor, Some(2));
+    for (step, name, cursor) in [
+        ("back", "history.back", 1),
+        ("back", "history.back", 0),
+        ("forward", "history.forward", 1),
+    ] {
+        match dir
+            .run(&["ui", "history", step, "--json"])
+            .await?
+            .expect(0)?
+            .frame()?
+        {
+            Response::Ok {
+                value: OkValue::Ui(UiReply::Accepted(accepted)),
+                ..
+            } => assert_eq!(accepted.command, name),
+            other => {
+                return Err(
+                    format!("ui history {step}: ожидалась квитанция, получено {other:?}").into(),
+                );
+            }
+        }
+        assert_eq!(get().await?.cursor, Some(cursor), "после ui history {step}");
+    }
+    let text = dir.run(&["ui", "history", "get"]).await?.expect(0)?;
+    assert!(
+        text.stdout.starts_with("история: точек 3, текущая 2, "),
+        "{}",
+        text.stdout
+    );
+    assert_eq!(revision(&dir).await?, before, "история ревизию не меняет");
     owner.stop().await
 }
 

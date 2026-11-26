@@ -31,7 +31,9 @@ use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
     StyleView,
 };
-use shellio_control::{ExitChordState, ModeReceiver, ModeView, PanelMode};
+use shellio_control::{
+    ExitChordState, HistoryPoint, HistoryView, ModeReceiver, ModeView, PanelMode,
+};
 use shellio_control::{
     KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView, ReceiptSource,
 };
@@ -40,10 +42,10 @@ use shellio_core::test_support::{
 };
 use shellio_core::{
     AppearanceChoice, Change, Command, CommandValue, Core, CoreError, Entity, ErrorCode, Event,
-    EventsSince, FsRootResolver, IdGen, LayoutView, ListAction, ModeAction, OpenOutcome, PanelId,
-    PanelStatus, PanelView, PluginsView, Query, Reply, ReplyValue, Revision, Route, Snapshot,
-    State, StatusView, Title, ToggleTarget, TreeScope, TreeView, UiCommand, UnixMillis,
-    WindowState, WorkbenchId, Workspace, WorkspaceId,
+    EventsSince, FsRootResolver, HistoryStep, IdGen, LayoutView, ListAction, ModeAction,
+    OpenOutcome, PanelId, PanelStatus, PanelView, PluginsView, Query, Reply, ReplyValue, Revision,
+    Route, Snapshot, State, StatusView, Title, ToggleTarget, TreeScope, TreeView, UiCommand,
+    UnixMillis, WindowState, WorkbenchId, Workspace, WorkspaceId,
 };
 use shellio_layout::{Direction, Edge, Hideable, SizeClass, Zone};
 use tokio::runtime::Handle;
@@ -234,6 +236,11 @@ fn request_golden_static(request: &Request) -> &'static str {
             ModeAction::Input => "request.ui.mode_input",
             ModeAction::Toggle => "request.ui.mode_toggle",
         },
+        RequestBody::Ui(UiRequest::History) => "request.ui.history",
+        RequestBody::Ui(UiRequest::Command(UiCommand::History(step))) => match step {
+            HistoryStep::Back => "request.ui.history_back",
+            HistoryStep::Forward => "request.ui.history_forward",
+        },
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
@@ -354,6 +361,12 @@ fn requests() -> Vec<Request> {
         request(
             52,
             RequestBody::Ui(UiRequest::Command(UiCommand::Mode(ModeAction::Toggle))),
+        ),
+        // P1.6, задача 9: история переходов активного воркспейса.
+        request(53, RequestBody::Ui(UiRequest::History)),
+        request(
+            54,
+            RequestBody::Ui(UiRequest::Command(UiCommand::History(HistoryStep::Back))),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
@@ -628,6 +641,7 @@ fn response_golden(response: &Response) -> &'static str {
             UiReply::Window(_) => "response.ok.ui.window",
             UiReply::Cell(_) => "response.ok.ui.cell",
             UiReply::Mode(_) => "response.ok.ui.mode",
+            UiReply::History(_) => "response.ok.ui.history",
             UiReply::Inspect(inspect)
                 if inspect
                     .components
@@ -773,6 +787,7 @@ fn responses() -> Result<Vec<Response>, String> {
         ),
         ok(43, OkValue::Ui(UiReply::Cell(cell_view()))),
         ok(51, OkValue::Ui(UiReply::Mode(mode_view()))),
+        ok(53, OkValue::Ui(UiReply::History(history_view()))),
         // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
         // не меняется.
         ok(
@@ -2167,6 +2182,27 @@ fn frame_needs_exactly_one_kind() {
     );
 }
 
+fn history_view() -> HistoryView {
+    let (panel, other, workbench) = layout_ids();
+    HistoryView {
+        pid: 4242,
+        workspace: Some(workspace_id()),
+        points: vec![
+            HistoryPoint {
+                workbench,
+                panel,
+                mode: PanelMode::Input,
+            },
+            HistoryPoint {
+                workbench,
+                panel: other,
+                mode: PanelMode::Navigation,
+            },
+        ],
+        cursor: Some(1),
+    }
+}
+
 /// Тело `ui` — ровно один запрос с именем из ADR-0007 и строгими аргументами.
 /// Полная матрица «запрос × вид ответа»: чтение принимает только свой вид, изменение — только
 /// квитанцию.
@@ -2179,6 +2215,7 @@ fn ui_replies_answer_only_their_request() {
         ("receipts", UiReply::Receipts(receipts_view())),
         ("cell", UiReply::Cell(cell_view())),
         ("mode", UiReply::Mode(mode_view())),
+        ("history", UiReply::History(history_view())),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -2202,6 +2239,11 @@ fn ui_replies_answer_only_their_request() {
             "cell",
         ),
         (UiRequest::Mode, "mode"),
+        (UiRequest::History, "history"),
+        (
+            UiRequest::Command(UiCommand::History(HistoryStep::Forward)),
+            "accepted",
+        ),
         (
             UiRequest::Command(UiCommand::Mode(ModeAction::Input)),
             "accepted",

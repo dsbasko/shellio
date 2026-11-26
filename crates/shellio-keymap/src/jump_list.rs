@@ -41,6 +41,15 @@ impl<P> JumpList<P> {
         self.points.get_mut(at)
     }
 
+    /// Вернуть курсор на точку `at`: шаг, который не состоялся. `false` — такой точки нет.
+    pub fn seek(&mut self, at: usize) -> bool {
+        let known = at < self.points.len();
+        if known {
+            self.cursor = at;
+        }
+        known
+    }
+
     /// Назад к ближайшей точке, которую принимает `alive`: закрытые панели и панели вне видимых
     /// проектов пропускаются. Нет такой — курсор на месте.
     pub fn back(&mut self, alive: impl Fn(&P) -> bool) -> Option<&P> {

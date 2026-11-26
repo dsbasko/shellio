@@ -3,10 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use shellio_core::{PanelId, State, WorkbenchId, WorkspaceId, open_workbench};
+use shellio_core::{HistoryStep, PanelId, State, WorkbenchId, WorkspaceId, open_workbench};
 use shellio_keymap::{JumpList, Mode};
-
-use crate::key_actions::HistoryStep;
 
 /// Точка истории: рабочая область, панель и режим, в котором панель была оставлена. Точки равны по
 /// рабочей области и панели: смена режима панели новым местом её не делает.
@@ -24,6 +22,16 @@ impl PartialEq for JumpPoint {
 }
 
 impl Eq for JumpPoint {}
+
+/// Сделанный шаг: цель и место курсора до шага и после него. По нему шаг, на который ядро ответило
+/// отказом, возвращает курсор.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Jump {
+    pub point: JumpPoint,
+    workspace: WorkspaceId,
+    from: usize,
+    to: usize,
+}
 
 /// Истории воркспейсов и место последнего наблюдения зеркала.
 #[derive(Debug, Default)]
@@ -128,6 +136,37 @@ impl History {
             left.mode = mode_of(panel);
         }
         Some(target)
+    }
+
+    /// [`History::step`] с местом курсора до шага: исполнитель шага возвращает курсор по отказу
+    /// ядра через [`History::undo`].
+    pub fn jump(
+        &mut self,
+        state: &State,
+        step: HistoryStep,
+        mode_of: impl Fn(PanelId) -> Mode,
+    ) -> Option<Jump> {
+        let workspace = state.window.active_workspace?;
+        let from = self.lists.get(&workspace)?.cursor()?;
+        let point = self.step(state, step, mode_of)?;
+        let to = self.lists.get(&workspace)?.cursor()?;
+        Some(Jump {
+            point,
+            workspace,
+            from,
+            to,
+        })
+    }
+
+    /// Шаг не состоялся: курсор возвращается на место до шага. Если с тех пор курсор ушёл с цели
+    /// шага (новый переход или другой шаг), история не трогается.
+    pub fn undo(&mut self, jump: &Jump) {
+        if let Some(list) = self.lists.get_mut(&jump.workspace)
+            && list.cursor() == Some(jump.to)
+            && list.points().get(jump.to) == Some(&jump.point)
+        {
+            list.seek(jump.from);
+        }
     }
 
     /// История активного воркспейса для чтения `ui.history`.
@@ -307,6 +346,44 @@ mod tests {
         history.observe(&fixture.state, NAV);
         assert_eq!(panels(&history, &fixture.state), [a, b, a]);
         assert_eq!(cursor(&history, &fixture.state), Some(2));
+    }
+
+    #[test]
+    fn a_refused_step_returns_the_cursor_unless_it_moved_on() {
+        let mut fixture = fixture();
+        let (a, b) = (fixture.terminal, fixture.navigator);
+        let c = open_panel(&mut fixture, 12);
+        let mut history = History::default();
+        for panel in [a, b, a] {
+            focus(&mut fixture, panel);
+            history.observe(&fixture.state, NAV);
+        }
+
+        // Отказ ядра: фокус остался на месте, курсор возвращается к нему.
+        let jump = history
+            .jump(&fixture.state, HistoryStep::Back, NAV)
+            .unwrap();
+        assert_eq!(jump.point.panel, b);
+        assert_eq!(cursor(&history, &fixture.state), Some(1));
+        history.undo(&jump);
+        assert_eq!(cursor(&history, &fixture.state), Some(2));
+        assert_eq!(panels(&history, &fixture.state), [a, b, a]);
+        history.undo(&jump);
+        assert_eq!(cursor(&history, &fixture.state), Some(2), "повтор отката");
+
+        // Курсор ушёл с цели шага: новый переход отсёк ветку, запоздалый отказ её не трогает.
+        let jump = history
+            .jump(&fixture.state, HistoryStep::Back, NAV)
+            .unwrap();
+        focus(&mut fixture, c);
+        history.observe(&fixture.state, NAV);
+        assert_eq!(panels(&history, &fixture.state), [a, b, c]);
+        history.undo(&jump);
+        assert_eq!(cursor(&history, &fixture.state), Some(2));
+
+        // Идти некуда: шага нет и отката нет.
+        fixture.state.window.active_workspace = None;
+        assert_eq!(history.jump(&fixture.state, HistoryStep::Back, NAV), None);
     }
 
     #[test]

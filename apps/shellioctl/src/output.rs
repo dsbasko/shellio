@@ -13,7 +13,7 @@ use shellio_control::{
     Motion, OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply,
     WindowView, encode_line,
 };
-use shellio_control::{ModeReceiver, ModeView};
+use shellio_control::{HistoryView, ModeReceiver, ModeView};
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
     StatusView, TreeView,
@@ -408,6 +408,7 @@ fn ui_text(reply: &UiReply) -> String {
             cell.generation
         ),
         UiReply::Mode(mode) => mode_text(mode),
+        UiReply::History(history) => history_text(history),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
             accepted.command, accepted.pid, accepted.generation
@@ -433,6 +434,32 @@ fn mode_text(view: &ModeView) -> String {
         view.mode.as_str(),
         view.pid
     )
+}
+
+/// История переходов активного воркспейса: итог и по строке на точку, текущая отмечена `*`.
+fn history_text(view: &HistoryView) -> String {
+    let workspace = view
+        .workspace
+        .map_or_else(|| "нет".to_owned(), |workspace| workspace.to_string());
+    let cursor = view
+        .cursor
+        .map_or_else(|| "нет".to_owned(), |cursor| (cursor + 1).to_string());
+    let mut out = format!(
+        "история: точек {}, текущая {cursor}, воркспейс {workspace}, PID {}\n",
+        view.points.len(),
+        view.pid
+    );
+    for (at, point) in view.points.iter().enumerate() {
+        let mark = if view.cursor == Some(at) { '*' } else { ' ' };
+        out.push_str(&format!(
+            "{mark} {}: рабочая область {}, панель {}, режим {}\n",
+            at + 1,
+            point.workbench,
+            point.panel,
+            point.mode.as_str()
+        ));
+    }
+    out
 }
 
 /// Квитанции действий главного потока: итог и по строке на запись.
@@ -1164,6 +1191,48 @@ mod tests {
             error: ControlError::owner_leaving(),
         };
         assert!(matches!(text(&frame), Text::Err(text) if text.starts_with("owner_leaving: ")));
+    }
+
+    #[test]
+    fn ui_history_has_text() {
+        use shellio_control::{HistoryPoint, PanelMode};
+
+        let empty = HistoryView {
+            pid: 42,
+            workspace: None,
+            points: Vec::new(),
+            cursor: None,
+        };
+        assert_eq!(
+            ui_text(&UiReply::History(empty.clone())),
+            "история: точек 0, текущая нет, воркспейс нет, PID 42\n"
+        );
+        let workspace = "00000000-0000-0000-0000-000000000001";
+        let workbench = "00000000-0000-0000-0000-000000000002";
+        let (a, b) = (
+            "00000000-0000-0000-0000-000000000003",
+            "00000000-0000-0000-0000-000000000004",
+        );
+        let id = |text: &str| serde_json::json!(text);
+        let point = |panel: &str, mode| HistoryPoint {
+            workbench: serde_json::from_value(id(workbench)).unwrap(),
+            panel: serde_json::from_value(id(panel)).unwrap(),
+            mode,
+        };
+        let two = HistoryView {
+            workspace: Some(serde_json::from_value(id(workspace)).unwrap()),
+            points: vec![point(a, PanelMode::Input), point(b, PanelMode::Navigation)],
+            cursor: Some(1),
+            ..empty
+        };
+        assert_eq!(
+            ui_text(&UiReply::History(two)),
+            format!(
+                "история: точек 2, текущая 2, воркспейс {workspace}, PID 42\n\
+                 \x20 1: рабочая область {workbench}, панель {a}, режим input\n\
+                 * 2: рабочая область {workbench}, панель {b}, режим navigation\n"
+            )
+        );
     }
 
     #[test]

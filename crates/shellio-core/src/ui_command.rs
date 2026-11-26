@@ -186,6 +186,38 @@ impl ModeAction {
     }
 }
 
+/// Шаг истории переходов: `history.*` (ADR-0010, «История переходов»).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum HistoryStep {
+    Back,
+    Forward,
+}
+
+impl HistoryStep {
+    pub const ALL: [Self; 2] = [Self::Back, Self::Forward];
+
+    /// Операнд `shellioctl ui history` и последний сегмент имени действия.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Back => "back",
+            Self::Forward => "forward",
+        }
+    }
+
+    /// Шаг по операнду.
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|step| step.as_str() == value)
+    }
+
+    /// Имя действия в keymap и на проводе.
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Back => "history.back",
+            Self::Forward => "history.forward",
+        }
+    }
+}
+
 /// Действие интерфейса.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum UiCommand {
@@ -207,12 +239,14 @@ pub enum UiCommand {
     PanelFilter,
     /// Режим панели с фокусом. `Input` есть только у панели с получателем ввода.
     Mode(ModeAction),
+    /// Шаг по истории переходов активного воркспейса.
+    History(HistoryStep),
 }
 
 impl UiCommand {
     /// Все действия: по одному на каждое значение выбора оформления, каждую цель скрытия, каждое
-    /// движение списка и каждое действие режима.
-    pub const ALL: [Self; 24] = [
+    /// движение списка, каждое действие режима и каждый шаг истории.
+    pub const ALL: [Self; 26] = [
         Self::WindowClose,
         Self::AppQuit,
         Self::AppearanceSet(AppearanceChoice::Light),
@@ -237,6 +271,8 @@ impl UiCommand {
         Self::Mode(ModeAction::Navigation),
         Self::Mode(ModeAction::Input),
         Self::Mode(ModeAction::Toggle),
+        Self::History(HistoryStep::Back),
+        Self::History(HistoryStep::Forward),
     ];
 
     /// Имя команды в управляющем API.
@@ -249,7 +285,8 @@ impl UiCommand {
             | Self::LayoutToggle(_)
             | Self::List(_)
             | Self::PanelFilter
-            | Self::Mode(_) => self.keymap_name(),
+            | Self::Mode(_)
+            | Self::History(_) => self.keymap_name(),
         }
     }
 
@@ -270,6 +307,7 @@ impl UiCommand {
             Self::List(action) => action.keymap_name(),
             Self::PanelFilter => "panel.filter",
             Self::Mode(action) => action.keymap_name(),
+            Self::History(step) => step.keymap_name(),
         }
     }
 
@@ -314,6 +352,8 @@ mod tests {
             ("mode.navigation", "mode.navigation"),
             ("mode.input", "mode.input"),
             ("mode.toggle", "mode.toggle"),
+            ("history.back", "history.back"),
+            ("history.forward", "history.forward"),
         ];
         assert_eq!(UiCommand::ALL.len(), expected.len());
         for (command, (name, keymap)) in UiCommand::ALL.into_iter().zip(expected) {
@@ -360,6 +400,18 @@ mod tests {
             );
         }
         assert_eq!(ModeAction::parse("get"), None);
+    }
+
+    #[test]
+    fn history_steps_parse_their_operands() {
+        for step in HistoryStep::ALL {
+            assert_eq!(HistoryStep::parse(step.as_str()), Some(step));
+            assert_eq!(
+                UiCommand::History(step).name(),
+                format!("history.{}", step.as_str())
+            );
+        }
+        assert_eq!(HistoryStep::parse("get"), None);
     }
 
     #[test]

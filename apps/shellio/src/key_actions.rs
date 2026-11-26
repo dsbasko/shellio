@@ -17,13 +17,6 @@ use crate::scene::{self, PanelMenuItem, Scene};
 
 const PANEL_OPEN: &str = "panel.open.";
 
-/// Шаг истории переходов.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HistoryStep {
-    Back,
-    Forward,
-}
-
 /// Действие раскладки для панели с фокусом: одна команда ядра.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LayoutAction {
@@ -61,7 +54,6 @@ pub enum KeyAction {
         name: String,
         args: Option<Value>,
     },
-    History(HistoryStep),
     /// `keymap.reload`: служба читает файл заново.
     Reload,
 }
@@ -162,11 +154,8 @@ pub fn recognize(
         return Some(action.map(KeyAction::Layout));
     }
     let plain = |action: KeyAction| Some(no_args(args).map(|()| action));
-    match name {
-        "history.back" => return plain(KeyAction::History(HistoryStep::Back)),
-        "history.forward" => return plain(KeyAction::History(HistoryStep::Forward)),
-        "keymap.reload" => return plain(KeyAction::Reload),
-        _ => {}
+    if name == "keymap.reload" {
+        return plain(KeyAction::Reload);
     }
     if let Some(plugin) = name.strip_prefix(PANEL_OPEN) {
         let known = registry
@@ -329,7 +318,7 @@ mod tests {
     use std::sync::Arc;
 
     use serde_json::json;
-    use shellio_core::layout_metrics;
+    use shellio_core::{HistoryStep, layout_metrics};
     use shellio_keymap::Keymap;
     use shellio_layout::Zone;
 
@@ -627,11 +616,11 @@ mod tests {
         );
         assert_eq!(
             known(&registry, "history.back", None),
-            KeyAction::History(HistoryStep::Back)
+            KeyAction::Ui(UiCommand::History(HistoryStep::Back))
         );
         assert_eq!(
             known(&registry, "history.forward", None),
-            KeyAction::History(HistoryStep::Forward)
+            KeyAction::Ui(UiCommand::History(HistoryStep::Forward))
         );
         assert_eq!(known(&registry, "keymap.reload", None), KeyAction::Reload);
     }
