@@ -56,6 +56,8 @@ const CATEGORY_PAD: f64 = 7.0;
 const GROUP_PAD_X: f64 = 18.0;
 const GROUP_PAD_TOP: f64 = 10.0;
 const GROUP_SPACING: f64 = 0.06;
+/// Радиус заливки выбранной строки (`.pi { border-radius: 6px }`).
+const SELECTION_RADIUS: f64 = 6.0;
 /// Поле сообщения пустой выдачи (`.pal-empty { padding: 18px }`).
 const EMPTY_PAD: f64 = 18.0;
 /// Идентификаторы переиспользования видов строки и заголовка.
@@ -494,7 +496,7 @@ impl RowViews for PaletteRows {
                     bounds.size.height,
                 ),
             ),
-            ROW_INSET,
+            SELECTION_RADIUS,
         )
     }
 }
@@ -1046,10 +1048,24 @@ impl CommandPalette {
             }
         }
         if !self.empty.isHidden() {
-            nodes.push(
+            let mut empty =
                 inspect::typeset_node("palette.empty", "Label", "palette.list", &self.empty)
-                    .with_ck("palette.empty"),
-            );
+                    .with_ck("palette.empty");
+            // Узел паспорта — коробка сообщения с полями, а не место набора подписи.
+            if let Some(layout) = self.layout.borrow().as_ref()
+                && let Some(frame) = layout.empty
+            {
+                let plate = layout.panel;
+                let local = Frame::new(
+                    frame.x - plate.x,
+                    frame.y - plate.y,
+                    frame.width,
+                    frame.height,
+                );
+                empty.facts.frame =
+                    inspect::frame_of(self.plate.convertRect_toView(local.rect(), None));
+            }
+            nodes.push(empty);
         }
         nodes.push(
             inspect::node(

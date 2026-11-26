@@ -92,6 +92,7 @@ mod tests {
         PaletteRow {
             id: id.to_owned(),
             group,
+            icon: "cmd".to_owned(),
             title: title.to_owned(),
             detail: String::new(),
             keys: None,

@@ -52,15 +52,27 @@ const PART_NEXT: &str = "panel.move_part.next";
 /// `overlays.js:210`, `p.state.sid`).
 const SESSION_PLUGINS: [&str; 1] = ["terminal"];
 
+/// Значок строк команд (прототип `overlays.js:189`–`:205`).
+const COMMAND_ICON: &str = "cmd";
+
 fn candidate(id: &str, title: String, detail: String, action: &str, args: Args) -> Candidate {
     Candidate {
         id: id.to_owned(),
+        icon: COMMAND_ICON.to_owned(),
         title,
         detail,
         action: action.to_owned(),
         args,
         key_action: None,
         usual: None,
+    }
+}
+
+/// Строка панели со значком её плагина (прототип `overlays.js:210`, `:214`).
+fn with_icon(candidate: Candidate, icon: &str) -> Candidate {
+    Candidate {
+        icon: icon.to_owned(),
+        ..candidate
     }
 }
 
@@ -294,12 +306,21 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
                     let key = wire
                         .as_str()
                         .map_or_else(|| wire.to_string(), str::to_owned);
-                    Some(candidate(
-                        &format!("panel:{key}"),
-                        slot.title.clone(),
-                        format!("панель · {}", zone_name(place)),
-                        "panel.select",
-                        Args::Fixed(json!({ "panel": wire })),
+                    let icon = facts
+                        .registry
+                        .iter()
+                        .map(|registered| registered.manifest())
+                        .find(|manifest| manifest.id == slot.plugin.as_str())
+                        .map_or(COMMAND_ICON, |manifest| manifest.icon);
+                    Some(with_icon(
+                        candidate(
+                            &format!("panel:{key}"),
+                            slot.title.clone(),
+                            format!("панель · {}", zone_name(place)),
+                            "panel.select",
+                            Args::Fixed(json!({ "panel": wire })),
+                        ),
+                        icon,
                     ))
                 })
                 .collect()
@@ -311,12 +332,15 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
         .map(|plugin| {
             let manifest = plugin.manifest();
             let action = format!("{PANEL_OPEN}{}", manifest.id);
-            candidate(
-                &action,
-                format!("Открыть: {}", manifest.title),
-                String::new(),
-                &action,
-                Args::None,
+            with_icon(
+                candidate(
+                    &action,
+                    format!("Открыть: {}", manifest.title),
+                    String::new(),
+                    &action,
+                    Args::None,
+                ),
+                manifest.icon,
             )
         })
         .collect();
@@ -406,6 +430,15 @@ mod tests {
             .unwrap();
         assert_eq!(terminal.id, terminal.action);
         assert!(terminal.title.starts_with("Открыть: "));
+        // Значок строки плагина — значок манифеста, у команд — `cmd`.
+        let manifest = registry
+            .iter()
+            .map(|plugin| plugin.manifest())
+            .find(|manifest| manifest.id == "terminal")
+            .unwrap();
+        assert_eq!(terminal.icon, manifest.icon);
+        assert!(source.commands.iter().all(|row| row.icon == COMMAND_ICON));
+        assert!(source.pinned.iter().all(|row| row.icon == COMMAND_ICON));
         assert_eq!(source.plugins.len(), registry.iter().count());
         let splits: Vec<_> = source
             .commands
@@ -519,6 +552,12 @@ mod tests {
         );
         assert_eq!(titles(&pair.open), ["Демо: поле"]);
         assert_eq!(pair.open[0].detail, "панель · центр");
+        let native = registry
+            .iter()
+            .map(|plugin| plugin.manifest())
+            .find(|manifest| manifest.id == "demo-native")
+            .unwrap();
+        assert_eq!(pair.open[0].icon, native.icon);
     }
 
     #[test]

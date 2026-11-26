@@ -129,6 +129,8 @@ pub enum Args {
 pub struct Candidate {
     /// Устойчивый id строки: его называет чтение `ui.overlay`.
     pub id: String,
+    /// Значок набора: строка показывает его, id строки его не задаёт.
+    pub icon: String,
     pub title: String,
     pub detail: String,
     pub action: String,
@@ -163,6 +165,7 @@ pub struct PaletteSource {
 pub struct PaletteRow {
     pub id: String,
     pub group: Group,
+    pub icon: String,
     pub title: String,
     pub detail: String,
     /// Первая последовательность действия в контекстах источника.
@@ -269,6 +272,7 @@ impl Palette {
                 rows.push(PaletteRow {
                     id: candidate.id.clone(),
                     group,
+                    icon: candidate.icon.clone(),
                     title: candidate.title.clone(),
                     detail: candidate.detail.clone(),
                     keys,
@@ -463,6 +467,7 @@ mod tests {
     fn cand(id: &str, title: &str, detail: &str, action: &str) -> Candidate {
         Candidate {
             id: id.to_owned(),
+            icon: "cmd".to_owned(),
             title: title.to_owned(),
             detail: detail.to_owned(),
             action: action.to_owned(),
@@ -868,6 +873,7 @@ mod tests {
             json!({
                 "id": "split.row",
                 "group": "commands",
+                "icon": "cmd",
                 "title": "Разделить зону: части рядом",
                 "detail": "панели",
                 "keys": "Ctrl-w v",

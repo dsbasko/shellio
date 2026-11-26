@@ -35,13 +35,13 @@ use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
-    App, ChromeIntent, ChromeState, CountKind, FieldFocus, Frame, InspectNode, KeyMonitor,
-    KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread,
-    MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState,
-    PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus,
-    TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath,
-    TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts,
-    late_callbacks,
+    App, ChromeIntent, ChromeState, CommandPalette, CommandPaletteState, CountKind, FieldFocus,
+    Frame, InspectNode, KeyMonitor, KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor,
+    MENU_ACTIONS, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys,
+    MenuState, MonitorEvent, NodeState, PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow,
+    Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
+    TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
+    Verdict, VirtualListFacts, ZoneButton, ZoneSide, instance_counts, key_badges, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -394,6 +394,8 @@ struct OwnerWindow {
     layout: Option<LayoutUi>,
     /// Строка статуса обычного режима.
     status: Option<StatusLine>,
+    /// Окно палитры обычного режима: один вид на всё время окна, показ по состоянию наложения.
+    palette: Option<CommandPalette>,
     /// Плагины пунктов меню «Открыть панель» по порядку пунктов.
     open_rows: Vec<&'static str>,
     /// Размер окна для ядра.
@@ -453,6 +455,9 @@ impl OwnerWindow {
         }
         if let Some(status) = &self.status {
             status.set_theme(&selection.theme());
+        }
+        if let Some(palette) = &self.palette {
+            palette.set_theme(&selection.theme());
         }
         true
     }
@@ -941,6 +946,11 @@ impl OwnerWindow {
             .as_ref()
             .map(|status| status.inspect(STATUS_ID, None))
             .map(|nodes| nodes.into_iter().map(status_keyed).collect::<Vec<_>>());
+        let palette_nodes = self
+            .palette
+            .as_ref()
+            .filter(|palette| palette.is_open())
+            .map(CommandPalette::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -950,6 +960,7 @@ impl OwnerWindow {
                 .into_iter()
                 .chain(gallery_nodes.into_iter().flatten())
                 .chain(status_nodes.into_iter().flatten())
+                .chain(palette_nodes.into_iter().flatten())
                 .map(component)
                 .chain(layout_nodes.into_iter().flatten())
                 .collect(),
@@ -1503,6 +1514,14 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         }
         WindowMode::Gallery => None,
     };
+    let palette = match mode {
+        WindowMode::Normal => Some(CommandPalette::new(
+            app,
+            &window.selection().theme(),
+            |intent| defer(move |app| on_palette_intent(app, intent)),
+        )),
+        WindowMode::Gallery => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
     let applied = window.selection();
     WINDOW.with(|slot| {
@@ -1522,6 +1541,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             gallery,
             layout,
             status,
+            palette,
             open_rows,
             viewport: ViewportGate::default(),
             pending: Vec::new(),
@@ -2800,6 +2820,7 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
                     with_router(|router| router.set_typed(typed));
                 }
             });
+            show_palette();
             with_window(|owner| {
                 owner.bump();
                 owner.accepted(command)
@@ -2891,6 +2912,7 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
             state.panel = panel;
         });
     }
+    show_palette();
     with_window(|owner| {
         owner.show_hints();
         owner.bump();
@@ -2918,6 +2940,7 @@ fn close_overlay(kind: OverlayKind) {
 /// с тех пор панель не трогается: маршрутизатор уже снял её из источника.
 fn restore_source(modal: Modal<ModeReceiver>) {
     OVERLAY.with(|state| *state.borrow_mut() = OverlayState::default());
+    show_palette();
     if let Some(ModeReceiver::Panel(panel)) = modal.source.receiver {
         with_window(|owner| {
             if let Some(layout) = owner.layout.as_ref() {
@@ -2933,6 +2956,7 @@ fn restore_source(modal: Modal<ModeReceiver>) {
 fn dismiss_overlay() {
     if with_router(|router| router.dismiss()).flatten().is_some() {
         OVERLAY.with(|state| *state.borrow_mut() = OverlayState::default());
+        show_palette();
         follow_field();
         with_window(|owner| owner.bump());
     }
@@ -2953,8 +2977,9 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
                 palette_key(palette, chord)
             });
             if let Some(row) = chosen {
-                return run_palette_row(app, row);
+                return run_palette_row(app, row, ReceiptSource::Key);
             }
+            show_palette();
         }
         OverlayKind::Hints => {
             if chord.types_text() {
@@ -2964,6 +2989,110 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
         OverlayKind::Cmdline => {}
     }
     with_window(|owner| owner.bump());
+}
+
+/// Намерение вида палитры. Щелчок по строке выполняет её, как в прототипе (`overlays.js:247`).
+fn on_palette_intent(app: &App, intent: PaletteIntent) {
+    let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+    if open != Some(OverlayKind::Palette) {
+        return;
+    }
+    match intent {
+        PaletteIntent::Edited(query) => {
+            let typed = OVERLAY.with(|state| {
+                let mut state = state.borrow_mut();
+                let palette = state.palette.as_mut()?;
+                palette.set_query(&query);
+                Some(!palette.query().is_empty())
+            });
+            if let Some(typed) = typed {
+                with_router(|router| router.set_typed(typed));
+            }
+            show_palette();
+            with_window(|owner| owner.bump());
+        }
+        PaletteIntent::Select(id) | PaletteIntent::Activate(id) => {
+            let row = OVERLAY.with(|state| {
+                let state = state.borrow();
+                let palette = state.palette.as_ref()?;
+                palette.rows().iter().find(|row| row.id == id).cloned()
+            });
+            if let Some(row) = row {
+                run_palette_row(app, row, ReceiptSource::Button);
+            }
+        }
+        PaletteIntent::Dismiss => close_overlay(OverlayKind::Palette),
+    }
+}
+
+/// Вид палитры по состоянию наложения: открытая палитра показывает свой состав, иначе окно
+/// палитры снято и key вернулся окну владельца.
+fn show_palette() {
+    let state = OVERLAY.with(|state| {
+        let state = state.borrow();
+        // Палитра без состава (реестр или keymap недоступны) — пустая выдача, а не невидимое
+        // модальное наложение.
+        (state.kind == Some(OverlayKind::Palette)).then(|| {
+            state
+                .palette
+                .as_ref()
+                .map_or_else(CommandPaletteState::default, palette_spec)
+        })
+    });
+    with_window(|owner| {
+        let Some(palette) = owner.palette.as_ref() else {
+            return;
+        };
+        match state {
+            Some(state) => {
+                palette.set_state(state);
+                if !palette.is_open() {
+                    palette.open(&owner.window);
+                }
+            }
+            None if palette.is_open() => palette.close(&owner.window),
+            None => {}
+        }
+    });
+}
+
+/// Состояние вида палитры из модели: подписи плашек клавиш — по правилу строки статуса.
+fn palette_spec(palette: &Palette) -> CommandPaletteState {
+    let view = palette.view();
+    CommandPaletteState {
+        query: palette.query().to_owned(),
+        category: (palette.category() != Category::All)
+            .then(|| palette.category().title().to_owned()),
+        groups: view
+            .groups
+            .iter()
+            .map(|group| PaletteGroupSpec {
+                title: group.group.title().to_owned(),
+                rows: group
+                    .rows
+                    .iter()
+                    .filter_map(|&index| palette.rows().get(index))
+                    .map(palette_row_spec)
+                    .collect(),
+            })
+            .collect(),
+        selected: palette.selected_row().map(|row| row.id.clone()),
+    }
+}
+
+fn palette_row_spec(row: &PaletteRow) -> PaletteRowSpec {
+    let chords: Vec<String> = row
+        .keys
+        .as_deref()
+        .map(|keys| keys.split(' ').map(str::to_owned).collect())
+        .unwrap_or_default();
+    PaletteRowSpec {
+        id: row.id.clone(),
+        icon: row.icon.clone(),
+        title: row.title.clone(),
+        detail: row.detail.clone(),
+        keys: key_badges(&chords),
+    }
 }
 
 /// Чтение `ui.overlay`. `None` — окна нет.
@@ -3084,8 +3213,8 @@ fn palette_key(palette: &mut Palette, chord: Chord) -> Option<PaletteRow> {
 
 /// Выполнение строки палитры по правилу «Выполнение»: палитра закрывается, источнику
 /// возвращаются фокус и режим, затем действие идёт тем же обработчиком, что клавиша, с одной
-/// записью кольца квитанций.
-fn run_palette_row(app: &App, row: PaletteRow) {
+/// записью кольца квитанций: `source` — клавиша `Enter` или щелчок по строке.
+fn run_palette_row(app: &App, row: PaletteRow, source: ReceiptSource) {
     let panel = OVERLAY.with(|state| state.borrow().panel);
     if let Some(modal) = with_router(KeyRouter::close).flatten() {
         restore_source(modal);
@@ -3094,7 +3223,7 @@ fn run_palette_row(app: &App, row: PaletteRow) {
         name: row.action,
         args: row.args,
     };
-    run_action_with(app, action, Some(ReceiptSource::Key), false, panel);
+    run_action_with(app, action, Some(source), false, panel);
 }
 
 /// Состав палитры для `ui.overlay`.
@@ -3281,6 +3410,63 @@ mod tests {
     use shellio_appkit::MenuItem;
 
     use super::*;
+
+    #[test]
+    fn palette_spec_follows_the_model() {
+        use shellio_keymap::{Args, Candidate, Keymap, PaletteSource};
+        let candidate = |id: &str, icon: &str, title: &str, action: &str| Candidate {
+            id: id.to_owned(),
+            icon: icon.to_owned(),
+            title: title.to_owned(),
+            detail: String::new(),
+            action: action.to_owned(),
+            args: Args::None,
+            key_action: None,
+            usual: None,
+        };
+        let source = PaletteSource {
+            pinned: vec![candidate(
+                "mode.toggle",
+                "cmd",
+                "Режим «Ввод»",
+                "mode.toggle",
+            )],
+            plugins: vec![candidate(
+                "panel.open.terminal",
+                "term",
+                "Открыть: Терминал",
+                "panel.open.terminal",
+            )],
+            contexts: Keymap::contexts(Mode::Navigation, None),
+            ..PaletteSource::default()
+        };
+        let keymap = Keymap::defaults(&[]).unwrap();
+        let mut palette = Palette::new(&source, &keymap, "", Category::All);
+        let spec = palette_spec(&palette);
+        assert_eq!(spec.category, None);
+        let titles: Vec<_> = spec
+            .groups
+            .iter()
+            .map(|group| group.title.as_str())
+            .collect();
+        assert_eq!(titles, ["Команды", "Панели"]);
+        let mode = &spec.groups[0].rows[0];
+        assert_eq!(spec.selected.as_deref(), Some("mode.toggle"));
+        assert_eq!(mode.icon, "cmd");
+        // Плашки клавиш — по правилу строки статуса: `Ctrl` отдельной плашкой.
+        assert_eq!(mode.keys, ["Ctrl", "\\"]);
+        assert_eq!(spec.groups[1].rows[0].icon, "term");
+
+        palette.next_category();
+        let spec = palette_spec(&palette);
+        assert_eq!(spec.category.as_deref(), Some("Команды"));
+        assert_eq!(spec.groups.len(), 1);
+        palette.set_query("нет такой строки");
+        let spec = palette_spec(&palette);
+        assert!(spec.is_empty());
+        assert_eq!(spec.selected, None);
+        assert_eq!(spec.query, "нет такой строки");
+    }
 
     #[test]
     fn component_states_reach_the_wire() {
