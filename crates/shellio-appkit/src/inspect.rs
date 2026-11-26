@@ -221,6 +221,7 @@ impl InspectNode {
         let style = self.style.get_or_insert_with(Style::default);
         style.font = text.font;
         style.line_height = text.line_height;
+        style.letter_spacing = text.letter_spacing;
         style.color = text.color;
         self.facts.label = Some(field.stringValue().to_string());
         self.truncated = Some(style::truncated(field));

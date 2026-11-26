@@ -29,6 +29,7 @@ use crate::style;
 
 counter!(STATUS_OWNER, Owner, "StatusLine");
 counter!(STATUS_VIEW, Class, "ShellioStatusLine");
+counter!(STATUS_MODE_VIEW, Class, "ShellioStatusMode");
 
 /// Отступ текста от края своего слота (`.sb-msg`, `.hints { padding: 0 12px }` прототипа).
 const PAD: f64 = 12.0;
@@ -38,6 +39,8 @@ const LINE: f64 = 16.0;
 const MESSAGE_LINE: f64 = 18.0;
 /// Ширина плашки режима (`.mode { width: 112px }` прототипа).
 pub const MODE_WIDTH: f64 = 112.0;
+/// Межбуквенный интервал подписи плашки режима в долях кегля (`.mode { letter-spacing: .08em }`).
+const MODE_SPACING: f64 = 0.08;
 /// Промежуток между подсказками (`.hints { gap: 14px }`).
 const HINT_GAP: f64 = 14.0;
 /// Промежуток между клавишами подсказки (`.hints .h { gap: 3px }`).
@@ -275,7 +278,6 @@ impl StatusLine {
         if model.mode.get() != mode {
             model.mode.set(mode);
             let title = NSString::from_str(mode_title(mode));
-            view.ivars().mode.setStringValue(&title);
             view.ivars().mode_box.setAccessibilityLabel(Some(&title));
             changed = true;
         }
@@ -421,15 +423,22 @@ impl StatusLine {
             .text
             .setTextColor(Some(&layer::ns_color(theme.colors.text_2)));
         parts.text.setFont(Some(&small));
-        let ink = match self.view.rust().mode.get() {
+        let mode = self.view.rust().mode.get();
+        let ink = layer::ns_color(match mode {
             KeyMode::Navigation => theme.colors.accent_nav_ink,
             KeyMode::Input => theme.colors.accent_input_ink,
-        };
-        parts.mode.setTextColor(Some(&layer::ns_color(ink)));
-        parts.mode.setFont(Some(&NSFont::systemFontOfSize_weight(
-            theme.metrics.font.caption,
-            bold,
-        )));
+        });
+        let caption = NSFont::systemFontOfSize_weight(theme.metrics.font.caption, bold);
+        parts.mode.setTextColor(Some(&ink));
+        parts.mode.setFont(Some(&caption));
+        // Подпись плашки собирается только здесь: интервал несёт атрибут текста, и новая строка
+        // без атрибутов его стёрла бы.
+        parts.mode.setAttributedStringValue(&style::spaced_text(
+            mode_title(mode),
+            &caption,
+            &ink,
+            theme.metrics.font.caption * MODE_SPACING,
+        ));
         for hint in parts.hints.borrow().iter() {
             hint.label
                 .setTextColor(Some(&layer::ns_color(theme.colors.text_3)));
@@ -448,6 +457,56 @@ impl StatusLine {
         }
         view.setNeedsDisplay(true);
         view.place();
+    }
+}
+
+/// Зовёт обработчик плашки режима. `false` — обработчика или владельца нет.
+fn press_mode(owner: &Callback<StatusModel>) -> bool {
+    let handler = owner.call(|model| model.on_mode.borrow().clone()).flatten();
+    match handler {
+        Some(handler) => {
+            handler();
+            true
+        }
+        None => false,
+    }
+}
+
+struct ModeIvars {
+    _live: Live,
+    owner: Callback<StatusModel>,
+}
+
+define_class!(
+    // SAFETY: NSView не требует от подкласса ничего сверх переопределённого ниже метода, `Drop` у
+    // класса нет.
+    #[unsafe(super(NSView, NSResponder, NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[name = "ShellioStatusMode"]
+    #[ivars = ModeIvars]
+    struct ModeView;
+
+    impl ModeView {
+        // SAFETY: селектор и результат — как у `accessibilityPerformPress` NSAccessibility:
+        // `AXPress` плашки переключает режим, как нажатие указателем.
+        #[unsafe(method(accessibilityPerformPress))]
+        fn accessibility_perform_press(&self) -> bool {
+            press_mode(&self.ivars().owner)
+        }
+    }
+);
+
+impl ModeView {
+    /// Плашка как обычный вид: строке нужен только её кадр и слой.
+    fn plate(mtm: MainThreadMarker, owner: Callback<StatusModel>) -> Retained<NSView> {
+        let this = ModeView::alloc(mtm).set_ivars(ModeIvars {
+            _live: STATUS_MODE_VIEW.live(),
+            owner,
+        });
+        // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
+        let view: Retained<ModeView> =
+            unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
+        Retained::into_super(view)
     }
 }
 
@@ -533,14 +592,7 @@ define_class!(
             }
             self.press(false);
             if self.on_mode(event) {
-                let handler = self
-                    .ivars()
-                    .owner
-                    .call(|model| model.on_mode.borrow().clone())
-                    .flatten();
-                if let Some(handler) = handler {
-                    handler();
-                }
+                press_mode(&self.ivars().owner);
             }
         }
 
@@ -572,7 +624,7 @@ impl StatusView {
         text.setAccessibilityRole(Some(unsafe { NSAccessibilityStaticTextRole }));
         let title = NSString::from_str(mode_title(KeyMode::Navigation));
         let mode = NSTextField::labelWithString(&title, mtm);
-        let mode_box = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
+        let mode_box = ModeView::plate(mtm, owner.clone());
         mode_box.setWantsLayer(true);
         mode_box.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
         mode_box.addSubview(&mode);
@@ -748,9 +800,16 @@ mod tests {
 
     #[test]
     fn message_slot_wraps_the_text_with_its_padding() {
-        // Паспорт `status-split-no-room`: строка (0, 694, 1180×26), слот (0, 698,5, 509,59375×18).
-        let slot = message_frame(0.0, 1180.0, 26.0, 1.0, 485.59375);
-        assert_eq!(slot, Frame::new(0.0, 4.5, 509.59375, 18.0));
+        // Паспорт `status-split-no-room`: строка (0, 694, 1180×26), слот после плашки режима
+        // (112, 698,5, 802,210938×18).
+        let slot = message_frame(MODE_WIDTH, 1180.0, 26.0, 1.0, 778.210938);
+        assert_eq!((slot.x, slot.y, slot.height), (112.0, 4.5, 18.0));
+        assert!((slot.width - 802.210938).abs() < 1e-9);
+        // Подпись в теле панели — без плашки, от левого края.
+        assert_eq!(
+            message_frame(0.0, 1180.0, 26.0, 1.0, 485.59375),
+            Frame::new(0.0, 4.5, 509.59375, 18.0)
+        );
         assert_eq!(
             slot.y + slot.height / 2.0,
             1.0 + 25.0 / 2.0,

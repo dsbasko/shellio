@@ -2299,6 +2299,25 @@ mod tests {
                 None
             );
         }
+        // Плашка режима и подсказки приходят со своими ключами, набранный префикс — без ключа.
+        for (id, ck) in [
+            ("status.mode", "status.mode"),
+            ("status.hint.1", "status.hint.1"),
+            ("status.hint.1.key.1", "status.hint.1.key"),
+            ("status.hint.2.label", "status.hint.2.label"),
+        ] {
+            let keyed = status_keyed(node(id, true, Some("текст")).with_ck(ck));
+            assert_eq!(keyed.ck.as_deref(), Some(ck), "{id}");
+            assert_eq!(keyed.style, None, "{id} — не корень поверхности");
+        }
+        assert_eq!(
+            status_keyed(node("status.prefix", true, Some("Ctrl-w"))).ck,
+            None
+        );
+        // Подпись в теле панели — тот же компонент под другим именем: ключей окна она не получает.
+        for id in ["caption", "caption.message"] {
+            assert_eq!(status_keyed(node(id, true, Some("текст"))).ck, None, "{id}");
+        }
     }
 
     #[test]

@@ -6,8 +6,9 @@ use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2_app_kit::{
     NSAttributedStringNSStringDrawing, NSColor, NSColorSpace, NSFont, NSFontAttributeName,
-    NSFontTraitsAttribute, NSFontWeightTrait, NSLayoutManager, NSLineBreakMode, NSParagraphStyle,
-    NSParagraphStyleAttributeName, NSTextField, NSView,
+    NSFontTraitsAttribute, NSFontWeightTrait, NSForegroundColorAttributeName, NSKernAttributeName,
+    NSLayoutManager, NSLineBreakMode, NSParagraphStyle, NSParagraphStyleAttributeName, NSTextField,
+    NSView,
 };
 use objc2_core_text::kCTFontURLAttribute;
 use objc2_foundation::{
@@ -356,6 +357,48 @@ pub(crate) fn text_line_height(text: &NSAttributedString, font: &NSFont) -> f64 
     line_pitch(natural, line_rule(text).unwrap_or_default())
 }
 
+/// Межбуквенный интервал у первого знака текста; `None` — интервала нет или он нулевой.
+pub(crate) fn letter_spacing(text: &NSAttributedString) -> Option<f64> {
+    if text.length() == 0 {
+        return None;
+    }
+    // SAFETY: имя атрибута — неизменяемая константа AppKit, знак 0 есть у непустого текста,
+    // диапазон действия не запрашивается.
+    let value = unsafe {
+        text.attribute_atIndex_effectiveRange(NSKernAttributeName, 0, std::ptr::null_mut())
+    }?;
+    let kern = value.downcast::<NSNumber>().ok()?.doubleValue();
+    (kern != 0.0).then_some(kern)
+}
+
+/// Текст шрифтом `font` цветом `color` с межбуквенным интервалом `kern` в точках.
+pub(crate) fn spaced_text(
+    text: &str,
+    font: &NSFont,
+    color: &NSColor,
+    kern: f64,
+) -> Retained<NSAttributedString> {
+    // SAFETY: ключи атрибутов — неизменяемые строки AppKit, живущие весь процесс.
+    let keys = unsafe {
+        [
+            NSFontAttributeName,
+            NSForegroundColorAttributeName,
+            NSKernAttributeName,
+        ]
+    };
+    let kern = NSNumber::new_f64(kern);
+    let values: [&AnyObject; 3] = [font.as_ref(), color.as_ref(), kern.as_ref()];
+    let attributes = NSDictionary::from_slices(&keys, &values);
+    // SAFETY: значения словаря — `NSFont`, `NSColor` и `NSNumber`, как требуют ключи.
+    unsafe {
+        NSAttributedString::initWithString_attributes(
+            NSAttributedString::alloc(),
+            &NSString::from_str(text),
+            Some(&attributes),
+        )
+    }
+}
+
 /// Переносит ли поле текст на новые строки: ячейка переносит по словам или знакам и поле не
 /// ограничено одной строкой.
 pub(crate) fn wraps(field: &NSTextField) -> bool {
@@ -379,6 +422,7 @@ pub(crate) fn view_style(view: &NSView) -> Style {
         if field.stringValue().length() > 0 {
             let font = field.font();
             style.font = font.as_deref().map(font_facts);
+            style.letter_spacing = letter_spacing(&field.attributedStringValue());
             if wraps(field) {
                 style.line_height =
                     font.map(|font| text_line_height(&field.attributedStringValue(), &font));
@@ -476,6 +520,29 @@ mod tests {
             );
         }
         Retained::into_super(text)
+    }
+
+    #[test]
+    fn letter_spacing_reads_the_kern_of_the_text() {
+        // SAFETY: вес шрифта — неизменяемая константа AppKit.
+        let font = NSFont::systemFontOfSize_weight(11.0, unsafe { NSFontWeightBold });
+        let spaced = spaced_text("НАВИГАЦИЯ", &font, &NSColor::whiteColor(), 0.88);
+        assert_eq!(letter_spacing(&spaced), Some(0.88));
+        let plain = NSAttributedString::from_nsstring(&NSString::from_str("НАВИГАЦИЯ"));
+        assert_eq!(letter_spacing(&plain), None);
+        let empty = NSAttributedString::from_nsstring(&NSString::from_str(""));
+        assert_eq!(letter_spacing(&empty), None);
+        let zero = spaced_text("ВВОД", &font, &NSColor::whiteColor(), 0.0);
+        assert_eq!(
+            letter_spacing(&zero),
+            None,
+            "нулевой интервал — не свойство"
+        );
+        let natural = typeset_width("НАВИГАЦИЯ", &font);
+        assert!(
+            (spaced.size().width - natural - 9.0 * 0.88).abs() < 0.01,
+            "интервал стоит после каждого знака, как `letter-spacing`"
+        );
     }
 
     #[test]
