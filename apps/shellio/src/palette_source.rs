@@ -2,11 +2,11 @@
 //! наложения»): закреплённые команды прототипа, действия хоста с названием, открытые панели
 //! рабочей области и плагины реестра. Тексты строк повторяют прототип (`overlays.js:161`–`:191`).
 
-use serde_json::json;
+use serde_json::{Value, json};
 use shellio_core::PanelId;
 use shellio_keymap::{Args, Axis, Candidate, Keymap, Mode, PaletteSource};
 use shellio_layout::{Location, Zone};
-use shellio_plugin_api::Registry;
+use shellio_plugin_api::{Manifest, Registry};
 
 use crate::scene::Scene;
 
@@ -20,6 +20,8 @@ pub struct Facts<'a> {
     pub mode: Mode,
     /// Действующее оформление тёмное.
     pub dark: bool,
+    /// Аргументы действия плагина от вида панели-источника (`resolve_args`).
+    pub resolve: &'a dyn Fn(&str) -> Option<Value>,
 }
 
 /// Действия хоста с названием палитры по командам прототипа (`commands.js:40`–`:143`). Фокус,
@@ -76,6 +78,25 @@ fn split_axis(location: Location) -> Option<Axis> {
             Zone::Center | Zone::Bottom => Some(Axis::Row),
         },
     }
+}
+
+/// Действия плагина панели-источника с названием (прототип `overlays.js:191`). Аргументы даёт вид
+/// панели: без них строки нет.
+pub fn panel_rows(manifest: &Manifest, resolve: &dyn Fn(&str) -> Option<Value>) -> Vec<Candidate> {
+    manifest
+        .commands
+        .iter()
+        .filter(|spec| !spec.title.is_empty())
+        .map(|spec| {
+            candidate(
+                spec.name,
+                spec.title.to_owned(),
+                format!("в панели «{}»", manifest.title),
+                spec.name,
+                Args::View(resolve(spec.name)),
+            )
+        })
+        .collect()
 }
 
 fn toggle(hidden: bool) -> &'static str {
@@ -193,6 +214,16 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
         .zip(bench)
         .and_then(|(panel, bench)| bench.views.get(&panel))
         .map(|slot| slot.plugin.as_str());
+    let panel = plugin
+        .and_then(|plugin| {
+            facts
+                .registry
+                .iter()
+                .map(|registered| registered.manifest())
+                .find(|manifest| manifest.id == plugin)
+        })
+        .map(|manifest| panel_rows(manifest, facts.resolve))
+        .unwrap_or_default();
     let open = bench
         .map(|bench| {
             bench
@@ -233,7 +264,7 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
         .collect();
     PaletteSource {
         pinned,
-        panel: Vec::new(),
+        panel,
         commands,
         open,
         plugins,
@@ -261,6 +292,7 @@ mod tests {
             panel: None,
             mode,
             dark,
+            resolve: &|_| None,
         };
         let light = source(&facts(Mode::Navigation, false));
         assert_eq!(titles(&light.pinned), ["Режим «Ввод»", "Тёмная тема"]);
@@ -291,6 +323,7 @@ mod tests {
             panel: None,
             mode: Mode::Navigation,
             dark: false,
+            resolve: &|_| None,
         });
         assert!(source.open.is_empty());
         assert_eq!(source.split_axis, None);
@@ -315,6 +348,37 @@ mod tests {
                 ("layout.split.stack", Args::Fixed(json!({"axis": "stack"}))),
             ]
         );
+    }
+
+    #[test]
+    fn panel_rows_need_a_title_and_view_args() {
+        let registry = crate::plugins::registry().unwrap();
+        let manifest = |id: &str| {
+            registry
+                .iter()
+                .map(|plugin| plugin.manifest())
+                .find(|manifest| manifest.id == id)
+                .unwrap()
+        };
+        let native = manifest("demo-native");
+        let rows = panel_rows(native, &|action| {
+            (action == "demo-native.set").then(|| json!({"value": "черновик"}))
+        });
+        assert_eq!(
+            rows,
+            [candidate(
+                "demo-native.set",
+                "Применить поле".to_owned(),
+                "в панели «Демо: поле»".to_owned(),
+                "demo-native.set",
+                Args::View(Some(json!({"value": "черновик"}))),
+            )]
+        );
+        // Вид не дал аргументов: кандидат остаётся, строку палитра не покажет.
+        let rows = panel_rows(native, &|_| None);
+        assert_eq!(rows[0].args, Args::View(None));
+        // Действия без названия в палитру не идут.
+        assert!(panel_rows(manifest("demo-list"), &|_| Some(json!({}))).is_empty());
     }
 
     #[test]

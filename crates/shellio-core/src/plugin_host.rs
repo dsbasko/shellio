@@ -679,10 +679,12 @@ mod support {
                     CommandSpec {
                         name: name("add"),
                         args: r#"{"by":1}"#,
+                        title: "",
                     },
                     CommandSpec {
                         name: name("pad"),
                         args: r#"{"size":3}"#,
+                        title: "",
                     },
                 ]))
             } else {

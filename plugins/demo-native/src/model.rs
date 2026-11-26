@@ -27,6 +27,7 @@ pub const MANIFEST: Manifest = Manifest {
     commands: &[CommandSpec {
         name: SET,
         args: r#"{"value":"shellio"}"#,
+        title: "Применить поле",
     }],
     keymap: &[KeyDefault {
         action: SET,

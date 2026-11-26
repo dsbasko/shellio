@@ -33,18 +33,22 @@ pub const MANIFEST: Manifest = Manifest {
         CommandSpec {
             name: SELECT,
             args: r#"{"key":"c"}"#,
+            title: "",
         },
         CommandSpec {
             name: DETAILS,
             args: r#"{"open":true}"#,
+            title: "",
         },
         CommandSpec {
             name: BACK,
             args: "{}",
+            title: "",
         },
         CommandSpec {
             name: FILTER,
             args: r#"{"text":"та"}"#,
+            title: "",
         },
     ],
     keymap: &[KeyDefault {

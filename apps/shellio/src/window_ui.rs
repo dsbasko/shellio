@@ -114,6 +114,9 @@ thread_local! {
 struct OverlayState {
     kind: Option<OverlayKind>,
     palette: Option<Palette>,
+    /// Панель-источник палитры в момент открытия: строки её действий выполняются для неё, даже
+    /// если маршрутизатор уже снял закрытую панель из источника.
+    panel: Option<PanelId>,
     typed: String,
     text: String,
 }
@@ -1853,12 +1856,26 @@ fn run_key(app: &App, action: Action) {
 /// Действие keymap по имени: клавиша, палитра и строка `:`. `source` — источник записи кольца
 /// квитанций; без него, как у CLI, записи нет.
 fn run_action(app: &App, action: Action, source: Option<ReceiptSource>) {
-    run_action_with(app, action, source, source == Some(ReceiptSource::Key));
+    run_action_with(
+        app,
+        action,
+        source,
+        source == Some(ReceiptSource::Key),
+        None,
+    );
 }
 
 /// [`run_action`] с явным признаком решения маршрутизатора: `routed` — режим `mode.*` уже сменило
 /// решение о клавише. Строка палитры выполняется клавишей `Enter`, но режим меняет обработчик.
-fn run_action_with(app: &App, action: Action, source: Option<ReceiptSource>, routed: bool) {
+/// `panel` — панель-источник наложения: действие плагина идёт ей, а не панели с фокусом, и её
+/// исчезновение — сообщение в строке статуса без выполнения.
+fn run_action_with(
+    app: &App,
+    action: Action,
+    source: Option<ReceiptSource>,
+    routed: bool,
+    panel: Option<PanelId>,
+) {
     let name = action.name.as_str();
     let not_applicable = || {
         note_receipt(
@@ -1923,7 +1940,13 @@ fn run_action_with(app: &App, action: Action, source: Option<ReceiptSource>, rou
                 if !owner.window.is_visible() {
                     return None;
                 }
-                Some(owner.layout.as_ref()?.key_request(&plugin_action, args))
+                let layout = owner.layout.as_ref()?;
+                Some(match panel {
+                    Some(panel) => layout
+                        .key_request_for(panel, &plugin_action, args)
+                        .map(|request| (panel, request)),
+                    None => layout.key_request(&plugin_action, args),
+                })
             })
             .flatten();
             match request {
@@ -2855,16 +2878,17 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
     }
     let fresh = OVERLAY.with(|state| state.borrow().kind != Some(kind));
     if fresh {
-        let palette = match kind {
-            OverlayKind::Palette => {
-                modal_source().and_then(|(panel, mode)| new_palette(panel, mode))
-            }
-            OverlayKind::Hints | OverlayKind::Cmdline => None,
+        let (palette, panel) = match kind {
+            OverlayKind::Palette => modal_source()
+                .map(|(panel, mode)| (new_palette(panel, mode), panel))
+                .unwrap_or_default(),
+            OverlayKind::Hints | OverlayKind::Cmdline => (None, None),
         };
         OVERLAY.with(|state| {
             let mut state = state.borrow_mut();
             *state = OverlayState::fresh(kind);
             state.palette = palette;
+            state.panel = panel;
         });
     }
     with_window(|owner| {
@@ -3001,13 +3025,16 @@ fn new_palette(panel: Option<PanelId>, mode: Mode) -> Option<Palette> {
             owner.window.selection().cell.cell.appearance,
             Appearance::Dark
         );
-        let scene = owner.layout.as_ref().and_then(LayoutUi::scene);
+        let layout = owner.layout.as_ref();
+        let scene = layout.and_then(LayoutUi::scene);
+        let resolve = |name: &str| layout?.resolve_args(panel?, name);
         palette_source::source(&Facts {
             scene,
             registry: &registry,
             panel,
             mode,
             dark,
+            resolve: &resolve,
         })
     })?;
     KEYMAP.with(|slot| {
@@ -3059,6 +3086,7 @@ fn palette_key(palette: &mut Palette, chord: Chord) -> Option<PaletteRow> {
 /// возвращаются фокус и режим, затем действие идёт тем же обработчиком, что клавиша, с одной
 /// записью кольца квитанций.
 fn run_palette_row(app: &App, row: PaletteRow) {
+    let panel = OVERLAY.with(|state| state.borrow().panel);
     if let Some(modal) = with_router(KeyRouter::close).flatten() {
         restore_source(modal);
     }
@@ -3066,7 +3094,7 @@ fn run_palette_row(app: &App, row: PaletteRow) {
         name: row.action,
         args: row.args,
     };
-    run_action_with(app, action, Some(ReceiptSource::Key), false);
+    run_action_with(app, action, Some(ReceiptSource::Key), false, panel);
 }
 
 /// Состав палитры для `ui.overlay`.
@@ -3150,7 +3178,7 @@ fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
             view.outcome = CmdlineOutcome::Run;
             view.action = Some(action.name.clone());
             view.args.clone_from(&action.args);
-            run_action(app, action, None);
+            run_action_with(app, action, None, false, source.0);
         }
         shellio_keymap::Cmdline::Unknown(unknown) => {
             let key = KEYMAP.with(|slot| {

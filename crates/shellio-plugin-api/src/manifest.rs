@@ -124,6 +124,8 @@ impl fmt::Debug for ZoneSet {
 pub struct CommandSpec {
     pub name: &'static str,
     pub args: &'static str,
+    /// Название строки палитры. Пустое — действия в палитре нет.
+    pub title: &'static str,
 }
 
 /// Клавиша действия по умолчанию. Ссылается на действие манифеста, привязку делает P1.6.
@@ -265,10 +267,12 @@ mod tests {
                 CommandSpec {
                     name: "notes.pick",
                     args: r#"{"key":"a"}"#,
+                    title: "",
                 },
                 CommandSpec {
                     name: "notes.back",
                     args: "{}",
+                    title: "",
                 },
             ],
             keymap: &[],

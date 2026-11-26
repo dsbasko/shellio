@@ -611,6 +611,7 @@ mod tests {
             manifest.commands = Box::leak(Box::new([CommandSpec {
                 name: "fake.fill",
                 args: r#"{"txt":"a"}"#,
+                title: "",
             }]));
         }));
         refused(
@@ -624,6 +625,7 @@ mod tests {
             manifest.commands = Box::leak(Box::new([CommandSpec {
                 name: "fake.gone",
                 args: "{}",
+                title: "",
             }]));
         }));
         refused(
@@ -636,6 +638,7 @@ mod tests {
             manifest.commands = Box::leak(Box::new([CommandSpec {
                 name: "fake.bump",
                 args: "{",
+                title: "",
             }]));
         }));
         refused(

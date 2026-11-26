@@ -33,10 +33,12 @@ pub(crate) const MANIFEST: Manifest = Manifest {
         CommandSpec {
             name: "fake.fill",
             args: r#"{"text":"a"}"#,
+            title: "",
         },
         CommandSpec {
             name: "fake.bump",
             args: "{}",
+            title: "",
         },
     ],
     keymap: &[KeyDefault {

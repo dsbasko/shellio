@@ -383,7 +383,11 @@ mod tests {
         Box::leak(
             names
                 .iter()
-                .map(|&name| CommandSpec { name, args: "{}" })
+                .map(|&name| CommandSpec {
+                    name,
+                    args: "{}",
+                    title: "",
+                })
                 .collect(),
         )
     }

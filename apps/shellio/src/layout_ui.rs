@@ -496,6 +496,35 @@ impl LayoutUi {
             .map(|request| (panel, request))
     }
 
+    /// Запрос действия `name` плагина панели `panel`, запомненной наложением: палитра обращается к
+    /// своей панели-источнику, а не к панели с фокусом. Закрытая или не показанная панель —
+    /// [`KeyRefusal::NoBody`].
+    pub fn key_request_for(
+        &self,
+        panel: PanelId,
+        name: &str,
+        args: Option<Value>,
+    ) -> Result<PanelRequest, KeyRefusal> {
+        let placed = self
+            .scene
+            .as_ref()
+            .and_then(|scene| scene.bench.as_ref())
+            .is_some_and(|bench| bench.layout.locate(panel).is_some());
+        if !placed {
+            return Err(KeyRefusal::NoBody);
+        }
+        self.bodies.key_request(panel, name, args)
+    }
+
+    /// Аргументы действия `name` от вида панели `panel` (`resolve_args`). `None` — тела нет или
+    /// вид аргументов не дал.
+    pub fn resolve_args(&self, panel: PanelId, name: &str) -> Option<Value> {
+        self.bodies
+            .view(panel)
+            .filter(|_| self.bodies.active(panel))?
+            .resolve_args(name)
+    }
+
     /// Действие `panel.filter` для панели с фокусом: открывает строку фильтра над её телом и
     /// ставит в неё ввод. `text` — текст фильтра: он уходит виду намерением и встаёт в строку;
     /// без него строка открывается с прежним текстом. `None` — действовать не на что: рабочая
