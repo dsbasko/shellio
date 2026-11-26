@@ -6,7 +6,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use shellio::keymap_service::KeymapSnapshot;
+use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::WindowMode;
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_appkit::{App, Delegate, MainThread, Reopened, Transfer};
@@ -141,6 +141,12 @@ impl Ui for AppUi {
 
     async fn keymap(&self, snapshot: Arc<KeymapSnapshot>) {
         self.on_main(move |_| window_ui::set_keymap(snapshot)).await;
+    }
+
+    async fn keymap_port(&self, port: KeymapPort) {
+        let runtime = tokio::runtime::Handle::current();
+        self.on_main(move |_| window_ui::attach_keymap(port, runtime))
+            .await;
     }
 
     async fn activate(&self) -> Activation {

@@ -331,6 +331,17 @@ impl KeymapPort {
             Err(_) => self.current(),
         }
     }
+
+    /// Применить `keymap.toml` задачей `runtime` и отдать `done` снимок после применения: вход
+    /// главного потока, который ждать не вправе. `done` вызывается ровно один раз.
+    pub fn apply_then(
+        &self,
+        runtime: &Handle,
+        done: impl FnOnce(Arc<KeymapSnapshot>) + Send + 'static,
+    ) {
+        let port = self.clone();
+        runtime.spawn(async move { done(port.apply_file().await) });
+    }
 }
 
 impl KeymapHandler for KeymapPort {
@@ -831,6 +842,24 @@ mod tests {
         let reset = port.apply_file().await;
         assert_eq!(reset.view.version, 3);
         assert!(row(&reset.view, "navigation", "Ctrl-w z").is_some());
+    }
+
+    #[tokio::test]
+    async fn main_thread_entry_applies_the_file_before_it_reports() {
+        let fixture = Fixture::new();
+        let service = fixture.service(false).await;
+        let port = service.port();
+
+        fixture.write("[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n");
+        let (report, reported) = oneshot::channel();
+        port.apply_then(&Handle::current(), move |snapshot| {
+            let _ = report.send(snapshot);
+        });
+        let applied = reported.await.unwrap();
+        assert_eq!(applied.view.version, 2);
+        assert!(row(&applied.view, "navigation", "Ctrl-w m").is_some());
+        // К вызову `done` снимок уже действует: главный поток читает его из порта.
+        assert!(Arc::ptr_eq(&port.current(), &applied));
     }
 
     #[tokio::test]

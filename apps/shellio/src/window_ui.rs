@@ -25,7 +25,7 @@ use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::key_actions::{self, KeyAction};
 use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
-use shellio::keymap_service::KeymapSnapshot;
+use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::WindowMode;
 use shellio::owner;
 use shellio::plugins;
@@ -81,6 +81,9 @@ thread_local! {
     static KEYMAP: RefCell<Option<Arc<KeymapSnapshot>>> = const { RefCell::new(None) };
     /// Сообщение ошибки keymap, показанное последним снимком: исправный снимок убирает его.
     static KEYMAP_NOTE: RefCell<Option<String>> = const { RefCell::new(None) };
+    /// Порт службы keymap и runtime его задач: действие `keymap.reload` с клавиши.
+    static KEYMAP_PORT: RefCell<Option<(KeymapPort, tokio::runtime::Handle)>> =
+        const { RefCell::new(None) };
     /// Номер последнего показанного сообщения строки статуса. Ячейка своя: обработчик монитора
     /// читает его, не заимствуя окно.
     static STATUS_SERIAL: Cell<u64> = const { Cell::new(0) };
@@ -1760,10 +1763,35 @@ fn run_key(app: &App, action: Action) {
                 None => not_applicable(),
             }
         }
-        // История переходов и перечитывание таблицы с клавиши встают вместе со своими портами
-        // главного потока.
-        KeyAction::History(_) | KeyAction::Reload => not_applicable(),
+        KeyAction::Reload => {
+            if !reload_keymap(|| record_receipt(Sent::action(RELOAD, KEY), Ending::Done)) {
+                not_applicable();
+            }
+        }
+        // История переходов встаёт вместе со своим состоянием главного потока.
+        KeyAction::History(_) => not_applicable(),
     }
+}
+
+/// Имя действия перечитывания `keymap.toml` в keymap и в кольце квитанций.
+const RELOAD: &str = "keymap.reload";
+
+/// Перечитать `keymap.toml` через службу, не дожидаясь её на главном потоке. `done` вызывается в
+/// очереди главного потока после того, как действует таблица не старше результата чтения: её
+/// главный поток берёт из порта сам, поэтому доставка службы, пришедшая раньше, не откатывается.
+/// `false` — порта службы нет, файл не перечитывался.
+fn reload_keymap(done: impl FnOnce() + Send + 'static) -> bool {
+    let Some((port, runtime)) = KEYMAP_PORT.with(|slot| slot.borrow().clone()) else {
+        return false;
+    };
+    let table = port.clone();
+    port.apply_then(&runtime, move |_| {
+        defer(move |_| {
+            set_keymap(table.current());
+            done();
+        });
+    });
+    true
 }
 
 /// Новое окно владельца: смена ячейки и намерения заголовка уходят в очередь главного потока.
@@ -1838,6 +1866,11 @@ pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle
             receipts: RefCell::new(Ring::default()),
         });
     });
+}
+
+/// Порт службы keymap: ставится до первого снимка таблицы.
+pub fn attach_keymap(port: KeymapPort, runtime: tokio::runtime::Handle) {
+    KEYMAP_PORT.with(|slot| *slot.borrow_mut() = Some((port, runtime)));
 }
 
 /// Новая таблица keymap от службы: первый снимок приходит до публикации сокета.

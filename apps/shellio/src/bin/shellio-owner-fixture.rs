@@ -13,7 +13,7 @@ use std::future::{Future, pending, ready};
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 
-use shellio::keymap_service::KeymapSnapshot;
+use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::{self, Mode, WindowMode};
 use shellio::owner::{self, Handoff, MirrorSink, Reopen, Ui};
 use shellio_control::{Activation, Exit, UiGate, UiRefusal, UiReply, UiRequest};
@@ -65,6 +65,10 @@ impl Ui for NoUi {
     }
 
     fn keymap(&self, _snapshot: Arc<KeymapSnapshot>) -> impl Future<Output = ()> + Send {
+        ready(())
+    }
+
+    fn keymap_port(&self, _port: KeymapPort) -> impl Future<Output = ()> + Send {
         ready(())
     }
 

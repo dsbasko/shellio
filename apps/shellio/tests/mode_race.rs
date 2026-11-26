@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use shellio::keymap_service::KeymapSnapshot;
+use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::{self, Mode, Run, WindowMode};
 use shellio::owner::{
     self, ActivationHandoff, Claim, Handoff, HandoffOutcome, MirrorSink, Reopen,
@@ -76,6 +76,10 @@ impl Ui for RaceUi {
 
     fn keymap(&self, snapshot: Arc<KeymapSnapshot>) -> impl Future<Output = ()> + Send {
         *self.keymap.lock().unwrap() = Some(snapshot);
+        ready(())
+    }
+
+    fn keymap_port(&self, _port: KeymapPort) -> impl Future<Output = ()> + Send {
         ready(())
     }
 

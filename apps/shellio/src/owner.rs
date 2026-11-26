@@ -38,7 +38,7 @@ use tokio::sync::broadcast::{self, error::RecvError};
 use tokio::sync::watch;
 use tokio::task::{JoinHandle, spawn_blocking};
 
-use crate::keymap_service::{Actions, KeymapService, KeymapSnapshot};
+use crate::keymap_service::{Actions, KeymapPort, KeymapService, KeymapSnapshot};
 use crate::launch::{self, Outgoing, Run, WindowMode};
 use crate::plugins;
 
@@ -78,6 +78,10 @@ pub trait Ui: MirrorSink {
     /// Действующая таблица keymap для главного потока: первый снимок — до публикации сокета,
     /// дальше каждый новый снимок службы целиком. Возвращается после вызова.
     fn keymap(&self, snapshot: Arc<KeymapSnapshot>) -> impl Future<Output = ()> + Send;
+
+    /// Порт службы keymap для главного потока: действие `keymap.reload` с клавиши перечитывает
+    /// файл через него. Возвращается после вызова.
+    fn keymap_port(&self, port: KeymapPort) -> impl Future<Output = ()> + Send;
 
     /// Выполняет активацию на главном потоке и возвращается после вызова.
     fn activate(&self) -> impl Future<Output = Activation> + Send;
@@ -675,6 +679,7 @@ async fn serve<U: Ui>(
         Ok(keymap) => keymap,
         Err(reason) => return abort(core, ownership, reason).await,
     };
+    ui.keymap_port(keymap.port()).await;
     // Главный поток получает ту же таблицу до публикации сокета и до строки готовности.
     let _keymap_feed = {
         let ui = Arc::clone(&ui);
