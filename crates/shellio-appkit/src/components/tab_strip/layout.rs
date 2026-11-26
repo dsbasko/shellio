@@ -13,10 +13,10 @@ pub const GAP: f64 = 2.0;
 pub const BOTTOM_LINE: f64 = 1.0;
 /// Запас ряда вкладок слева и справа под линию выбранной вкладки (`.tabs { padding: 1px }`).
 pub const TABS_INSET: f64 = 1.0;
-/// Вкладка: высота и верх в полосе. Содержимое полосы без линии — 33 точки, вкладка 26 стоит по
-/// середине с округлением вниз.
+/// Вкладка: высота и верх в полосе. Содержимое полосы без линии — 33 точки, вкладка 26 стоит
+/// точно по середине, как в паспортах: полточки — целый пиксель экрана с масштабом 2.
 pub const TAB_HEIGHT: f64 = 26.0;
-pub const TAB_TOP: f64 = 3.0;
+pub const TAB_TOP: f64 = 3.5;
 /// Части вкладки (`.tab { padding: 0 6px 0 10px; gap: 7px }`).
 pub const TAB_PAD_LEFT: f64 = 10.0;
 pub const TAB_PAD_RIGHT: f64 = 6.0;
@@ -164,7 +164,8 @@ pub struct StripLayout {
     /// Ширина полосы, по которой посчитана раскладка.
     pub width: f64,
     pub regime: Regime,
-    /// Видимая часть ряда вкладок в точках полосы.
+    /// Видимая часть ряда вкладок в точках полосы. По высоте — вся полоса: линия под активной
+    /// вкладкой заходит на полточки на линию полосы (`.tabs { padding-bottom: 5px }`).
     pub clip: Frame,
     /// Вкладки в точках ряда (документа прокрутки).
     pub tabs: Vec<Frame>,
@@ -232,7 +233,7 @@ pub fn layout(
     StripLayout {
         width,
         regime,
-        clip: Frame::new(clip_x, 0.0, clip_width, content),
+        clip: Frame::new(clip_x, 0.0, clip_width, height.max(0.0)),
         tabs: frames,
         content_width,
         max_offset: (content_width - clip_width).max(0.0),
@@ -379,7 +380,7 @@ mod tests {
         // Паспорт `layout-stub`: полоса 135, три кнопки, вкладка 120 — видимая часть ряда 55.
         let strip = layout(135.0, 34.0, &[120.0], None, THREE);
         assert_eq!(strip.regime, Regime::Scroll);
-        assert_eq!(strip.clip, Frame::new(3.0, 0.0, 55.0, 33.0));
+        assert_eq!(strip.clip, Frame::new(3.0, 0.0, 55.0, 34.0));
         assert_eq!(strip.tabs[0], Frame::new(1.0, TAB_TOP, 120.0, TAB_HEIGHT));
         assert_eq!(strip.max_offset, 67.0);
         let tab = strip.tabs[0];
@@ -425,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn tab_rows_have_gaps_and_whole_point_tops() {
+    fn tab_rows_have_gaps_and_sit_in_the_middle_of_the_strip() {
         let strip = layout(1100.0, 34.0, &[100.0, 80.0, 60.0], None, THREE);
         assert_eq!(strip.regime, Regime::Visible);
         assert_eq!(strip.tabs[0].x, TABS_INSET);
@@ -435,9 +436,17 @@ mod tests {
             PAD_LEFT,
             "первая вкладка у отступа"
         );
-        assert_eq!(strip.clip.height, 33.0);
+        assert_eq!(
+            strip.clip.height, 34.0,
+            "обрезка не срезает линию под вкладкой"
+        );
         for tab in &strip.tabs {
-            assert_eq!((tab.y, tab.height), (TAB_TOP, TAB_HEIGHT));
+            assert_eq!((tab.y, tab.height), (3.5, TAB_HEIGHT));
+            assert_eq!(
+                tab.y,
+                (34.0 - BOTTOM_LINE - TAB_HEIGHT) / 2.0,
+                "паспорт: вкладка с 50,5 при полосе с 47,0"
+            );
         }
         assert_eq!(strip.max_offset, 0.0);
     }
@@ -468,12 +477,21 @@ mod tests {
     #[test]
     fn underline_sits_four_points_below_the_tab() {
         let tab = Frame::new(1.0, TAB_TOP, 100.0, TAB_HEIGHT);
-        assert_eq!(underline(tab, 2.0), Frame::new(9.0, 31.0, 84.0, 2.0));
+        // Паспорт `layout-all-zones`: полоса с 47,0, линия 78,5…80,5 и 77,5…80,5.
+        assert_eq!(underline(tab, 2.0), Frame::new(9.0, 31.5, 84.0, 2.0));
         assert_eq!(
             underline(tab, 3.0),
-            Frame::new(9.0, 30.0, 84.0, 3.0),
+            Frame::new(9.0, 30.5, 84.0, 3.0),
             "в Increase Contrast толще вверх"
         );
-        assert!(underline(tab, 3.0).y + 3.0 <= 33.0, "над линией полосы");
+        let strip = layout(1100.0, 34.0, &[100.0], None, THREE);
+        for thickness in [2.0, 3.0] {
+            let line = underline(strip.tabs[0], thickness);
+            assert_eq!(line.y + line.height, 33.5, "полточки поверх линии полосы");
+            assert!(
+                line.y + line.height <= strip.clip.height,
+                "внутри обрезки ряда"
+            );
+        }
     }
 }
