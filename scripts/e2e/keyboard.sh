@@ -70,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 5 2 4 1 6 6 7 7 6 6 7 7 6 5 7 7 7 0)
+STAGE=(1 2 2 3 5 2 4 1 6 7 8 8 7 7 8 8 6 5 8 8 8 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=5
+DONE_STAGE=6
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -95,6 +95,7 @@ K_SPACE=49
 K_1=18
 K_2=19
 K_3=20
+K_Q=12
 
 REQUIRED=()
 STATUS=()
@@ -1867,6 +1868,140 @@ item_relative_resize_cli() {
   conclude "$item" "layout resize --by 40 --width у панели с фокусом и --by -40 --width --panel ведут правую зону $r → $((r + 40)) → $r, --by 40 --height --panel нижней зоны — $b → $((b + 40)), каждая команда — одна дельта events --since; layout toggle side при занятой правой зоне скрывает и показывает правую зону (третья кнопка «Правая зона»), при пустой правой и занятой плитке — плитку («Левая зона»), отметка AX кнопки по ожиданию"
 }
 
+# Пункт меню окна владельца по System Events: режим find только находит пункт, press — нажимает его один раз.
+AX_MENU_JS='function run(argv) {
+  const [mode, pid, bar, title] = argv;
+  const p = Application("System Events").processes.whose({unixId: Number(pid)})[0];
+  const item = p.menuBars[0].menuBarItems.byName(bar).menus[0].menuItems.byName(title);
+  if (item.name() !== title) throw new Error("нет пункта «" + title + "»");
+  if (mode === "press") item.click();
+  return mode + " " + title;
+}'
+
+# Нажатие пункта title меню bar владельца: сразу после запуска System Events отдаёт меню без пунктов, поэтому пункт
+# сначала опрашивается чтением, затем нажимается один раз; вывод — <prefix>.find.* и <prefix>.press.*, иначе WHY.
+menu_press() {
+  local prefix="$1" bar="$2" title="$3" deadline
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until osascript -l JavaScript -e "$AX_MENU_JS" find "$owner_pid" "$bar" "$title" >"$prefix.find.stdout" 2>"$prefix.find.stderr"; do
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс System Events не отдал пункт «${title}» меню «${bar}»: $(oneline "$prefix.find.stderr")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+  osascript -l JavaScript -e "$AX_MENU_JS" press "$owner_pid" "$bar" "$title" >"$prefix.press.stdout" 2>"$prefix.press.stderr" || {
+    WHY="пункт «${title}» меню «${bar}» не нажат: $(oneline "$prefix.press.stderr")"
+    return 1
+  }
+}
+
+# Пункт меню команды ядра: mstep <каталог> <имя> <действие> <ожидание текстом> <perl-условие> <меню> <пункт> — одна
+# запись кольца действия с источником menu без отказа, условие над query.layout и одна дельта events --since.
+mstep() {
+  local dir="$1" name="$2" action="$3" what="$4" cond="$5" bar="$6" title="$7" got
+  if ! mark "$dir" "$name"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  if ! receipts_last "$profile" "$dir/$name.before"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  BEFORE="$LAST"
+  printf '%s AXPress «%s → %s»\n' "$(now_ms)" "$bar" "$title" >>"$dir/keys.log"
+  if ! menu_press "$dir/$name.menu" "$bar" "$title"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  if ! wait_receipts "$profile" "$dir/$name.receipts" "$BEFORE" 1; then
+    failures+=("$name: пункт «${title}»: $WHY")
+    return 0
+  fi
+  got="$(rc "$dir/$name.receipts.stdout" 0 action) от $(rc "$dir/$name.receipts.stdout" 0 source)"
+  [[ "$got" == "$action от menu" ]] || failures+=("$name: запись кольца «${got}», ожидалась «$action от menu»")
+  got="$(rc "$dir/$name.receipts.stdout" 0 error)"
+  [[ "$got" == нет ]] || failures+=("$name: действие $action отказало: $got")
+  wait_layout "$dir/$name.layout" "$what" "$cond" || failures+=("$name: $WHY")
+  events_are "$dir" "$name" 1 || failures+=("$name: $WHY")
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# Cmd-0 клавишей и пункт «Вид → Навигация» нажатием AX: каждый путь скрывает и показывает колонку навигатора, на
+# каждое нажатие одна запись кольца своего источника, одна дельта ядра и отметка AX кнопки «Навигация».
+item_key_and_menu_once() {
+  local item=key-and-menu-once dir="$run/key-and-menu-once" hidden='$l->{hidden}{navigator}'
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  kstep "$dir" key-hide layout.toggle.navigator "колонка навигатора скрыта" "$hidden" "$K_0+command"
+  wait_mark "$dir/key-hide.mark-ax" "Навигация" false || failures+=("key-hide: $WHY")
+  mstep "$dir" menu-show layout.toggle.navigator "колонка навигатора показана" "!$hidden" "Вид" "Навигация"
+  wait_mark "$dir/menu-show.mark-ax" "Навигация" true || failures+=("menu-show: $WHY")
+  mstep "$dir" menu-hide layout.toggle.navigator "колонка навигатора скрыта" "$hidden" "Вид" "Навигация"
+  wait_mark "$dir/menu-hide.mark-ax" "Навигация" false || failures+=("menu-hide: $WHY")
+  kstep "$dir" key-show layout.toggle.navigator "колонка навигатора показана" "!$hidden" "$K_0+command"
+  wait_mark "$dir/key-show.mark-ax" "Навигация" true || failures+=("key-show: $WHY")
+  conclude "$item" "Cmd-0 и пункт «Вид → Навигация» нажатием AX по очереди скрывают и показывают колонку навигатора: клавиша — одна запись ui.receipts layout.toggle.navigator с источником key, пункт меню — одна запись с источником menu, на каждое нажатие одна дельта events --since, layout.hidden.navigator и отметка AX кнопки «Навигация» по ожиданию"
+}
+
+# Cmd-w, затем Cmd-q во втором владельце на своём профиле. Владелец запущен прямо бинарём бандла: его PID равен
+# PID задания оболочки, и wait отдаёт код выхода (open его не передаёт). Клавиша идёт только владельцу на переднем
+# плане: после закрытия окна передний план сверяется заново, без него Cmd-q не отправляется.
+item_window_quit() {
+  local item=window-quit dir="$run/window-quit" state job code deadline seen="?"
+  log "== $item"
+  failures=()
+  new_profile
+  state="$NEW_PROFILE"
+  (exec env "SHELLIO_STATE_DIR=$state" "$exe") >"$dir/owner.stdout" 2>"$dir/owner.stderr" &
+  job=$!
+  wait_owner "$state" "$dir/hello" ||
+    fatal "$item: второй владелец не ответил на hello за $OWNER_START_S с: $(oneline "$dir/owner.stderr")"
+  is_run_exe "$HELLO_PID" || fatal "$item: PID $HELLO_PID из hello — не бинарь бандла прогона: $(comm_of "$HELLO_PID")"
+  [[ "$HELLO_PID" == "$job" ]] ||
+    fatal "$item: PID владельца $HELLO_PID не равен PID задания $job: код выхода не прочитать"
+  # act и once читают кольцо профиля пункта.
+  local profile="$state" owner_pid="$job"
+  to_front "$dir" "$item"
+  if act "$dir" cmd-w window.close "$K_W+command"; then
+    [[ "$OUTCOME" == ok ]] || failures+=("Cmd-w: действие window.close отказало: $OUTCOME")
+    deadline=$(($(now_ms) + MIRROR_MS))
+    while :; do
+      if ui_read "$state" "$dir/closed.window" window; then
+        seen="$(jv "$dir/closed.window.stdout" ok.ui.window.visible || echo "?")"
+        [[ "$seen" != false ]] || break
+      fi
+      if (($(now_ms) >= deadline)); then
+        failures+=("Cmd-w: за $MIRROR_MS мс ui.window.visible — $seen, ожидалось false")
+        break
+      fi
+      sleep "$POLL"
+    done
+    once "$dir" cmd-w || failures+=("Cmd-w: $WHY")
+    alive "$job" || failures+=("Cmd-w: процесс владельца вышел вместе с окном")
+  else
+    failures+=("Cmd-w: $WHY")
+  fi
+  if ! alive "$job"; then
+    :
+  elif front_ok "$job" "$dir"; then
+    key "$dir/keys.log" "$K_Q" command || failures+=("Cmd-q: клавиша не отправлена: $(tail -n 1 "$dir/keys.log")")
+  else
+    failures+=("Cmd-q не отправлен: владелец без окна не на переднем плане: $WHY")
+  fi
+  if wait_gone "$job" "$EXIT_S"; then
+    wait "$job" && code=0 || code=$?
+    [[ $code -eq 0 ]] || failures+=("процесс владельца вышел с кодом $code, ожидался 0")
+    ! lock_held "$state" || failures+=("после выхода владельца блокировку профиля держат")
+  else
+    failures+=("владелец pid $job не вышел за $EXIT_S с после Cmd-q")
+  fi
+  conclude "$item" "второй владелец прямым запуском бинаря бандла на своём профиле: Cmd-w — одна запись ui.receipts window.close с источником key, ui.window.visible — false, процесс жив; Cmd-q владельцу на переднем плане — процесс вышел с кодом 0 и отпустил блокировку профиля"
+}
+
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
@@ -1900,11 +2035,14 @@ item_tabs
 item_zones_toggle
 item_appearance_cycle
 item_relative_resize_cli
+item_key_and_menu_once
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
   owner_pid=""
 fi
+# Второй владелец идёт после выхода основного: на переднем плане один процесс бандла.
+item_window_quit
 for i in "${!ITEMS[@]}"; do
   if ((STAGE[i] > DONE_STAGE)); then
     record "${ITEMS[i]}" not_run "пункт среза ${STAGE[i]} задачи 10 плана navigation-keymap"
