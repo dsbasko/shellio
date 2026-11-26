@@ -6,7 +6,8 @@
 #
 # Бандл по умолчанию — target/bundle/shellio.app, его собирает и проверяет цель make e2e. shellioctl сценарий
 # собирает сам (release, --locked). Профили — новые каталоги /tmp/shellio-e2e.*. Подготовка — штатный CLI:
-# воркспейс, проект, рабочая область A с терминалами в центре, слева, справа и снизу, workbench open A.
+# воркспейс, проект, рабочая область с терминалами в центре, слева, справа и снизу; каждая часть не меньше min_size, заглушка
+# «Развернуть» в сцене — ошибка исполнения.
 #
 # Каталог прогона — target/e2e/keyboard/<время>-<pid>/: result.json (пункт, обязательность, статус, причина, путь
 # сырого вывода относительно каталога прогона), журнал сценария log и сырой вывод каждого пункта (JSON query.* и
@@ -23,6 +24,9 @@
 # с номером больше снятого до нажатия, исход действия — по чтениям query.layout, ui.window, ui.mode и ui.history.
 # Клавиша, которая ничего не должна сделать, судится после следующей клавиши с записью: без неё пустое кольцо
 # значило бы только «ещё не дошла».
+#
+# Пункт, который меняет раскладку, идёт в своей рабочей области (fresh_bench): отказ одного пункта не портит
+# сцену следующего. Команда ядра с клавиши судится ещё и одной дельтой events --since от ревизии до нажатия.
 #
 # Рубежи накопительные: пункт, чей срез задачи 10 ещё не выполнен, получает not_run «пункт среза N» и необязателен.
 #
@@ -57,14 +61,16 @@ CTL_TIMEOUT_MS=2000
 # Окно обычного режима (план P1.4, «Матрица приёмки»).
 WINDOW_W=1180
 WINDOW_H=720
+# Ширина левой и правой зон подготовки: центру остаётся место на две части не уже min_size терминала.
+SIDE_W=240
 
 # Пункты матрицы по порядку плана и срез задачи 10, который делает пункт обязательным; 0 — необязательный.
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 2 2 2 2 1 3 3 4 4 3 3 4 4 3 3 4 4 4 0)
+STAGE=(1 3 2 3 3 2 3 1 4 4 5 5 4 4 5 5 4 4 5 5 5 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=1
+DONE_STAGE=2
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -73,6 +79,11 @@ K_K=40
 K_L=37
 K_W=13
 K_T=17
+K_V=9
+K_S=1
+K_1=18
+K_2=19
+K_3=20
 
 REQUIRED=()
 STATUS=()
@@ -141,6 +152,8 @@ OUTCOME=""
 profile=""
 owner_pid=""
 ws=""
+project=""
+bench_n=0
 wb_a=""
 p_center=""
 p_left=""
@@ -1100,10 +1113,31 @@ open_panel() {
   PANEL="$(jv "$prefix.stdout" ok.value.panel)" || fatal "подготовка: в ответе panel open нет панели"
 }
 
-# Основной профиль штатным CLI: воркспейс, проект, рабочая область A с терминалами в четырёх зонах, фокус в
-# центре.
+# Заглушки «Развернуть» в кадрах query.layout: «зона.часть» через пробел, пусто — каждая часть не меньше min_size.
+stubs_of() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $f = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}; my @s;
+    push @s, "navigator" if $f->{navigator} && $f->{navigator}{stub};
+    for my $p (@{$f->{parts} // []}) { push @s, "$p->{geometry}{zone}.$p->{index}" if $p->{stub} }
+    print join(" ", @s), "\n"' <"$1"
+}
+
+# Сцена без заглушек; иначе WHY: фокус и клавиши на заглушке пункта не доказывают.
+no_stubs() {
+  local stubs
+  WHY=""
+  stubs="$(stubs_of "$1")" || {
+    WHY="кадры query.layout не разобраны: $(oneline "$1" | cut -c 1-200)"
+    return 1
+  }
+  [[ -z "$stubs" ]] || {
+    WHY="в сцене заглушки «Развернуть»: $stubs"
+    return 1
+  }
+}
+
+# Основной профиль штатным CLI: владелец, воркспейс и проект.
 setup_main() {
-  local dir="$run/preconditions/setup" project dir1
+  local dir="$run/preconditions/setup" dir1
   mkdir -p "$dir"
   log "== подготовка основного профиля"
   new_profile
@@ -1117,25 +1151,38 @@ setup_main() {
   core_cmd "$profile" "$dir/project" project add "$dir1" --title "keyboard-p-$$" --workspace "$ws" ||
     fatal "подготовка: $WHY"
   project="$(tree_id "$dir" project "keyboard-p-$$")" || fatal "подготовка: проект не найден в tree"
-  core_cmd "$profile" "$dir/wb-a" workbench new --target "$project" "a-$$" --workspace "$ws" ||
-    fatal "подготовка: $WHY"
-  wb_a="$(tree_id "$dir" wb-a "a-$$")" || fatal "подготовка: рабочая область A не найдена в tree"
-  core_cmd "$profile" "$dir/open" workbench open --target "$wb_a" --workspace "$ws" || fatal "подготовка: $WHY"
-  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "подготовка: $WHY"
+  ui_read "$profile" "$dir/window" window || fatal "подготовка: ui.window не прочитан"
+  window_ok "$dir/window.stdout" || fatal "подготовка: $WHY"
+}
+
+# Новая открытая рабочая область пункта: терминалы в центре, слева, справа и снизу, боковые зоны по SIDE_W, фокус
+# в центре, ни одной заглушки. Область — в wb_a, панели — в p_center, p_left, p_right, p_bottom.
+fresh_bench() {
+  local item="$1" dir="$2/bench" name
+  mkdir -p "$dir"
+  bench_n=$((bench_n + 1))
+  name="b$bench_n-$$"
+  core_cmd "$profile" "$dir/new" workbench new --target "$project" "$name" --workspace "$ws" || fatal "$item: $WHY"
+  wb_a="$(tree_id "$dir" bench "$name")" || fatal "$item: рабочая область $name не найдена в tree"
+  core_cmd "$profile" "$dir/open" workbench open --target "$wb_a" --workspace "$ws" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/settle" "$wb_a" "$REV" || fatal "$item: $WHY"
   p_center="$(panels_of "$dir/settle.layout.stdout" terminal)"
   [[ -n "$p_center" && "$p_center" != *" "* && "$(place_of "$dir/settle.layout.stdout" "$p_center")" == center.0 ]] ||
-    fatal "подготовка: в новой рабочей области нет одного терминала в центре: «${p_center}»"
+    fatal "$item: в новой рабочей области нет одного терминала в центре: «${p_center}»"
   open_panel "$dir/open-left" terminal left
   p_left="$PANEL"
   open_panel "$dir/open-right" terminal right
   p_right="$PANEL"
   open_panel "$dir/open-bottom" terminal bottom
   p_bottom="$PANEL"
-  core_cmd "$profile" "$dir/focus" panel focus "$p_center" --all || fatal "подготовка: $WHY"
-  settle_layout "$profile" "$dir/settled" "$wb_a" "$REV" || fatal "подготовка: $WHY"
-  ui_read "$profile" "$dir/window" window || fatal "подготовка: ui.window не прочитан"
-  window_ok "$dir/window.stdout" || fatal "подготовка: $WHY"
-  log "воркспейс $ws, A $wb_a, центр $p_center, слева $p_left, справа $p_right, снизу $p_bottom"
+  core_cmd "$profile" "$dir/size-left" layout resize --zone left --workbench "$wb_a" "$SIDE_W" --workspace "$ws" ||
+    fatal "$item: $WHY"
+  core_cmd "$profile" "$dir/size-right" layout resize --zone right --workbench "$wb_a" "$SIDE_W" --workspace "$ws" ||
+    fatal "$item: $WHY"
+  core_cmd "$profile" "$dir/focus" panel focus "$p_center" --all || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/settled" "$wb_a" "$REV" || fatal "$item: $WHY"
+  no_stubs "$dir/settled.layout.stdout" || fatal "$item: подготовка: $WHY"
+  log "$item: область $wb_a, центр $p_center, слева $p_left, справа $p_right, снизу $p_bottom"
 }
 
 # --- пункты матрицы ---
@@ -1159,8 +1206,8 @@ item_focus_hjkl() {
   local item=focus-hjkl dir="$run/focus-hjkl" pre w
   log "== $item"
   failures=()
+  fresh_bench "$item" "$dir"
   to_front "$dir" "$item"
-  core_cmd "$profile" "$dir/start" panel focus "$p_center" --all || fatal "$item: $WHY"
   wait_focus "$dir/start.layout" "$p_center" || fatal "$item: $WHY"
   for pre in ctrl-w bare; do
     w=()
@@ -1172,7 +1219,167 @@ item_focus_hjkl() {
     step "$item" "$dir" "$pre-j" panel.focus.down "$p_bottom" ${w[@]+"${w[@]}"} "$K_J"
     step "$item" "$dir" "$pre-k" panel.focus.up "$p_center" ${w[@]+"${w[@]}"} "$K_K"
   done
-  conclude "$item" "терминалы в центре, слева, справа и снизу: Ctrl-w l, h, h, l, j, k и те же голые клавиши ведут фокус query.layout центр → правая → центр → левая → центр → нижняя → центр; на каждый переход одна запись ui.receipts panel.focus.* с источником key без отказа"
+  if layout_get "$profile" "$dir/end" "$wb_a"; then
+    no_stubs "$dir/end.stdout" || failures+=("$WHY")
+  fi
+  conclude "$item" "терминалы в центре, слева, справа и снизу без заглушек: Ctrl-w l, h, h, l, j, k и те же голые клавиши ведут фокус query.layout центр → правая → центр → левая → центр → нижняя → центр; на каждый переход одна запись ui.receipts panel.focus.* с источником key без отказа"
+}
+
+# Активная вкладка части зоны по query.layout: PanelId или пусто.
+active_of() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $part) = @ARGV; local $/;
+    my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{layout}{zones}{$zone}{parts}[$part];
+    print $p ? ($p->{tabs}[$p->{active}] // "") : "", "\n"' "$2" "$3" <"$1"
+}
+
+# Число частей зоны по query.layout.
+parts_of() {
+  jv "$1" "ok.value.layout.zones.$2.parts[#]" 2>/dev/null || echo "?"
+}
+
+# Ревизия ядра до клавиши — в REV0; чтение — <каталог>/<имя>.mark.stdout, иначе WHY.
+REV0=""
+mark() {
+  WHY=""
+  REV0=""
+  layout_get "$profile" "$1/$2.mark" "$wb_a" && REV0="$(jv "$1/$2.mark.stdout" ok.revision)" && return 0
+  WHY="query.layout до клавиши не прочитан: $(oneline "$1/$2.mark.stdout" | cut -c 1-200)"
+  return 1
+}
+
+# После клавиши и её исхода: событий ядра после REV0 ровно want; иначе WHY.
+events_are() {
+  local dir="$1" name="$2" want="$3"
+  events_after "$profile" "$dir/$name.events" "$REV0" || return 1
+  [[ "${EVENTS%%|*}" == "$want" ]] || {
+    WHY="событий ядра после ревизии $REV0 — ${EVENTS%%|*} (ревизии ${EVENTS##*|}), ожидалось $want"
+    return 1
+  }
+}
+
+# Опрос query.layout рабочей области пункта: perl-условие над ok.value ($v) истинно; чтение — <prefix>.stdout,
+# иначе WHY с текстом ожидания.
+wait_layout() {
+  local prefix="$1" what="$2" cond="$3" deadline
+  shift 3
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if layout_get "$profile" "$prefix" "$wb_a" &&
+      /usr/bin/perl -MJSON::PP -e 'my $cond = shift; local $/; my $v = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value};
+        my $l = $v->{layout}; exit(eval($cond) ? 0 : 1)' "$cond" "$@" <"$prefix.stdout" 2>/dev/null; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс query.layout не показал: $what"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Клавиши команды ядра: kstep <каталог> <имя> <действие> <ожидание текстом> <perl-условие> <аккорд>… — одна запись
+# кольца без отказа, условие над query.layout и одна дельта events --since от ревизии до нажатия.
+kstep() {
+  local dir="$1" name="$2" action="$3" what="$4" cond="$5"
+  shift 5
+  if ! mark "$dir" "$name"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  if ! act "$dir" "$name" "$action" "$@"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$name: действие $action отказало: $OUTCOME")
+  wait_layout "$dir/$name.layout" "$what" "$cond" || failures+=("$name: $WHY")
+  events_are "$dir" "$name" 1 || failures+=("$name: $WHY")
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# Perl-условие: активная вкладка части 0 центра — панель.
+active_is() {
+  printf '($l->{zones}{center}{parts}[0]{tabs}[$l->{zones}{center}{parts}[0]{active}] // "") eq "%s"' "$1"
+}
+
+# Perl-условие: панель лежит в зоне.
+in_zone() {
+  printf 'grep { grep { $_ eq "%s" } @{$_->{tabs}} } @{$l->{zones}{%s}{parts}}' "$1" "$2"
+}
+
+# H, L и 1…3 у трёх вкладок центра.
+item_tabs() {
+  local item=tabs dir="$run/tabs" t2 t3
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  open_panel "$dir/open-t3" terminal center
+  t3="$PANEL"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  [[ "$(lv "$dir/start.layout.stdout" 'layout.zones.center.parts[0].tabs')" == "[\"$p_center\",\"$t2\",\"$t3\"]" &&
+    "$(active_of "$dir/start.layout.stdout" center 0)" == "$t3" && "$(focus_of "$dir/start.layout.stdout")" == "$t3" ]] ||
+    fatal "$item: подготовка: в части 0 центра не три вкладки с активной и фокусом на третьей: $(lv "$dir/start.layout.stdout" layout.zones.center || echo ?)"
+  no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+  kstep "$dir" key-1 tab.select "активная вкладка центра — первая" "$(active_is "$p_center")" "$K_1"
+  kstep "$dir" key-L tab.next "активная вкладка центра — вторая" "$(active_is "$t2")" "$K_L+shift"
+  kstep "$dir" key-L-again tab.next "активная вкладка центра — третья" "$(active_is "$t3")" "$K_L+shift"
+  kstep "$dir" key-H tab.prev "активная вкладка центра — вторая" "$(active_is "$t2")" "$K_H+shift"
+  kstep "$dir" key-3 tab.select "активная вкладка центра — третья" "$(active_is "$t3")" "$K_3"
+  kstep "$dir" key-2 tab.select "активная вкладка центра — вторая" "$(active_is "$t2")" "$K_2"
+  conclude "$item" "три вкладки терминала в центре: 1, L, L, H, 3, 2 ведут активную вкладку query.layout первая → вторая → третья → вторая → третья → вторая; на каждую клавишу одна запись ui.receipts tab.* с источником key без отказа и одна дельта events --since"
+}
+
+# Perl-условие: панель — единственная вкладка части зоны.
+alone_in() {
+  printf 'join(",", @{($l->{zones}{%s}{parts}[%s] // {})->{tabs} // []}) eq "%s"' "$2" "$3" "$1"
+}
+
+# Ctrl-w L, H, K, J, K переносят вторую панель центра в зону по направлению (H — левая, L — правая, K — центр,
+# J — нижняя); Ctrl-w v делит центр, Ctrl-w s — правую зону. Делится часть с двумя вкладками: активная уходит в
+# новую часть. Выбор «Открыть в новой части» у части с одной вкладкой судят plugins.sh и сверка.
+item_move_and_split() {
+  local item=move-and-split dir="$run/move-and-split" t2 t3
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  [[ "$(place_of "$dir/start.layout.stdout" "$t2")" == center.0 && "$(focus_of "$dir/start.layout.stdout")" == "$t2" ]] ||
+    fatal "$item: подготовка: вторая панель не в центре с фокусом: $(place_of "$dir/start.layout.stdout" "$t2")"
+  to_front "$dir" "$item"
+  kstep "$dir" move-L panel.move.right "панель в правой зоне" "$(in_zone "$t2" right)" "$K_W+control" "$K_L+shift"
+  kstep "$dir" move-H panel.move.left "панель в левой зоне" "$(in_zone "$t2" left)" "$K_W+control" "$K_H+shift"
+  kstep "$dir" move-K panel.move.up "панель в центре" "$(in_zone "$t2" center)" "$K_W+control" "$K_K+shift"
+  kstep "$dir" move-J panel.move.down "панель в нижней зоне" "$(in_zone "$t2" bottom)" "$K_W+control" "$K_J+shift"
+  kstep "$dir" move-K-back panel.move.up "панель в центре" "$(in_zone "$t2" center)" "$K_W+control" "$K_K+shift"
+  if layout_get "$profile" "$dir/moved" "$wb_a"; then
+    [[ "$(focus_of "$dir/moved.stdout")" == "$t2" ]] ||
+      failures+=("после переносов фокус не на перенесённой панели: $(name_of "$(focus_of "$dir/moved.stdout")")")
+    [[ "$(place_of "$dir/moved.stdout" "$t2")" == center.0 ]] ||
+      failures+=("после переносов панель не в части 0 центра: $(place_of "$dir/moved.stdout" "$t2")")
+    no_stubs "$dir/moved.stdout" || failures+=("после переносов: $WHY")
+  else
+    failures+=("query.layout после переносов не прочитан")
+  fi
+  kstep "$dir" split-v layout.split "в центре две части рядом, перенесённая панель одна во второй" \
+    "@{\$l->{zones}{center}{parts}} == 2 && $(alone_in "$t2" center 1)" "$K_W+control" "$K_V"
+  open_panel "$dir/open-t3" terminal right
+  t3="$PANEL"
+  wait_focus "$dir/open-t3.layout" "$t3" || fatal "$item: $WHY"
+  [[ "$(place_of "$dir/open-t3.layout.stdout" "$t3")" == right.0 ]] ||
+    fatal "$item: подготовка: вторая панель правой зоны не в её части 0: $(place_of "$dir/open-t3.layout.stdout" "$t3")"
+  kstep "$dir" split-s layout.split "в правой зоне две части одна над другой, вторая панель одна во второй" \
+    "@{\$l->{zones}{right}{parts}} == 2 && $(alone_in "$t3" right 1)" "$K_W+control" "$K_S"
+  if layout_get "$profile" "$dir/split" "$wb_a"; then
+    no_stubs "$dir/split.stdout" || failures+=("после делений: $WHY")
+  else
+    failures+=("query.layout после делений не прочитан")
+  fi
+  conclude "$item" "вторая панель центра: Ctrl-w L, H, K, J, K переносят её центр → правая → левая → центр → нижняя → центр, фокус остаётся на ней; Ctrl-w v уводит её во вторую часть центра, Ctrl-w s — вторую панель правой зоны во вторую часть правой, заглушек нет; на каждую последовательность одна запись ui.receipts с источником key без отказа и одна дельта events --since"
 }
 
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
@@ -1200,6 +1407,8 @@ prepare
 preconditions
 setup_main
 item_focus_hjkl
+item_move_and_split
+item_tabs
 item_appearance_cycle
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"

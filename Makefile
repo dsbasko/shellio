@@ -154,8 +154,9 @@ run-prototype:
 # (ADR-0037), затем сценарий клавиатуры P1.6. Бандл собирается и проверяется скриптами внутри той же блокировки, shellioctl и оракул сценарии
 # собирают сами. Нужны идентичность Shellio Dev, открытый сеанс GUI, разблокированный экран и запущенный Finder;
 # цель запускается из процесса-потомка приложения терминала, а не из tmux, screen или ssh. appkit.sh, layout.sh,
-# plugins.sh, conformance.sh и keyboard.sh нужны ещё Screen Recording и Accessibility у терминала-предка, латинский источник
-# ввода (его на время команды включает scripts/e2e/with-latin-input.sh make e2e) и выключенные оконные менеджеры;
+# plugins.sh и conformance.sh нужны ещё Screen Recording и Accessibility у терминала-предка, keyboard.sh снимков не
+# делает и обходится Accessibility; всем пяти нужны латинский источник ввода (его на время команды включает
+# scripts/e2e/with-latin-input.sh make e2e) и выключенные оконные менеджеры;
 # conformance.sh судит окно на экране с масштабом 2 и без conformance/calibration/calibration.json (make calibrate)
 # даёт пунктам conform-* not_run «нет калибровки». Итоги — result.json в
 # target/e2e/single-instance/<время>-<pid>/, target/e2e/appkit/<время>-<pid>/, target/e2e/layout/<время>-<pid>/,
