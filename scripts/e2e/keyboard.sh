@@ -72,7 +72,7 @@ ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zone
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
 STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=9
+DONE_STAGE=10
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -969,13 +969,51 @@ key() {
   fi
 }
 
+# Немая клавиша: что владелец отдаёт, когда клавиши не дали записи кольца. Чтения без клавиш (ui.mode, ui.window,
+# передний план, первый ответчик, выбор), затем аккорд global с записью (Cmd-Alt-t, оформление возвращается), затем
+# один Ctrl-w и узлы строки статуса: набранный префикс виден — маршрутизатор аккорд в Navigation получил; запись
+# global есть, а префикса нет — клавиша пришла, но контекст панели не выбран; нет ни того, ни другого — событие
+# владельцу не дошло. Порядок важен: аккорд global после набранного префикса был бы поглощён. Файлы —
+# <prefix>.mute.*, сводка — в MUTE.
+MUTE=""
+mute_facts() {
+  local prefix="$1" mode win keywin choice front resp picker last global="нет" status
+  MUTE=""
+  ctl "$profile" "$prefix.mute.mode" --json --timeout "$CTL_TIMEOUT_MS" ui mode get || true
+  mode="$(tr -d '\n' <"$prefix.mute.mode.stdout" | cut -c1-300)"
+  ui_read "$profile" "$prefix.mute.window" window || true
+  win="$(jv "$prefix.mute.window.stdout" ok.ui.window.visible 2>/dev/null || echo "?")"
+  keywin="$(jv "$prefix.mute.window.stdout" ok.ui.window.key 2>/dev/null || echo "?")"
+  choice="$(jv "$prefix.mute.window.stdout" ok.ui.window.appearance_choice 2>/dev/null || true)"
+  front="$(front_pid)"
+  ui_read "$profile" "$prefix.mute.inspect" inspect || true
+  resp="$(responder_of "$prefix.mute.inspect.stdout" 2>/dev/null || echo "?")"
+  picker="$(comp "$prefix.mute.inspect.stdout" layout.picker ck 2>/dev/null || echo нет)"
+  if receipts_last "$profile" "$prefix.mute.global.before"; then
+    last="$LAST"
+    key "$prefix.mute.keys.log" "$K_T" command option || true
+    if wait_receipts "$profile" "$prefix.mute.global" "$last" 1; then
+      global="$(rc "$prefix.mute.global.stdout" 0 action) от $(rc "$prefix.mute.global.stdout" 0 source)"
+      [[ -z "$choice" ]] || ctl "$profile" "$prefix.mute.appearance" --json --timeout "$CTL_TIMEOUT_MS" ui appearance "$choice" || true
+    fi
+  fi
+  key "$prefix.mute.keys.log" "$K_W" control || true
+  sleep "$POLL"
+  ui_read "$profile" "$prefix.mute.prefix" inspect || true
+  status="$(/usr/bin/perl -MJSON::PP -e 'local $/; my $v = eval { JSON::PP->new->utf8->decode(<STDIN>) } or exit;
+    print join(" ", map { "$_->{id}=«" . ($_->{label} // "") . "»" } grep { $_->{id} =~ /^status\./ && $_->{visible} && defined $_->{label} }
+      @{ $v->{ok}{ui}{inspect}{components} // [] })' <"$prefix.mute.prefix.stdout" 2>/dev/null | /usr/bin/perl -CS -pe '1' | cut -c1-400 || true)"
+  key "$prefix.mute.keys.log" "$K_ESC" || true
+  MUTE="немая клавиша: ui.mode ${mode:-не прочитан}; окно visible $win, key $keywin; передний план pid ${front:-?} (владелец $owner_pid); первый ответчик «${resp}»; выбор ck ${picker}; Cmd-Alt-t — запись «${global}»; строка статуса после Ctrl-w: ${status:-не прочитана}"
+}
+
 # Последовательность аккордов и её запись в кольце: act <каталог> <имя> <действие> <аккорд>…, аккорд —
 # «код[+модификатор…]». До клавиш снимается номер последней записи (в BEFORE), после — опрос до новой записи.
 # Первая новая запись обязана называть действие с источником key; её отказ — в OUTCOME («ok» без отказа). Число
 # записей после BEFORE позже сверяет once. Отказ чтения или чужая запись — WHY.
 BEFORE=""
 act() {
-  local dir="$1" name="$2" action="$3" chord code got
+  local dir="$1" name="$2" action="$3" chord code got why
   shift 3
   WHY=""
   OUTCOME=""
@@ -997,7 +1035,9 @@ act() {
     fi
   done
   wait_receipts "$profile" "$dir/$name.receipts" "$BEFORE" 1 || {
-    WHY="клавиши $*: $WHY"
+    why="$WHY"
+    mute_facts "$dir/$name"
+    WHY="клавиши $*: $why; $MUTE"
     return 1
   }
   got="$(rc "$dir/$name.receipts.stdout" 0 action) от $(rc "$dir/$name.receipts.stdout" 0 source)"
@@ -2579,7 +2619,10 @@ item_hot_reload() {
   fi
   keymap_clean "$item" "$dir"
   wait_help "$dir/restore.help" "Ctrl-w z" || failures+=("после уборки keymap.toml: $WHY")
-  conclude "$item" "правка keymap.toml («Ctrl-w m» — layout.zoom, «Ctrl-w z» снята) применена наблюдением за каталогом: query.keymap отдаёт строку из файла, help кнопки «${ZOOM_LABEL}» в ui.inspect и AXHelp кнопок окна называют Ctrl-w m; ход Ctrl-w z, Ctrl-w m — одна запись ui.receipts layout.zoom с источником key и одна дельта events --since, панель центра развёрнута; второй Ctrl-w m разворот снимает; без файла подсказка снова Ctrl-w z"
+  # Клавиши Navigation после уборки файла действуют: следующий пункт начинает с живого маршрутизатора.
+  step "$item" "$dir" after-l panel.focus.right "$p_right" "$K_L"
+  step "$item" "$dir" after-h panel.focus.left "$p_center" "$K_H"
+  conclude "$item" "правка keymap.toml («Ctrl-w m» — layout.zoom, «Ctrl-w z» снята) применена наблюдением за каталогом: query.keymap отдаёт строку из файла, help кнопки «${ZOOM_LABEL}» в ui.inspect и AXHelp кнопок окна называют Ctrl-w m; ход Ctrl-w z, Ctrl-w m — одна запись ui.receipts layout.zoom с источником key и одна дельта events --since, панель центра развёрнута; второй Ctrl-w m разворот снимает; без файла подсказка снова Ctrl-w z, клавиши l и h ведут фокус центр → правая → центр, на каждую одна запись ui.receipts"
 }
 
 # keymap.toml переносит layout.toggle.bottom с Cmd-j на Cmd-Alt-b: пункт «Вид → Нижняя зона» по AX называет ⌥⌘B,
@@ -2595,10 +2638,16 @@ item_hot_reload_menu() {
   if wait_keymap "$dir/edit" "строка Cmd-Alt-b — layout.toggle.bottom из файла, строки Cmd-j нет" \
     'join(",", rows("global", "Cmd-Alt-b")) eq "layout.toggle.bottom" && !rows("global", "Cmd-j") && !@{$k->{diagnostics}}'; then
     if wait_menu_key "$dir/edit.menu" "Вид" "Нижняя зона" "B|2"; then
+      # Правка контекста global клавиши Navigation не трогает: l и h после правки, после аккордов global и после
+      # уборки файла.
+      step "$item" "$dir" edit-l panel.focus.right "$p_right" "$K_L"
+      step "$item" "$dir" edit-h panel.focus.left "$p_center" "$K_H"
       kstep "$dir" j-then-b layout.toggle.bottom "нижняя зона скрыта" "$hidden" "$K_J+command" "$K_B+command+option"
       wait_mark "$dir/j-then-b.mark-ax" "Нижняя зона" false || failures+=("j-then-b: $WHY")
       kstep "$dir" b-again layout.toggle.bottom "нижняя зона показана" "!$hidden" "$K_B+command+option"
       wait_mark "$dir/b-again.mark-ax" "Нижняя зона" true || failures+=("b-again: $WHY")
+      step "$item" "$dir" keys-l panel.focus.right "$p_right" "$K_L"
+      step "$item" "$dir" keys-h panel.focus.left "$p_center" "$K_H"
     else
       failures+=("$WHY")
     fi
@@ -2607,7 +2656,9 @@ item_hot_reload_menu() {
   fi
   keymap_clean "$item" "$dir"
   wait_menu_key "$dir/restore.menu" "Вид" "Нижняя зона" "J|0" || failures+=("после уборки keymap.toml: $WHY")
-  conclude "$item" "правка keymap.toml («Cmd-Alt-b» — layout.toggle.bottom, «Cmd-j» снята) применена наблюдением за каталогом: пункт «Вид → Нижняя зона» по AX называет ⌥⌘B (до правки ⌘J); ход Cmd-j, Cmd-Alt-b — одна запись ui.receipts layout.toggle.bottom с источником key, одна дельта events --since и один переход layout.hidden.bottom, отметка AX кнопки «Нижняя зона» снята; второй Cmd-Alt-b зону показывает; без файла пункт снова ⌘J"
+  step "$item" "$dir" after-l panel.focus.right "$p_right" "$K_L"
+  step "$item" "$dir" after-h panel.focus.left "$p_center" "$K_H"
+  conclude "$item" "правка keymap.toml («Cmd-Alt-b» — layout.toggle.bottom, «Cmd-j» снята) применена наблюдением за каталогом: пункт «Вид → Нижняя зона» по AX называет ⌥⌘B (до правки ⌘J); ход Cmd-j, Cmd-Alt-b — одна запись ui.receipts layout.toggle.bottom с источником key, одна дельта events --since и один переход layout.hidden.bottom, отметка AX кнопки «Нижняя зона» снята; второй Cmd-Alt-b зону показывает; без файла пункт снова ⌘J; клавиши l и h после правки, после аккордов global и после уборки файла ведут фокус центр → правая → центр, на каждую одна запись ui.receipts"
 }
 
 # Диагностика query.keymap номер 0: поле; «нет» — диагностики нет.
@@ -2629,13 +2680,10 @@ item_bad_line() {
     'join(",", rows("navigation", "Ctrl-w m")) eq "layout.zoom" && !rows("navigation", "Ctrl-w y") && @{$k->{diagnostics}} == 1 && ($k->{diagnostics}[0]{line} // 0) == 3'; then
     [[ "$(diag_of "$dir/edit.stdout" message)" == *no.such.action* ]] ||
       failures+=("диагностика не называет неверное действие: «$(diag_of "$dir/edit.stdout" message)»")
+    # Сообщение диагностики показывает главный поток: с ним он получил и таблицу файла, клавиша идёт после него.
     if wait_status "$dir/edit.status" shown; then
       [[ "$STATUS_TEXT" == "$(diag_of "$dir/edit.stdout" message)" ]] ||
         failures+=("сообщение строки статуса «${STATUS_TEXT}», ожидалось сообщение диагностики «$(diag_of "$dir/edit.stdout" message)»")
-    else
-      failures+=("$WHY")
-    fi
-    if wait_help "$dir/edit.help" "Ctrl-w z"; then
       kstep "$dir" key-m layout.zoom "панель центра развёрнута" "$(zoomed_center)" "$K_W+control" "$K_M"
     else
       failures+=("$WHY")
@@ -2817,8 +2865,12 @@ item_history
 item_field_input
 item_hot_reload
 item_hot_reload_menu
-# Пункты среза 10 (item_bad_line, item_bad_file, item_cyrillic_physical) написаны, но не вызываются: приёмочный проход
-# среза 9 их не доказал.
+# Пункты среза 10 вызываются, когда срез доказан приёмочным проходом (DONE_STAGE не меньше 10).
+if ((DONE_STAGE >= 10)); then
+  item_bad_line
+  item_bad_file
+  item_cyrillic_physical
+fi
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
