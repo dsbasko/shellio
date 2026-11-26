@@ -697,6 +697,24 @@ fn window_text(window: &WindowView) -> String {
             screen.maximum_frames_per_second
         );
     }
+    for owned in &window.windows {
+        let screen = owned
+            .screen
+            .map_or_else(|| "нет".to_owned(), |index| index.to_string());
+        let _ = writeln!(
+            out,
+            "окно {} {}: кадр {}, масштаб {}, экран {screen}, видимо — {}, key — {}",
+            match owned.role {
+                shellio_control::OwnedWindowRole::Main => "главное",
+                shellio_control::OwnedWindowRole::Palette => "палитры",
+            },
+            owned.window_number,
+            rect_text(&owned.frame),
+            owned.backing_scale_factor,
+            yes_no(owned.visible),
+            yes_no(owned.key)
+        );
+    }
     let revision = window
         .mirror_revision
         .map_or_else(|| "нет".to_owned(), |revision| revision.to_string());
@@ -1436,6 +1454,84 @@ mod tests {
                 "режим: input, панель {id}, получатель ввода: панель, аккорд выхода: armed, \
                  панель {id}, PID 42\n"
             )
+        );
+    }
+
+    #[test]
+    fn ui_window_lists_owner_windows() {
+        use shellio_control::{Axis, ColorSpaceView, OwnedWindowRole, OwnedWindowView, WindowMode};
+        use shellio_core::AppearanceChoice;
+
+        let frame = |x, y, width, height| Rect {
+            x,
+            y,
+            width,
+            height,
+        };
+        let window = WindowView {
+            pid: 42,
+            mode: WindowMode::Normal,
+            window_number: 7,
+            frame: frame(370.0, 240.0, 1180.0, 720.0),
+            backing_scale_factor: 2.0,
+            visible: true,
+            key: false,
+            color_space: ColorSpaceView {
+                name: None,
+                srgb: true,
+            },
+            title: "shellio".into(),
+            appearance_choice: AppearanceChoice::System,
+            lightness: Axis {
+                value: Lightness::Light,
+                source: AxisSource::System,
+            },
+            contrast: Axis {
+                value: Contrast::Normal,
+                source: AxisSource::System,
+            },
+            motion: Axis {
+                value: Motion::Normal,
+                source: AxisSource::System,
+            },
+            screen: Some(0),
+            maximum_frames_per_second: Some(120),
+            screens: Vec::new(),
+            mirror_revision: None,
+            generation: 3,
+            windows: vec![
+                OwnedWindowView {
+                    role: OwnedWindowRole::Main,
+                    window_number: 7,
+                    frame: frame(370.0, 240.0, 1180.0, 720.0),
+                    backing_scale_factor: 2.0,
+                    visible: true,
+                    key: false,
+                    screen: Some(0),
+                },
+                OwnedWindowView {
+                    role: OwnedWindowRole::Palette,
+                    window_number: 9,
+                    frame: frame(575.0, 324.0, 770.0, 642.0),
+                    backing_scale_factor: 2.0,
+                    visible: true,
+                    key: true,
+                    screen: None,
+                },
+            ],
+        };
+        let shown = ui_text(&UiReply::Window(Box::new(window)));
+        assert!(
+            shown.contains(
+                "окно главное 7: кадр 1180×720 в (370, 240), масштаб 2, экран 0, видимо — да, key — нет"
+            ),
+            "{shown}"
+        );
+        assert!(
+            shown.contains(
+                "окно палитры 9: кадр 770×642 в (575, 324), масштаб 2, экран нет, видимо — да, key — да"
+            ),
+            "{shown}"
         );
     }
 

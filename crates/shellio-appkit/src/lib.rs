@@ -116,8 +116,8 @@ pub use counters::{
     late_callbacks_total,
 };
 pub use inspect::{
-    InspectNode, Inspection, MaterialFact, NodeState, ScreenFacts, Transition, TransitionPath,
-    ViewFacts, WindowFacts, ck,
+    InspectNode, Inspection, MaterialFact, NodeState, OwnedWindowFacts, ScreenFacts, Transition,
+    TransitionPath, ViewFacts, WindowFacts, ck, into_parent,
 };
 pub use key_monitor::{
     KeyFocus, KeyMods, KeyMonitor, KeyResponder, KeyStroke, MonitorEvent, Verdict,

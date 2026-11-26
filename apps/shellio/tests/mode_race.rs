@@ -187,6 +187,7 @@ fn window_view(mode: WindowMode) -> WindowView {
         screens: Vec::new(),
         mirror_revision: None,
         generation: 0,
+        windows: Vec::new(),
     }
 }
 

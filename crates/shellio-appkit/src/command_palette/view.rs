@@ -36,7 +36,7 @@ use crate::components::virtual_list::model::{ListIntent, Row, RowKind};
 use crate::components::virtual_list::{RowViews, VirtualList};
 use crate::counters::{Live, counter};
 use crate::icon;
-use crate::inspect::{self, InspectNode};
+use crate::inspect::{self, InspectNode, OwnedWindowFacts};
 use crate::key_badge::KeyBadge;
 use crate::layer::{self, without_actions};
 use crate::own::ComponentId;
@@ -991,9 +991,26 @@ impl CommandPalette {
         *self.layout.borrow_mut() = Some(frames);
     }
 
-    /// Узлы палитры для `ui.inspect` с ключами сверки. Кадры — в системе координат окна палитры:
-    /// перевод в окно владельца — срез 4 задачи 4 плана `command-overlays`.
-    pub fn inspect(&self) -> Vec<InspectNode> {
+    /// Окно палитры для списка окон `ui.window`.
+    pub fn window_facts(&self) -> OwnedWindowFacts {
+        inspect::owned_window_facts(&self.panel, MainThreadMarker::from(&*self.panel))
+    }
+
+    /// Узлы палитры для `ui.inspect` с ключами сверки. Кадры — в системе координат окна
+    /// владельца `parent`, как у узлов главного окна: паспорт снимает палитру в окне страницы.
+    /// Узлы палитры кадров в состоянии не несут, переводится только кадр узла.
+    pub fn inspect(&self, parent: &crate::window::MainWindow) -> Vec<InspectNode> {
+        let child = inspect::frame_of(self.panel.frame());
+        let owner = inspect::frame_of(parent.ns_window().frame());
+        let mut nodes = self.inspect_local();
+        for node in &mut nodes {
+            node.facts.frame = inspect::into_parent(node.facts.frame, child, owner);
+        }
+        nodes
+    }
+
+    /// Узлы палитры в системе координат её окна.
+    fn inspect_local(&self) -> Vec<InspectNode> {
         let mut nodes = Vec::new();
         let mut plate = inspect::node("palette", "CommandPalette", None, &self.plate, None, None)
             .with_ck("palette")

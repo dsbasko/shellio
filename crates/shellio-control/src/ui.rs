@@ -1404,6 +1404,35 @@ pub struct WindowView {
     pub mirror_revision: Option<u64>,
     /// Поколение отрисовки окна.
     pub generation: u64,
+    /// Окна владельца: главное окно и окно палитры обычного режима, видимое или нет.
+    /// Пустой список — владелец до плана `command-overlays`, ключа в кадре нет.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub windows: Vec<OwnedWindowView>,
+}
+
+/// Назначение окна владельца в [`WindowView::windows`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OwnedWindowRole {
+    /// Главное окно: то же, что [`WindowView::window_number`].
+    Main,
+    /// Плавающая панель `CommandPalette`.
+    Palette,
+}
+
+/// Окно владельца.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnedWindowView {
+    pub role: OwnedWindowRole,
+    pub window_number: i64,
+    /// Кадр `NSWindow.frame` в точках AppKit, начало внизу слева основного экрана.
+    pub frame: Rect,
+    pub backing_scale_factor: f64,
+    pub visible: bool,
+    pub key: bool,
+    /// Номер экрана окна в [`WindowView::screens`]; `None` — окно не на экране.
+    pub screen: Option<u32>,
 }
 
 /// Видимое дерево компонентов окна: ответ `ui.inspect`.

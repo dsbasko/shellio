@@ -267,6 +267,60 @@ fn mirror_of_every_passport_has_no_mismatch() {
     }
 }
 
+/// Узлы окна палитры `ui.inspect` отдаёт в системе координат окна владельца: зеркало паспорта
+/// палитры сверяется без расхождений по узлам в каждой ячейке. Кадры, оставленные в системе
+/// координат окна палитры (её начало — угол плашки минус поле тени 66), расходятся по кадру.
+/// Паспорт палитры несёт только её узлы, поэтому состав окна под ней (зоны, фокус, контролы
+/// заголовка и строки статуса) зеркало не строит: расхождения состава окна (без ключа узла)
+/// здесь не судятся, а состав, родитель и порядок узлов палитры судятся.
+#[test]
+fn palette_nodes_are_judged_in_owner_window_coordinates() {
+    const STATES: [&str; 3] = [
+        "palette-groups",
+        "palette-tab-narrowed",
+        "palette-no-results",
+    ];
+    let of_nodes = |report: &Report| -> Vec<Mismatch> {
+        report
+            .mismatches
+            .iter()
+            .filter(|m| !(m.field == Field::Composition && m.ck.is_empty()))
+            .cloned()
+            .collect()
+    };
+    for state in STATES {
+        for cell in CELLS {
+            let passport = passport(state, cell);
+            let report = run(state, &passport, &mirror(&passport));
+            assert_eq!(of_nodes(&report), [], "{state}, {cell}");
+        }
+    }
+    let passport = passport("palette-groups", "light-normal");
+    let mut tree = mirror(&passport);
+    let plate = node(&mut tree, "palette")["frame"].clone();
+    let margin = 66.0;
+    let dx = plate["x"].as_f64().unwrap_or_default() - margin;
+    let dy = plate["y"].as_f64().unwrap_or_default() - margin;
+    for component in tree["components"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("узлы"))
+    {
+        let key = component["ck"].as_str().unwrap_or_default().to_owned();
+        if key == "palette" || key.starts_with("palette.") {
+            let frame = &mut component["frame"];
+            frame["x"] = json!(frame["x"].as_f64().unwrap_or_default() - dx);
+            frame["y"] = json!(frame["y"].as_f64().unwrap_or_default() - dy);
+        }
+    }
+    let report = run("palette-groups", &passport, &tree);
+    for ck in ["palette", "palette.header", "palette.footer"] {
+        assert!(
+            fields(&report, ck).contains(&Field::Frame),
+            "{ck}: {report:?}"
+        );
+    }
+}
+
 /// Зеркало паспорта `panel-filter`, где текст строки фильтра — узел продукта: класс
 /// `FilterInput`, `label` — имя для доступности, показанное лежит в состоянии поля.
 fn filter_mirror(passport: &Passport, value: &str, placeholder: &str) -> Value {

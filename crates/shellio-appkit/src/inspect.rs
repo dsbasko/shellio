@@ -322,6 +322,44 @@ pub struct WindowFacts {
     pub screens: Vec<ScreenFacts>,
 }
 
+/// Окно владельца в списке окон `ui.window`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwnedWindowFacts {
+    pub number: i64,
+    /// Кадр `NSWindow.frame` в точках AppKit, начало внизу слева основного экрана.
+    pub frame: Frame,
+    pub backing_scale_factor: f64,
+    pub visible: bool,
+    pub key: bool,
+    /// Номер экрана окна в `NSScreen.screens`.
+    pub screen: Option<usize>,
+}
+
+pub(crate) fn owned_window_facts(window: &NSWindow, mtm: MainThreadMarker) -> OwnedWindowFacts {
+    OwnedWindowFacts {
+        number: i64::try_from(window.windowNumber()).unwrap_or(-1),
+        frame: frame_of(window.frame()),
+        backing_scale_factor: window.backingScaleFactor(),
+        visible: window.isVisible(),
+        key: window.isKeyWindow(),
+        screen: screen_index(window, mtm),
+    }
+}
+
+/// Кадр `frame` в системе координат окна `child` (начало внизу слева его кадра) — в системе
+/// координат окна `parent`. Кадры окон — в точках экрана AppKit; у окна владельца содержимое
+/// занимает весь кадр (`FullSizeContentView`), поэтому его координаты окна — координаты
+/// содержимого, и высота содержимого переворачивает результат в строки снимка.
+#[must_use]
+pub fn into_parent(frame: Frame, child: Frame, parent: Frame) -> Frame {
+    Frame::new(
+        frame.x + child.x - parent.x,
+        frame.y + child.y - parent.y,
+        frame.width,
+        frame.height,
+    )
+}
+
 /// Имена классов материала с прозрачностью и размытием (ADR-0023).
 const MATERIAL_CLASSES: [&str; 2] = ["NSVisualEffectView", "NSGlassEffectView"];
 
@@ -685,6 +723,38 @@ pub(crate) fn added_animations(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Палитра над окном 1180×720 в (370, 240) с полем тени 66: плашка `palette` паспорта
+    /// `palette-groups` (270, 46, 640×560) лежит в окне палитры в (66, 66).
+    #[test]
+    fn into_parent_moves_child_frame_into_owner_window() {
+        let owner = Frame::new(370.0, 240.0, 1180.0, 720.0);
+        let plate = Frame::new(270.0, 46.0, 640.0, 560.0);
+        let margin = 66.0;
+        let child = Frame::new(
+            owner.x + plate.x - margin,
+            owner.y + owner.height - plate.y - plate.height - margin,
+            plate.width + 2.0 * margin,
+            plate.height + 2.0 * margin,
+        );
+        let local = Frame::new(margin, margin, plate.width, plate.height);
+        let shifted = into_parent(local, child, owner);
+        assert_eq!(
+            shifted,
+            Frame::new(
+                plate.x,
+                owner.height - plate.y - plate.height,
+                plate.width,
+                plate.height
+            )
+        );
+        // Переворот по высоте содержимого окна владельца даёт строки паспорта.
+        assert_eq!(owner.height - shifted.y - shifted.height, plate.y);
+        // Окно на другом месте экрана кадр в окне владельца не меняет.
+        let moved = Frame::new(child.x - 500.0, child.y + 30.0, child.width, child.height);
+        let owner_moved = Frame::new(owner.x - 500.0, owner.y + 30.0, owner.width, owner.height);
+        assert_eq!(into_parent(local, moved, owner_moved), shifted);
+    }
 
     fn bare(style: Option<Style>) -> InspectNode {
         InspectNode {

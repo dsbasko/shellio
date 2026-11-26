@@ -50,11 +50,11 @@ use shellio_control::{
     HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
     InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView,
     MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
-    OverlayViewKind, PaletteCategory, PaletteGroupView, PaletteRowView, PaletteStateView,
-    PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView,
-    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
-    TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView,
-    WindowView,
+    OverlayViewKind, OwnedWindowRole, OwnedWindowView, PaletteCategory, PaletteGroupView,
+    PaletteRowView, PaletteStateView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
+    Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
+    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
+    VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
@@ -899,6 +899,27 @@ impl OwnerWindow {
         let facts = self.window.facts(app);
         let (lightness, contrast, motion) = self.axes();
         let screen = facts.screen;
+        let main = OwnedWindowView {
+            role: OwnedWindowRole::Main,
+            window_number: facts.number,
+            frame: rect(facts.frame),
+            backing_scale_factor: facts.backing_scale_factor,
+            visible: facts.visible,
+            key: facts.key,
+            screen: screen.and_then(|index| u32::try_from(index).ok()),
+        };
+        let palette = self.palette.as_ref().map(|palette| {
+            let palette = palette.window_facts();
+            OwnedWindowView {
+                role: OwnedWindowRole::Palette,
+                window_number: palette.number,
+                frame: rect(palette.frame),
+                backing_scale_factor: palette.backing_scale_factor,
+                visible: palette.visible,
+                key: palette.key,
+                screen: palette.screen.and_then(|index| u32::try_from(index).ok()),
+            }
+        });
         WindowView {
             pid: std::process::id(),
             mode: wire_mode(self.mode),
@@ -934,6 +955,7 @@ impl OwnerWindow {
                 .collect(),
             mirror_revision,
             generation: self.generation.get(),
+            windows: std::iter::once(main).chain(palette).collect(),
         }
     }
 
@@ -951,7 +973,7 @@ impl OwnerWindow {
             .palette
             .as_ref()
             .filter(|palette| palette.is_open())
-            .map(CommandPalette::inspect);
+            .map(|palette| palette.inspect(&self.window));
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },

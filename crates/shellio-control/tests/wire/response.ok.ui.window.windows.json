@@ -1,0 +1,99 @@
+{
+  "id": 7,
+  "ok": {
+    "ui": {
+      "window": {
+        "pid": 123,
+        "mode": "normal",
+        "window_number": 4242,
+        "frame": {
+          "x": 370.0,
+          "y": 240.0,
+          "width": 1180.0,
+          "height": 720.0
+        },
+        "backing_scale_factor": 2.0,
+        "visible": true,
+        "key": false,
+        "color_space": {
+          "name": "sRGB IEC61966-2.1",
+          "srgb": true
+        },
+        "title": "Работа",
+        "appearance_choice": "light",
+        "lightness": {
+          "value": "light",
+          "source": "ui.appearance"
+        },
+        "contrast": {
+          "value": "normal",
+          "source": "gallery"
+        },
+        "motion": {
+          "value": "normal",
+          "source": "system"
+        },
+        "screen": 0,
+        "maximum_frames_per_second": 120,
+        "screens": [
+          {
+            "index": 0,
+            "name": "Built-in Retina Display",
+            "frame": {
+              "x": 0.0,
+              "y": 0.0,
+              "width": 1512.0,
+              "height": 982.0
+            },
+            "backing_scale_factor": 2.0,
+            "maximum_frames_per_second": 120
+          },
+          {
+            "index": 1,
+            "name": "DELL U2720Q",
+            "frame": {
+              "x": 1512.0,
+              "y": 0.0,
+              "width": 2560.0,
+              "height": 1440.0
+            },
+            "backing_scale_factor": 1.0,
+            "maximum_frames_per_second": 60
+          }
+        ],
+        "mirror_revision": 13,
+        "generation": 7,
+        "windows": [
+          {
+            "role": "main",
+            "window_number": 4242,
+            "frame": {
+              "x": 370.0,
+              "y": 240.0,
+              "width": 1180.0,
+              "height": 720.0
+            },
+            "backing_scale_factor": 2.0,
+            "visible": true,
+            "key": false,
+            "screen": 0
+          },
+          {
+            "role": "palette",
+            "window_number": 4243,
+            "frame": {
+              "x": 575.0,
+              "y": 324.0,
+              "width": 770.0,
+              "height": 642.0
+            },
+            "backing_scale_factor": 2.0,
+            "visible": true,
+            "key": true,
+            "screen": 0
+          }
+        ]
+      }
+    }
+  }
+}

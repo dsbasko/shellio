@@ -20,12 +20,13 @@ use shellio_control::{
     ControlError, ControlErrorCode, GalleryCommand, GalleryFocus, GalleryStrip, GalleryTreeView,
     GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
     IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness,
-    ListRowView, MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnerState, PROTOCOL,
-    PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT, ReceiptView, ReceiptsView, Rect, RefuseReason,
-    RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RowViewsView, RunLoopView,
-    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
-    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView,
-    UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
+    ListRowView, MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnedWindowRole,
+    OwnedWindowView, OwnerState, PROTOCOL, PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT,
+    ReceiptView, ReceiptsView, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody,
+    RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView,
+    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
+    TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply, UiRequest,
+    VirtualListView, WindowMode, WindowView,
 };
 use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
@@ -707,6 +708,9 @@ fn response_golden(response: &Response) -> &'static str {
             value: OkValue::Ui(reply),
             ..
         } => match reply {
+            UiReply::Window(window) if !window.windows.is_empty() => {
+                "response.ok.ui.window.windows"
+            }
             UiReply::Window(_) => "response.ok.ui.window",
             UiReply::Cell(_) => "response.ok.ui.cell",
             UiReply::Mode(_) => "response.ok.ui.mode",
@@ -850,6 +854,12 @@ fn responses() -> Result<Vec<Response>, String> {
             }),
         ),
         ok(7, OkValue::Ui(UiReply::Window(Box::new(window_view())))),
+        // `command-overlays`, задача 4: список окон владельца; эталон `response.ok.ui.window`
+        // не меняется.
+        ok(
+            7,
+            OkValue::Ui(UiReply::Window(Box::new(window_with_palette_view()))),
+        ),
         ok(8, OkValue::Ui(UiReply::Inspect(Box::new(inspect_view())))),
         // `prototype-conformance`, задача 7: ключ сверки, свойства вида и обрезка текста; прежние
         // эталоны `ui.inspect` несут эти ключи пустыми.
@@ -1211,6 +1221,35 @@ fn window_view() -> WindowView {
         ],
         mirror_revision: Some(13),
         generation: 7,
+        windows: Vec::new(),
+    }
+}
+
+fn window_with_palette_view() -> WindowView {
+    WindowView {
+        mode: WindowMode::Normal,
+        key: false,
+        windows: vec![
+            OwnedWindowView {
+                role: OwnedWindowRole::Main,
+                window_number: 4242,
+                frame: rect(370.0, 240.0, 1180.0, 720.0),
+                backing_scale_factor: 2.0,
+                visible: true,
+                key: false,
+                screen: Some(0),
+            },
+            OwnedWindowView {
+                role: OwnedWindowRole::Palette,
+                window_number: 4243,
+                frame: rect(575.0, 324.0, 770.0, 642.0),
+                backing_scale_factor: 2.0,
+                visible: true,
+                key: true,
+                screen: Some(0),
+            },
+        ],
+        ..window_view()
     }
 }
 
