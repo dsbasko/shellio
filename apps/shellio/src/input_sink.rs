@@ -1,9 +1,8 @@
 //! Чистая модель приёмника ввода галереи (ADR-0010, «Уточнено в P1.6 (планирование)»): журнал
 //! событий клавиш, которые получил вид приёмника, и поколение самого приёмника.
 //!
-//! Приёмник принимает клавиши только в режиме `Input`. Монитор клавиш поглощает нажатие, но не
-//! отпускание: в `Navigation` вид получает отпускание клавиши, чьё нажатие исполнило действие, и
-//! обе половины клавиши без привязки. Такие события принятыми не считаются.
+//! Приёмник принимает клавиши только в режиме `Input`. Клавиша без привязки в `Navigation`
+//! доходит до вида обеими половинами: такие события принятыми не считаются.
 
 use std::collections::VecDeque;
 
@@ -197,7 +196,7 @@ mod tests {
             self.down_as(name, false)
         }
 
-        /// Отпускание через монитор: всё, кроме отпускания аккорда выхода, идёт виду.
+        /// Отпускание через монитор: виду идёт отпускание клавиши, чьё нажатие он получил.
         fn up(&mut self, name: &str) -> Decision<u64, KeyRecord> {
             let chord = chord(name);
             let decision = self.router.key_up(KeyCode(chord.key.0));
@@ -290,20 +289,38 @@ mod tests {
 
     #[test]
     fn cancelled_exit_chord_returns_nothing() {
-        // Другая клавиша: её нажатие исполняет действие `Navigation`, отпускание доходит до вида.
+        // Другая клавиша: её нажатие исполняет действие `Navigation`, отпускание поглощено.
         let mut bench = Bench::focused();
         assert_eq!(bench.down(EXIT), ran("mode.navigation"));
         assert_eq!(bench.up(EXIT), Decision::Swallow);
         assert_eq!(bench.down("j"), ran("panel.focus.down"));
-        assert_eq!(bench.up("j"), Decision::Pass);
+        assert_eq!(bench.up("j"), Decision::Swallow);
         // Клавиша без привязки в `Navigation` проходит к виду обеими половинами.
         assert_eq!(bench.down("Up"), Decision::Pass);
         assert_eq!(bench.up("Up"), Decision::Pass);
         assert_eq!(bench.mode(), Mode::Navigation);
         assert_eq!(bench.journal(), []);
-        // Ожидание снято: следующий аккорд — обычная привязка `navigation`, пары нет.
+        // Ожидание снято: следующий аккорд — обычная привязка `navigation`, пары нет. Режим уже
+        // `Input`, но отпускание клавиши, чьё нажатие приёмник не получил, до него не доходит.
         assert_eq!(bench.down(EXIT), ran("mode.toggle"));
+        assert_eq!(bench.mode(), Mode::Input);
+        assert_eq!(bench.up(EXIT), Decision::Swallow);
         assert_eq!(bench.journal(), []);
+
+        // Возврат в `Input` клавишей `i`: в журнале нет ни её нажатия, ни отпускания.
+        let mut bench = Bench::focused();
+        assert_eq!(bench.down(EXIT), ran("mode.navigation"));
+        assert_eq!(bench.up(EXIT), Decision::Swallow);
+        assert_eq!(bench.down("j"), ran("panel.focus.down"));
+        assert_eq!(bench.up("j"), Decision::Swallow);
+        assert_eq!(bench.down("i"), ran("mode.input"));
+        assert_eq!(bench.mode(), Mode::Input);
+        assert_eq!(bench.up("i"), Decision::Swallow);
+        assert_eq!(bench.journal(), []);
+        // Следующая клавиша — обычный ввод обеими половинами.
+        assert_eq!(bench.down("i"), Decision::Pass);
+        assert_eq!(bench.up("i"), Decision::Pass);
+        assert_eq!(bench.journal().len(), 2);
 
         for cause in [
             Cancel::Responder,

@@ -7,7 +7,7 @@
 //!
 //! Модальный слой наложений встаёт перед таблицей вместе с самими наложениями.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 use shellio_keymap::{Cancel, Chord, Context, ExitChord, KeyCode, KeyDown, Keymap, Lookup, Mode};
@@ -83,6 +83,8 @@ pub struct KeyRouter<R, E> {
     exit: ExitChord<R, E>,
     /// Панели в `Input`; остальные в `Navigation`.
     input: BTreeMap<R, ()>,
+    /// Клавиши, чьё нажатие получателю не ушло: их отпускание он тоже не получает.
+    held: BTreeSet<KeyCode>,
 }
 
 impl<R, E> Default for KeyRouter<R, E> {
@@ -91,6 +93,7 @@ impl<R, E> Default for KeyRouter<R, E> {
             pending: Vec::new(),
             exit: ExitChord::default(),
             input: BTreeMap::new(),
+            held: BTreeSet::new(),
         }
     }
 }
@@ -202,6 +205,30 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
     /// Нажатие клавиши, не модификатора. `event` — исходное событие: его хранит автомат аккорда
     /// выхода до второго аккорда.
     pub fn key_down(
+        &mut self,
+        keymap: &Keymap,
+        focus: &Focus<R>,
+        chord: Chord,
+        repeat: bool,
+        event: E,
+    ) -> Decision<R, E> {
+        let decision = self.decide(keymap, focus, chord, repeat, event);
+        match decision {
+            // Новое нажатие ушло получателю: его отпускание принадлежит ему же. Автоповтор
+            // клавиши, чьё первое нажатие поглощено, отпускание получателю не возвращает.
+            Decision::Pass => {
+                if !repeat {
+                    self.held.remove(&chord.key);
+                }
+            }
+            Decision::Swallow | Decision::Run(_) | Decision::Replay { .. } => {
+                self.held.insert(chord.key);
+            }
+        }
+        decision
+    }
+
+    fn decide(
         &mut self,
         keymap: &Keymap,
         focus: &Focus<R>,
@@ -324,10 +351,12 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         })
     }
 
-    /// Отпускание клавиши действий не исполняет: `Swallow` — отпускание аккорда выхода, его пару
-    /// получателю доставляет повтор.
+    /// Отпускание клавиши действий не исполняет. `Swallow` — отпускание клавиши, чьё нажатие
+    /// получателю не ушло: он не получает отпускание без нажатия. Пару аккорда выхода получателю
+    /// доставляет повтор.
     pub fn key_up(&mut self, key: KeyCode) -> Decision<R, E> {
-        if self.exit.key_up(key) {
+        let held = self.held.remove(&key);
+        if self.exit.key_up(key) || held {
             Decision::Swallow
         } else {
             Decision::Pass
@@ -346,11 +375,14 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
     pub fn cancel(&mut self, cause: Cancel) -> bool {
         match cause {
             Cancel::ScrollWheel => {}
-            Cancel::Responder
-            | Cancel::Focus
-            | Cancel::MouseDown
-            | Cancel::Overlay
-            | Cancel::Resigned => self.pending.clear(),
+            Cancel::Responder | Cancel::Focus | Cancel::MouseDown | Cancel::Overlay => {
+                self.pending.clear()
+            }
+            // Отпускание клавиши, удержанной при уходе приложения, может не прийти.
+            Cancel::Resigned => {
+                self.pending.clear();
+                self.held.clear();
+            }
         }
         self.exit.cancel(cause)
     }
@@ -689,7 +721,7 @@ mod tests {
             down(&mut router, &body(TERMINAL), "Ctrl-w"),
             Decision::Swallow
         );
-        assert_eq!(router.key_up(chord("w").key), Decision::Pass);
+        assert_eq!(router.key_up(chord("w").key), Decision::Swallow);
         assert_eq!(router.flags_changed(), Decision::Pass);
         assert_eq!(
             router.pending(),
@@ -697,6 +729,69 @@ mod tests {
             "отпускание префикс не трогает"
         );
         assert_eq!(down(&mut router, &body(TERMINAL), "q"), ran("panel.close"));
+    }
+
+    #[test]
+    fn key_up_follows_its_key_down() {
+        let mut router = Router::default();
+        let j = chord("j").key;
+        let i = chord("i").key;
+        let up = chord("Up").key;
+
+        // Нажатие исполнило действие: отпускание получателю не идёт, и только один раз.
+        assert_eq!(
+            down(&mut router, &body(TERMINAL), "j"),
+            ran("panel.focus.down")
+        );
+        assert_eq!(
+            held(&mut router, &body(TERMINAL), "j"),
+            ran("panel.focus.down")
+        );
+        assert_eq!(router.key_up(j), Decision::Swallow);
+        assert_eq!(router.key_up(j), Decision::Pass);
+
+        // Клавиша без привязки идёт получателю обеими половинами.
+        assert_eq!(down(&mut router, &body(TERMINAL), "Up"), Decision::Pass);
+        assert_eq!(router.key_up(up), Decision::Pass);
+
+        // Клавиша вернула панель в `Input`: её автоповтор уже печатает, отпускание — нет.
+        assert_eq!(down(&mut router, &body(FIELD), "i"), ran("mode.input"));
+        assert_eq!(router.mode(&FIELD), Mode::Input);
+        assert_eq!(held(&mut router, &body(FIELD), "i"), Decision::Pass);
+        assert_eq!(router.key_up(i), Decision::Swallow);
+        // Следующее нажатие той же клавиши — обычный ввод с отпусканием.
+        assert_eq!(down(&mut router, &body(FIELD), "i"), Decision::Pass);
+        assert_eq!(router.key_up(i), Decision::Pass);
+
+        // Отпускание не пришло: новое пропущенное нажатие клавишу забывает.
+        router.set_mode(FIELD, Mode::Navigation);
+        assert_eq!(down(&mut router, &body(FIELD), "i"), ran("mode.input"));
+        assert_eq!(down(&mut router, &body(FIELD), "i"), Decision::Pass);
+        assert_eq!(router.key_up(i), Decision::Pass);
+
+        // Приложение ушло с удержанной клавишей: её отпускание могло не прийти.
+        assert_eq!(
+            down(&mut router, &body(TERMINAL), "j"),
+            ran("panel.focus.down")
+        );
+        router.cancel(Cancel::Resigned);
+        assert_eq!(router.key_up(j), Decision::Pass);
+        // Остальные события окна удержанную клавишу помнят.
+        for cause in [
+            Cancel::Responder,
+            Cancel::Focus,
+            Cancel::MouseDown,
+            Cancel::ScrollWheel,
+            Cancel::Overlay,
+        ] {
+            assert_eq!(
+                down(&mut router, &body(TERMINAL), "j"),
+                ran("panel.focus.down"),
+                "{cause:?}"
+            );
+            router.cancel(cause);
+            assert_eq!(router.key_up(j), Decision::Swallow, "{cause:?}");
+        }
     }
 
     #[test]
