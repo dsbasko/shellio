@@ -70,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 5 2 4 1 5 5 6 6 5 5 6 6 5 5 6 6 6 0)
+STAGE=(1 2 2 3 5 2 4 1 6 6 7 7 6 6 7 7 6 5 7 7 7 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=4
+DONE_STAGE=5
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -86,6 +86,11 @@ K_S=1
 K_X=7
 K_Z=6
 K_0=29
+K_O=31
+K_EQUAL=24
+K_MINUS=27
+K_COMMA=43
+K_PERIOD=47
 K_SPACE=49
 K_1=18
 K_2=19
@@ -1448,16 +1453,19 @@ keymap_file() {
   done
 }
 
-# Ctrl-w v у панели правой зоны: одна запись кольца layout.split с отказом, сообщение строки статуса text, ни одной
-# дельты ядра, раскладка прежняя.
-refused_split() {
-  local dir="$1" name="$2" text="$3" canon
+# Клавиши с отказом ядра: refused <каталог> <имя> <действие> <текст> <аккорд>… — до клавиш сообщения строки статуса
+# нет, после — одна запись кольца действия с отказом invalid_argument, сообщение text, ни одной дельты ядра, раскладка
+# прежняя.
+refused() {
+  local dir="$1" name="$2" action="$3" text="$4" canon
+  shift 4
+  wait_status "$dir/$name.before-status" hidden || failures+=("$name: до клавиши: $WHY")
   if ! mark "$dir" "$name"; then
     failures+=("$name: $WHY")
     return 0
   fi
   canon="$(layout_canon "$dir/$name.mark.stdout")"
-  if ! act "$dir" "$name" layout.split "$K_W+control" "$K_V"; then
+  if ! act "$dir" "$name" "$action" "$@"; then
     failures+=("$name: $WHY")
     return 0
   fi
@@ -1475,6 +1483,11 @@ refused_split() {
     failures+=("$name: query.layout после отказа не прочитан")
   fi
   once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# Ctrl-w v у панели правой зоны: отказ не той оси с сообщением text.
+refused_split() {
+  refused "$1" "$2" layout.split "$3" "$K_W+control" "$K_V"
 }
 
 # Ctrl-w v в правой зоне (ось stack): отказ split_wrong_axis с сообщением, которое называет действующую клавишу оси
@@ -1614,6 +1627,22 @@ zone_mark() {
   MARK="$(tr -d '[:space:]' <"$prefix.stdout")"
 }
 
+# Опрос отметки кнопки зоны до значения want: окно может отстать от query.layout; иначе WHY.
+wait_mark() {
+  local prefix="$1" label="$2" want="$3" deadline
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if zone_mark "$prefix" "$label" && [[ "$MARK" == "$want" ]]; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="${WHY:-за $MIRROR_MS мс отметка AX кнопки «${label}» — ${MARK:-?}, ожидалась $want}"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
 # Клавиши видимости зоны дважды: zstep <каталог> <имя> <действие> <поле hidden> <название кнопки> <аккорд>… — первое
 # нажатие скрывает, второе показывает; на каждое одна запись кольца, одна дельта ядра, layout.hidden по ожиданию,
 # название третьей кнопки в ui.inspect и отметка AX кнопки (true — зона показана, false — скрыта).
@@ -1634,11 +1663,7 @@ zstep() {
     else
       failures+=("$name-$round: ui.inspect не прочитан")
     fi
-    if zone_mark "$dir/$name-$round.mark-ax" "$label"; then
-      [[ "$MARK" == "$mark" ]] || failures+=("$name-$round: отметка AX кнопки «${label}» — $MARK, ожидалась $mark")
-    else
-      failures+=("$name-$round: $WHY")
-    fi
+    wait_mark "$dir/$name-$round.mark-ax" "$label" "$mark" || failures+=("$name-$round: $WHY")
   done
 }
 
@@ -1672,6 +1697,171 @@ item_zones_toggle() {
   conclude "$item" "правая зона занята: Cmd-0, Cmd-j, Cmd-Alt-0 и Space z h, j, l скрывают и показывают колонку навигатора, нижнюю и правую зоны, третья кнопка — «Правая зона»; правая пуста, плитка левой занята: Cmd-Alt-0 и Space z l скрывают и показывают плитку, третья кнопка — «Левая зона»; на каждое нажатие одна запись ui.receipts layout.toggle.* с источником key, одна дельта events --since, layout.hidden и отметка AX кнопки по ожиданию"
 }
 
+# Perl-условие: размер зоны layout.sizes.<поле> равен значению.
+size_is() {
+  printf '$l->{sizes}{%s} == %s' "$1" "$2"
+}
+
+# Высота кадра части зоны по query.layout; «?» — части нет.
+part_height() {
+  /usr/bin/perl -MJSON::PP -e 'my ($zone, $index) = @ARGV; local $/;
+    my ($p) = grep { $_->{zone} eq $zone && $_->{index} == $index } @{JSON::PP->new->utf8->decode(<STDIN>)->{ok}{value}{frames}{parts}};
+    print $p ? $p->{frame}{height} : "?", "\n"' "$2" "$3" <"$1"
+}
+
+# Ctrl-w + - > < меняют размер на 40 точек: высота центра — нижнюю зону, ширина центра — правую, высота части
+# правой зоны — её долю; Ctrl-w = выравнивает доли, Ctrl-w z разворачивает и возвращает, Ctrl-w o оставляет зону и
+# возвращает. Шаг, после которого правая зона стала бы уже min_size, и высота колонки навигатора — отказ с
+# сообщением и без дельты; ширину колонки навигатора меняют Ctrl-w > и <.
+item_resize_zoom() {
+  local item=resize-zoom dir="$run/resize-zoom" b r n nav t2 h canon code=0 min max
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  b="$(lv "$dir/bench/settled.layout.stdout" layout.sizes.bottom)"
+  r="$(lv "$dir/bench/settled.layout.stdout" layout.sizes.right)"
+  n="$(lv "$dir/bench/settled.layout.stdout" layout.sizes.navigator)"
+  nav="$(lv "$dir/bench/settled.layout.stdout" layout.navigator)"
+  [[ "$b" =~ ^[0-9]+$ && "$r" =~ ^[0-9]+$ && "$n" =~ ^[0-9]+$ && -n "$nav" && "$nav" != null ]] ||
+    fatal "$item: подготовка: размеры зон или панель колонки навигатора не прочитаны: $b, $r, $n, $nav"
+  # Границы отказа называет ядро: тот же шаг штатным CLI. Шире центр — уже правая зона.
+  ctl "$profile" "$dir/cli-wider" --json --timeout "$CTL_TIMEOUT_MS" layout resize --by 40 --width --panel "$p_center" --all || code=$?
+  min="$(jv "$dir/cli-wider.stdout" core_error.details.min 2>/dev/null || echo "?")"
+  max="$(jv "$dir/cli-wider.stdout" core_error.details.max 2>/dev/null || echo "?")"
+  [[ $code -ne 0 && "$(jv "$dir/cli-wider.stdout" core_error.details.reason 2>/dev/null || echo "?")" == resize_out_of_range &&
+    "$min" =~ ^[0-9]+$ && "$max" =~ ^[0-9]+$ ]] && ((r - 40 < min && r >= min)) ||
+    fatal "$item: подготовка: layout resize --by 40 --width панели центра при правой зоне $r не отказал по min_size: код $code, $(oneline "$dir/cli-wider.stdout")"
+  to_front "$dir" "$item"
+  kstep "$dir" grow layout.grow "нижняя зона $((b - 40))" "$(size_is bottom $((b - 40)))" "$K_W+control" "$K_EQUAL+shift"
+  kstep "$dir" shrink layout.shrink "нижняя зона $b" "$(size_is bottom "$b")" "$K_W+control" "$K_MINUS"
+  refused "$dir" min-size layout.wider "Размер зоны — от $min до $max точек" "$K_W+control" "$K_PERIOD+shift"
+  kstep "$dir" narrower layout.narrower "правая зона $((r + 40))" "$(size_is right $((r + 40)))" "$K_W+control" "$K_COMMA+shift"
+  wait_status "$dir/narrower.status" hidden || failures+=("narrower: $WHY")
+  kstep "$dir" wider layout.wider "правая зона $r" "$(size_is right "$r")" "$K_W+control" "$K_PERIOD+shift"
+  if layout_get "$profile" "$dir/sized" "$wb_a"; then
+    no_stubs "$dir/sized.stdout" || failures+=("после шагов размера: $WHY")
+    canon="$(layout_canon "$dir/sized.stdout")"
+  else
+    failures+=("query.layout после шагов размера не прочитан")
+    canon=""
+  fi
+  kstep "$dir" zoom layout.zoom "панель центра развёрнута" \
+    "(\$l->{zoomed} // '') eq '$p_center' && defined \$v->{frames}{zoomed}" "$K_W+control" "$K_Z"
+  kstep "$dir" unzoom layout.zoom "раскладка возвращена" \
+    "!defined \$l->{zoomed} && !defined \$v->{frames}{zoomed}" "$K_W+control" "$K_Z"
+  kstep "$dir" only layout.only "видна только зона центра" \
+    "(\$l->{only} // '') eq 'center' && !defined \$v->{frames}{navigator} && !grep { \$_->{zone} ne 'center' } @{\$v->{frames}{parts}}" \
+    "$K_W+control" "$K_O"
+  kstep "$dir" only-back layout.only "видны все зоны" \
+    "!defined \$l->{only} && defined \$v->{frames}{navigator} && @{\$v->{frames}{parts}} == 4" "$K_W+control" "$K_O"
+  if layout_get "$profile" "$dir/back" "$wb_a"; then
+    [[ -z "$canon" || "$(layout_canon "$dir/back.stdout")" == "$canon" ]] ||
+      failures+=("раскладка после разворота, одной зоны и возврата не равна прежней")
+  else
+    failures+=("query.layout после возврата не прочитан")
+  fi
+  # Две части правой зоны: шаг высоты меняет долю части, Ctrl-w = выравнивает доли.
+  core_cmd "$profile" "$dir/split-right" layout split "$p_right" --open terminal --all || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/two" "$wb_a" "$REV" || fatal "$item: $WHY"
+  t2="$(lv "$dir/two.layout.stdout" 'layout.zones.right.parts[1].tabs[0]' 2>/dev/null || true)"
+  [[ -n "$t2" && "$(parts_of "$dir/two.layout.stdout" right)" == 2 ]] ||
+    fatal "$item: подготовка: в правой зоне не две части: $(lv "$dir/two.layout.stdout" layout.zones.right || echo "?")"
+  core_cmd "$profile" "$dir/focus-t2" panel focus "$t2" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus-t2.layout" "$t2" || fatal "$item: $WHY"
+  no_stubs "$dir/focus-t2.layout.stdout" || fatal "$item: подготовка: $WHY"
+  h="$(part_height "$dir/focus-t2.layout.stdout" right 1)"
+  [[ "$h" =~ ^[0-9.]+$ ]] || fatal "$item: подготовка: высота второй части правой зоны не прочитана: $h"
+  kstep "$dir" part-grow layout.grow "вторая часть правой зоны выше на 40 точек" \
+    "my (\$p) = grep { \$_->{zone} eq 'right' && \$_->{index} == 1 } @{\$v->{frames}{parts}}; \$p && abs(\$p->{frame}{height} - ($h + 40)) <= 1 && \$l->{zones}{right}{parts}[1]{share} > \$l->{zones}{right}{parts}[0]{share}" \
+    "$K_W+control" "$K_EQUAL+shift"
+  kstep "$dir" equal layout.equal "доли частей правой зоны равны" \
+    '$l->{zones}{right}{parts}[0]{share} == $l->{zones}{right}{parts}[1]{share}' "$K_W+control" "$K_EQUAL"
+  # Колонка навигатора: ширина меняется, высоты у неё нет.
+  core_cmd "$profile" "$dir/focus-nav" panel focus "$nav" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus-nav.layout" "$nav" || fatal "$item: $WHY"
+  kstep "$dir" nav-wider layout.wider "колонка навигатора $((n + 40))" "$(size_is navigator $((n + 40)))" "$K_W+control" "$K_PERIOD+shift"
+  refused "$dir" nav-grow layout.grow "Панель стоит в колонке навигатора: частей у колонки нет" "$K_W+control" "$K_EQUAL+shift"
+  kstep "$dir" nav-narrower layout.narrower "колонка навигатора $n" "$(size_is navigator "$n")" "$K_W+control" "$K_COMMA+shift"
+  refused "$dir" nav-shrink layout.shrink "Панель стоит в колонке навигатора: частей у колонки нет" "$K_W+control" "$K_MINUS"
+  # Следующий пункт начинает без сообщения в строке статуса.
+  if act "$dir" leave panel.focus.right "$K_W+control" "$K_L"; then
+    wait_status "$dir/leave.status" hidden || failures+=("leave: $WHY")
+  else
+    failures+=("leave: $WHY")
+  fi
+  conclude "$item" "Ctrl-w + и - меняют нижнюю зону $b → $((b - 40)) → $b, Ctrl-w < и > — правую $r → $((r + 40)) → $r, Ctrl-w > при правой зоне $r — отказ с сообщением «Размер зоны — от $min до $max точек» (причина resize_out_of_range — по той же команде CLI) без дельты; Ctrl-w z разворачивает панель центра и возвращает, Ctrl-w o оставляет зону центра и возвращает, раскладка после них прежняя; у двух частей правой зоны Ctrl-w + поднимает часть на 40 точек, Ctrl-w = выравнивает доли; в колонке навигатора Ctrl-w > и < меняют ширину $n → $((n + 40)) → $n, Ctrl-w + и - — отказ с сообщением без дельты; на каждую последовательность одна запись ui.receipts с источником key"
+}
+
+# Команда штатного CLI с одной дельтой ядра: cstep <каталог> <имя> <ожидание текстом> <perl-условие> <вызов>…
+cstep() {
+  local dir="$1" name="$2" what="$3" cond="$4"
+  shift 4
+  if ! mark "$dir" "$name"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  if ! ctl "$profile" "$dir/$name" --json --timeout "$CTL_TIMEOUT_MS" "$@"; then
+    failures+=("$name: shellioctl $*: $(oneline "$dir/$name.stdout") $(oneline "$dir/$name.stderr")")
+    return 0
+  fi
+  wait_layout "$dir/$name.layout" "$what" "$cond" || failures+=("$name: $WHY")
+  events_are "$dir" "$name" 1 || failures+=("$name: $WHY")
+}
+
+# layout toggle side дважды: tstep <каталог> <имя> <поле hidden> <название третьей кнопки> — первое скрывает цель,
+# второе показывает; одна дельта ядра, название кнопки в ui.inspect и отметка AX кнопки по ожиданию.
+tstep() {
+  local dir="$1" name="$2" field="$3" label="$4" round want mark got
+  for round in hide show; do
+    want='$l->{hidden}{'"$field"'}'
+    mark=false
+    if [[ "$round" == show ]]; then
+      want="!$want"
+      mark=true
+    fi
+    cstep "$dir" "$name-$round" "layout.hidden.$field после $round" "$want" layout toggle side
+    if ui_read "$profile" "$dir/$name-$round.inspect" inspect; then
+      got="$(comp "$dir/$name-$round.inspect.stdout" "$ZONE_NODE" label 2>/dev/null || echo "?")"
+      [[ "$got" == "$label" ]] || failures+=("$name-$round: третья кнопка в ui.inspect — «${got}», ожидалась «${label}»")
+    else
+      failures+=("$name-$round: ui.inspect не прочитан")
+    fi
+    wait_mark "$dir/$name-$round.mark-ax" "$label" "$mark" || failures+=("$name-$round: $WHY")
+  done
+}
+
+# shellioctl layout resize --by и layout toggle side в двух раскладках: правая зона занята — цель side правая зона,
+# правая пуста и плитка левой занята — плитка, как у третьей кнопки заголовка.
+item_relative_resize_cli() {
+  local item=relative-resize-cli dir="$run/relative-resize-cli" b r
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  b="$(lv "$dir/bench/settled.layout.stdout" layout.sizes.bottom)"
+  r="$(lv "$dir/bench/settled.layout.stdout" layout.sizes.right)"
+  [[ "$b" =~ ^[0-9]+$ && "$r" =~ ^[0-9]+$ ]] || fatal "$item: подготовка: размеры зон не прочитаны: $b, $r"
+  core_cmd "$profile" "$dir/focus-right" panel focus "$p_right" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus-right.layout" "$p_right" || fatal "$item: $WHY"
+  cstep "$dir" by-focus "правая зона $((r + 40))" "$(size_is right $((r + 40)))" \
+    layout resize --by 40 --width --workbench "$wb_a" --all
+  cstep "$dir" by-panel "правая зона $r" "$(size_is right "$r")" layout resize --by -40 --width --panel "$p_right" --all
+  cstep "$dir" by-height "нижняя зона $((b + 40))" "$(size_is bottom $((b + 40)))" \
+    layout resize --by 40 --height --panel "$p_bottom" --all
+  if layout_get "$profile" "$dir/sized" "$wb_a"; then
+    no_stubs "$dir/sized.stdout" || failures+=("после шагов размера: $WHY")
+  else
+    failures+=("query.layout после шагов размера не прочитан")
+  fi
+  tstep "$dir" side-right right "Правая зона"
+  core_cmd "$profile" "$dir/close-right" panel close "$p_right" --all || fatal "$item: $WHY"
+  core_cmd "$profile" "$dir/focus-center" panel focus "$p_center" --all || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/two" "$wb_a" "$REV" || fatal "$item: $WHY"
+  [[ "$(parts_of "$dir/two.layout.stdout" right)" == 0 && "$(parts_of "$dir/two.layout.stdout" left)" == 1 ]] ||
+    fatal "$item: подготовка второй раскладки: частей справа $(parts_of "$dir/two.layout.stdout" right), слева $(parts_of "$dir/two.layout.stdout" left)"
+  tstep "$dir" side-plate plate "Левая зона"
+  conclude "$item" "layout resize --by 40 --width у панели с фокусом и --by -40 --width --panel ведут правую зону $r → $((r + 40)) → $r, --by 40 --height --panel нижней зоны — $b → $((b + 40)), каждая команда — одна дельта events --since; layout toggle side при занятой правой зоне скрывает и показывает правую зону (третья кнопка «Правая зона»), при пустой правой и занятой плитке — плитку («Левая зона»), отметка AX кнопки по ожиданию"
+}
+
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
@@ -1700,9 +1890,11 @@ item_focus_hjkl
 item_list_owns_keys
 item_move_and_split
 item_wrong_axis
+item_resize_zoom
 item_tabs
 item_zones_toggle
 item_appearance_cycle
+item_relative_resize_cli
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
