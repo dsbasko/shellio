@@ -192,7 +192,7 @@ pub fn layout(
     let group = buttons_width(buttons);
     let regime = regime(tabs, payload.map(|(w, _)| w), group, available);
     let right = width - PAD_RIGHT;
-    let button_y = ((content - BUTTON) / 2.0).floor();
+    let button_y = (content - BUTTON) / 2.0;
     let first_button = right - group;
     let buttons: Vec<Frame> = (0..buttons)
         .map(|index| {
@@ -340,7 +340,7 @@ mod tests {
                 assert_eq!(last.right(), width - PAD_RIGHT, "кнопки у правого края");
                 for button in &strip.buttons {
                     assert_eq!((button.width, button.height), (BUTTON, BUTTON));
-                    assert_eq!(button.y, 5.0, "по середине содержимого 33");
+                    assert_eq!(button.y, 5.5, "по середине содержимого 33");
                 }
                 if width >= 200.0 {
                     assert!(
