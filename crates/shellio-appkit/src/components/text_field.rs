@@ -21,7 +21,8 @@ use objc2_app_kit::{
 use objc2_foundation::{
     NSAttributedString, NSDictionary, NSNotification, NSPoint, NSRect, NSSize, NSString,
 };
-use shellio_theme::AppTheme;
+use objc2_quartz_core::CALayer;
+use shellio_theme::{AppTheme, Colors, Srgb8};
 
 use crate::app::App;
 use crate::counters::{Live, counter};
@@ -65,8 +66,8 @@ pub enum TextFieldKind {
     /// Поле формы (`.field` прототипа).
     #[default]
     Field,
-    /// Строка фильтра панели (`.pfilter` прототипа): значок перед текстом, линия подложки в
-    /// фокусе прежняя.
+    /// Строка фильтра панели (`.pfilter` прототипа): значок перед текстом, подложка поднята над
+    /// плиткой — тени токена и кольцо снаружи кадра вместо линии слоя.
     Filter,
 }
 
@@ -81,6 +82,8 @@ pub struct FieldMetrics {
     pub gap: f64,
     /// Линия подложки в фокусе меняется на линию навигации.
     pub focus_line: bool,
+    /// Подложка поднята: тени токена и кольцо снаружи кадра, линии слоя нет.
+    pub raised: bool,
 }
 
 impl TextFieldKind {
@@ -92,6 +95,7 @@ impl TextFieldKind {
                 icon: 0.0,
                 gap: 0.0,
                 focus_line: true,
+                raised: false,
             },
             TextFieldKind::Filter => FieldMetrics {
                 pad_x: FIELD_PAD_X,
@@ -99,7 +103,17 @@ impl TextFieldKind {
                 icon: FILTER_ICON,
                 gap: FILTER_GAP,
                 focus_line: false,
+                raised: true,
             },
+        }
+    }
+
+    /// Заливка подложки. Строка фильтра стоит в плитке панели, а там `--surface` прототипа —
+    /// цвет панели (`.panel:not(.flat)`).
+    pub const fn fill(self, colors: &Colors) -> Srgb8 {
+        match self {
+            TextFieldKind::Field => colors.surface,
+            TextFieldKind::Filter => colors.panel,
         }
     }
 
@@ -388,7 +402,11 @@ impl TextField {
                 inspect::node(id, "TextField", parent, whole, enabled, Some(state)),
             ),
             TextFieldKind::Filter => {
-                let mut nodes = vec![inspect::node(id, "FilterBar", parent, whole, None, None)];
+                let mut bar = inspect::node(id, "FilterBar", parent, whole, None, None);
+                if let Some(raised) = &whole.ivars().raised {
+                    bar = bar.with_shadow_layers(&raised.shadows, &raised.ring);
+                }
+                let mut nodes = vec![bar];
                 if let Some(icon) = &whole.ivars().icon {
                     let color = icon
                         .contentTintColor()
@@ -507,10 +525,90 @@ fn editor_is_first_responder(field: &NSTextField) -> bool {
     })
 }
 
+/// Слои поднятой подложки под её содержимым по порядку записи `box-shadow`: две тени токена и
+/// кольцо снаружи кадра. Слой тени несёт заливку подложки: она закрывает тень внутри кадра.
+struct RaisedLayers {
+    shadows: [Retained<CALayer>; 2],
+    ring: Retained<CALayer>,
+}
+
+impl RaisedLayers {
+    fn new() -> RaisedLayers {
+        let raised = RaisedLayers {
+            shadows: [CALayer::new(), CALayer::new()],
+            ring: CALayer::new(),
+        };
+        for layer in raised.layers() {
+            // Ниже слоёв поля и значка, в каком бы порядке AppKit их ни держал.
+            layer.setZPosition(-1.0);
+        }
+        raised
+    }
+
+    fn layers(&self) -> impl Iterator<Item = &CALayer> {
+        self.shadows
+            .iter()
+            .map(|layer| &**layer)
+            .chain(std::iter::once(&*self.ring))
+    }
+
+    /// Тени — по кадру подложки, кольцо — на толщину линии шире с каждой стороны.
+    fn place(&self, bounds: NSRect) {
+        for layer in &self.shadows {
+            layer.setFrame(bounds);
+        }
+        self.ring.setFrame(NSRect::new(
+            NSPoint::new(bounds.origin.x - LINE_WIDTH, bounds.origin.y - LINE_WIDTH),
+            NSSize::new(
+                bounds.size.width + 2.0 * LINE_WIDTH,
+                bounds.size.height + 2.0 * LINE_WIDTH,
+            ),
+        ));
+    }
+}
+
+/// Красит подложку `layer` вида `kind` и слои поднятой подложки. `editing` — в поле идёт ввод.
+fn paint(
+    layer: &CALayer,
+    raised: Option<&RaisedLayers>,
+    kind: TextFieldKind,
+    theme: &AppTheme,
+    editing: bool,
+) {
+    let colors = &theme.colors;
+    let fill = kind.fill(colors);
+    let radius = theme.metrics.radius.control;
+    layer::set_fill(layer, fill);
+    match raised {
+        Some(raised) => {
+            layer::set_line(layer, None);
+            layer::set_corner(layer, radius);
+            for (under, shadow) in raised.shadows.iter().zip(theme.shadow) {
+                layer::set_fill(under, fill);
+                layer::set_corner(under, radius);
+                layer::set_shadow(under, shadow);
+            }
+            layer::set_line(&raised.ring, Some((colors.line_2, LINE_WIDTH)));
+            layer::set_corner(&raised.ring, radius + LINE_WIDTH);
+        }
+        None => {
+            let line = if kind.metrics().focus_line && editing {
+                (colors.accent_nav_line, FOCUS_LINE_WIDTH)
+            } else {
+                (colors.line_2, LINE_WIDTH)
+            };
+            layer::set_line(layer, Some(line));
+            layer::set_radius(layer, radius);
+        }
+    }
+}
+
 struct BoxIvars {
     _live: Live,
     owner: Callback<FieldModel>,
     kind: TextFieldKind,
+    /// Слои теней и кольца у поднятой подложки.
+    raised: Option<RaisedLayers>,
     /// Значок перед текстом у вида со значком.
     icon: Option<Retained<NSImageView>>,
     field: Retained<FieldControl>,
@@ -547,18 +645,11 @@ define_class!(
             }) else {
                 return;
             };
-            let colors = &theme.colors;
-            let focus_line = self.ivars().kind.metrics().focus_line;
-            let line = if focus_line && self.ivars().field.currentEditor().is_some() {
-                (colors.accent_nav_line, FOCUS_LINE_WIDTH)
-            } else {
-                (colors.line_2, LINE_WIDTH)
-            };
+            let ivars = self.ivars();
+            let editing = ivars.field.currentEditor().is_some();
             if let Some(layer) = self.layer() {
                 without_actions(|| {
-                    layer::set_fill(&layer, colors.surface);
-                    layer::set_line(&layer, Some(line));
-                    layer::set_radius(&layer, theme.metrics.radius.control);
+                    paint(&layer, ivars.raised.as_ref(), ivars.kind, &theme, editing);
                 });
             }
         }
@@ -612,6 +703,7 @@ impl FieldBox {
             _live: FIELD_BOX.live(),
             owner,
             kind,
+            raised: kind.metrics().raised.then(RaisedLayers::new),
             icon,
             field,
         });
@@ -620,6 +712,11 @@ impl FieldBox {
             unsafe { msg_send![super(this), initWithFrame: NSRect::ZERO] };
         view.setWantsLayer(true);
         view.setLayerContentsRedrawPolicy(NSViewLayerContentsRedrawPolicy::OnSetNeedsDisplay);
+        if let (Some(raised), Some(layer)) = (&view.ivars().raised, view.layer()) {
+            for under in raised.layers() {
+                layer.addSublayer(under);
+            }
+        }
         view.addSubview(&view.ivars().field);
         if let Some(icon) = &view.ivars().icon {
             view.addSubview(icon);
@@ -641,6 +738,9 @@ impl FieldBox {
         );
         without_actions(|| {
             field.setFrame(frame);
+            if let Some(raised) = &ivars.raised {
+                raised.place(bounds);
+            }
             if let Some(icon) = &ivars.icon {
                 icon.setFrame(NSRect::new(
                     NSPoint::new(
@@ -923,6 +1023,113 @@ mod tests {
         );
         assert!(icon::image(FILTER_ICON_NAME, FILTER_ICON, &NSString::from_str("")).is_some());
         assert!(shellio_theme::icons::shapes(FILTER_ICON_NAME).is_some());
+    }
+
+    /// Подложка строки фильтра на слоях без вида: то, что отдаёт `ui.inspect`, против значений
+    /// паспорта `panel-filter` — заливка панели, линии слоя нет, две тени токена и кольцо.
+    #[test]
+    fn raised_filter_bar_reports_panel_fill_no_line_and_three_shadows() {
+        use shellio_theme::{Appearance, Cell as ThemeCell, Contrast};
+
+        use crate::style::{self, Rgba, ShadowFacts};
+
+        let rgb = |r, g, b, a| Rgba { r, g, b, a };
+        let cases = [
+            (
+                (Appearance::Light, Contrast::Normal),
+                rgb(255, 255, 255, 1.0),
+                [rgb(20, 22, 30, 0.18), rgb(20, 22, 30, 0.10)],
+                rgb(201, 196, 186, 1.0),
+            ),
+            (
+                (Appearance::Light, Contrast::Increased),
+                rgb(255, 255, 255, 1.0),
+                [rgb(20, 22, 30, 0.18), rgb(20, 22, 30, 0.10)],
+                rgb(111, 107, 98, 1.0),
+            ),
+            (
+                (Appearance::Dark, Contrast::Normal),
+                rgb(10, 9, 8, 1.0),
+                [rgb(0, 0, 0, 0.55), rgb(0, 0, 0, 0.4)],
+                rgb(64, 61, 57, 1.0),
+            ),
+            (
+                (Appearance::Dark, Contrast::Increased),
+                rgb(10, 9, 8, 1.0),
+                [rgb(0, 0, 0, 0.55), rgb(0, 0, 0, 0.4)],
+                rgb(127, 122, 112, 1.0),
+            ),
+        ];
+        for ((appearance, contrast), fill, shadows, ring) in cases {
+            let theme = AppTheme::for_cell(ThemeCell::new(appearance, contrast));
+            let layer = CALayer::new();
+            let raised = RaisedLayers::new();
+            paint(&layer, Some(&raised), TextFieldKind::Filter, &theme, true);
+            raised.place(NSRect::new(
+                NSPoint::new(0.0, 0.0),
+                NSSize::new(205.0, 26.0),
+            ));
+
+            let bar = style::layer_style(&layer);
+            assert_eq!(bar.fill, Some(fill), "{appearance:?} {contrast:?}");
+            assert_eq!(bar.line_width, None);
+            assert_eq!(bar.line_sides, []);
+            assert_eq!(bar.radius, Some(6.0));
+            assert!(!layer.masksToBounds());
+
+            let mut got: Vec<ShadowFacts> = raised
+                .shadows
+                .iter()
+                .filter_map(|layer| style::layer_shadow(layer))
+                .collect();
+            got.extend(style::ring_shadow(&raised.ring));
+            let geometry: Vec<_> = got
+                .iter()
+                .map(|shadow| (shadow.x, shadow.y, shadow.blur, shadow.spread))
+                .collect();
+            assert_eq!(
+                geometry,
+                [
+                    (0.0, 18.0, 48.0, 0.0),
+                    (0.0, 2.0, 8.0, 0.0),
+                    (0.0, 0.0, 0.0, 1.0)
+                ]
+            );
+            for (shadow, want) in got.iter().zip(shadows.into_iter().chain([ring])) {
+                assert_eq!(
+                    (shadow.color.r, shadow.color.g, shadow.color.b),
+                    (want.r, want.g, want.b)
+                );
+                assert!((shadow.color.a - want.a).abs() < 1e-3, "{shadow:?}");
+            }
+            let frame = raised.ring.frame();
+            assert_eq!(
+                (
+                    frame.origin.x,
+                    frame.origin.y,
+                    frame.size.width,
+                    frame.size.height
+                ),
+                (-1.0, -1.0, 207.0, 28.0)
+            );
+            assert_eq!(raised.ring.cornerRadius(), 7.0);
+        }
+    }
+
+    #[test]
+    fn form_field_keeps_surface_fill_layer_line_and_clipping() {
+        let theme = AppTheme::for_cell(shellio_theme::Cell::ALL[0]);
+        let layer = CALayer::new();
+        paint(&layer, None, TextFieldKind::Field, &theme, false);
+        let idle = crate::style::layer_style(&layer);
+        assert_eq!(idle.line_width, Some(LINE_WIDTH));
+        assert!(idle.shadow.is_empty());
+        assert!(layer.masksToBounds());
+        paint(&layer, None, TextFieldKind::Field, &theme, true);
+        assert_eq!(
+            crate::style::layer_style(&layer).line_width,
+            Some(FOCUS_LINE_WIDTH)
+        );
     }
 
     #[test]

@@ -191,6 +191,26 @@ impl InspectNode {
         self
     }
 
+    /// Тени вида, нарисованные отдельными слоями под ним, по порядку записи `box-shadow`: тени
+    /// слоёв `shadows`, затем кольцо снаружи кадра — линия слоя `ring`. Слой, который ничего не
+    /// рисует, записи не даёт.
+    #[must_use]
+    pub(crate) fn with_shadow_layers(
+        mut self,
+        shadows: &[Retained<CALayer>],
+        ring: &CALayer,
+    ) -> InspectNode {
+        let drawn: Vec<_> = shadows
+            .iter()
+            .filter_map(|layer| style::layer_shadow(layer))
+            .chain(style::ring_shadow(ring))
+            .collect();
+        if !drawn.is_empty() {
+            self.style.get_or_insert_with(Style::default).shadow = drawn;
+        }
+        self
+    }
+
     /// Текст узла рисует вложенное поле `field`: подпись, шрифт, цвет и обрезка — его.
     #[must_use]
     pub(crate) fn with_text_of(mut self, field: &NSTextField) -> InspectNode {

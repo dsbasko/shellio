@@ -71,7 +71,7 @@ fn only_the_demo_list_declares_panel_intents() {
         assert_eq!(
             (manifest.list_keys, manifest.filter),
             (expected, expected),
-            "плагин «{id}»"
+            "плагин «{id}»: признак намерений требует собственного прогона check_intents вида плагина"
         );
     }
 }

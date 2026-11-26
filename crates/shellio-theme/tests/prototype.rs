@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use shellio_theme::{
     Adr0027Column, AppTheme, Appearance, Cell, Contrast, CubicBezier, KeyMode, MONO_FAMILIES,
-    MONO_FONT_FILES, Motion, MotionTokens, Origin, Srgb8, Tint, Value,
+    MONO_FONT_FILES, Motion, MotionTokens, Origin, Shadow, Srgb8, Tint, Value,
 };
 
 const TOKENS_CSS: &str = include_str!("../../../prototype/css/tokens.css");
@@ -223,6 +223,65 @@ fn parse_rgba(text: &str) -> Result<Tint> {
     ))
 }
 
+/// Длина CSS: ноль без единицы или точки в `px`.
+fn parse_length(text: &str) -> Result<f64> {
+    match text.trim() {
+        "0" => Ok(0.0),
+        other => parse_unit(other, "px"),
+    }
+}
+
+/// Части строки по разделителю вне скобок.
+fn split_outside_parens(text: &str, separator: impl Fn(char) -> bool) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0_usize;
+    let mut start = 0;
+    for (at, ch) in text.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ch if depth == 0 && separator(ch) => {
+                parts.push(&text[start..at]);
+                start = at + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(&text[start..]);
+    parts
+        .into_iter()
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect()
+}
+
+/// Тени токена: записи через запятую, у каждой смещения, размытие и цвет `rgba()`.
+fn parse_shadows(text: &str) -> Result<Vec<Shadow>> {
+    split_outside_parens(text, |ch| ch == ',')
+        .into_iter()
+        .map(|entry| {
+            let parts = split_outside_parens(entry, char::is_whitespace);
+            let [x, y, blur, color] = parts.as_slice() else {
+                return Err(format!("тень не из смещений, размытия и цвета: {entry:?}"));
+            };
+            Ok(Shadow {
+                x: parse_length(x)?,
+                y: parse_length(y)?,
+                blur: parse_length(blur)?,
+                tint: parse_rgba(color)?,
+            })
+        })
+        .collect()
+}
+
+fn same_shadow(a: &Shadow, b: &Shadow) -> bool {
+    (a.x - b.x).abs() < EPSILON
+        && (a.y - b.y).abs() < EPSILON
+        && (a.blur - b.blur).abs() < EPSILON
+        && a.tint.color == b.tint.color
+        && (a.tint.alpha - b.tint.alpha).abs() < EPSILON
+}
+
 /// Сравнение значения слота с текстом источника в его форме.
 fn check_value(value: Value, text: &str) -> Result<()> {
     let matches = match value {
@@ -233,6 +292,11 @@ fn check_value(value: Value, text: &str) -> Result<()> {
         }
         Value::Alpha(alpha) => (parse_number(text)? - alpha).abs() < EPSILON,
         Value::Points(points) => (parse_unit(text, "px")? - points).abs() < EPSILON,
+        Value::Shadows(shadows) => {
+            let parsed = parse_shadows(text)?;
+            parsed.len() == shadows.len()
+                && parsed.iter().zip(&shadows).all(|(a, b)| same_shadow(a, b))
+        }
     };
     if matches {
         Ok(())
@@ -629,6 +693,22 @@ fn value_check_reports_mismatch() {
     assert!(check_value(Value::Color(Srgb8::hex(0x1E1D1B)), "#1E1D1B").is_ok());
     assert!(check_value(Value::Color(Srgb8::hex(0x1E1D1B)), "#1E1D1C").is_err());
     assert!(check_value(Value::Points(2.0), "3px").is_err());
+    let shadow = |alpha| Shadow {
+        x: 0.0,
+        y: 18.0,
+        blur: 48.0,
+        tint: Tint::new(Srgb8::new(20, 22, 30), alpha),
+    };
+    let text = "0 18px 48px rgba(20,22,30,.18), 0 18px 48px rgba(20,22,30,.10)";
+    assert!(check_value(Value::Shadows([shadow(0.18), shadow(0.10)]), text).is_ok());
+    assert!(check_value(Value::Shadows([shadow(0.10), shadow(0.18)]), text).is_err());
+    assert!(
+        check_value(
+            Value::Shadows([shadow(0.18), shadow(0.10)]),
+            "0 18px 48px rgba(20,22,30,.18)"
+        )
+        .is_err()
+    );
     assert!(
         check_value(
             Value::Tint(Tint::new(Srgb8::hex(0x43403A), 0.31)),

@@ -2,8 +2,9 @@
 
 use objc2::rc::Retained;
 use objc2_app_kit::NSColor;
+use objc2_foundation::NSSize;
 use objc2_quartz_core::{CALayer, CATransaction};
-use shellio_theme::{Srgb8, Tint};
+use shellio_theme::{Shadow, Srgb8, Tint};
 
 /// Выполняет `change` в транзакции Core Animation с выключенными действиями: смена цвета, кадра
 /// и радиуса слоёв не анимируется. Транзакция фиксируется и при панике внутри `change`.
@@ -59,4 +60,23 @@ pub(crate) fn set_line(layer: &CALayer, line: Option<(Srgb8, f64)>) {
 pub(crate) fn set_radius(layer: &CALayer, radius: f64) {
     layer.setCornerRadius(radius);
     layer.setMasksToBounds(radius > 0.0);
+}
+
+/// Радиус скругления без обрезки: подслои и тень за кадром слоя остаются видны.
+pub(crate) fn set_corner(layer: &CALayer, radius: f64) {
+    layer.setCornerRadius(radius);
+    layer.setMasksToBounds(false);
+}
+
+/// Доля размытия CSS, которую берёт радиус тени Core Animation: `blur` в `box-shadow` — два
+/// стандартных отклонения, радиус тени слоя — одно.
+pub(crate) const SHADOW_BLUR_PER_RADIUS: f64 = 2.0;
+
+/// Тень слоя по записи токена. Доля цвета лежит в цвете тени, непрозрачность тени — единица.
+/// Смещение — в координатах слоя: у слоёв перевёрнутого вида ось Y идёт вниз, как в CSS.
+pub(crate) fn set_shadow(layer: &CALayer, shadow: Shadow) {
+    layer.setShadowColor(Some(&srgb(shadow.tint.color, shadow.tint.alpha).CGColor()));
+    layer.setShadowOpacity(1.0);
+    layer.setShadowOffset(NSSize::new(shadow.x, shadow.y));
+    layer.setShadowRadius(shadow.blur / SHADOW_BLUR_PER_RADIUS);
 }

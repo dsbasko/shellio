@@ -66,6 +66,15 @@ pub struct Focus {
     pub underline: f64,
 }
 
+/// Одна тень токена `--shadow`: смещение и размытие в точках, как их записывает CSS, цвет с долей.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shadow {
+    pub x: f64,
+    pub y: f64,
+    pub blur: f64,
+    pub tint: Tint,
+}
+
 /// Радиусы скругления в точках.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Radii {
@@ -151,6 +160,8 @@ pub struct AppTheme {
     pub cell: Cell,
     pub colors: Colors,
     pub focus: Focus,
+    /// Тени поднятой поверхности по порядку записи токена.
+    pub shadow: [Shadow; 2],
     pub metrics: Metrics,
 }
 
@@ -180,6 +191,8 @@ pub enum Value {
     /// Доля от 0 до 1.
     Alpha(f64),
     Points(f64),
+    /// Тени через запятую по порядку записи.
+    Shadows([Shadow; 2]),
 }
 
 /// Слот темы: имя, источник и значение в ячейке.
@@ -324,6 +337,27 @@ pub const METRICS: Metrics = Metrics {
     },
 };
 
+/// Тени токена `--shadow`: геометрия одна, цвет и доли зависят от темы, от контраста — нет.
+const fn shadows(color: Srgb8, far: f64, near: f64) -> [Shadow; 2] {
+    [
+        Shadow {
+            x: 0.0,
+            y: 18.0,
+            blur: 48.0,
+            tint: Tint::new(color, far),
+        },
+        Shadow {
+            x: 0.0,
+            y: 2.0,
+            blur: 8.0,
+            tint: Tint::new(color, near),
+        },
+    ]
+}
+
+const DARK_SHADOW: [Shadow; 2] = shadows(Srgb8::hex(0x000000), 0.55, 0.4);
+const LIGHT_SHADOW: [Shadow; 2] = shadows(Srgb8::hex(0x14161E), 0.18, 0.10);
+
 const EASING: CubicBezier = CubicBezier {
     x1: 0.2,
     y1: 0.8,
@@ -367,10 +401,15 @@ impl AppTheme {
                 },
             ),
         };
+        let shadow = match cell.appearance {
+            Appearance::Dark => DARK_SHADOW,
+            Appearance::Light => LIGHT_SHADOW,
+        };
         AppTheme {
             cell,
             colors,
             focus,
+            shadow,
             metrics: METRICS,
         }
     }
@@ -407,6 +446,7 @@ impl AppTheme {
             cell: _,
             colors,
             focus,
+            shadow,
             metrics,
         } = *self;
         let Colors {
@@ -540,6 +580,7 @@ impl AppTheme {
             adr("focus.veil", Adr0027Column::Veil, Value::Tint(veil)),
             adr("focus.tone_alpha", Adr0027Column::Tone, Alpha(tone_alpha)),
             css("focus.underline", "--focus-h", Points(underline)),
+            css("shadow", "--shadow", Value::Shadows(shadow)),
             css("metrics.titlebar", "--titlebar", Points(titlebar)),
             css("metrics.tabbar", "--tabbar", Points(tabbar)),
             css("metrics.row", "--row", Points(row)),

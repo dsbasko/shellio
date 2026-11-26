@@ -193,6 +193,45 @@ fn drawn(color: Option<Retained<NSColor>>) -> Option<Rgba> {
         .filter(|color| color.a > 0.0)
 }
 
+/// Тень слоя записью `box-shadow`: доля цвета с непрозрачностью тени, размытие в мере CSS.
+pub(crate) fn layer_shadow(layer: &CALayer) -> Option<ShadowFacts> {
+    let color = drawn(
+        layer
+            .shadowColor()
+            .and_then(|color| NSColor::colorWithCGColor(&color)),
+    )?;
+    let opacity = f64::from(layer.shadowOpacity());
+    if opacity <= 0.0 {
+        return None;
+    }
+    let offset = layer.shadowOffset();
+    Some(ShadowFacts {
+        color: Rgba {
+            a: color.a * opacity,
+            ..color
+        },
+        x: offset.width,
+        y: offset.height,
+        blur: layer.shadowRadius() * crate::layer::SHADOW_BLUR_PER_RADIUS,
+        spread: 0.0,
+        inset: false,
+    })
+}
+
+/// Кольцо снаружи кадра вида, нарисованное линией слоя `ring`, записью `box-shadow`: тень без
+/// смещения и размытия с растяжением на толщину линии.
+pub(crate) fn ring_shadow(ring: &CALayer) -> Option<ShadowFacts> {
+    let line = layer_style(ring);
+    Some(ShadowFacts {
+        color: line.line_color?,
+        x: 0.0,
+        y: 0.0,
+        blur: 0.0,
+        spread: line.line_width?,
+        inset: false,
+    })
+}
+
 /// Свойства слоя: заливка, линия по краю, радиус и тень.
 pub(crate) fn layer_style(layer: &CALayer) -> Style {
     let fill = layer
@@ -200,9 +239,6 @@ pub(crate) fn layer_style(layer: &CALayer) -> Style {
         .and_then(|color| NSColor::colorWithCGColor(&color));
     let line = layer
         .borderColor()
-        .and_then(|color| NSColor::colorWithCGColor(&color));
-    let shadow = layer
-        .shadowColor()
         .and_then(|color| NSColor::colorWithCGColor(&color));
     let mut style = Style {
         fill: drawn(fill),
@@ -218,23 +254,7 @@ pub(crate) fn layer_style(layer: &CALayer) -> Style {
     if radius > 0.0 {
         style.radius = Some(radius);
     }
-    let opacity = f64::from(layer.shadowOpacity());
-    if opacity > 0.0
-        && let Some(shadow) = drawn(shadow)
-    {
-        let offset = layer.shadowOffset();
-        style.shadow.push(ShadowFacts {
-            color: Rgba {
-                a: shadow.a * opacity,
-                ..shadow
-            },
-            x: offset.width,
-            y: offset.height,
-            blur: layer.shadowRadius(),
-            spread: 0.0,
-            inset: false,
-        });
-    }
+    style.shadow.extend(layer_shadow(layer));
     style
 }
 
