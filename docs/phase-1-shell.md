@@ -2,7 +2,7 @@
 
 Обзор фазы: что в ней реализуется, что система даёт по её итогу и что входит в каждый шаг. Состав и порядок шагов задаёт [дорожная карта](roadmap.md), решения — [ADR](adr/README.md), поведение — [ux.md](ux.md), подробности выполненных шагов — планы в [plans/completed/](plans/completed/). Статусы приведены на 2026-11-24, актуальный статус шага — колонка «Готов» дорожной карты.
 
-Фаза в работе. Шаги P1.1–P1.4 выполнены и описаны фактическим итогом. P1.5 исполняется по плану [plans/completed/20261124-plugin-host.md](plans/completed/20261124-plugin-host.md). У P1.6–P1.8 планов ещё нет: их состав собран из дорожной карты, ADR, `ux.md`, прототипа и передач выполненных шагов и уточняется при планировании ([ADR-0036](adr/0036-autonomous-execution.md)).
+Фаза в работе. Шаги P1.1–P1.4 выполнены и описаны фактическим итогом. P1.5 исполняется по плану [plans/completed/20261124-plugin-host.md](plans/completed/20261124-plugin-host.md). P1.6 исполняется двумя планами: [plans/20261126-navigation-keymap.md](plans/20261126-navigation-keymap.md) и [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md). У P1.7 и P1.8 планов ещё нет: их состав собран из дорожной карты, ADR, `ux.md`, прототипа и передач выполненных шагов и уточняется при планировании ([ADR-0036](adr/0036-autonomous-execution.md)).
 
 ## Цель фазы
 
@@ -61,7 +61,7 @@
 
 После P1.4 `shellioctl` умеет: `version`, `status`, `tree`, `workspace new|rename|focus`, `project add`, `workbench new|rename|open`, `events --since|--follow`, `layout get|split|resize|equal|zoom|only|show|hide`, `panel focus|select|move|move-part|close`, `ui window|inspect|stats|appearance`, `window close`, `app quit`. Внешний вызов всегда задаёт область `--workspace <id>` или `--all`.
 
-P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`, P1.7 — команды каталога проектов из [ADR-0025](adr/0025-workspaces-and-project-catalog.md). Вызовы `keymap reload` и `config reload` из списка [ADR-0007](adr/0007-control-api.md) появляются в шагах, которые заводят keymap и настройки.
+P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`, P1.7 — команды каталога проектов из [ADR-0025](adr/0025-workspaces-and-project-catalog.md). P1.6 добавляет `keymap list|reload`, `ui mode|history|list|filter`, `ui appearance cycle`, `layout split --axis`, `layout resize --by`, `layout toggle` и `panel tab`. Вызов `config reload` из списка [ADR-0007](adr/0007-control-api.md) появляется в шаге, который заводит настройки.
 
 ### Что есть в репозитории
 
@@ -597,11 +597,11 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 
 | | |
 | --- | --- |
-| Статус | ⬜ не начат, плана нет |
+| Статус | ⬜ в работе: шаг разделён на два плана, решения записаны в ADR разделами «Уточнено в P1.6 (планирование)», исполняется первый план |
 | Зависит от | P1.5, внеочередной план `prototype-conformance` ([ADR-0037](adr/0037-prototype-conformance.md)): план выполнен |
 | Готово, когда | Клавиатурный сценарий проходит без мыши |
-| Решения | [ADR-0010](adr/0010-input-and-navigation.md), [ADR-0007](adr/0007-control-api.md), [ADR-0018](adr/0018-storage-and-config.md), [ADR-0023](adr/0023-opaque-window-and-shell.md), [ADR-0024](adr/0024-main-screen-design.md), [ADR-0031](adr/0031-zone-splits.md), [ADR-0032](adr/0032-split-and-zoom-buttons.md), [ADR-0002](adr/0002-ui-stack-appkit.md) |
-| План | — |
+| Решения | [ADR-0010](adr/0010-input-and-navigation.md), [ADR-0007](adr/0007-control-api.md), [ADR-0018](adr/0018-storage-and-config.md), [ADR-0008](adr/0008-plugin-system.md), [ADR-0021](adr/0021-testing.md), [ADR-0037](adr/0037-prototype-conformance.md), [ADR-0023](adr/0023-opaque-window-and-shell.md), [ADR-0024](adr/0024-main-screen-design.md), [ADR-0031](adr/0031-zone-splits.md), [ADR-0032](adr/0032-split-and-zoom-buttons.md), [ADR-0002](adr/0002-ui-stack-appkit.md) |
+| План | [plans/20261126-navigation-keymap.md](plans/20261126-navigation-keymap.md), затем [plans/20261126-command-overlays.md](plans/20261126-command-overlays.md) |
 
 ### Зачем этот шаг
 
@@ -609,7 +609,14 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 
 ### Что входит
 
-Состав ниже собран из дорожной карты, ADR и передач. Деление на задачи и точные границы задаёт планирование.
+Состав ниже собран из дорожной карты, ADR и передач. Планирование 2026-11-26 разделило его на два плана по решению владельца ([ADR-0010](adr/0010-input-and-navigation.md), «Уточнено в P1.6 (планирование)»):
+
+| План | Что строит |
+| --- | --- |
+| [`navigation-keymap`](plans/20261126-navigation-keymap.md) | Чистая модель `shellio-keymap`, `keymap.toml` с горячей перезагрузкой и последней исправной версией, `KeyRouter`, режимы `Navigation` и `Input`, аккорд выхода, привязки названных действий P1.3–P1.5, плашка режима, подсказки и набранный префикс в строке статуса, история `Ctrl-o` и `Ctrl-i`, фильтр `/`, отказ деления не той оси, чтение действующей таблицы `query.keymap` и её подписка, шестой сценарий `make e2e` `keyboard.sh` |
+| [`command-overlays`](plans/20261126-command-overlays.md) | Наложения модального слоя: палитра `CommandPalette` по `Cmd-k`, `Space Space` и кнопке «⌘K поиск», подсказка which-key, метки `f` (`HintOverlay`), командная строка `:`, замер бюджета палитры |
+
+Второй план зависит от первого и отмечает строку P1.6 дорожной карты. Каждый план несёт раздел «Сверка с прототипом» ([ADR-0037](adr/0037-prototype-conformance.md)): первый добавляет в реестр состояния `status-mode-nav`, `status-input-field`, `status-wrong-axis`, `status-keymap-error` и `panel-filter` и переснимает перенятые состояния P1.3–P1.5 со строкой статуса.
 
 **Маршрутизатор.** `KeyRouter` управляет клавиатурой на уровне `NSApplication` на главном потоке, чистая модель — в crate `shellio-keymap`: режимы, деревья последовательностей, `keymap.toml` ([ADR-0010](adr/0010-input-and-navigation.md), [architecture.md](architecture.md)). Порядок обработки:
 
@@ -642,7 +649,7 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 | P1.4 | `panel.move_part.next\|prev`, `panel.select` | клавиш в источниках нет: меню панели, палитра, перетаскивание |
 | P1.5 | `panel.open` (id пунктов `panel.open.<plugin>`), `<plugin>.<name>` | — |
 
-Остальные клавиши `Navigation` по умолчанию — `j k gg G Ctrl-d Ctrl-u`, `h l`, `H L`, `1`…`9`, `:`, `/`, `Ctrl-o Ctrl-i` — перечислены в таблице ADR-0010.
+Остальные клавиши `Navigation` по умолчанию — `j k gg G Ctrl-d Ctrl-u`, `h l`, `H L`, `1`…`9`, `:`, `/`, `Ctrl-o Ctrl-i` — перечислены в таблице ADR-0010. Набор, принятый при планировании, с контекстом и именем действия каждой клавиши — таблица «Клавиши по умолчанию» там же, «Уточнено в P1.6 (планирование)».
 
 **Строка статуса и подсказки кнопок.** Строка статуса получает плашку режима и подсказки, построенные из действующего keymap, не больше трёх ([ADR-0023](adr/0023-opaque-window-and-shell.md), [ADR-0024](adr/0024-main-screen-design.md)). Клавиша деления не той оси зону не делит, строка статуса называет нужную: «Правая зона делится одна над другой: `Ctrl-w s`» ([ux.md](ux.md), «Пограничные пути»). Подсказка кнопки называет действие и клавишу из действующего keymap и меняется после переназначения ([ADR-0032](adr/0032-split-and-zoom-buttons.md)).
 
@@ -665,15 +672,22 @@ P1.5 добавляет `panel open|command|get`, `plugin list` и `ui receipts`
 - → из P0.3: семантика аккорда выхода подтверждена на синтетических событиях. Ожидание второго аккорда снимают другая клавиша, смена фокуса, щелчок, открытие наложения. При composition IME `Ctrl-\` уходит в composition ([ADR-0010](adr/0010-input-and-navigation.md), «Уточнено в P0.3»).
 - → из P1.1: TOML, горячая перезагрузка и последняя исправная версия для `keymap.toml` — неподтверждённая часть ADR-0018 ([ADR-0018](adr/0018-storage-and-config.md), «Итог P1.1»).
 
-Открытые вопросы:
+Ответы планирования на открытые вопросы и передачи ([ADR-0010](adr/0010-input-and-navigation.md), [ADR-0007](adr/0007-control-api.md), [ADR-0008](adr/0008-plugin-system.md), «Уточнено в P1.6 (планирование)»):
 
-- Удобство `Ctrl-\` на целевой системе и в nvim не проверено: `not_run`, наблюдает только человек. ADR-0010 остаётся `Proposed` ([probes/p0.3-ghostty-surface.md](probes/p0.3-ghostty-surface.md)).
-- Получатели режима `Input` — терминал, агент и редактор — появляются в P2.2, P2.5 и P3.6. На чём P1.6 проверяет `Input` и аккорд выхода, задаёт план.
-- Дорожная карта называет в составе шага режимы, последовательности, which-key, метки `f` и палитру. Входят ли в него командная строка `:`, фильтр `/`, история переходов `Ctrl-o Ctrl-i` и справка `?`, не записано.
-- Прототип назначает клавиши, которых нет в ADR: `Cmd-j` и `Space z h/j/l` для зон, `Cmd-Alt-t` для темы ([../prototype/js/core/commands.js](../prototype/js/core/commands.js)). Состав keymap по умолчанию задаёт план.
+- **На чём проверяется `Input` и аккорд выхода.** В продукте P1.6 режим `Input` есть только у поля: «Демо: поле» и строка фильтра. Заполнитель `terminal` — панель без поверхности, ввода у неё нет, она остаётся в `Navigation` до P2.2. Аккорд выхода и повтор исходной пары проверяются на компоненте галереи «Приёмник ввода», который вызывает настоящий маршрут и пишет журнал принятых событий (`shellioctl gallery input journal`). Байты PTY и kitty keyboard protocol — P2.2.
+- **Объём шага** (владелец). Фильтр `/` и история `Ctrl-o Ctrl-i` входят в план `navigation-keymap`, командная строка `:` — в план `command-overlays`. Справка `?` — P1.8 вместе с редактором keymap. `:go`, провайдеры единого поиска и `Cmd-1`…`Cmd-9` — P1.7.
+- **Клавиши прототипа** (владелец). `Cmd-j` и `Space z h/j/l` для зон, `Cmd-Alt-t` для цикла оформления и голые `h/j/k/l` как запасной переход фокуса входят в keymap по умолчанию.
+- **Имена keymap пунктов зон меню «Вид».** id пунктов становятся именами `layout.toggle.navigator`, `layout.toggle.bottom` и `layout.toggle.side`. `layout.toggle.side` в момент вызова разрешает цель — плитку левой зоны или правую зону — тем же кодом, что третья кнопка заголовка. `layout.toggle.plate` и `layout.toggle.right` остаются именами без клавиш по умолчанию.
+- **Шаг относительного размера.** `layout.grow`, `layout.shrink`, `layout.wider` и `layout.narrower` меняют размер на 40 точек новой командой ядра `layout.resize_by`. Высота центра переводится в размер нижней зоны, в колонке навигатора меняется только ширина.
+- **Клавиши поверх компонентов.** Движения списка — именованные действия хоста `list.*` в контексте `panel.<plugin>` плагина, который объявил `list_keys`. Стрелки списка и дерева, ввод в поле и `Esc` меню компоненты обрабатывают по-прежнему: необработанное маршрутизатором событие идёт AppKit.
+- **Чтение таблицы для P3.7.** Действующая таблица — чтение `query.keymap` и отдельная подписка `shellioctl keymap list --follow`. Формат TOML от этого не меняется.
+- **Бюджет палитры.** Замер открытия и закрытия в 16 мс — обязательный пункт `palette-latency` плана `command-overlays`. Не уложившийся бюджет оставляет этот план открытым до решения владельца.
+
+Остаётся открытым: удобство `Ctrl-\` на целевой системе и в nvim не проверено. Пункт `exit-chord-hid` — необязательный `not_run`, наблюдает только человек, ADR-0010 остаётся `Proposed` ([probes/p0.3-ghostty-surface.md](probes/p0.3-ghostty-surface.md)). Аккорд выхода настраивается привязкой `mode.navigation` контекста `input`.
 
 ### Границы
 
+- Справка `?` — P1.8. `:go` и провайдеры единого поиска — P1.7.
 - Редактор keymap с записью сочетания и конфликтами, `settings.toml` — P1.8.
 - Имена keymap и UI семи действий P1.1 над воркспейсами, проектами и рабочими областями, в том числе `Cmd-1`…`Cmd-9`, — P1.7 ([ADR-0007](adr/0007-control-api.md), «Уточнено в P1.1»).
 - Поповер, sheet и composer из пяти типов наложений ADR-0023 дорожная карта в состав шага не включает. Composer — P2.7.
@@ -849,11 +863,9 @@ P1.8 зависит только от P1.6 и с P1.7 не связан, поэ�
 | --- | --- | --- |
 | Служебное окно второго запуска: замена окном владельца не удалась | [ADR-0006](adr/0006-single-instance.md), «Уточнено в P1.3» | новый ADR |
 | Навигация на экране 60 Гц и холодный старт без вердикта | [ADR-0002](adr/0002-ui-stack-appkit.md), «Уточнено в P1.3» | P5.4 |
-| Открытие и закрытие палитры в бюджете 16 мс | [ADR-0002](adr/0002-ui-stack-appkit.md), «Уточнено в P0.2» | P1.6 |
-| Удобство аккорда выхода `Ctrl-\` на настоящей клавиатуре | [ADR-0010](adr/0010-input-and-navigation.md), «Уточнено в P0.3» | P1.6, P1.8 |
-| Имена keymap пунктов зон меню «Вид» | [ADR-0007](adr/0007-control-api.md), «Уточнено в P1.4» | P1.6 |
+| Открытие и закрытие палитры в бюджете 16 мс | [ADR-0002](adr/0002-ui-stack-appkit.md), «Уточнено в P0.2» | P1.6, план `command-overlays`, пункт `palette-latency` |
+| Удобство аккорда выхода `Ctrl-\` на настоящей клавиатуре | [ADR-0010](adr/0010-input-and-navigation.md), «Уточнено в P0.3» | владелец, P1.8 |
 | Какой план убирает демонстрационные плагины P1.5 | [plans/completed/20261124-plugin-host.md](plans/completed/20261124-plugin-host.md), «Решения планирования» | не записано |
-| На чём P1.6 проверяет режим `Input` и аккорд выхода до появления терминала | [ADR-0010](adr/0010-input-and-navigation.md) | планирование P1.6 |
 | Контракт регистрации провайдера поиска | [roadmap.md](roadmap.md), строка P1.7 | планирование P1.7 |
 | Клонирование по URL в P1.7 требует `git`, а runner появляется в P3.1 | [ADR-0025](adr/0025-workspaces-and-project-catalog.md), «Операции» | планирование P1.7 |
 | Чем оформляется экран настроек: плагина настроек нет в списках ADR-0008 и архитектуры | [ADR-0008](adr/0008-plugin-system.md), [architecture.md](architecture.md) | планирование P1.8 |
