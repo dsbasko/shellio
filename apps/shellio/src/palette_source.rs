@@ -148,28 +148,33 @@ pub fn source(facts: &Facts<'_>) -> PaletteSource {
     let hidden = bench.map(|bench| bench.layout.hidden).unwrap_or_default();
     let nav = facts.mode == Mode::Navigation;
     let mut pinned = vec![
-        usual(
-            candidate(
-                "mode.toggle",
-                if nav {
-                    "Режим «Ввод»"
-                } else {
-                    "Режим «Навигация»"
-                }
-                .to_owned(),
-                format!(
-                    "клавиши {}",
+        Candidate {
+            // В `Input` клавиша режима привязана к `mode.navigation`, а не к `mode.toggle`
+            // (прототип `S.modeKey()` от режима не зависит).
+            key_action: (!nav).then(|| "mode.navigation".to_owned()),
+            ..usual(
+                candidate(
+                    "mode.toggle",
                     if nav {
-                        "идут в терминал"
+                        "Режим «Ввод»"
                     } else {
-                        "управляют окном"
+                        "Режим «Навигация»"
                     }
+                    .to_owned(),
+                    format!(
+                        "клавиши {}",
+                        if nav {
+                            "идут в терминал"
+                        } else {
+                            "управляют окном"
+                        }
+                    ),
+                    "mode.toggle",
+                    Args::None,
                 ),
-                "mode.toggle",
-                Args::None,
-            ),
-            "Ctrl-\\",
-        ),
+                "Ctrl-\\",
+            )
+        },
         Candidate {
             key_action: Some("ui.appearance.cycle".to_owned()),
             ..usual(
@@ -364,6 +369,20 @@ mod tests {
         assert_eq!(titles(&dark.pinned), ["Режим «Навигация»", "Светлая тема"]);
         assert_eq!(dark.pinned[0].detail, "клавиши управляют окном");
         assert_eq!(dark.pinned[1].action, "ui.appearance.light");
+        assert_eq!(light.pinned[0].key_action, None);
+        assert_eq!(
+            dark.pinned[0].key_action.as_deref(),
+            Some("mode.navigation")
+        );
+        let keymap = Keymap::defaults(&[]).unwrap();
+        let key = |source: &PaletteSource| {
+            shellio_keymap::Palette::new(source, &keymap, "", shellio_keymap::Category::All).rows()
+                [0]
+            .keys
+            .clone()
+        };
+        assert_eq!(key(&light).as_deref(), Some("Ctrl-\\"));
+        assert_eq!(key(&dark).as_deref(), Some("Ctrl-\\"));
         assert_eq!(dark.contexts, Keymap::contexts(Mode::Input, None));
     }
 
