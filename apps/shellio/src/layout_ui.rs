@@ -695,6 +695,15 @@ impl LayoutUi {
         }
         self.scene = Some(next);
         self.visible = visible;
+        if let (Some(picker), Some(panel)) = (&self.picker, self.picker_panel.get())
+            && !scene::picker_stays(
+                self.scene.as_ref().and_then(|scene| scene.bench.as_ref()),
+                panel,
+            )
+        {
+            picker.close();
+            self.picker_panel.set(None);
+        }
         // Строка фильтра уходит вместе с контейнером своей панели.
         self.filters
             .retain(|panel, _| self.views.contains_key(panel));

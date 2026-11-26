@@ -1280,6 +1280,15 @@ pub fn picker_target(command: &Command, error: &CoreError) -> Option<PanelId> {
     }
 }
 
+/// Остаётся ли открытым выбор «Открыть в новой части» панели `panel`: её вид стоит в плитке
+/// показанной рабочей области. Другая область, закрытая область и ушедшая панель выбор закрывают:
+/// меню без своей плитки забирало бы клавиши у видимого.
+pub fn picker_stays(bench: Option<&Bench>, panel: PanelId) -> bool {
+    bench
+        .and_then(|bench| bench.views.get(&panel))
+        .is_some_and(|slot| matches!(slot.host, Host::Part(_) | Host::Zoom))
+}
+
 /// Выбран пункт `plugin` выбора: `layout.split` той же панели с `open`.
 pub fn open_command(panel: PanelId, plugin: &str) -> Command {
     Command::LayoutSplit {
@@ -2637,6 +2646,55 @@ pub(crate) mod tests {
             picker_title("Заметки", SplitOpen::ZoneNotAllowed),
             ("Заметки (не для этой зоны)".to_owned(), false)
         );
+    }
+
+    #[test]
+    fn picker_stays_only_with_its_panel_in_a_plate_of_the_shown_workbench() {
+        let mut fixture = fixture();
+        let scene = Scene::of(&fixture.state, &registry(), SMALL, layout_metrics());
+        assert!(picker_stays(scene.bench.as_ref(), fixture.terminal));
+        assert!(!picker_stays(scene.bench.as_ref(), fixture.navigator));
+        assert!(!picker_stays(None, fixture.terminal));
+
+        let other: WorkbenchId = id(4);
+        let navigator: PanelId = id(20);
+        let terminal: PanelId = id(21);
+        fixture.state.workbenches.insert(
+            other,
+            Workbench {
+                id: other,
+                project: id(2),
+                title: Title::new("other").unwrap(),
+                position: 1,
+            },
+        );
+        for (panel, plugin, title) in [
+            (navigator, NAVIGATOR_PLUGIN, "Навигатор"),
+            (terminal, TERMINAL_PLUGIN, "Терминал"),
+        ] {
+            fixture.state.panels.insert(
+                panel,
+                Panel {
+                    id: panel,
+                    workbench: other,
+                    plugin: PluginId::new(plugin).unwrap(),
+                    title: Title::new(title).unwrap(),
+                    created_at: UnixMillis(0),
+                },
+            );
+        }
+        fixture
+            .state
+            .layouts
+            .insert(other, Layout::default_for(navigator, terminal));
+        fixture.state.window.route = Route::Workbench(other);
+        let scene = Scene::of(&fixture.state, &registry(), SMALL, layout_metrics());
+        assert_eq!(
+            scene.bench.as_ref().map(|bench| bench.workbench),
+            Some(other)
+        );
+        assert!(picker_stays(scene.bench.as_ref(), terminal));
+        assert!(!picker_stays(scene.bench.as_ref(), fixture.terminal));
     }
 
     /// Строка вкладок по ADR-0032 в фикстурах боковой зоны 372 с двумя вкладками, центра около
