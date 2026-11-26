@@ -190,13 +190,20 @@ struct ContentSize {
 }
 
 impl Node {
-    /// Текст, который показывает узел. У текста строки фильтра это значение поля, а без него —
-    /// плейсхолдер: так же паспорт читает `<input>`. У остальных узлов — подпись.
+    /// Текст, который показывает узел. У поля ввода (строки фильтра, строки поиска палитры) это
+    /// значение поля, а без него — плейсхолдер: так же паспорт читает `<input>`. У остальных
+    /// узлов — подпись. Текст строки фильтра без состояния поля не читается: её подпись — имя для
+    /// доступности.
     fn shown_text(&self) -> Option<&str> {
-        if self.class != FILTER_INPUT {
-            return self.label.as_deref();
-        }
-        let field = self.state.as_ref()?.text_field.as_ref()?;
+        let Some(field) = self
+            .state
+            .as_ref()
+            .and_then(|state| state.text_field.as_ref())
+        else {
+            return (self.class != FILTER_INPUT)
+                .then_some(self.label.as_deref())
+                .flatten();
+        };
         Some(if field.value.is_empty() {
             &field.placeholder
         } else {

@@ -370,6 +370,44 @@ fn filter_row_text_is_read_from_the_field_state_in_every_cell() {
 }
 
 #[test]
+fn palette_query_text_is_read_from_the_field_state_not_the_accessibility_label() {
+    let placeholder = "Сессия, команда или действие…";
+    for cell in CELLS {
+        let passport = passport("palette-tab-narrowed", cell);
+        let query = |value: &str| {
+            let mut tree = mirror(&passport);
+            let field = node(&mut tree, "palette.query");
+            field["class"] = json!("TextField");
+            field["label"] = json!(placeholder);
+            field["state"] = json!({"text_field": {
+                "value": value,
+                "placeholder": placeholder,
+                "editable": true,
+                "editing": true,
+            }});
+            run("palette-tab-narrowed", &passport, &tree)
+        };
+        let shown = query("скрыть");
+        assert!(
+            !fields(&shown, "palette.query").contains(&Field::Text),
+            "значение поля, {cell}: {shown:?}"
+        );
+        // Зеркало палитры судится без окна под ней, поэтому расхождение ищется среди прочих.
+        let other = query("");
+        let mismatch = other
+            .mismatches
+            .iter()
+            .find(|m| m.ck == "palette.query" && m.field == Field::Text)
+            .unwrap_or_else(|| panic!("нет расхождения текста, {cell}: {other:?}"));
+        assert_eq!(
+            (mismatch.expected.as_str(), mismatch.actual.as_str()),
+            ("скрыть", placeholder),
+            "{cell}"
+        );
+    }
+}
+
+#[test]
 fn filter_row_text_without_field_state_is_a_text_mismatch() {
     let passport = passport("panel-filter", CELLS[0]);
     let mut tree = filter_mirror(&passport, "альфа", "Фильтр");

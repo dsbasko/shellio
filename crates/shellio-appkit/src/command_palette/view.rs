@@ -60,6 +60,8 @@ const GROUP_SPACING: f64 = 0.06;
 const SELECTION_RADIUS: f64 = 6.0;
 /// Поле сообщения пустой выдачи (`.pal-empty { padding: 18px }`).
 const EMPTY_PAD: f64 = 18.0;
+/// Строка сообщения пустой выдачи: коробка без полей. Набор стоит по её середине, как в CSS.
+const EMPTY_LINE: f64 = geometry::EMPTY - 2.0 * EMPTY_PAD;
 /// Идентификаторы переиспользования видов строки и заголовка.
 const ROW_VIEW: &str = "shellio.palette.row";
 const HEADER_VIEW: &str = "shellio.palette.header";
@@ -999,6 +1001,7 @@ impl CommandPalette {
                 .setFrame(within(frames.query, frames.header).rect());
             let escape = within(frames.escape, frames.header);
             self.escape.place(escape.x, escape.y);
+            self.list.keep_overlay_scroller();
             self.list.ns_view().setFrame(local(frames.list).rect());
             match frames.empty {
                 Some(frame) => {
@@ -1009,7 +1012,7 @@ impl CommandPalette {
                         &self.empty,
                         Frame::new(
                             frame.x + EMPTY_PAD,
-                            frame.y + EMPTY_PAD,
+                            frame.y + EMPTY_PAD + ((EMPTY_LINE - natural.height) / 2.0).max(0.0),
                             (frame.width - 2.0 * EMPTY_PAD).max(0.0),
                             natural.height,
                         ),
@@ -1177,6 +1180,9 @@ impl CommandPalette {
                 );
                 empty.facts.frame =
                     inspect::frame_of(self.plate.convertRect_toView(local.rect(), None));
+                // Однострочная подпись в коробке выше двух строк: межстрочный интервал кадр узла
+                // уже не несёт.
+                empty.style.get_or_insert_with(Default::default).line_height = Some(EMPTY_LINE);
             }
             nodes.push(empty);
         }

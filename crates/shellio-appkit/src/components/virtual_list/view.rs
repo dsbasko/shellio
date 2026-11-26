@@ -574,6 +574,17 @@ impl VirtualList {
         });
     }
 
+    /// Возвращает накладную полосу прокрутки списку с полями. AppKit ставит области прокрутки
+    /// стиль полосы из настройки системы, когда та его пересчитывает (в режиме «автоматически» —
+    /// при подключённой мыши постоянный), поэтому стиль из [`Self::set_insets`] держится не дольше
+    /// следующего пересчёта: вызывающий возвращает его перед каждой раскладкой списка.
+    pub(crate) fn keep_overlay_scroller(&self) {
+        let scroll = self.view.view();
+        if scroll.scrollerStyle() != NSScrollerStyle::Overlay {
+            scroll.setScrollerStyle(NSScrollerStyle::Overlay);
+        }
+    }
+
     /// Список и его видимые строки для `ui.inspect`: список (`<id>`) с ролью и именем таблицы и
     /// кадром видимой части, строки (`<id>.row.<id строки>`) с выбором и текстом.
     pub fn inspect(&self, id: &str, parent: Option<&str>) -> Vec<InspectNode> {

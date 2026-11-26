@@ -504,6 +504,12 @@ impl TextField {
             let label = node.facts.label.take();
             node = node.with_text_of(field);
             node.facts.label = label;
+            // Пустое поле показывает плейсхолдер тем же шрифтом: шрифт строки поиска есть и без
+            // запроса, как у `<input>` паспорта.
+            let style = node.style.get_or_insert_with(Default::default);
+            if style.font.is_none() {
+                style.font = field.font().as_deref().map(crate::style::font_facts);
+            }
         }
         nodes.push(node);
         nodes
