@@ -17,6 +17,7 @@ pub mod key_router;
 pub mod keymap_service;
 pub mod launch;
 pub mod owner;
+pub mod palette_source;
 pub mod plugins;
 pub mod receipts;
 pub mod scene;

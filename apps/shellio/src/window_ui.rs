@@ -30,6 +30,7 @@ use shellio::key_router::{Action, Decision, Focus, KeyRouter, Modal, PanelFocus,
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::WindowMode;
 use shellio::owner;
+use shellio::palette_source::{self, Facts};
 use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
@@ -49,17 +50,19 @@ use shellio_control::{
     HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
     InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView,
     MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
-    OverlayViewKind, PaletteCategory, PaletteStateView, PanelMode, ReceiptSource, Rect,
-    RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView,
-    TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView,
-    UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
+    OverlayViewKind, PaletteCategory, PaletteGroupView, PaletteRowView, PaletteStateView,
+    PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView,
+    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
+    TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView,
+    WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
     MirrorStep, ModeAction, OverlayKind, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_keymap::{
-    Cancel, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints,
+    Cancel, Category, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, Palette,
+    PaletteRow, StatusText, status_hints,
 };
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -110,8 +113,7 @@ thread_local! {
 #[derive(Debug, Default)]
 struct OverlayState {
     kind: Option<OverlayKind>,
-    query: String,
-    category: Option<PaletteCategory>,
+    palette: Option<Palette>,
     typed: String,
     text: String,
 }
@@ -120,7 +122,6 @@ impl OverlayState {
     fn fresh(kind: OverlayKind) -> Self {
         Self {
             kind: Some(kind),
-            category: Some(PaletteCategory::All),
             ..Self::default()
         }
     }
@@ -1797,7 +1798,7 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             Verdict::Swallow
         }
         Some(Decision::Overlay { kind, chord }) => {
-            defer(move |_| on_overlay_key(kind, chord));
+            defer(move |app| on_overlay_key(app, kind, chord));
             Verdict::Swallow
         }
         Some(Decision::Close(modal)) => {
@@ -1852,6 +1853,12 @@ fn run_key(app: &App, action: Action) {
 /// Действие keymap по имени: клавиша, палитра и строка `:`. `source` — источник записи кольца
 /// квитанций; без него, как у CLI, записи нет.
 fn run_action(app: &App, action: Action, source: Option<ReceiptSource>) {
+    run_action_with(app, action, source, source == Some(ReceiptSource::Key));
+}
+
+/// [`run_action`] с явным признаком решения маршрутизатора: `routed` — режим `mode.*` уже сменило
+/// решение о клавише. Строка палитры выполняется клавишей `Enter`, но режим меняет обработчик.
+fn run_action_with(app: &App, action: Action, source: Option<ReceiptSource>, routed: bool) {
     let name = action.name.as_str();
     let not_applicable = || {
         note_receipt(
@@ -1872,7 +1879,7 @@ fn run_action(app: &App, action: Action, source: Option<ReceiptSource>) {
         None => return refused(&format!("«{name}» не выполнено: такого действия нет")),
     };
     match path {
-        KeyAction::Ui(UiCommand::Mode(mode)) if source == Some(ReceiptSource::Key) => {
+        KeyAction::Ui(UiCommand::Mode(mode)) if routed => {
             on_mode_key(mode);
         }
         KeyAction::Ui(command) => handle(app, command, source),
@@ -2757,14 +2764,16 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
             handle(app, command, None);
             OVERLAY.with(|state| {
                 let mut state = state.borrow_mut();
-                if state.kind == Some(OverlayKind::Palette) {
+                if state.kind == Some(OverlayKind::Palette)
+                    && let Some(palette) = state.palette.as_mut()
+                {
                     if let Some(query) = query {
-                        state.query = query;
+                        palette.set_query(&query);
                     }
-                    if category.is_some() {
-                        state.category = category;
+                    if let Some(category) = category {
+                        palette.set_category(model_category(category));
                     }
-                    let typed = !state.query.is_empty();
+                    let typed = !palette.query().is_empty();
                     with_router(|router| router.set_typed(typed));
                 }
             });
@@ -2844,12 +2853,20 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
     if open != Some(kind) {
         return note_receipt(tag, Ending::NotApplicable);
     }
-    OVERLAY.with(|state| {
-        let mut state = state.borrow_mut();
-        if state.kind != Some(kind) {
+    let fresh = OVERLAY.with(|state| state.borrow().kind != Some(kind));
+    if fresh {
+        let palette = match kind {
+            OverlayKind::Palette => {
+                modal_source().and_then(|(panel, mode)| new_palette(panel, mode))
+            }
+            OverlayKind::Hints | OverlayKind::Cmdline => None,
+        };
+        OVERLAY.with(|state| {
+            let mut state = state.borrow_mut();
             *state = OverlayState::fresh(kind);
-        }
-    });
+            state.palette = palette;
+        });
+    }
     with_window(|owner| {
         owner.show_hints();
         owner.bump();
@@ -2899,27 +2916,22 @@ fn dismiss_overlay() {
 
 /// Клавиша управления открытым наложением. `Tab` и `Shift-Tab` перебирают категории палитры.
 /// Набор меток без совпадений закрывает их без действия: целей меток до их вида нет.
-fn on_overlay_key(kind: OverlayKind, chord: Chord) {
+fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
     let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
     if open != Some(kind) {
         return;
     }
-    let tab = Chord::parse("Tab").ok();
-    let back = Chord::parse("Shift-Tab").ok();
     match kind {
-        OverlayKind::Palette => OVERLAY.with(|state| {
-            let mut state = state.borrow_mut();
-            let order = PaletteCategory::ALL;
-            let at = state
-                .category
-                .and_then(|category| order.iter().position(|known| *known == category))
-                .unwrap_or(0);
-            if Some(chord) == tab {
-                state.category = Some(order[(at + 1) % order.len()]);
-            } else if Some(chord) == back {
-                state.category = Some(order[(at + order.len() - 1) % order.len()]);
+        OverlayKind::Palette => {
+            let chosen = OVERLAY.with(|state| {
+                let mut state = state.borrow_mut();
+                let palette = state.palette.as_mut()?;
+                palette_key(palette, chord)
+            });
+            if let Some(row) = chosen {
+                return run_palette_row(app, row);
             }
-        }),
+        }
         OverlayKind::Hints => {
             if chord.types_text() {
                 close_overlay(OverlayKind::Hints);
@@ -2953,13 +2965,8 @@ fn overlay_view() -> Option<OverlayView> {
                 mode: wire_panel_mode(modal.source.mode),
                 field: modal.source.field,
             }),
-            palette: (kind == Some(OverlayKind::Palette)).then(|| PaletteStateView {
-                query: state.query.clone(),
-                category: state.category.unwrap_or(PaletteCategory::All),
-                groups: Vec::new(),
-                selected: None,
-                matched: 0,
-            }),
+            palette: (kind == Some(OverlayKind::Palette))
+                .then(|| palette_view(state.palette.as_ref())),
             hints: (kind == Some(OverlayKind::Hints)).then(|| HintsStateView {
                 typed: state.typed.clone(),
                 labels: Vec::new(),
@@ -2972,11 +2979,148 @@ fn overlay_view() -> Option<OverlayView> {
     }))
 }
 
+/// Панель и режим источника открытого наложения.
+fn modal_source() -> Option<(Option<PanelId>, Mode)> {
+    with_router(|router| {
+        router.modal().map(|modal| {
+            let panel = match modal.source.receiver {
+                Some(ModeReceiver::Panel(panel)) => Some(panel),
+                Some(ModeReceiver::GalleryInput(_)) | None => None,
+            };
+            (panel, modal.source.mode)
+        })
+    })
+    .flatten()
+}
+
+/// Палитра из сцены, реестра и действующей таблицы для панели-источника `panel` в режиме `mode`.
+fn new_palette(panel: Option<PanelId>, mode: Mode) -> Option<Palette> {
+    let registry = plugins::shared_registry().ok()?;
+    let source = with_window(|owner| {
+        let dark = matches!(
+            owner.window.selection().cell.cell.appearance,
+            Appearance::Dark
+        );
+        let scene = owner.layout.as_ref().and_then(LayoutUi::scene);
+        palette_source::source(&Facts {
+            scene,
+            registry: &registry,
+            panel,
+            mode,
+            dark,
+        })
+    })?;
+    KEYMAP.with(|slot| {
+        let slot = slot.borrow();
+        let keymap = &slot.as_ref()?.keymap;
+        Some(Palette::new(&source, keymap, "", Category::All))
+    })
+}
+
+fn model_category(category: PaletteCategory) -> Category {
+    match category {
+        PaletteCategory::All => Category::All,
+        PaletteCategory::Commands => Category::Commands,
+        PaletteCategory::Panels => Category::Panels,
+    }
+}
+
+fn wire_category(category: Category) -> PaletteCategory {
+    match category {
+        Category::All => PaletteCategory::All,
+        Category::Commands => PaletteCategory::Commands,
+        Category::Panels => PaletteCategory::Panels,
+    }
+}
+
+/// Клавиша управления палитрой: категории, выбор и выполнение. Возвращает строку для выполнения;
+/// `Enter` без строк ничего не выполняет, палитра остаётся открытой.
+fn palette_key(palette: &mut Palette, chord: Chord) -> Option<PaletteRow> {
+    let is = |names: &[&str]| {
+        names
+            .iter()
+            .any(|name| Chord::parse(name).ok() == Some(chord))
+    };
+    if is(&["Tab"]) {
+        palette.next_category();
+    } else if is(&["Shift-Tab"]) {
+        palette.prev_category();
+    } else if is(&["Down", "Ctrl-n", "Ctrl-j"]) {
+        palette.select_next();
+    } else if is(&["Up", "Ctrl-p", "Ctrl-k"]) {
+        palette.select_prev();
+    } else if is(&["Enter"]) {
+        return palette.selected_row().cloned();
+    }
+    None
+}
+
+/// Выполнение строки палитры по правилу «Выполнение»: палитра закрывается, источнику
+/// возвращаются фокус и режим, затем действие идёт тем же обработчиком, что клавиша, с одной
+/// записью кольца квитанций.
+fn run_palette_row(app: &App, row: PaletteRow) {
+    if let Some(modal) = with_router(KeyRouter::close).flatten() {
+        restore_source(modal);
+    }
+    let action = Action {
+        name: row.action,
+        args: row.args,
+    };
+    run_action_with(app, action, Some(ReceiptSource::Key), false);
+}
+
+/// Состав палитры для `ui.overlay`.
+fn palette_view(palette: Option<&Palette>) -> PaletteStateView {
+    let Some(palette) = palette else {
+        return PaletteStateView {
+            query: String::new(),
+            category: PaletteCategory::All,
+            groups: Vec::new(),
+            selected: None,
+            matched: 0,
+        };
+    };
+    let view = palette.view();
+    PaletteStateView {
+        query: palette.query().to_owned(),
+        category: wire_category(palette.category()),
+        groups: view
+            .groups
+            .iter()
+            .map(|group| PaletteGroupView {
+                title: group.group.title().to_owned(),
+                rows: group
+                    .rows
+                    .iter()
+                    .filter_map(|&index| palette.rows().get(index))
+                    .map(|row| PaletteRowView {
+                        id: row.id.clone(),
+                        title: row.title.clone(),
+                        detail: row.detail.clone(),
+                        key: row.keys.clone(),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        selected: palette.selected_row().map(|row| row.id.clone()),
+        matched: view.matched,
+    }
+}
+
 /// `cmdline.run`: текст строки `:` по грамматике. Открытая строка закрывается до действия,
 /// источник не восстанавливается; действие идёт обработчиком клавиши без записи кольца.
 /// Неизвестная команда называется в строке статуса.
 fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
-    let resolved = shellio_keymap::resolve_cmdline(&text, &[]);
+    let source = modal_source().unwrap_or_else(|| {
+        let panel = KEY_PANEL.with(|slot| match slot.borrow().as_ref()?.receiver {
+            ModeReceiver::Panel(panel) => Some(panel),
+            ModeReceiver::GalleryInput(_) => None,
+        });
+        (panel, Mode::Navigation)
+    });
+    let palette = new_palette(source.0, source.1);
+    let rows = palette.as_ref().map_or(&[][..], Palette::rows);
+    let resolved = shellio_keymap::resolve_cmdline(&text, rows);
     let mut view = CmdlineRunView {
         pid: std::process::id(),
         text: text.clone(),
