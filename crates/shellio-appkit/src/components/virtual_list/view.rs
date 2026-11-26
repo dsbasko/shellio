@@ -20,12 +20,12 @@ use std::rc::Rc;
 
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
+use objc2::runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSAccessibility, NSColor, NSControl, NSControlTextEditingDelegate, NSEvent, NSFocusRingType,
-    NSFont, NSFontWeightRegular, NSLineBreakMode, NSResponder, NSScrollView, NSTableCellView,
-    NSTableColumn, NSTableColumnResizingOptions, NSTableRowView, NSTableView,
+    NSAccessibility, NSBezierPath, NSColor, NSControl, NSControlTextEditingDelegate, NSEvent,
+    NSFocusRingType, NSFont, NSFontWeightRegular, NSLineBreakMode, NSResponder, NSScrollView,
+    NSTableCellView, NSTableColumn, NSTableColumnResizingOptions, NSTableRowView, NSTableView,
     NSTableViewAnimationOptions, NSTableViewDataSource, NSTableViewDelegate,
     NSTableViewGridLineStyle, NSTableViewSelectionHighlightStyle, NSTableViewStyle, NSTextField,
     NSUserInterfaceItemIdentification, NSView,
@@ -38,7 +38,8 @@ use objc2_quartz_core::CADisplayLink;
 use shellio_theme::AppTheme;
 
 use super::model::{
-    self, KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, RowDiff,
+    self, KeyPress, ListError, ListIntent, ListKey, ListOp, ListState, PressLog, Row, RowDiff,
+    RowKind, RowOffsets,
 };
 use crate::app::App;
 use crate::counters::{Live, counter};
@@ -91,11 +92,33 @@ pub struct VirtualListFacts {
     pub visible: Vec<ListRowFacts>,
 }
 
+/// Поставщик вида строки: список с ним показывает в строке свой вид вместо текстовой ячейки,
+/// а заголовки групп получают свою высоту. Вид строки переиспользуется таблицей по
+/// идентификатору, содержимое ему задаёт [`RowViews::show`].
+pub(crate) trait RowViews {
+    /// Высоты выбираемой строки и заголовка группы.
+    fn heights(&self) -> (f64, f64);
+    /// Идентификатор переиспользования вида строки: его ставит новому виду список.
+    fn identifier(&self, row: &Row) -> &'static str;
+    /// Новый вид строки.
+    fn make(&self, mtm: MainThreadMarker, row: &Row) -> Retained<NSView>;
+    /// Показать строку в виде из очереди или новом. Список зовёт его снова при смене выбора и
+    /// темы: цвета выбранной строки другие.
+    fn show(&self, view: &NSView, row: &Row, selected: bool, theme: &AppTheme);
+    /// Рамка и радиус заливки выбора в границах вида строки.
+    fn selection(&self, bounds: NSRect) -> (NSRect, f64);
+}
+
+/// Вид ячейки поставщика и номер его строки.
+type ShownCell = (Retained<NSView>, usize);
+
 /// Rust-часть списка. Виды и источник читают её через слабую ссылку.
 struct ListModel {
     id: ComponentId,
     /// Общие цвета: виды строк и ячеек читают их при отрисовке и выдаче.
     theme: Cell<AppTheme>,
+    /// Поставщик вида строки; `None` — текстовые ячейки одной высоты.
+    views: Option<Rc<dyn RowViews>>,
     /// Растёт со сменой ячейки: вид строки с прежней эпохой перерисовывается при выдаче.
     epoch: Cell<u64>,
     /// Показанное состояние; `None` — таблица ещё не наполнялась.
@@ -159,6 +182,49 @@ impl ListModel {
             .map(|row| row.id.clone())
     }
 
+    fn row(&self, index: usize) -> Option<Row> {
+        self.shown
+            .borrow()
+            .as_ref()
+            .and_then(|state| state.rows.get(index))
+            .cloned()
+    }
+
+    /// Края строк списка с поставщиком вида: у такого списка строки разной высоты.
+    fn offsets(&self) -> Option<RowOffsets> {
+        let (item, header) = self.views.as_ref()?.heights();
+        let shown = self.shown.borrow();
+        let rows = shown.as_ref().map_or(&[][..], |state| &state.rows[..]);
+        Some(RowOffsets::new(rows, item, header))
+    }
+
+    /// Показать строку `index` в виде `view` через поставщика.
+    fn show_cell(&self, views: &dyn RowViews, view: &NSView, index: usize) {
+        let shown = self.shown.borrow();
+        let Some(state) = shown.as_ref() else {
+            return;
+        };
+        let Some(row) = state.rows.get(index) else {
+            return;
+        };
+        let selected = state.selected.as_deref() == Some(row.id.as_str());
+        views.show(view, row, selected, &self.theme.get());
+    }
+
+    fn row_height(&self, index: usize) -> Option<f64> {
+        let (item, header) = self.views.as_ref()?.heights();
+        let kind = self
+            .shown
+            .borrow()
+            .as_ref()
+            .and_then(|state| state.rows.get(index))
+            .map(|row| row.kind)?;
+        Some(match kind {
+            RowKind::Item => item,
+            RowKind::Header => header,
+        })
+    }
+
     fn key(&self, key: ListKey, stamp: &Stamp) {
         let intent = self
             .shown
@@ -209,11 +275,37 @@ impl VirtualList {
         state: ListState,
         on_intent: impl Fn(ListIntent) + 'static,
     ) -> Result<VirtualList, ListError> {
+        VirtualList::build(app, theme, state, None, on_intent)
+    }
+
+    /// Список, строки которого показывает поставщик вида `views`.
+    #[expect(
+        dead_code,
+        reason = "поставщика подключает CommandPalette в срезе 3b-2"
+    )]
+    pub(crate) fn with_row_views(
+        app: &App,
+        theme: &AppTheme,
+        state: ListState,
+        views: Rc<dyn RowViews>,
+        on_intent: impl Fn(ListIntent) + 'static,
+    ) -> Result<VirtualList, ListError> {
+        VirtualList::build(app, theme, state, Some(views), on_intent)
+    }
+
+    fn build(
+        app: &App,
+        theme: &AppTheme,
+        state: ListState,
+        views: Option<Rc<dyn RowViews>>,
+        on_intent: impl Fn(ListIntent) + 'static,
+    ) -> Result<VirtualList, ListError> {
         model::check(&state)?;
         let mtm = app.mtm();
         let model = ListModel {
             id: ComponentId::next(),
             theme: Cell::new(*theme),
+            views,
             epoch: Cell::new(0),
             shown: RefCell::new(None),
             row_views: Cell::new(0),
@@ -289,7 +381,7 @@ impl VirtualList {
                     table.setAccessibilityLabel(Some(&NSString::from_str(&label)));
                 }
                 ListOp::Fill => table.reloadData(),
-                ListOp::Rows(diff) => apply_rows(table, &diff),
+                ListOp::Rows(diff) => apply_rows(table, &diff, model.views.is_some()),
                 ListOp::Select(index) => {
                     let selected = model
                         .shown
@@ -307,6 +399,7 @@ impl VirtualList {
                     if let Some(index) = index {
                         self.reveal(index);
                     }
+                    self.reshow_rows();
                     model
                         .presses
                         .borrow_mut()
@@ -378,6 +471,32 @@ impl VirtualList {
             repaint_row(row, &theme, epoch);
         });
         self.table.enumerateAvailableRowViewsUsingBlock(&block);
+        self.reshow_rows();
+    }
+
+    /// Строки поставщика вида в видимых и подготовленных видах показываются заново: сменились
+    /// выбор или тема.
+    fn reshow_rows(&self) {
+        let model = self.view.rust();
+        let Some(views) = model.views.clone() else {
+            return;
+        };
+        let found: Rc<RefCell<Vec<ShownCell>>> = Rc::default();
+        let sink = Rc::clone(&found);
+        let block = RcBlock::new(move |row: NonNull<NSTableRowView>, index: NSInteger| {
+            // SAFETY: AppKit передаёт живой вид строки на время вызова блока.
+            let row = unsafe { row.as_ref() };
+            let view = row
+                .viewAtColumn(0)
+                .and_then(|view| view.downcast::<NSView>().ok());
+            if let (Some(view), Ok(index)) = (view, usize::try_from(index)) {
+                sink.borrow_mut().push((view, index));
+            }
+        });
+        self.table.enumerateAvailableRowViewsUsingBlock(&block);
+        for (view, index) in found.take() {
+            model.show_cell(&*views, &view, index);
+        }
     }
 
     /// Отдаёт таблице клавиатурный фокус: Up и Down меняют выбор.
@@ -407,7 +526,13 @@ impl VirtualList {
         let row = self.table.rowHeight();
         let clip = self.view.view().contentView();
         let visible = clip.bounds().size.height;
-        let offset = model::scroll_to(index, row, visible, self.view.rust().rows_len());
+        let offset = match self.view.rust().offsets() {
+            Some(offsets) => {
+                let max = (offsets.total() - visible).max(0.0);
+                offsets.top(index).clamp(0.0, max)
+            }
+            None => model::scroll_to(index, row, visible, self.view.rust().rows_len()),
+        };
         self.scroll_clip(offset);
     }
 
@@ -493,7 +618,10 @@ impl VirtualList {
         let clip = self.view.view().contentView();
         let bounds = clip.bounds();
         let state = self.state();
-        let content = state.rows.len() as f64 * self.table.rowHeight();
+        let content = match model.offsets() {
+            Some(offsets) => offsets.total(),
+            None => state.rows.len() as f64 * self.table.rowHeight(),
+        };
         // Выбор читается у таблицы, а не у модели: модель и контрол могут разойтись.
         let selected = usize::try_from(self.table.selectedRow())
             .ok()
@@ -514,6 +642,9 @@ impl VirtualList {
     fn visible_range(&self) -> Range<usize> {
         let clip = self.view.view().contentView();
         let bounds = clip.bounds();
+        if let Some(offsets) = self.view.rust().offsets() {
+            return offsets.visible(bounds.origin.y, bounds.size.height);
+        }
         model::visible_rows(
             self.table.rowHeight(),
             bounds.origin.y,
@@ -525,12 +656,16 @@ impl VirtualList {
     fn reveal(&self, index: usize) {
         let clip = self.view.view().contentView();
         let bounds = clip.bounds();
-        if let Some(offset) = model::reveal(
-            index,
-            self.table.rowHeight(),
-            bounds.origin.y,
-            bounds.size.height,
-        ) {
+        let offset = match self.view.rust().offsets() {
+            Some(offsets) => offsets.reveal(index, bounds.origin.y, bounds.size.height),
+            None => model::reveal(
+                index,
+                self.table.rowHeight(),
+                bounds.origin.y,
+                bounds.size.height,
+            ),
+        };
+        if let Some(offset) = offset {
             self.scroll_clip(offset);
         }
     }
@@ -545,7 +680,8 @@ impl VirtualList {
 
 /// Замена набора: удаление по прежним номерам и вставка по новым в одном блоке обновления, затем
 /// перезагрузка сопоставленных строк по новым номерам. Виды строк при этом переиспользуются.
-fn apply_rows(table: &NSTableView, diff: &RowDiff) {
+/// У строк разной высоты перезагруженная строка могла сменить вид, а с ним и высоту.
+fn apply_rows(table: &NSTableView, diff: &RowDiff, variable_heights: bool) {
     if !diff.remove.is_empty() || !diff.insert.is_empty() {
         table.beginUpdates();
         if !diff.remove.is_empty() {
@@ -564,7 +700,11 @@ fn apply_rows(table: &NSTableView, diff: &RowDiff) {
     }
     if !diff.reload.is_empty() {
         let columns = NSIndexSet::indexSetWithIndex(0);
-        table.reloadDataForRowIndexes_columnIndexes(&index_set(&diff.reload), &columns);
+        let rows = index_set(&diff.reload);
+        table.reloadDataForRowIndexes_columnIndexes(&rows, &columns);
+        if variable_heights {
+            table.noteHeightOfRowsWithIndexesChanged(&rows);
+        }
     }
 }
 
@@ -784,6 +924,21 @@ define_class!(
     #[ivars = SourceIvars]
     struct ListSource;
 
+    impl ListSource {
+        // SAFETY: селектор, аргумент и результат — как у `respondsToSelector:` NSObject. Высоту
+        // каждой строки таблица спрашивает только у списка с поставщиком вида: список одной
+        // высоты на 100 000 строк не платит за опрос.
+        #[unsafe(method(respondsToSelector:))]
+        fn responds_to_selector(&self, selector: Sel) -> Bool {
+            if selector == sel!(tableView:heightOfRow:) {
+                let views = self.ivars().owner.call(|model| model.views.is_some());
+                return Bool::new(views.unwrap_or(false));
+            }
+            // SAFETY: `respondsToSelector:` у NSObject с тем же селектором.
+            unsafe { msg_send![super(self), respondsToSelector: selector] }
+        }
+    }
+
     // SAFETY: протокол NSObject реализует суперкласс NSObject.
     unsafe impl NSObjectProtocol for ListSource {}
 
@@ -804,6 +959,21 @@ define_class!(
 
     // SAFETY: методы ниже совпадают с объявлениями протокола.
     unsafe impl NSTableViewDelegate for ListSource {
+        // SAFETY: селектор, аргументы и результат — как у `tableView:heightOfRow:`. Таблица зовёт
+        // его только у списка с поставщиком вида (`respondsToSelector:`).
+        #[unsafe(method(tableView:heightOfRow:))]
+        fn height_of_row(&self, table: &NSTableView, row: NSInteger) -> f64 {
+            usize::try_from(row)
+                .ok()
+                .and_then(|index| {
+                    self.ivars()
+                        .owner
+                        .call(|model| model.row_height(index))
+                        .flatten()
+                })
+                .unwrap_or_else(|| table.rowHeight())
+        }
+
         // SAFETY: селектор, аргументы и результат — как у `tableView:viewForTableColumn:row:`.
         #[unsafe(method_id(tableView:viewForTableColumn:row:))]
         fn view_for(
@@ -828,13 +998,21 @@ define_class!(
         // SAFETY: селектор и аргументы — как у `tableView:didAddRowView:forRow:`. Вид строки из
         // очереди переиспользования с прежней эпохой цветов перерисовывается.
         #[unsafe(method(tableView:didAddRowView:forRow:))]
-        fn did_add_row_view(&self, _table: &NSTableView, row: &NSTableRowView, _index: NSInteger) {
+        fn did_add_row_view(&self, _table: &NSTableView, row: &NSTableRowView, index: NSInteger) {
             self.ivars().owner.call(|model| {
                 let stale = row
                     .downcast_ref::<ListRow>()
                     .is_some_and(|row| row.ivars().epoch.get() != model.epoch.get());
                 if stale {
                     repaint_row(row, &model.theme.get(), model.epoch.get());
+                    let view = row
+                        .viewAtColumn(0)
+                        .and_then(|view| view.downcast::<NSView>().ok());
+                    if let (Some(views), Some(view), Ok(index)) =
+                        (&model.views, view, usize::try_from(index))
+                    {
+                        model.show_cell(&**views, &view, index);
+                    }
                 }
             });
         }
@@ -871,6 +1049,18 @@ impl ListSource {
         self.ivars()
             .owner
             .call(|model| {
+                if let Some(views) = &model.views {
+                    let row = model.row(index)?;
+                    let identifier = views.identifier(&row);
+                    let view = reuse::<NSView>(table, identifier).unwrap_or_else(|| {
+                        model.cell_views.set(model.cell_views.get() + 1);
+                        let view = views.make(table.mtm(), &row);
+                        view.setIdentifier(Some(&NSString::from_str(identifier)));
+                        view
+                    });
+                    model.show_cell(&**views, &view, index);
+                    return Some(view);
+                }
                 let text = model.row_text(index)?;
                 let cell = reuse::<ListCell>(table, CELL_ID).unwrap_or_else(|| {
                     model.cell_views.set(model.cell_views.get() + 1);
@@ -935,11 +1125,22 @@ define_class!(
         // SAFETY: селектор и аргумент — как у `drawSelectionInRect:` NSTableRowView.
         #[unsafe(method(drawSelectionInRect:))]
         fn draw_selection(&self, _dirty: NSRect) {
-            let Some(theme) = self.ivars().owner.call(|model| model.theme.get()) else {
+            let Some((theme, views)) = self
+                .ivars()
+                .owner
+                .call(|model| (model.theme.get(), model.views.clone()))
+            else {
                 return;
             };
             layer::ns_color(theme.colors.selection).setFill();
-            objc2_app_kit::NSRectFill(self.bounds());
+            match views {
+                Some(views) => {
+                    let (rect, radius) = views.selection(self.bounds());
+                    NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(rect, radius, radius)
+                        .fill();
+                }
+                None => objc2_app_kit::NSRectFill(self.bounds()),
+            }
         }
     }
 );
