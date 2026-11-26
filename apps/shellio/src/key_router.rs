@@ -142,6 +142,27 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         }
     }
 
+    /// Режим вслед за полем: `typing` — получатель, чьё поле держит ввод, `None` — ввода в полях
+    /// нет. Записанные режимы приводятся к этому факту. Совпадение ничего не меняет, поэтому
+    /// смена первого ответчика, которую вызвало само действие `mode.*` или повтор пары, ожидание
+    /// второго аккорда не снимает; расхождение — чужая смена ответчика, она ожидание снимает.
+    /// `true` — режимы изменились.
+    pub fn follow_field(&mut self, typing: Option<&R>) -> bool {
+        let agrees = match typing {
+            Some(receiver) => self.input.len() == 1 && self.input.contains_key(receiver),
+            None => self.input.is_empty(),
+        };
+        if agrees {
+            return false;
+        }
+        self.input.clear();
+        if let Some(receiver) = typing {
+            self.input.insert(receiver.clone(), ());
+        }
+        self.cancel(Cancel::Responder);
+        true
+    }
+
     /// Режим панели после действия `mode.*`, которое пришло не клавишей: меню, кнопка или CLI.
     /// Клавиша режим меняет в самом решении, и её действие целевой режим не считает заново.
     /// `None` — действие у панели не действует: `input` — есть ли у неё получатель ввода.
@@ -812,5 +833,44 @@ mod tests {
         router.closed(&FIELD);
         assert_eq!(router.exit_armed(), None);
         assert_eq!(router.mode(&FIELD), Mode::Navigation);
+    }
+
+    #[test]
+    fn mode_follows_the_field_and_only_a_foreign_change_disarms() {
+        let mut router = Router::default();
+        assert!(!router.follow_field(None), "ввода нет и режимов нет");
+        // Поле панели получило ввод: открытие с автофокусом, `Tab` или щелчок.
+        assert!(router.follow_field(Some(&FIELD)));
+        assert_eq!(router.mode(&FIELD), Mode::Input);
+        assert!(
+            !router.follow_field(Some(&FIELD)),
+            "повтор ничего не меняет"
+        );
+
+        // Аккорд выхода сам увёл ввод из поля: режим уже `Navigation`, ожидание остаётся.
+        let field = focus(Responder::Field, FIELD);
+        assert_eq!(down(&mut router, &field, "Ctrl-\\"), ran("mode.navigation"));
+        assert!(!router.follow_field(None));
+        assert_eq!(router.exit_armed(), Some(&FIELD));
+
+        // Ввод ушёл в чужое поле: режимы переставлены, ожидание снято.
+        assert!(router.follow_field(Some(&LIST)));
+        assert_eq!(router.exit_armed(), None);
+        assert_eq!(router.mode(&FIELD), Mode::Navigation);
+        assert_eq!(router.mode(&LIST), Mode::Input);
+
+        // Повтор пары вернул `Input` получателю: поле с вводом ожидание уже не трогает.
+        let mut router = Router::default();
+        router.follow_field(Some(&FIELD));
+        down(&mut router, &field, "Ctrl-\\");
+        assert!(matches!(
+            down(&mut router, &body(FIELD), "Ctrl-\\"),
+            Decision::Replay {
+                receiver: FIELD,
+                ..
+            }
+        ));
+        assert!(!router.follow_field(Some(&FIELD)));
+        assert_eq!(router.mode(&FIELD), Mode::Input);
     }
 }

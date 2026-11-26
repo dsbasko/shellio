@@ -61,6 +61,38 @@ impl KeyStroke {
     pub fn characters(&self) -> Option<String> {
         self.event.characters().map(|text| text.to_string())
     }
+
+    /// Возвращает пару нажатия и отпускания первому ответчику ключевого окна напрямую: мимо
+    /// очереди событий, монитора и эквивалентов меню. Отпускание строится по нажатию: исходное
+    /// монитор поглотил. `false` — ключевого окна или ответчика нет, пара не доставлена.
+    pub fn replay(&self, app: &App) -> bool {
+        let Some(responder) = NSApplication::sharedApplication(app.mtm())
+            .keyWindow()
+            .and_then(|window| window.firstResponder())
+        else {
+            return false;
+        };
+        let down = &self.event;
+        responder.keyDown(down);
+        let characters = down.characters().unwrap_or_default();
+        let ignoring = down.charactersIgnoringModifiers().unwrap_or_default();
+        let up = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+            NSEventType::KeyUp,
+            down.locationInWindow(),
+            down.modifierFlags(),
+            down.timestamp(),
+            down.windowNumber(),
+            None,
+            &characters,
+            &ignoring,
+            false,
+            down.keyCode(),
+        );
+        if let Some(up) = up {
+            responder.keyUp(&up);
+        }
+        true
+    }
 }
 
 /// Событие, которое видит монитор.

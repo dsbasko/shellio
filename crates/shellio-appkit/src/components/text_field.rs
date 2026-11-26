@@ -9,6 +9,7 @@
 //! (находка 2 P0.2).
 
 use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject, Sel};
@@ -523,6 +524,37 @@ impl TextField {
     }
 }
 
+/// Ввод в поле начался или закончился: field editor стал первым ответчиком или перестал им быть.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldFocus {
+    Began,
+    Ended,
+}
+
+type FocusObserver = Rc<dyn Fn(FieldFocus)>;
+
+thread_local! {
+    /// Наблюдатель ввода в полях приложения: один на процесс.
+    static FIELD_FOCUS: RefCell<Option<FocusObserver>> = const { RefCell::new(None) };
+}
+
+impl App {
+    /// Ставит наблюдателя ввода в полях: его получает любое поле окна, включая поля тел плагинов.
+    /// `handler` вызывается на главном потоке изнутри AppKit, в том числе изнутри
+    /// `makeFirstResponder:` самого владельца, и не должен синхронно трогать окно. Новый
+    /// наблюдатель заменяет прежнего.
+    pub fn on_field_focus(&self, handler: impl Fn(FieldFocus) + 'static) {
+        FIELD_FOCUS.with(|slot| *slot.borrow_mut() = Some(Rc::new(handler)));
+    }
+}
+
+fn notify_focus(focus: FieldFocus) {
+    let handler = FIELD_FOCUS.with(|slot| slot.borrow().clone());
+    if let Some(handler) = handler {
+        handler(focus);
+    }
+}
+
 /// Окно поля держит field editor поля first responder.
 fn editor_is_first_responder(field: &NSTextField) -> bool {
     let (Some(editor), Some(window)) = (field.currentEditor(), field.window()) else {
@@ -787,6 +819,7 @@ define_class!(
             let accepted: bool = unsafe { msg_send![super(self), becomeFirstResponder] };
             if accepted {
                 self.redraw_box();
+                notify_focus(FieldFocus::Began);
             }
             accepted
         }
@@ -798,6 +831,7 @@ define_class!(
             // SAFETY: `textDidEndEditing:` у NSTextField с тем же уведомлением.
             let _: () = unsafe { msg_send![super(self), textDidEndEditing: notification] };
             self.redraw_box();
+            notify_focus(FieldFocus::Ended);
         }
     }
 );
