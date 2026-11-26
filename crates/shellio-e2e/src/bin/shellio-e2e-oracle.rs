@@ -48,6 +48,7 @@ const USAGE: &str = "\
                               --elapsed-ms <мс>]
   shellio-e2e-oracle region --window <ui.window.json>
   shellio-e2e-oracle pair --window <ui.window.json> --listed <окна экрана.json> --palette open|closed
+                          --scale <масштаб экрана>
   shellio-e2e-oracle coverage --passport <passports/состояние/ячейка.json> --inspect <ui.inspect.json>
                               --registry <registry.toml>
   shellio-e2e-oracle calibrate --chrome <каталог shellio-snap calibrate> --product <каталог чтений>
@@ -67,7 +68,8 @@ conform сверяет паспорт прототипа с продуктом: 
 region печатает область снимка композиции `x,y,w,h` для screencapture -R: кадр главного окна
 ui.window в точках экрана с началом вверху слева основного экрана. pair сверяет пару окон
 владельца со списком окон экрана (массив CGWindowListCopyWindowInfo спереди назад): код 1 —
-снимок не годится (чужое окно над областью, другой экран или масштаб, кадры не совпали), код 3 —
+снимок не годится (чужое окно над областью, другой экран, масштаб окна владельца не --scale,
+кадры не совпали), код 3 —
 дефект палитры (позади владельца, нет после открытия, видима после закрытия); причина — в stdout.
 У conform каретка поля запроса палитры (узел palette.query.caret) в паре снимков не сравнивается,
 а окно палитры между снимками должно остаться тем же.
@@ -109,6 +111,7 @@ struct Args {
     out: Option<PathBuf>,
     listed: Option<PathBuf>,
     palette: Option<Expect>,
+    scale: Option<f64>,
 }
 
 enum Command {
@@ -158,6 +161,15 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "--raw" => parsed.raw = Some(value()?.into()),
             "--out" => parsed.out = Some(value()?.into()),
             "--listed" => parsed.listed = Some(value()?.into()),
+            "--scale" => {
+                let text = value()?;
+                let scale = text
+                    .parse::<f64>()
+                    .ok()
+                    .filter(|s| s.is_finite() && *s > 0.0)
+                    .ok_or_else(|| format!("--scale: не масштаб {text:?}"))?;
+                parsed.scale = Some(scale);
+            }
             "--palette" => {
                 parsed.palette = Some(match value()?.as_str() {
                     "open" => Expect::Open,
@@ -220,10 +232,10 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             "{command}: --chrome, --product, --materials, --raw и --out принимает только calibrate"
         ));
     }
-    let pair_flags = parsed.listed.is_some() || parsed.palette.is_some();
+    let pair_flags = parsed.listed.is_some() || parsed.palette.is_some() || parsed.scale.is_some();
     if pair_flags && command != "pair" {
         return Err(format!(
-            "{command}: --listed и --palette принимает только pair"
+            "{command}: --listed, --palette и --scale принимает только pair"
         ));
     }
     match command.as_str() {
@@ -246,6 +258,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
             }
             required("--listed", parsed.listed.is_some())?;
             required("--palette", parsed.palette.is_some())?;
+            required("--scale", parsed.scale.is_some())?;
             Ok(Command::Pair(parsed))
         }
         "calibrate" => {
@@ -827,13 +840,11 @@ fn pair_command(args: &Args) -> u8 {
             return EXIT_ERROR;
         }
     };
-    let expect = args.palette.unwrap_or(Expect::Open);
-    match composition::judge_pair(
-        &window,
-        &listed,
-        window.backing_scale_factor.max(0.0),
-        expect,
-    ) {
+    let (Some(expect), Some(scale)) = (args.palette, args.scale) else {
+        println!("нет --palette или --scale");
+        return EXIT_ERROR;
+    };
+    match composition::judge_pair(&window, &listed, scale, expect) {
         Ok(()) => 0,
         Err(PairFault::Execution(reason)) => {
             println!("{reason}");

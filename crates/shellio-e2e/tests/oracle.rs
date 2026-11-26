@@ -1531,3 +1531,66 @@ fn binary_measures_the_underline_without_marker() -> Result<()> {
     assert_eq!(run(&line, "100", &["--generation", "9"])?.0, 2);
     Ok(())
 }
+
+/// Пара окон через бинарь на эталоне провода `ui.window` со списком окон: масштаб сверяется с
+/// `--scale`, а не с масштабом самого окна.
+#[test]
+fn binary_judges_the_window_pair_against_the_required_scale() -> Result<()> {
+    let window = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../shellio-control/tests/wire/response.ok.ui.window.windows.json"
+    );
+    let dir = tempfile::tempdir()?;
+    let dir = dir.path();
+    // Основной экран 982 точки: владелец (370, 240, 1180×720) — верх 22, палитра (575, 324,
+    // 770×642) — верх 16.
+    let main = json!({"kCGWindowNumber": 4242, "kCGWindowOwnerPID": 123, "kCGWindowLayer": 0,
+        "kCGWindowBounds": {"X": 370, "Y": 22, "Width": 1180, "Height": 720}});
+    let palette = json!({"kCGWindowNumber": 4243, "kCGWindowOwnerPID": 123, "kCGWindowLayer": 0,
+        "kCGWindowBounds": {"X": 575, "Y": 16, "Width": 770, "Height": 642}});
+    let front = write(
+        dir,
+        "front.json",
+        json!([palette, main]).to_string().as_bytes(),
+    )?;
+    let behind = write(
+        dir,
+        "behind.json",
+        json!([main, palette]).to_string().as_bytes(),
+    )?;
+    let pair = |listed: &str, scale: &str| {
+        oracle(&[
+            "pair",
+            "--window",
+            window,
+            "--listed",
+            listed,
+            "--palette",
+            "open",
+            "--scale",
+            scale,
+        ])
+        .map(|(code, ..)| code)
+    };
+    assert_eq!(pair(&front, "2")?, 0);
+    assert_eq!(pair(&front, "1")?, 1);
+    assert_eq!(pair(&behind, "2")?, 3);
+    assert_eq!(
+        oracle(&["region", "--window", window])?.1,
+        "370,22,1180,720\n"
+    );
+    assert_eq!(
+        oracle(&[
+            "pair",
+            "--window",
+            window,
+            "--listed",
+            &front,
+            "--palette",
+            "open"
+        ])?
+        .0,
+        2
+    );
+    Ok(())
+}
