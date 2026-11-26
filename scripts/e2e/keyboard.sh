@@ -55,6 +55,8 @@ EXIT_S=10
 KILL_S=5
 SECOND_LAUNCH_S=20
 MIRROR_MS=3000
+# Срок, за который наблюдение за каталогом конфигурации применяет правку keymap.toml.
+KEYMAP_MS=5000
 POLL=0.1
 CTL_TIMEOUT_MS=2000
 
@@ -68,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 3 2 3 1 4 4 5 5 4 4 5 5 4 4 5 5 5 0)
+STAGE=(1 2 2 3 4 2 4 1 5 5 6 6 5 5 6 6 5 5 6 6 6 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=2
+DONE_STAGE=3
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -81,6 +83,7 @@ K_W=13
 K_T=17
 K_V=9
 K_S=1
+K_X=7
 K_1=18
 K_2=19
 K_3=20
@@ -1382,6 +1385,136 @@ item_move_and_split() {
   conclude "$item" "вторая панель центра: Ctrl-w L, H, K, J, K переносят её центр → правая → левая → центр → нижняя → центр, фокус остаётся на ней; Ctrl-w v уводит её во вторую часть центра, Ctrl-w s — вторую панель правой зоны во вторую часть правой, заглушек нет; на каждую последовательность одна запись ui.receipts с источником key без отказа и одна дельта events --since"
 }
 
+# Опрос ui.inspect: сообщение строки статуса показано (shown) или убрано (hidden); текст показанного — в
+# STATUS_TEXT, чтение — <prefix>.stdout, иначе WHY.
+STATUS_TEXT=""
+wait_status() {
+  local prefix="$1" want="$2" deadline node="ok.ui.inspect.components[id=status.message]" seen label
+  WHY=""
+  STATUS_TEXT=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect; then
+      seen="$(jv "$prefix.stdout" "$node.visible" 2>/dev/null || echo false)"
+      label="$(jv "$prefix.stdout" "$node.label" 2>/dev/null || echo null)"
+      [[ "$seen" == true && -n "$label" && "$label" != null ]] || seen=false
+      if [[ "$want" == shown && "$seen" == true ]]; then
+        STATUS_TEXT="$label"
+        return 0
+      fi
+      [[ "$want" != hidden || "$seen" == true ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      if [[ "$want" == shown ]]; then
+        WHY="за $MIRROR_MS мс строка статуса не показала сообщение"
+      else
+        WHY="за $MIRROR_MS мс сообщение строки статуса не убрано: «${label:-?}»"
+      fi
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# keymap.toml основного профиля: text — новый файл, пусто — файла нет. Правку применяет наблюдение за каталогом
+# конфигурации: опрос query.keymap до строки с последовательностью seq (present) или без неё (absent); чтение —
+# <prefix>.stdout, иначе WHY.
+keymap_file() {
+  local prefix="$1" text="$2" seq="$3" want="$4" deadline has
+  WHY=""
+  mkdir -p "$profile/config"
+  if [[ -n "$text" ]]; then
+    printf '%s\n' "$text" >"$profile/config/keymap.toml.new"
+    cp "$profile/config/keymap.toml.new" "$prefix.keymap.toml"
+    mv "$profile/config/keymap.toml.new" "$profile/config/keymap.toml"
+  else
+    rm -f "$profile/config/keymap.toml"
+  fi
+  deadline=$(($(now_ms) + KEYMAP_MS))
+  while :; do
+    if ctl "$profile" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" keymap list; then
+      has=absent
+      ! grep -qF "\"$seq\"" "$prefix.stdout" || has=present
+      [[ "$has" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $KEYMAP_MS мс query.keymap после правки keymap.toml: строка «$seq» — ${has:-не прочитана}, ожидалось $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Ctrl-w v у панели правой зоны: одна запись кольца layout.split с отказом, сообщение строки статуса text, ни одной
+# дельты ядра, раскладка прежняя.
+refused_split() {
+  local dir="$1" name="$2" text="$3" canon
+  if ! mark "$dir" "$name"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  canon="$(layout_canon "$dir/$name.mark.stdout")"
+  if ! act "$dir" "$name" layout.split "$K_W+control" "$K_V"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  [[ "$OUTCOME" == invalid_argument ]] ||
+    failures+=("$name: исход записи кольца — $OUTCOME, ожидался отказ invalid_argument")
+  if wait_status "$dir/$name.status" shown; then
+    [[ "$STATUS_TEXT" == "$text" ]] || failures+=("$name: сообщение строки статуса «$STATUS_TEXT», ожидалось «$text»")
+  else
+    failures+=("$name: $WHY")
+  fi
+  events_are "$dir" "$name" 0 || failures+=("$name: $WHY")
+  if layout_get "$profile" "$dir/$name.after" "$wb_a"; then
+    [[ "$(layout_canon "$dir/$name.after.stdout")" == "$canon" ]] || failures+=("$name: раскладка после отказа изменилась")
+  else
+    failures+=("$name: query.layout после отказа не прочитан")
+  fi
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# Ctrl-w v в правой зоне (ось stack): отказ split_wrong_axis с сообщением, которое называет действующую клавишу оси
+# зоны; следующая клавиша сообщение убирает. Затем keymap.toml переносит деление оси stack на Ctrl-w x: сообщение
+# называет её, и она делит часть. У части две вкладки: названная клавиша делит её без выбора новой части.
+item_wrong_axis() {
+  local item=wrong-axis dir="$run/wrong-axis" t2 said="Правая зона делится одна над другой" code=0
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-t2" terminal right
+  t2="$PANEL"
+  wait_focus "$dir/open-t2.layout" "$t2" || fatal "$item: $WHY"
+  [[ "$(place_of "$dir/open-t2.layout.stdout" "$t2")" == right.0 ]] ||
+    fatal "$item: подготовка: вторая панель правой зоны не в её части 0: $(place_of "$dir/open-t2.layout.stdout" "$t2")"
+  no_stubs "$dir/open-t2.layout.stdout" || fatal "$item: подготовка: $WHY"
+  # Причину отказа называет ядро: та же команда штатным CLI.
+  ctl "$profile" "$dir/cli-split" --json --timeout "$CTL_TIMEOUT_MS" layout split "$t2" --axis row --all || code=$?
+  [[ $code -ne 0 ]] && grep -qF split_wrong_axis "$dir/cli-split.stdout" "$dir/cli-split.stderr" ||
+    failures+=("layout split --axis row панели правой зоны: код $code без причины split_wrong_axis: $(oneline "$dir/cli-split.stdout")")
+  to_front "$dir" "$item"
+  refused_split "$dir" default "$said: Ctrl-w s"
+  step "$item" "$dir" next-key panel.focus.left "$p_center" "$K_H"
+  wait_status "$dir/next-key.status" hidden || failures+=("next-key: $WHY")
+  if keymap_file "$dir/remap" $'[navigation]\n"Ctrl-w x" = { action = "layout.split", args = { axis = "stack" } }\n"Ctrl-w s" = false' "Ctrl-w x" present; then
+    step "$item" "$dir" back panel.focus.right "$t2" "$K_L"
+    refused_split "$dir" remapped "$said: Ctrl-w x"
+    kstep "$dir" split-x layout.split "в правой зоне две части одна над другой, вторая панель одна во второй" \
+      "@{\$l->{zones}{right}{parts}} == 2 && $(alone_in "$t2" right 1)" "$K_W+control" "$K_X"
+    wait_status "$dir/split-x.status" hidden || failures+=("split-x: $WHY")
+    if layout_get "$profile" "$dir/split" "$wb_a"; then
+      no_stubs "$dir/split.stdout" || failures+=("после деления: $WHY")
+    else
+      failures+=("query.layout после деления не прочитан")
+    fi
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  # Следующие пункты идут на таблице по умолчанию.
+  keymap_file "$dir/restore" "" "Ctrl-w x" absent || fatal "$item: keymap.toml не убран: $WHY"
+  conclude "$item" "две вкладки в правой зоне: Ctrl-w v — одна запись ui.receipts layout.split с отказом, ни одной дельты events --since, раскладка прежняя, сообщение строки статуса «$said: Ctrl-w s» (причина split_wrong_axis — по той же команде CLI), следующая клавиша h сообщение убирает; после правки keymap.toml (Ctrl-w x — ось stack, Ctrl-w s снята) сообщение называет Ctrl-w x, и Ctrl-w x делит правую зону одной дельтой"
+}
+
 # Опрос query.panel: data.key панели равен want (или, с «!» впереди, отличается от него); значение — в KEY, чтение —
 # <prefix>.stdout, иначе WHY.
 KEY=""
@@ -1488,6 +1621,7 @@ setup_main
 item_focus_hjkl
 item_list_owns_keys
 item_move_and_split
+item_wrong_axis
 item_tabs
 item_appearance_cycle
 if [[ -n "$owner_pid" ]]; then
