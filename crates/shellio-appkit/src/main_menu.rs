@@ -1,11 +1,13 @@
 //! Главное меню владельца на компоненте [`Menu`]: «shellio → Выйти» (`app.quit`), «Окно →
 //! Закрыть» (`window.close`), «Вид → Оформление → Системное / Светлое / Тёмное»
 //! (`ui.appearance.set`), «Вид → Открыть панель → <название>» (`panel.open.<id>` для каждой строки
-//! списка владельца). Id пунктов действий — их имена в keymap (ADR-0007). Пункты вызывают один
-//! обработчик действий; цели пунктов держит меню (инвариант 2 P0.2). Системное меню сохраняет
-//! системное оформление и токенами не красится.
+//! списка владельца). Id пунктов действий — их имена в keymap (ADR-0007), эквивалент пункта —
+//! клавиша этого действия из действующей таблицы ([`MainMenu::set_keys`]): собственных клавиш у
+//! меню нет. Пункты вызывают один обработчик действий; цели пунктов держит меню (инвариант 2
+//! P0.2). Системное меню сохраняет системное оформление и токенами не красится.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use objc2::MainThreadMarker;
@@ -61,6 +63,21 @@ pub const APPEARANCE_ITEMS: [(AppearanceChoice, &str, &str); 3] = [
 
 const QUIT: &str = "app.quit";
 const CLOSE: &str = "window.close";
+
+/// Эквиваленты пунктов по id пункта. Пункт без записи клавиши не показывает.
+pub type MenuKeys = BTreeMap<String, MenuKey>;
+
+/// Id пунктов, которые получают эквивалент: имена действий keymap без аргументов.
+pub const MENU_ACTIONS: [&str; 8] = [
+    QUIT,
+    CLOSE,
+    ZONE_ITEMS[0].1,
+    ZONE_ITEMS[1].1,
+    ZONE_ITEMS[2].1,
+    APPEARANCE_ITEMS[0].1,
+    APPEARANCE_ITEMS[1].1,
+    APPEARANCE_ITEMS[2].1,
+];
 const APP_MENU: &str = "menu.app";
 const WINDOW_MENU: &str = "menu.window";
 const VIEW_MENU: &str = "menu.view";
@@ -70,22 +87,14 @@ const OPEN_PANEL_MENU: &str = "menu.view.open_panel";
 const OPEN_PANEL: &str = "panel.open.";
 
 /// Пункты главного меню с отметкой у выбора `choice`.
-fn zone_entries(zones: ZoneMenu) -> Vec<MenuEntry> {
+fn zone_entries(zones: ZoneMenu, keys: &MenuKeys) -> Vec<MenuEntry> {
     let (side_plate, shown) = zones.unwrap_or((false, [false; 3]));
     ZONE_ITEMS
         .into_iter()
         .zip(shown)
         .map(|((button, id), shown)| {
-            let key = match button {
-                ZoneButton::Navigator => Some(MenuKey::command("0")),
-                ZoneButton::Side => Some(MenuKey {
-                    option: true,
-                    ..MenuKey::command("0")
-                }),
-                ZoneButton::Bottom => None,
-            };
             MenuEntry::Item(MenuItem {
-                key,
+                key: keys.get(id).cloned(),
                 enabled: zones.is_some(),
                 checked: shown,
                 ..MenuItem::new(id, zone_button(button, side_plate).1)
@@ -111,6 +120,7 @@ fn entries(
     zones: ZoneMenu,
     rows: &[PanelRow],
     open_enabled: bool,
+    keys: &MenuKeys,
 ) -> Vec<MenuEntry> {
     let submenu = |id: &str, title: &str, children: Vec<MenuEntry>| {
         MenuEntry::Item(MenuItem {
@@ -118,9 +128,9 @@ fn entries(
             ..MenuItem::new(id, title)
         })
     };
-    let keyed = |id: &str, title: &str, key: &str| {
+    let keyed = |id: &str, title: &str| {
         MenuEntry::Item(MenuItem {
-            key: Some(MenuKey::command(key)),
+            key: keys.get(id).cloned(),
             ..MenuItem::new(id, title)
         })
     };
@@ -128,20 +138,17 @@ fn entries(
         .into_iter()
         .map(|(item_choice, id, title)| {
             MenuEntry::Item(MenuItem {
+                key: keys.get(id).cloned(),
                 checked: item_choice == choice,
                 ..MenuItem::new(id, title)
             })
         })
         .collect();
     vec![
-        submenu(
-            APP_MENU,
-            "shellio",
-            vec![keyed(QUIT, "Выйти из shellio", "q")],
-        ),
-        submenu(WINDOW_MENU, "Окно", vec![keyed(CLOSE, "Закрыть", "w")]),
+        submenu(APP_MENU, "shellio", vec![keyed(QUIT, "Выйти из shellio")]),
+        submenu(WINDOW_MENU, "Окно", vec![keyed(CLOSE, "Закрыть")]),
         submenu(VIEW_MENU, "Вид", {
-            let mut items = zone_entries(zones);
+            let mut items = zone_entries(zones, keys);
             items.push(MenuEntry::Separator {
                 id: "menu.view.separator".to_owned(),
             });
@@ -189,6 +196,7 @@ pub struct MainMenu {
     zones: Cell<ZoneMenu>,
     rows: Rc<[PanelRow]>,
     open_enabled: Cell<bool>,
+    keys: RefCell<MenuKeys>,
     menu: Menu,
 }
 
@@ -217,6 +225,7 @@ impl MainMenu {
             zones: Cell::new(None),
             rows,
             open_enabled: Cell::new(false),
+            keys: RefCell::new(MenuKeys::new()),
             menu,
         };
         main_menu.rebuild();
@@ -250,6 +259,17 @@ impl MainMenu {
         }
     }
 
+    /// Эквиваленты пунктов из действующей таблицы keymap; до первого вызова клавиш у пунктов нет.
+    /// `true` — набор изменился.
+    pub fn set_keys(&self, keys: MenuKeys) -> bool {
+        if *self.keys.borrow() == keys {
+            return false;
+        }
+        self.keys.replace(keys);
+        self.rebuild();
+        true
+    }
+
     fn rebuild(&self) {
         // Id пунктов постоянны и уникальны (тест `ids_are_unique_and_map_to_actions`), отказа здесь
         // не бывает; если он появится, меню остаётся прежним, а причина уходит в stderr.
@@ -258,6 +278,7 @@ impl MainMenu {
             self.zones.get(),
             &self.rows,
             self.open_enabled.get(),
+            &self.keys.borrow(),
         );
         if let Err(error) = self.menu.set_entries(entries) {
             eprintln!("shellio: главное меню не обновлено: {error}");
@@ -283,6 +304,25 @@ mod tests {
     use super::*;
     use crate::components::menu::{ItemChange, MenuOp, check_ids, diff};
 
+    /// Эквиваленты привязок по умолчанию и свой у пункта оформления.
+    fn keys() -> MenuKeys {
+        let option = |key: &str| MenuKey {
+            option: true,
+            ..MenuKey::command(key)
+        };
+        [
+            (QUIT, MenuKey::command("q")),
+            (CLOSE, MenuKey::command("w")),
+            ("layout.toggle.navigator", MenuKey::command("0")),
+            ("layout.toggle.bottom", MenuKey::command("j")),
+            ("layout.toggle.side", option("0")),
+            ("ui.appearance.dark", option("d")),
+        ]
+        .into_iter()
+        .map(|(id, key)| (id.to_owned(), key))
+        .collect()
+    }
+
     /// Все id пунктов меню с действием и без.
     fn ids(entries: &[MenuEntry], out: &mut Vec<String>) {
         for entry in entries {
@@ -293,6 +333,20 @@ mod tests {
             }) = entry
             {
                 ids(children, out);
+            }
+        }
+    }
+
+    /// Пункты с эквивалентом: id и запись сочетания.
+    fn keyed(entries: &[MenuEntry], out: &mut Vec<(String, String)>) {
+        for entry in entries {
+            if let MenuEntry::Item(item) = entry {
+                if let Some(key) = &item.key {
+                    out.push((item.id.clone(), key.chord()));
+                }
+                if let Some(children) = &item.submenu {
+                    keyed(children, out);
+                }
             }
         }
     }
@@ -313,11 +367,14 @@ mod tests {
     #[test]
     fn ids_are_unique_and_map_to_actions() {
         for choice in AppearanceChoice::ALL {
-            assert_eq!(check_ids(&entries(choice, None, &[], false)), Ok(()));
+            assert_eq!(
+                check_ids(&entries(choice, None, &[], false, &keys())),
+                Ok(())
+            );
         }
         let mut all = Vec::new();
         ids(
-            &entries(AppearanceChoice::System, None, &[], false),
+            &entries(AppearanceChoice::System, None, &[], false, &keys()),
             &mut all,
         );
         let actions: Vec<MenuAction> = all.iter().filter_map(|id| action_of(id, &[])).collect();
@@ -353,8 +410,8 @@ mod tests {
     }
 
     #[test]
-    fn quit_and_close_keep_their_keys() {
-        let all = entries(AppearanceChoice::System, None, &[], false);
+    fn items_take_their_keys_from_the_table() {
+        let all = entries(AppearanceChoice::System, None, &[], false, &keys());
         let key = |menu: usize| match &all[menu] {
             MenuEntry::Item(MenuItem {
                 submenu: Some(children),
@@ -367,13 +424,49 @@ mod tests {
         };
         assert_eq!(key(0).as_deref(), Some("cmd+q"));
         assert_eq!(key(1).as_deref(), Some("cmd+w"));
+
+        // Собственных клавиш у меню нет: действие без клавиши в таблице остаётся без эквивалента.
+        let mut bare = Vec::new();
+        let empty = entries(AppearanceChoice::System, None, &[], false, &MenuKeys::new());
+        keyed(&empty, &mut bare);
+        assert_eq!(bare, Vec::<(String, String)>::new());
+
+        let mut shown = Vec::new();
+        keyed(&all, &mut shown);
+        let expected: Vec<(String, String)> = keys()
+            .iter()
+            .map(|(id, key)| (id.clone(), key.chord()))
+            .collect();
+        shown.sort();
+        assert_eq!(shown, expected, "клавиши получают ровно названные пункты");
+        for id in keys().keys() {
+            assert!(MENU_ACTIONS.contains(&id.as_str()));
+        }
+    }
+
+    #[test]
+    fn menu_actions_name_every_item_with_an_action() {
+        let mut all = Vec::new();
+        ids(
+            &entries(AppearanceChoice::System, None, &[], false, &MenuKeys::new()),
+            &mut all,
+        );
+        let acting: Vec<&str> = all
+            .iter()
+            .map(String::as_str)
+            .filter(|id| action_of(id, &[]).is_some())
+            .collect();
+        assert_eq!(acting.len(), MENU_ACTIONS.len());
+        for id in MENU_ACTIONS {
+            assert!(acting.contains(&id), "{id}");
+        }
     }
 
     #[test]
     fn changing_the_appearance_moves_only_the_mark() {
         let ops = diff(
-            &entries(AppearanceChoice::System, None, &[], false),
-            &entries(AppearanceChoice::Dark, None, &[], false),
+            &entries(AppearanceChoice::System, None, &[], false, &keys()),
+            &entries(AppearanceChoice::Dark, None, &[], false, &keys()),
         );
         assert_eq!(
             ops,
@@ -392,8 +485,8 @@ mod tests {
         );
         assert!(
             diff(
-                &entries(AppearanceChoice::Light, None, &[], false),
-                &entries(AppearanceChoice::Light, None, &[], false)
+                &entries(AppearanceChoice::Light, None, &[], false, &keys()),
+                &entries(AppearanceChoice::Light, None, &[], false, &keys())
             )
             .is_empty()
         );
@@ -401,25 +494,27 @@ mod tests {
 
     #[test]
     fn zone_items_share_the_chrome_labels_and_keys() {
-        let view = |zones: ZoneMenu| match &entries(AppearanceChoice::System, zones, &[], false)[2]
-        {
-            MenuEntry::Item(MenuItem {
-                submenu: Some(children),
-                ..
-            }) => children[..3]
-                .iter()
-                .map(|entry| match entry {
-                    MenuEntry::Item(item) => (
-                        item.title.clone(),
-                        item.key.as_ref().map(MenuKey::chord),
-                        item.enabled,
-                        item.checked,
-                    ),
-                    MenuEntry::Separator { .. } => unreachable!("пункты зон идут подряд"),
-                })
-                .collect::<Vec<_>>(),
-            _ => Vec::new(),
-        };
+        let view =
+            |zones: ZoneMenu| match &entries(AppearanceChoice::System, zones, &[], false, &keys())
+                [2]
+            {
+                MenuEntry::Item(MenuItem {
+                    submenu: Some(children),
+                    ..
+                }) => children[..3]
+                    .iter()
+                    .map(|entry| match entry {
+                        MenuEntry::Item(item) => (
+                            item.title.clone(),
+                            item.key.as_ref().map(MenuKey::chord),
+                            item.enabled,
+                            item.checked,
+                        ),
+                        MenuEntry::Separator { .. } => unreachable!("пункты зон идут подряд"),
+                    })
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            };
         let off = view(None);
         assert_eq!(
             off.iter().map(|item| item.0.as_str()).collect::<Vec<_>>(),
@@ -427,7 +522,7 @@ mod tests {
         );
         assert_eq!(
             off.iter().map(|item| item.1.as_deref()).collect::<Vec<_>>(),
-            [Some("cmd+0"), None, Some("opt+cmd+0")]
+            [Some("cmd+0"), Some("cmd+j"), Some("opt+cmd+0")]
         );
         assert!(
             off.iter().all(|item| !item.2 && !item.3),
@@ -492,7 +587,7 @@ mod tests {
     #[test]
     fn open_panel_lists_rows_in_order_under_keymap_ids() {
         let rows = rows();
-        let off = entries(AppearanceChoice::System, None, &rows, false);
+        let off = entries(AppearanceChoice::System, None, &rows, false, &keys());
         assert_eq!(check_ids(&off), Ok(()));
         assert_eq!(
             open_panel(&off),
@@ -509,7 +604,7 @@ mod tests {
                 ),
             ]
         );
-        let on = entries(AppearanceChoice::System, None, &rows, true);
+        let on = entries(AppearanceChoice::System, None, &rows, true, &keys());
         assert!(
             open_panel(&on).iter().all(|item| item.2),
             "с рабочей областью доступны"
@@ -535,8 +630,8 @@ mod tests {
     fn opening_a_workbench_only_enables_the_open_panel_items() {
         let rows = rows();
         let ops = diff(
-            &entries(AppearanceChoice::System, None, &rows, false),
-            &entries(AppearanceChoice::System, None, &rows, true),
+            &entries(AppearanceChoice::System, None, &rows, false, &keys()),
+            &entries(AppearanceChoice::System, None, &rows, true, &keys()),
         );
         assert_eq!(
             ops,

@@ -369,6 +369,9 @@ impl LayoutUi {
         }
         self.keys = keys;
         self.restrip();
+        for stub in self.stubs.values() {
+            stub.set_key(self.keys.zoom.as_deref());
+        }
         true
     }
 
@@ -1185,6 +1188,7 @@ impl LayoutUi {
                         StubIntent::Press => PanelAction::StubPress(host),
                     });
                 });
+                view.set_key(self.keys.zoom.as_deref());
                 self.stubs.insert(host, view);
             }
             let Some(view) = self.stubs.get(&host) else {

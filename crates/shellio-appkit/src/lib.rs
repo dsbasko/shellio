@@ -110,7 +110,7 @@ pub use inspect::{
 pub use key_monitor::{
     KeyFocus, KeyMods, KeyMonitor, KeyResponder, KeyStroke, MonitorEvent, Verdict,
 };
-pub use main_menu::{MainMenu, MenuAction, PanelRow, ZoneMenu};
+pub use main_menu::{MENU_ACTIONS, MainMenu, MenuAction, MenuKeys, PanelRow, ZoneMenu};
 pub use marker::{GenerationMarker, MARKER_CELL, MARKER_CELLS, marker_bit};
 pub use own::ComponentId;
 pub use panel_stub::{

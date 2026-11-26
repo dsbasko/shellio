@@ -766,6 +766,12 @@ impl ExpandStub {
         self.view.rust().card.borrow().clone()
     }
 
+    /// Клавиша `layout.zoom` из действующей таблицы keymap у кнопки «Развернуть»: подсказка и
+    /// `accessibilityHelp`; `None` — «Клавиша не назначена».
+    pub fn set_key(&self, key: Option<&str>) {
+        self.view.view().ivars().button.set_key(key);
+    }
+
     /// Плоская заглушка красится фоном окна, обычная — фоном панели.
     pub fn set_flat(&self, flat: bool) {
         let model = self.view.rust();
@@ -1084,7 +1090,7 @@ define_class!(
 
 impl StubButton {
     /// Кнопка «Развернуть»: подпись и AX-имя — действие, подсказка и `accessibilityHelp` — клавиша
-    /// `layout.zoom`, до P1.6 «Клавиша не назначена» (ADR-0032).
+    /// `layout.zoom`, без неё «Клавиша не назначена» (ADR-0032).
     fn new(mtm: MainThreadMarker) -> Retained<StubButton> {
         let title = NSString::from_str(EXPAND_TITLE);
         let label = label(mtm);
@@ -1101,12 +1107,16 @@ impl StubButton {
         button.setTitle(&NSString::from_str(""));
         button.addSubview(&button.ivars().label);
         button.setAccessibilityLabel(Some(&title));
-        button.setToolTip(Some(&NSString::from_str(&strip::hint(
-            StripButton::Zoom,
-            None,
-        ))));
-        button.setAccessibilityHelp(Some(&NSString::from_str(&strip::help(None))));
+        button.set_key(None);
         button
+    }
+
+    fn set_key(&self, key: Option<&str>) {
+        self.setToolTip(Some(&NSString::from_str(&strip::hint(
+            StripButton::Zoom,
+            key,
+        ))));
+        self.setAccessibilityHelp(Some(&NSString::from_str(&strip::help(key))));
     }
 
     /// Размер набора подписи её шрифтом: ширина без полей ячейки, высота строки поля.

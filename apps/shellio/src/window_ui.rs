@@ -33,11 +33,11 @@ use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyMonitor, KeyResponder,
-    KeyStroke, LoopMonitor, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuState,
-    MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint,
-    StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection,
-    Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide,
-    instance_counts, late_callbacks,
+    KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry,
+    MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag,
+    Startup, StatusHint, StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState,
+    ThemeSelection, Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
+    ZoneButton, ZoneSide, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -1371,6 +1371,8 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             });
         },
     );
+    // Снимок keymap мог прийти раньше окна: эквиваленты пунктов берутся из него сразу.
+    menu.set_keys(menu_keys());
     let monitor = match LoopMonitor::install(app) {
         Ok(monitor) => Some(monitor),
         Err(error) => {
@@ -1806,6 +1808,8 @@ pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
     KEYMAP.with(|slot| *slot.borrow_mut() = Some(snapshot));
     show_modes();
     with_window(|owner| {
+        // Меню окну не принадлежит: его клавиши поколения окна не меняют.
+        owner.menu.set_keys(menu_keys());
         let keys = strip_keys();
         let buttons = owner
             .layout
@@ -1815,6 +1819,28 @@ pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
             owner.bump();
         }
     });
+}
+
+/// Эквиваленты пунктов главного меню из действующей таблицы; без снимка клавиш у пунктов нет.
+fn menu_keys() -> MenuKeys {
+    KEYMAP.with(|slot| {
+        let Some(snapshot) = slot.borrow().clone() else {
+            return MenuKeys::new();
+        };
+        key_actions::menu_chords(&snapshot.keymap, &MENU_ACTIONS)
+            .into_iter()
+            .map(|(action, chord)| {
+                let key = MenuKey {
+                    key: chord.key,
+                    command: chord.mods.cmd,
+                    shift: chord.mods.shift,
+                    option: chord.mods.alt,
+                    control: chord.mods.ctrl,
+                };
+                (action, key)
+            })
+            .collect()
+    })
 }
 
 /// Клавиши кнопок строки вкладок из действующей таблицы: деление по обеим осям и разворот.
@@ -2322,7 +2348,7 @@ fn core_choice(choice: ThemeChoice) -> AppearanceChoice {
 
 #[cfg(test)]
 mod tests {
-    use shellio_appkit::{MenuItem, MenuKey};
+    use shellio_appkit::MenuItem;
 
     use super::*;
 

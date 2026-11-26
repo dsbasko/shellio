@@ -4,10 +4,12 @@
 //! сцены не зависит: неизвестное имя — `None`, а не молча поглощённая клавиша. [`command`] строит
 //! команду ядра по сцене в момент нажатия и вправе ничего не построить: действовать не на что.
 
+use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
 use serde_json::Value;
 use shellio_core::{Command, PanelId, ResizeStep, SplitAxis, UiCommand};
+use shellio_keymap::{Chord, Context, Keymap, Mods, Sequence};
 use shellio_layout::Direction;
 use shellio_plugin_api::Registry;
 
@@ -229,6 +231,61 @@ pub fn command(scene: &Scene, action: LayoutAction) -> Option<Command> {
     }
 }
 
+/// Эквивалент пункта меню: знак `keyEquivalent` `NSMenuItem` и модификаторы.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MenuChord {
+    pub key: String,
+    pub mods: Mods,
+}
+
+/// Эквивалент пункта меню для привязки `sequence` (правило плана «Эквивалент меню»): один аккорд
+/// с `Cmd`, `Ctrl` или `Alt`. Последовательность, голая клавиша и клавиша без знака эквивалента
+/// пункту клавишу не дают.
+pub fn menu_chord(sequence: &Sequence) -> Option<MenuChord> {
+    let [chord] = sequence.chords() else {
+        return None;
+    };
+    let mods = chord.mods;
+    if !(mods.cmd || mods.ctrl || mods.alt) {
+        return None;
+    }
+    // Имя клавиши без модификаторов: знак нижнего регистра раскладки US или имя клавиши.
+    let name = Chord::new(chord.key, Mods::NONE).to_string();
+    let key = match name.as_str() {
+        "Space" => " ",
+        "Enter" => "\r",
+        "Tab" => "\t",
+        "Esc" => "\u{1b}",
+        "Backspace" => "\u{8}",
+        "Up" => "\u{f700}",
+        "Down" => "\u{f701}",
+        "Left" => "\u{f702}",
+        "Right" => "\u{f703}",
+        sign if sign.chars().count() == 1 => sign,
+        _ => return None,
+    };
+    Some(MenuChord {
+        key: key.to_owned(),
+        mods,
+    })
+}
+
+/// Эквиваленты пунктов меню `actions` из таблицы `keymap`: первая привязка действия без `args` в
+/// контексте `global`, которую выражает [`menu_chord`]. Аккорд контекста `navigation`
+/// эквивалентом не становится: через `NSMenu` он сработал бы и в режиме `Input`.
+pub fn menu_chords(keymap: &Keymap, actions: &[&str]) -> BTreeMap<String, MenuChord> {
+    actions
+        .iter()
+        .filter_map(|action| {
+            keymap
+                .sequences_for(&[Context::Global], action, None)
+                .into_iter()
+                .find_map(menu_chord)
+                .map(|chord| ((*action).to_owned(), chord))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -257,6 +314,123 @@ mod tests {
             "panel.select" => Some(json!({ "panel": "00000000-0000-0000-0000-000000000009" })),
             _ => None,
         }
+    }
+
+    const MENU: [&str; 8] = [
+        "app.quit",
+        "window.close",
+        "layout.toggle.navigator",
+        "layout.toggle.bottom",
+        "layout.toggle.side",
+        "ui.appearance.system",
+        "ui.appearance.light",
+        "ui.appearance.dark",
+    ];
+
+    /// Запись эквивалента: модификаторы и знак.
+    fn written(chord: &MenuChord) -> String {
+        let Mods {
+            cmd,
+            ctrl,
+            alt,
+            shift,
+        } = chord.mods;
+        [
+            (ctrl, "ctrl+"),
+            (alt, "opt+"),
+            (shift, "shift+"),
+            (cmd, "cmd+"),
+        ]
+        .into_iter()
+        .filter_map(|(on, name)| on.then_some(name))
+        .chain([chord.key.as_str()])
+        .collect()
+    }
+
+    #[test]
+    fn menu_items_show_the_keys_of_the_table() {
+        let actions = Actions::of(Arc::new(registry()));
+        let defaults = Keymap::defaults(actions.panels()).unwrap();
+        let shown = |keymap: &Keymap| -> Vec<(String, String)> {
+            menu_chords(keymap, &MENU)
+                .iter()
+                .map(|(action, chord)| (action.clone(), written(chord)))
+                .collect()
+        };
+        let pairs = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs
+                .iter()
+                .map(|(action, key)| ((*action).to_owned(), (*key).to_owned()))
+                .collect()
+        };
+        assert_eq!(
+            shown(&defaults),
+            pairs(&[
+                ("app.quit", "cmd+q"),
+                ("layout.toggle.bottom", "cmd+j"),
+                ("layout.toggle.navigator", "cmd+0"),
+                ("layout.toggle.side", "opt+cmd+0"),
+                ("window.close", "cmd+w"),
+            ]),
+            "действия оформления клавиш по умолчанию не имеют"
+        );
+
+        // Правка файла: снятая клавиша уходит из пункта, новая приходит; последовательность и
+        // привязка контекста `navigation` эквивалентом не становятся.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keymap.toml");
+        std::fs::write(
+            &path,
+            r#"[global]
+"Cmd-Alt-b" = "layout.toggle.bottom"
+"Cmd-j" = false
+"Cmd-0" = false
+"Cmd-q" = false
+"Ctrl-x q" = "app.quit"
+"Cmd-D" = "ui.appearance.dark"
+"Cmd-Enter" = "ui.appearance.light"
+"Cmd-F5" = "ui.appearance.system"
+
+[navigation]
+"Cmd-u" = "layout.toggle.navigator"
+"#,
+        )
+        .unwrap();
+        let next = crate::keymap_service::load(&defaults, &path, &actions).unwrap();
+        assert_eq!(
+            next.diagnostics(),
+            [],
+            "файл разобран без отключённых строк"
+        );
+        assert_eq!(
+            shown(&next),
+            pairs(&[
+                ("layout.toggle.bottom", "opt+cmd+b"),
+                ("layout.toggle.side", "opt+cmd+0"),
+                ("ui.appearance.dark", "shift+cmd+d"),
+                ("ui.appearance.light", "cmd+\r"),
+                ("window.close", "cmd+w"),
+            ])
+        );
+    }
+
+    #[test]
+    fn menu_chord_needs_one_chord_with_a_modifier() {
+        let leader = Chord::parse("Space").unwrap();
+        let of = |text: &str| menu_chord(&Sequence::parse(text, leader).unwrap());
+        assert_eq!(of("j"), None, "голая клавиша");
+        assert_eq!(of("J"), None, "один Shift — не модификатор эквивалента");
+        assert_eq!(of("Ctrl-w z"), None, "последовательность");
+        assert_eq!(of("Cmd-F1"), None, "клавиша без знака эквивалента");
+        assert_eq!(
+            of("Ctrl-\\").map(|c| written(&c)).as_deref(),
+            Some("ctrl+\\")
+        );
+        assert_eq!(
+            of("Cmd-?").map(|c| written(&c)).as_deref(),
+            Some("shift+cmd+/")
+        );
+        assert_eq!(of("Cmd-Alt-Up").map(|c| c.key).as_deref(), Some("\u{f700}"));
     }
 
     #[test]
