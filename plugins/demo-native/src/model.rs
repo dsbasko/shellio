@@ -406,6 +406,9 @@ mod tests {
             .command(&current, "demo-native.clear", None)
             .unwrap_err();
         assert_eq!(refusal.reason, Refusal::COMMAND_UNKNOWN);
+        // Без аргументов действие не выполняется: пример `args` манифеста не подставляется.
+        let refusal = model.command(&current, SET, None).unwrap_err();
+        assert_eq!(refusal.reason, Refusal::ARGS_INVALID);
         for args in [
             json!({}),
             json!({"value": 1}),

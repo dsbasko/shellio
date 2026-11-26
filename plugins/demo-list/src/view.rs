@@ -440,6 +440,14 @@ impl View {
     }
 }
 
+/// Ответ вида на намерение хоста. Плагин объявил `list_keys` и `filter`: вид принимает каждое
+/// движение списка и текст фильтра в любой зоне, в том числе когда менять нечего.
+fn handled(intent: &ViewIntent) -> Handled {
+    match intent {
+        ViewIntent::List(_) | ViewIntent::Filter { .. } => Handled::Yes,
+    }
+}
+
 impl PluginView for View {
     fn body(&self) -> Piece<'_> {
         Piece::from(&self.root)
@@ -493,7 +501,7 @@ impl PluginView for View {
 
     fn intent(&mut self, intent: &ViewIntent) -> Handled {
         Shared::host(&self.shared, self.frames.input(), intent);
-        Handled::Yes
+        handled(intent)
     }
 
     fn close_view(&mut self) {}
@@ -1007,6 +1015,59 @@ mod tests {
             at.host(Pane::Details, &filter("")),
             Some(command(FILTER, json!({"text": ""})))
         );
+    }
+
+    #[test]
+    fn view_accepts_every_declared_intent_in_every_zone() {
+        let intents = ViewIntent::declared(MANIFEST.list_keys, MANIFEST.filter);
+        assert_eq!(
+            intents.len(),
+            ListMove::ALL.len() + 2,
+            "плагин объявил оба признака"
+        );
+        // Боковая, широкая и низкая панель в каждой зоне, список и раскрытые детали.
+        let mut cases = Vec::new();
+        for zone in Zone::ALL {
+            for (width, height) in [(300.0, 400.0), (900.0, 500.0), (900.0, 200.0)] {
+                for details in [false, true] {
+                    cases.push((
+                        format!("{zone:?} {width}×{height}, детали {details}"),
+                        (zone, width, height, details),
+                    ));
+                }
+            }
+        }
+        let model = shellio_plugin_api::DynModel::new(Model);
+        let mut variants = std::collections::BTreeSet::new();
+        let mut sent = 0;
+        let refusals = shellio_plugin_view::check_intents(
+            cases,
+            &intents,
+            |&(zone, width, height, details), intent| {
+                let state = state("c", &["a"], details);
+                let presentation = presentation(zone, width, height, &state);
+                let data = serde_json::to_string(&state).unwrap();
+                variants.insert(presentation.variant);
+                let mut at = shown(presentation.variant, state);
+                let input = Frames::of(&presentation).input();
+                // Запрос вида на намерение — команда, которую модель принимает.
+                if let Some(request) = at.host(input, intent) {
+                    let PanelRequest::Command { name, args } = request else {
+                        panic!("ожидалась команда панели");
+                    };
+                    model.command(&data, &name, Some(args)).unwrap();
+                    sent += 1;
+                }
+                handled(intent)
+            },
+        );
+        assert_eq!(refusals, []);
+        assert_eq!(
+            variants.into_iter().collect::<Vec<_>>(),
+            [BAR, DRILL, SPLIT],
+            "намерения проверены в каждом представлении"
+        );
+        assert!(sent > 0);
     }
 
     #[test]

@@ -59,6 +59,23 @@ fn every_registered_plugin_passes_the_zone_contract() {
     }
 }
 
+/// Намерения панели объявляет только «Демо: список»: вид без признака намерений не получает, а
+/// вид с признаком проходит контракт намерений своего плагина во всех зонах.
+#[test]
+fn only_the_demo_list_declares_panel_intents() {
+    let registry = registry();
+    for plugin in registry.iter() {
+        let id = plugin.id().to_string();
+        let manifest = plugin.manifest();
+        let expected = id == "demo-list";
+        assert_eq!(
+            (manifest.list_keys, manifest.filter),
+            (expected, expected),
+            "плагин «{id}»"
+        );
+    }
+}
+
 #[test]
 fn every_builtin_plugin_declares_all_four_zones() {
     for plugin in registry().iter() {

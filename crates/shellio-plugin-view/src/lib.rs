@@ -19,7 +19,7 @@ use shellio_plugin_api::Presentation;
 use shellio_theme::AppTheme;
 
 pub use body::Body;
-pub use intent::{Handled, ListMove, ViewIntent};
+pub use intent::{Handled, IntentRefusal, ListMove, ViewIntent, check_intents};
 pub use neutral::{NeutralFactory, neutral_card};
 pub use sink::{Done, PanelRequest, PanelSink};
 pub use work::{ViewWork, WorkToken};
