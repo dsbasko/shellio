@@ -88,6 +88,7 @@ pub const USAGE: &str = "\
   gallery list ticks <on|off>
   gallery tree mutate <insert|reorder|collapse_parent_of_selected>
   gallery calibration
+  gallery input <journal|reset>
 
 У команд с целью-воркспейсом --target по умолчанию равен --workspace, с --all он обязателен.
 Зона — left, right, center или bottom. Размер у layout resize — точки зоны, с --part-of — доля
@@ -1305,6 +1306,17 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 _ => Err(usage(format!("неизвестный вызов «{call} {verb}»"))),
             }
         }
+        "gallery input" => {
+            given.only(call, &[])?;
+            let [verb] = operands(call, rest)?;
+            match verb.as_str() {
+                "journal" => Ok(Action::Ui(UiRequest::InputJournal)),
+                "reset" => Ok(gallery(GalleryCommand::InputReset)),
+                _ => Err(usage(format!(
+                    "{call}: ожидается journal или reset, получено «{verb}»"
+                ))),
+            }
+        }
         "gallery rebuild" | "gallery reset" | "gallery calibration" => {
             given.only(call, &[])?;
             operands::<0>(call, rest)?;
@@ -1863,6 +1875,14 @@ mod tests {
         assert_eq!(
             action_of(&["gallery", "calibration"]),
             gallery(GalleryCommand::Calibration)
+        );
+        assert_eq!(
+            action_of(&["gallery", "input", "journal"]),
+            Action::Ui(UiRequest::InputJournal)
+        );
+        assert_eq!(
+            action_of(&["gallery", "input", "reset"]),
+            gallery(GalleryCommand::InputReset)
         );
         for strip in GalleryStrip::ALL {
             assert_eq!(
@@ -2780,6 +2800,7 @@ mod tests {
             ),
             (&["ui", "mode", "get", "--all"], "не применим"),
             (&["ui", "history"][..], "ui history"),
+            (&["gallery", "input", "clear"], "journal или reset"),
             (&["ui", "history", "undo"], "back, forward или get"),
             (&["ui", "history", "get", "--all"], "не применим"),
         ] {

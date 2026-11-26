@@ -660,6 +660,8 @@ pub enum Effect {
     Tree,
     /// Запрошенная страница уже показана: вид не меняется.
     Page,
+    /// Очистить журнал приёмника ввода.
+    InputReset,
 }
 
 /// Часть вида, которую намерение изменило.
@@ -782,6 +784,7 @@ impl Gallery {
                 Effect::List
             }
             GalleryCommand::ListScroll { row } => Effect::ListScroll(row),
+            GalleryCommand::InputReset => Effect::InputReset,
             GalleryCommand::ListTicks { enabled } => {
                 self.state.list_ticks = enabled;
                 Effect::ListTicks
@@ -1061,6 +1064,7 @@ mod tests {
             GalleryCommand::TreeMutate {
                 op: TreeMutation::Insert,
             },
+            GalleryCommand::InputReset,
             GalleryCommand::Calibration,
         ]
     }
@@ -1168,6 +1172,7 @@ mod tests {
                 Effect::ListTicks,
                 Effect::Focus(GalleryFocus::Tree),
                 Effect::Tree,
+                Effect::InputReset,
                 Effect::Rebuild,
             ]
         );

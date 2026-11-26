@@ -32,7 +32,8 @@ use shellio_control::{
     StyleView,
 };
 use shellio_control::{
-    ExitChordState, HistoryPoint, HistoryView, ModeReceiver, ModeView, PanelMode,
+    ExitChordState, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
+    ModeReceiver, ModeView, PanelMode,
 };
 use shellio_control::{
     KeymapDiagnostic, KeymapRequest, KeymapRow, KeymapSource, KeymapView, ReceiptSource,
@@ -230,6 +231,7 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::Command(UiCommand::PanelFilter) | UiRequest::Filter { .. }) => {
             "request.ui.panel_filter"
         }
+        RequestBody::Ui(UiRequest::InputJournal) => "request.ui.gallery_input_journal",
         RequestBody::Ui(UiRequest::Mode) => "request.ui.mode",
         RequestBody::Ui(UiRequest::Command(UiCommand::Mode(action))) => match action {
             ModeAction::Navigation => "request.ui.mode_navigation",
@@ -258,6 +260,7 @@ fn request_golden_static(request: &Request) -> &'static str {
             GalleryCommand::ListTicks { .. } => "request.ui.gallery_list_ticks",
             GalleryCommand::TreeMutate { .. } => "request.ui.gallery_tree_mutate",
             GalleryCommand::Calibration => "request.ui.gallery_calibration",
+            GalleryCommand::InputReset => "request.ui.gallery_input_reset",
         },
     }
 }
@@ -367,6 +370,12 @@ fn requests() -> Vec<Request> {
         request(
             54,
             RequestBody::Ui(UiRequest::Command(UiCommand::History(HistoryStep::Back))),
+        ),
+        // P1.6, задача 9: журнал приёмника ввода галереи.
+        request(55, RequestBody::Ui(UiRequest::InputJournal)),
+        request(
+            56,
+            RequestBody::Ui(UiRequest::Gallery(GalleryCommand::InputReset)),
         ),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
@@ -642,6 +651,7 @@ fn response_golden(response: &Response) -> &'static str {
             UiReply::Cell(_) => "response.ok.ui.cell",
             UiReply::Mode(_) => "response.ok.ui.mode",
             UiReply::History(_) => "response.ok.ui.history",
+            UiReply::InputJournal(_) => "response.ok.ui.input_journal",
             UiReply::Inspect(inspect)
                 if inspect
                     .components
@@ -788,6 +798,7 @@ fn responses() -> Result<Vec<Response>, String> {
         ok(43, OkValue::Ui(UiReply::Cell(cell_view()))),
         ok(51, OkValue::Ui(UiReply::Mode(mode_view()))),
         ok(53, OkValue::Ui(UiReply::History(history_view()))),
+        ok(55, OkValue::Ui(UiReply::InputJournal(input_journal_view()))),
         // P1.3, задача 7: состояния `TextField` и меню кнопки; эталон `response.ok.ui.inspect`
         // не меняется.
         ok(
@@ -2182,6 +2193,30 @@ fn frame_needs_exactly_one_kind() {
     );
 }
 
+fn input_journal_view() -> InputJournalView {
+    let down = InputEventView {
+        kind: InputEventKind::Down,
+        key_code: 42,
+        cmd: false,
+        ctrl: true,
+        alt: false,
+        shift: false,
+        repeat: false,
+    };
+    InputJournalView {
+        pid: 4242,
+        receiver: ModeReceiver::GalleryInput(2),
+        mode: PanelMode::Input,
+        events: vec![
+            down,
+            InputEventView {
+                kind: InputEventKind::Up,
+                ..down
+            },
+        ],
+    }
+}
+
 fn history_view() -> HistoryView {
     let (panel, other, workbench) = layout_ids();
     HistoryView {
@@ -2216,6 +2251,7 @@ fn ui_replies_answer_only_their_request() {
         ("cell", UiReply::Cell(cell_view())),
         ("mode", UiReply::Mode(mode_view())),
         ("history", UiReply::History(history_view())),
+        ("input_journal", UiReply::InputJournal(input_journal_view())),
         (
             "accepted",
             UiReply::Accepted(Accepted {
@@ -2240,6 +2276,8 @@ fn ui_replies_answer_only_their_request() {
         ),
         (UiRequest::Mode, "mode"),
         (UiRequest::History, "history"),
+        (UiRequest::InputJournal, "input_journal"),
+        (UiRequest::Gallery(GalleryCommand::InputReset), "accepted"),
         (
             UiRequest::Command(UiCommand::History(HistoryStep::Forward)),
             "accepted",

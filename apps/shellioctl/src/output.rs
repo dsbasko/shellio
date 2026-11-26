@@ -13,7 +13,7 @@ use shellio_control::{
     Motion, OkValue, OwnerState, ReceiptsView, Rect, Response, StatsView, TabRegime, UiReply,
     WindowView, encode_line,
 };
-use shellio_control::{HistoryView, ModeReceiver, ModeView};
+use shellio_control::{HistoryView, InputJournalView, ModeReceiver, ModeView};
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
     StatusView, TreeView,
@@ -409,6 +409,7 @@ fn ui_text(reply: &UiReply) -> String {
         ),
         UiReply::Mode(mode) => mode_text(mode),
         UiReply::History(history) => history_text(history),
+        UiReply::InputJournal(journal) => input_journal_text(journal),
         UiReply::Accepted(accepted) => format!(
             "принято: {}, PID {}, поколение {}\n",
             accepted.command, accepted.pid, accepted.generation
@@ -423,10 +424,14 @@ fn mode_text(view: &ModeView) -> String {
         .map_or_else(|| "нет".to_owned(), |panel| panel.to_string());
     let receiver = match view.receiver {
         Some(ModeReceiver::Panel(_)) => "панель",
+        Some(ModeReceiver::GalleryInput(_)) => "приёмник галереи",
         None => "нет",
     };
     let exit = match view.exit_receiver {
         Some(ModeReceiver::Panel(panel)) => format!("{}, панель {panel}", view.exit.as_str()),
+        Some(ModeReceiver::GalleryInput(generation)) => {
+            format!("{}, приёмник галереи {generation}", view.exit.as_str())
+        }
         None => view.exit.as_str().to_owned(),
     };
     format!(
@@ -434,6 +439,41 @@ fn mode_text(view: &ModeView) -> String {
         view.mode.as_str(),
         view.pid
     )
+}
+
+/// Журнал приёмника ввода галереи: итог и по строке на событие.
+fn input_journal_text(view: &InputJournalView) -> String {
+    let receiver = match view.receiver {
+        ModeReceiver::Panel(panel) => format!("панель {panel}"),
+        ModeReceiver::GalleryInput(generation) => format!("приёмник {generation}"),
+    };
+    let mut out = format!(
+        "журнал ввода: событий {}, {receiver}, режим {}, PID {}\n",
+        view.events.len(),
+        view.mode.as_str(),
+        view.pid
+    );
+    for (at, event) in view.events.iter().enumerate() {
+        let mut mods = String::new();
+        for (held, name) in [
+            (event.cmd, " cmd"),
+            (event.ctrl, " ctrl"),
+            (event.alt, " alt"),
+            (event.shift, " shift"),
+        ] {
+            if held {
+                mods.push_str(name);
+            }
+        }
+        let repeat = if event.repeat { " повтор" } else { "" };
+        out.push_str(&format!(
+            "  {}: {} {}{mods}{repeat}\n",
+            at + 1,
+            event.kind.as_str(),
+            event.key_code
+        ));
+    }
+    out
 }
 
 /// История переходов активного воркспейса: итог и по строке на точку, текущая отмечена `*`.
@@ -1191,6 +1231,50 @@ mod tests {
             error: ControlError::owner_leaving(),
         };
         assert!(matches!(text(&frame), Text::Err(text) if text.starts_with("owner_leaving: ")));
+    }
+
+    #[test]
+    fn input_journal_has_text() {
+        use shellio_control::{InputEventKind, InputEventView, PanelMode};
+
+        let down = InputEventView {
+            kind: InputEventKind::Down,
+            key_code: 42,
+            cmd: false,
+            ctrl: true,
+            alt: false,
+            shift: true,
+            repeat: true,
+        };
+        let view = InputJournalView {
+            pid: 42,
+            receiver: ModeReceiver::GalleryInput(3),
+            mode: PanelMode::Input,
+            events: vec![
+                down,
+                InputEventView {
+                    kind: InputEventKind::Up,
+                    shift: false,
+                    repeat: false,
+                    ..down
+                },
+            ],
+        };
+        assert_eq!(
+            ui_text(&UiReply::InputJournal(view.clone())),
+            "журнал ввода: событий 2, приёмник 3, режим input, PID 42\n\
+             \x20 1: down 42 ctrl shift повтор\n\
+             \x20 2: up 42 ctrl\n"
+        );
+        let empty = InputJournalView {
+            events: Vec::new(),
+            mode: PanelMode::Navigation,
+            ..view
+        };
+        assert_eq!(
+            ui_text(&UiReply::InputJournal(empty)),
+            "журнал ввода: событий 0, приёмник 3, режим navigation, PID 42\n"
+        );
     }
 
     #[test]

@@ -1,0 +1,34 @@
+{
+  "id": 55,
+  "ok": {
+    "ui": {
+      "input_journal": {
+        "pid": 4242,
+        "receiver": {
+          "gallery_input": 2
+        },
+        "mode": "input",
+        "events": [
+          {
+            "kind": "down",
+            "key_code": 42,
+            "cmd": false,
+            "ctrl": true,
+            "alt": false,
+            "shift": false,
+            "repeat": false
+          },
+          {
+            "kind": "up",
+            "key_code": 42,
+            "cmd": false,
+            "ctrl": true,
+            "alt": false,
+            "shift": false,
+            "repeat": false
+          }
+        ]
+      }
+    }
+  }
+}

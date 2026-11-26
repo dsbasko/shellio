@@ -24,6 +24,7 @@ use std::sync::Arc;
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
 use shellio::history::{History, Jump};
+use shellio::input_sink::{InputSink, KeyKind, KeyRecord};
 use shellio::key_actions::{self, KeyAction};
 use shellio::key_router::{Action, Decision, Focus, KeyRouter, PanelFocus, Responder};
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
@@ -43,12 +44,12 @@ use shellio_appkit::{
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
     CellMotion, CellView, ChromeView, ColorSpaceView, ComponentState, ComponentView,
-    ExitChordState, GalleryCommand, GalleryView, HistoryPoint, HistoryView, InspectView,
-    InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView, MenuItemView,
-    MenuView, ModeReceiver, ModeView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
-    Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
-    VirtualListView, WindowView,
+    ExitChordState, GalleryCommand, GalleryView, HistoryPoint, HistoryView, InputEventKind,
+    InputEventView, InputJournalView, InspectView, InstanceKind, InstanceView, LateCallbackView,
+    ListRowView, MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView, PanelMode,
+    ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView, StripButtonView,
+    TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone, TextFieldView,
+    TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
@@ -93,6 +94,8 @@ thread_local! {
     static KEY_PANEL: RefCell<Option<PanelFocus<ModeReceiver>>> = const { RefCell::new(None) };
     /// История переходов воркспейсов (ADR-0010): точки по доставкам зеркала, в базу не пишется.
     static HISTORY: RefCell<History> = RefCell::new(History::default());
+    /// Приёмник ввода галереи: поколение и журнал принятых событий.
+    static INPUT_SINK: RefCell<InputSink> = const { RefCell::new(InputSink::new()) };
     /// Монитор клавиш живёт до выхода процесса, как окно.
     static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
 }
@@ -756,6 +759,7 @@ impl OwnerWindow {
             Effect::ListTicks => gallery.apply_list_ticks(),
             Effect::Tree => gallery.show_tree(),
             Effect::Page => {}
+            Effect::InputReset => INPUT_SINK.with(|sink| sink.borrow_mut().reset()),
         }
         self.sync_theme();
         self.publish();
@@ -789,6 +793,23 @@ impl OwnerWindow {
         if visible {
             self.window.show();
         }
+    }
+
+    /// Чтение `gallery.input.journal`: журнал нынешнего приёмника и его режим по маршрутизатору.
+    fn input_journal(&self) -> Result<UiReply, UiRefusal> {
+        gallery::admit(self.mode)?;
+        let (receiver, events) = INPUT_SINK.with(|sink| {
+            let sink = sink.borrow();
+            let events = sink.journal().map(input_event).collect();
+            (ModeReceiver::GalleryInput(sink.generation()), events)
+        });
+        let mode = with_router(|router| router.mode(&receiver)).unwrap_or(Mode::Navigation);
+        Ok(UiReply::InputJournal(InputJournalView {
+            pid: std::process::id(),
+            receiver,
+            mode: wire_panel_mode(mode),
+            events,
+        }))
     }
 
     fn gallery_intent(&mut self, intent: &Intent) {
@@ -1503,6 +1524,7 @@ fn sync_keys(
     with_router(|router| {
         router.retain(|receiver| match receiver {
             ModeReceiver::Panel(panel) => alive(*panel),
+            ModeReceiver::GalleryInput(generation) => *generation == sink_generation(),
         });
         if moved {
             router.cancel(Cancel::Focus);
@@ -1527,8 +1549,9 @@ fn input_panels() -> Option<BTreeSet<PanelId>> {
     with_router(|router| {
         router
             .inputs()
-            .map(|receiver| match receiver {
-                ModeReceiver::Panel(panel) => *panel,
+            .filter_map(|receiver| match receiver {
+                ModeReceiver::Panel(panel) => Some(*panel),
+                ModeReceiver::GalleryInput(_) => None,
             })
             .collect()
     })
@@ -1671,14 +1694,19 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         }
         // Получатель снова держит ввод, пара идёт ему напрямую, мимо очереди событий.
         Some(Decision::Replay { receiver, event }) => {
-            let ModeReceiver::Panel(panel) = receiver;
-            with_window(|owner| {
-                if let Some(layout) = owner.layout.as_ref() {
-                    layout.set_input(panel, true);
+            match receiver {
+                ModeReceiver::Panel(panel) => {
+                    with_window(|owner| {
+                        if let Some(layout) = owner.layout.as_ref() {
+                            layout.set_input(panel, true);
+                        }
+                    });
+                    if app.key_focus().responder == KeyResponder::Field {
+                        event.replay(app);
+                    }
                 }
-            });
-            if app.key_focus().responder == KeyResponder::Field {
-                event.replay(app);
+                // Вида приёмника ещё нет: пару принять некому.
+                ModeReceiver::GalleryInput(_) => {}
             }
             defer(move |_| {
                 forget_status(seen);
@@ -2218,6 +2246,26 @@ fn mode_view() -> Option<ModeView> {
     })
 }
 
+/// Поколение нынешнего приёмника ввода галереи.
+fn sink_generation() -> u64 {
+    INPUT_SINK.with(|sink| sink.borrow().generation())
+}
+
+fn input_event(record: &KeyRecord) -> InputEventView {
+    InputEventView {
+        kind: match record.kind {
+            KeyKind::Down => InputEventKind::Down,
+            KeyKind::Up => InputEventKind::Up,
+        },
+        key_code: record.key_code,
+        cmd: record.mods.cmd,
+        ctrl: record.mods.ctrl,
+        alt: record.mods.alt,
+        shift: record.mods.shift,
+        repeat: record.repeat,
+    }
+}
+
 fn wire_panel_mode(mode: Mode) -> PanelMode {
     match mode {
         Mode::Navigation => PanelMode::Navigation,
@@ -2446,6 +2494,9 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         }),
         UiRequest::Mode => mode_view().map(UiReply::Mode),
         UiRequest::History => history_view().map(UiReply::History),
+        UiRequest::InputJournal => {
+            return with_window(|owner| owner.input_journal()).unwrap_or(Err(UiRefusal::NoUi));
+        }
         UiRequest::Command(command) => {
             let owner = with_window(|_| ());
             owner.and_then(|()| {

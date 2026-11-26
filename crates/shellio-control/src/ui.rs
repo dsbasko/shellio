@@ -4,8 +4,8 @@
 //!
 //! Кадр запроса — объект с одним ключом, именем запроса: `{"ui.window": {}}`,
 //! `{"ui.appearance.set": {"appearance": "light"}}`. Ответ лежит под ключом `ui` значения `ok`
-//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode`, `history` или
-//! `accepted`.
+//! и тоже несёт один ключ: `window`, `inspect`, `stats`, `receipts`, `cell`, `mode`, `history`,
+//! `input_journal` или `accepted`.
 //!
 //! Служебные команды галереи [`GalleryCommand`] (`gallery.*`) выполняются только в режиме галереи,
 //! иначе отказ `gallery_only`. Ответ — та же квитанция `accepted` с поколением состояния, которое
@@ -43,6 +43,9 @@ pub enum UiRequest {
     /// `ui.history`: точки истории переходов активного воркспейса и курсор. Чтение ничего не
     /// меняет.
     History,
+    /// `gallery.input.journal`: журнал событий клавиш, принятых приёмником ввода галереи. Чтение
+    /// ничего не меняет; вне галереи — отказ `gallery_only`.
+    InputJournal,
     /// Действие интерфейса: тот же обработчик, что у главного меню.
     Command(UiCommand),
     /// `panel.filter` с полем `text`: текст фильтра панели с фокусом, пустой снимает фильтр. Тот
@@ -147,6 +150,8 @@ pub enum GalleryCommand {
     /// `gallery.calibration`: показать страницу «Калибровка» вместо сцены компонентов;
     /// `gallery.reset` возвращает сцену.
     Calibration,
+    /// `gallery.input.reset`: очистить журнал приёмника ввода; приёмник и его поколение прежние.
+    InputReset,
 }
 
 impl GalleryCommand {
@@ -167,6 +172,7 @@ impl GalleryCommand {
             Self::ListTicks { .. } => "gallery.list.ticks",
             Self::TreeMutate { .. } => "gallery.tree.mutate",
             Self::Calibration => "gallery.calibration",
+            Self::InputReset => "gallery.input.reset",
         }
     }
 }
@@ -268,6 +274,7 @@ impl UiRequest {
             Self::Receipts { .. } => "ui.receipts",
             Self::Mode => "ui.mode",
             Self::History => "ui.history",
+            Self::InputJournal => "gallery.input.journal",
             Self::Command(command) => command.name(),
             Self::Filter { .. } => UiCommand::PanelFilter.name(),
             Self::Gallery(command) => command.name(),
@@ -284,7 +291,8 @@ impl UiRequest {
             | Self::Stats
             | Self::Receipts { .. }
             | Self::Mode
-            | Self::History => false,
+            | Self::History
+            | Self::InputJournal => false,
             Self::Command(_)
             | Self::Filter { .. }
             | Self::Gallery(_)
@@ -303,6 +311,7 @@ impl UiRequest {
                 | (Self::Receipts { .. }, UiReply::Receipts(_))
                 | (Self::Mode, UiReply::Mode(_))
                 | (Self::History, UiReply::History(_))
+                | (Self::InputJournal, UiReply::InputJournal(_))
                 | (
                     Self::Command(_)
                         | Self::Filter { .. }
@@ -508,6 +517,10 @@ enum WireUiRequest {
     GalleryTreeMutate(TreeMutateArgs),
     #[serde(rename = "gallery.calibration")]
     GalleryCalibration(NoArgs),
+    #[serde(rename = "gallery.input.journal")]
+    GalleryInputJournal(NoArgs),
+    #[serde(rename = "gallery.input.reset")]
+    GalleryInputReset(NoArgs),
 }
 
 impl From<WireUiRequest> for UiRequest {
@@ -624,6 +637,10 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::GalleryCalibration(NoArgs {}) => {
                 Self::Gallery(GalleryCommand::Calibration)
             }
+            WireUiRequest::GalleryInputJournal(NoArgs {}) => Self::InputJournal,
+            WireUiRequest::GalleryInputReset(NoArgs {}) => {
+                Self::Gallery(GalleryCommand::InputReset)
+            }
         }
     }
 }
@@ -670,6 +687,7 @@ impl From<UiRequest> for WireUiRequest {
                 ModeAction::Toggle => Self::ModeToggle(NoArgs {}),
             },
             UiRequest::History => Self::History(NoArgs {}),
+            UiRequest::InputJournal => Self::GalleryInputJournal(NoArgs {}),
             UiRequest::Command(UiCommand::History(step)) => match step {
                 HistoryStep::Back => Self::HistoryBack(NoArgs {}),
                 HistoryStep::Forward => Self::HistoryForward(NoArgs {}),
@@ -707,6 +725,7 @@ impl From<UiRequest> for WireUiRequest {
                 }
                 GalleryCommand::TreeMutate { op } => Self::GalleryTreeMutate(TreeMutateArgs { op }),
                 GalleryCommand::Calibration => Self::GalleryCalibration(NoArgs {}),
+                GalleryCommand::InputReset => Self::GalleryInputReset(NoArgs {}),
             },
         }
     }
@@ -726,6 +745,8 @@ pub enum UiReply {
     Mode(ModeView),
     /// История переходов активного воркспейса: ответ `ui.history`.
     History(HistoryView),
+    /// Журнал приёмника ввода галереи: ответ `gallery.input.journal`.
+    InputJournal(InputJournalView),
     /// Действие принято обработчиком на главном потоке.
     Accepted(Accepted),
 }
@@ -766,6 +787,9 @@ impl PanelMode {
 pub enum ModeReceiver {
     /// Панель рабочей области: `{"panel": <id>}`.
     Panel(PanelId),
+    /// Приёмник ввода галереи: `{"gallery_input": <поколение>}`. Поколение растёт с каждым новым
+    /// видом приёмника.
+    GalleryInput(u64),
 }
 
 /// Автомат аккорда выхода.
@@ -826,6 +850,52 @@ pub struct HistoryView {
     pub points: Vec<HistoryPoint>,
     /// Номер текущей точки в `points` с нуля; `null` — история пуста.
     pub cursor: Option<usize>,
+}
+
+/// Половина нажатия клавиши в журнале приёмника ввода.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputEventKind {
+    Down,
+    Up,
+}
+
+impl InputEventKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Down => "down",
+            Self::Up => "up",
+        }
+    }
+}
+
+/// Событие клавиши, принятое приёмником ввода галереи.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputEventView {
+    pub kind: InputEventKind,
+    /// Виртуальный код физической клавиши.
+    pub key_code: u16,
+    pub cmd: bool,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
+    /// Автоповтор удержанной клавиши.
+    pub repeat: bool,
+}
+
+/// Ответ `gallery.input.journal` (ADR-0007, «Уточнено в P1.6 (планирование)»).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputJournalView {
+    /// PID владельца.
+    pub pid: u32,
+    /// Нынешний приёмник: журнал прежнего поколения не отдаётся.
+    pub receiver: ModeReceiver,
+    /// Режим приёмника.
+    pub mode: PanelMode,
+    /// Принятые события по порядку, не больше 256 последних.
+    pub events: Vec<InputEventView>,
 }
 
 /// Квитанции действий главного потока: ответ `ui.receipts` (ADR-0007, «Квитанции UI» и «Уточнено
@@ -1820,6 +1890,12 @@ mod tests {
                 true,
             ),
             (UiRequest::History, "ui.history", false),
+            (UiRequest::InputJournal, "gallery.input.journal", false),
+            (
+                UiRequest::Gallery(GalleryCommand::InputReset),
+                "gallery.input.reset",
+                true,
+            ),
             (
                 UiRequest::Command(UiCommand::History(HistoryStep::Back)),
                 "history.back",
@@ -1951,6 +2027,7 @@ mod tests {
             GalleryCommand::TreeMutate { .. } => 11,
             GalleryCommand::ListTicks { .. } => 12,
             GalleryCommand::Calibration => 13,
+            GalleryCommand::InputReset => 14,
         };
         let covered: std::collections::BTreeSet<usize> = cases
             .iter()
@@ -1959,7 +2036,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(covered, (0..14).collect());
+        assert_eq!(covered, (0..15).collect());
         for (request, name, mutation) in cases {
             assert_eq!(request.name(), name);
             assert_eq!(request.is_mutation(), mutation, "{name}");
@@ -2204,6 +2281,58 @@ mod tests {
         assert_eq!(serde_json::from_value::<ModeView>(json).unwrap(), armed);
         assert!(UiRequest::Mode.answered_by(&UiReply::Mode(armed.clone())));
         assert!(!UiRequest::Window.answered_by(&UiReply::Mode(armed)));
+    }
+
+    #[test]
+    fn input_journal_request_and_reply_have_stable_frames() {
+        let read: UiRequest = serde_json::from_value(json!({"gallery.input.journal": {}})).unwrap();
+        assert_eq!(read, UiRequest::InputJournal);
+        assert_eq!(
+            serde_json::to_value(&read).unwrap(),
+            json!({"gallery.input.journal": {}})
+        );
+        let reset: UiRequest = serde_json::from_value(json!({"gallery.input.reset": {}})).unwrap();
+        assert_eq!(reset, UiRequest::Gallery(GalleryCommand::InputReset));
+        assert_eq!(
+            serde_json::to_value(&reset).unwrap(),
+            json!({"gallery.input.reset": {}})
+        );
+        assert!(
+            serde_json::from_value::<UiRequest>(json!({"gallery.input.journal": {"after": 1}}))
+                .is_err()
+        );
+
+        let view = InputJournalView {
+            pid: 7,
+            receiver: ModeReceiver::GalleryInput(3),
+            mode: PanelMode::Input,
+            events: vec![InputEventView {
+                kind: InputEventKind::Down,
+                key_code: 42,
+                cmd: false,
+                ctrl: true,
+                alt: false,
+                shift: false,
+                repeat: false,
+            }],
+        };
+        let json = serde_json::to_value(UiReply::InputJournal(view.clone())).unwrap();
+        assert_eq!(
+            json,
+            json!({"input_journal": {
+                "pid": 7, "receiver": {"gallery_input": 3}, "mode": "input",
+                "events": [{
+                    "kind": "down", "key_code": 42, "cmd": false, "ctrl": true, "alt": false,
+                    "shift": false, "repeat": false
+                }]
+            }})
+        );
+        assert_eq!(
+            serde_json::from_value::<UiReply>(json).unwrap(),
+            UiReply::InputJournal(view.clone())
+        );
+        assert!(UiRequest::InputJournal.answered_by(&UiReply::InputJournal(view.clone())));
+        assert!(!UiRequest::History.answered_by(&UiReply::InputJournal(view)));
     }
 
     #[test]
