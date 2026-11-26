@@ -19,6 +19,10 @@ pub const CARET_COMPONENT: &str = "palette.query.caret";
 /// Погрешность сравнения кадров окон в точках.
 const FRAME_TOLERANCE: f64 = 1.0;
 
+/// Уровень окна указателя мыши (`CGWindowLevelForKey(kCGCursorWindowLevelKey)`): `screencapture`
+/// без `-C` указатель не снимает, поэтому над областью он чужим окном не считается.
+const CURSOR_LAYER: i64 = 2_147_483_630;
+
 /// Роль окна палитры в `ui.window.windows`.
 const PALETTE_ROLE: &str = "palette";
 const MAIN_ROLE: &str = "main";
@@ -139,8 +143,8 @@ fn owned<'a>(window: &'a WindowView, role: &str) -> Option<&'a OwnedWindow> {
 
 /// Сверка пары окон перед снимком композиции: окно владельца и палитра на одном экране с
 /// масштабом `scale`, кадры `ui.window`, переведённые [`capture_region`], совпадают с
-/// `kCGWindowBounds` в пределах точки, над областью нет чужого окна любого уровня (плавающее окно,
-/// баннер, строка меню над окном, сдвинутым под неё), палитра над окном владельца, когда открыта,
+/// `kCGWindowBounds` в пределах точки, над областью нет чужого окна любого уровня, кроме уровня
+/// указателя мыши (плавающее окно, баннер, строка меню над окном, сдвинутым под неё), палитра над окном владельца, когда открыта,
 /// и отсутствует на экране, когда закрыта.
 pub fn judge_pair(
     window: &WindowView,
@@ -197,7 +201,10 @@ pub fn judge_pair(
         .iter()
         .position(|w| w.number == palette.window_number);
     for other in &listed[..main_at] {
-        if other.number != palette.window_number && overlaps(other.bounds.rect(), region) {
+        if other.number != palette.window_number
+            && other.layer != CURSOR_LAYER
+            && overlaps(other.bounds.rect(), region)
+        {
             return execution(format!(
                 "чужое окно {} (PID {}) над областью снимка {:?}",
                 other.number, other.pid, other.bounds
@@ -647,6 +654,38 @@ mod tests {
         ];
         assert!(matches!(
             judge_pair(&window_json(true), &floating, 2.0, Expect::Open),
+            Err(PairFault::Execution(_))
+        ));
+    }
+
+    #[test]
+    fn mouse_pointer_over_the_region_is_not_a_foreign_window() {
+        let pointer = (737.0, 453.0, 28.0, 40.0);
+        let open = [
+            listed(2, 414, CURSOR_LAYER, pointer),
+            listed(41, 7, 0, PALETTE),
+            listed(40, 7, 0, MAIN),
+        ];
+        assert_eq!(
+            judge_pair(&window_json(true), &open, 2.0, Expect::Open),
+            Ok(())
+        );
+        let closed = [
+            listed(2, 414, CURSOR_LAYER, pointer),
+            listed(40, 7, 0, MAIN),
+        ];
+        assert_eq!(
+            judge_pair(&window_json(false), &closed, 2.0, Expect::Closed),
+            Ok(())
+        );
+        // Уровень на единицу ниже указателя — уже чужое окно.
+        let below = [
+            listed(3, 414, CURSOR_LAYER - 1, pointer),
+            listed(41, 7, 0, PALETTE),
+            listed(40, 7, 0, MAIN),
+        ];
+        assert!(matches!(
+            judge_pair(&window_json(true), &below, 2.0, Expect::Open),
             Err(PairFault::Execution(_))
         ));
     }
