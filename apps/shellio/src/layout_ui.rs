@@ -96,6 +96,24 @@ struct FilterRow {
     open: bool,
 }
 
+/// Шаг открытой строки фильтра по намерению её поля.
+#[derive(Debug, PartialEq, Eq)]
+enum FilterStep {
+    /// Ввод: текст фильтра уходит виду, строка остаётся.
+    Text(String),
+    /// Строка закрывается; `clear` — фильтр снят.
+    Close { clear: bool },
+}
+
+/// `Enter` закрывает строку и оставляет фильтр, `Esc` закрывает её и снимает фильтр.
+fn filter_step(intent: TextFieldIntent) -> FilterStep {
+    match intent {
+        TextFieldIntent::Changed(text) => FilterStep::Text(text),
+        TextFieldIntent::Submitted(_) => FilterStep::Close { clear: false },
+        TextFieldIntent::Cancelled => FilterStep::Close { clear: true },
+    }
+}
+
 fn filter_state(text: &str) -> TextFieldState {
     TextFieldState {
         value: text.to_owned(),
@@ -494,18 +512,18 @@ impl LayoutUi {
 
     /// Намерение строки фильтра панели `panel`. Ввод уходит виду текстом фильтра. `Enter`
     /// закрывает строку и оставляет фильтр, `Esc` закрывает её и снимает фильтр; оба возвращают
-    /// ввод телу панели.
-    pub fn filter_intent(&mut self, panel: PanelId, intent: TextFieldIntent) {
+    /// ввод телу панели. `true` — строка закрыта: ввод в ней прерван без события поля, режим
+    /// панели согласует вызывающий.
+    pub fn filter_intent(&mut self, panel: PanelId, intent: TextFieldIntent) -> bool {
         if !self.filters.get(&panel).is_some_and(|row| row.open) {
-            return;
+            return false;
         }
-        let clear = match intent {
-            TextFieldIntent::Changed(text) => {
+        let clear = match filter_step(intent) {
+            FilterStep::Text(text) => {
                 self.bodies.intent(panel, &ViewIntent::Filter { text });
-                return;
+                return false;
             }
-            TextFieldIntent::Submitted(_) => false,
-            TextFieldIntent::Cancelled => true,
+            FilterStep::Close { clear } => clear,
         };
         if let Some(row) = self.filters.get_mut(&panel) {
             row.open = false;
@@ -523,6 +541,7 @@ impl LayoutUi {
         if let Some(view) = self.bodies.view(panel) {
             view.focus_preferred();
         }
+        true
     }
 
     /// Панель, в чьей открытой строке фильтра идёт ввод.
@@ -1787,6 +1806,24 @@ mod tests {
     use shellio_layout::Geometry;
 
     use super::*;
+
+    /// Оба закрытия строки фильтра — `Enter` и `Esc` — отдают шаг закрытия: по нему окно
+    /// согласует режим панели. Ввод строку не закрывает.
+    #[test]
+    fn enter_and_esc_close_the_filter_row_and_typing_keeps_it() {
+        assert_eq!(
+            filter_step(TextFieldIntent::Submitted("ета".into())),
+            FilterStep::Close { clear: false }
+        );
+        assert_eq!(
+            filter_step(TextFieldIntent::Cancelled),
+            FilterStep::Close { clear: true }
+        );
+        assert_eq!(
+            filter_step(TextFieldIntent::Changed("ета".into())),
+            FilterStep::Text("ета".into())
+        );
+    }
 
     /// Каждый ключ сверки, который назначают заголовок, строка статуса и раскладка, есть в
     /// таблице шаблонов `shellio-conformance`.

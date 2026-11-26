@@ -2513,13 +2513,19 @@ fn history_view() -> Option<HistoryView> {
     }))
 }
 
-/// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`.
+/// Намерение строки фильтра панели `panel`: ввод, `Enter` или `Esc`. Закрытая строка прерывает
+/// ввод без события поля (`abortEditing` конец ввода не объявляет), поэтому режим панели
+/// согласуется здесь: без поля с вводом она возвращается в `Navigation`.
 fn on_filter_row(panel: PanelId, intent: TextFieldIntent) {
-    with_window(|owner| {
-        if let Some(layout) = owner.layout.as_mut() {
-            layout.filter_intent(panel, intent);
-        }
+    let closed = with_window(|owner| {
+        owner
+            .layout
+            .as_mut()
+            .is_some_and(|layout| layout.filter_intent(panel, intent))
     });
+    if closed == Some(true) {
+        follow_field();
+    }
 }
 
 /// Пункт `row` меню «Вид → Открыть панель»: одна команда `panel.open` в рабочую область, открытую

@@ -70,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 5 2 4 1 6 7 8 8 7 7 8 8 6 5 8 8 8 0)
+STAGE=(1 2 2 3 5 2 4 1 6 8 9 9 8 7 9 9 6 5 9 9 9 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=6
+DONE_STAGE=7
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -96,6 +96,10 @@ K_1=18
 K_2=19
 K_3=20
 K_Q=12
+K_B=11
+K_SLASH=44
+K_ENTER=36
+K_ESC=53
 
 REQUIRED=()
 STATUS=()
@@ -2003,6 +2007,199 @@ item_window_quit() {
 }
 
 # Cmd-Alt-t трижды: системное → светлое → тёмное → системное по ui.window.
+# Опрос ui.mode: режим панели с фокусом — want (navigation или input) и подпись плашки status.mode в ui.inspect ему
+# соответствует; чтения — <prefix>.stdout и <prefix>.inspect.stdout, иначе WHY.
+wait_mode() {
+  local prefix="$1" want="$2" deadline got="?" plate="?" label="НАВИГАЦИЯ"
+  WHY=""
+  [[ "$want" != input ]] || label="ВВОД"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ctl "$profile" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" ui mode get; then
+      got="$(jv "$prefix.stdout" ok.ui.mode.mode 2>/dev/null || echo "?")"
+      if [[ "$got" == "$want" ]] && ui_read "$profile" "$prefix.inspect" inspect; then
+        plate="$(comp "$prefix.inspect.stdout" status.mode label 2>/dev/null || echo "?")"
+        [[ "$plate" != "$label" ]] || return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс режим ui.mode — $got, плашка — «${plate}», ожидались $want и «${label}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Опрос строки фильтра панели в ui.inspect: open — строка видна и её поле держит ввод, closed — строка скрыта или её
+# узла ещё нет (строка не открывалась) и ввода в поле нет; текст поля — в ROW_TEXT; чтение — <prefix>.stdout, иначе WHY.
+ROW_TEXT=""
+wait_row() {
+  local prefix="$1" panel="$2" want="$3" deadline seen="?" editing="?" id="layout.panel.$2.filter"
+  WHY=""
+  ROW_TEXT=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect; then
+      seen="$(comp "$prefix.stdout" "$id" visible 2>/dev/null || echo "?")"
+      editing="$(comp "$prefix.stdout" "$id.input" state.text_field.editing 2>/dev/null || echo "?")"
+      ROW_TEXT="$(comp "$prefix.stdout" "$id.input" state.text_field.value 2>/dev/null || true)"
+      if [[ "$want" == open ]]; then
+        [[ "$seen" != true || "$editing" != true ]] || return 0
+      else
+        [[ "$seen" == true || "$editing" == true ]] || return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс строка фильтра: видна — $seen, ввод — $editing, ожидалось «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Строки списка панели в ui.inspect, чьё название содержит text без учёта регистра: ключи через пробел. Это
+# независимое ожидание сужения: его считает сценарий по полному списку, а не плагин.
+rows_with() {
+  /usr/bin/perl -MJSON::PP -Mutf8 -e '
+    my ($file, $id, $text) = @ARGV;
+    utf8::decode($text);
+    open my $fh, "<", $file or exit 2;
+    local $/;
+    my $v = eval { JSON::PP->new->utf8->decode(<$fh>) };
+    exit 2 if $@;
+    my ($list) = grep { $_->{id} eq $id } @{ $v->{ok}{ui}{inspect}{components} };
+    exit 1 unless $list;
+    print join(" ", map { $_->{id} } grep { index(lc $_->{text}, lc $text) >= 0 } @{ $list->{state}{virtual_list}{visible} }), "\n";
+  ' "$1" "layout.panel.$2.list" "$3"
+}
+
+# Опрос фильтра: data.filter query.panel равен text и показанные строки списка в ui.inspect — want (ключи через
+# пробел); чтения — <prefix>.panel.stdout и <prefix>.stdout, иначе WHY.
+wait_filter() {
+  local prefix="$1" panel="$2" text="$3" want="$4" deadline got="?" rows="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if panel_get "$profile" "$prefix.panel" "$panel"; then
+      got="$(pv "$prefix.panel.stdout" data.filter 2>/dev/null || echo "?")"
+      if [[ "$got" == "$text" ]] && ui_read "$profile" "$prefix" inspect; then
+        rows="$(rows_with "$prefix.stdout" "$panel" "" 2>/dev/null || echo "?")"
+        [[ "$rows" != "$want" ]] || return 0
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс фильтр query.panel — «${got}», строки списка — «${rows}», ожидались «${text}» и «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Клавиша / у списка: одна запись кольца panel.filter с источником key без отказа, строка фильтра открыта с текстом
+# text и держит ввод, режим панели — input.
+fopen() {
+  local dir="$1" name="$2" panel="$3" text="$4"
+  if ! act "$dir" "$name" panel.filter "$K_SLASH"; then
+    failures+=("$name: $WHY")
+    return 0
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$name: действие panel.filter отказало: $OUTCOME")
+  if wait_row "$dir/$name.row" "$panel" open; then
+    [[ "$ROW_TEXT" == "$text" ]] || failures+=("$name: текст строки фильтра «${ROW_TEXT}», ожидался «${text}»")
+  else
+    failures+=("$name: $WHY")
+  fi
+  wait_mode "$dir/$name.mode" input || failures+=("$name: $WHY")
+  once "$dir" "$name" || failures+=("$name: $WHY")
+}
+
+# Клавиша поля без записи кольца (буква, Enter, Esc): fkey <каталог> <имя> <код>; отказ отправки — в failures.
+fkey() {
+  key "$1/keys.log" "$3" || failures+=("$2: клавиша $3 не отправлена: $(tail -n 1 "$1/keys.log")")
+}
+
+# Фильтр «Демо: список»: /, буква, Enter, второй /, Esc клавишами; затем непустое сужение — текст кириллицей командой
+# CLI в открытую строку и Esc клавишей в ней. Буква под латинским источником названий списка (кириллица) не находит:
+# ход клавишами судит текст фильтра и пустой список, а строки между нулём и всеми — ход с текстом CLI. Ожидаемые
+# строки считает сценарий по полному списку. Клавиши поля записей кольца не дают: закрытие судят строка, режим и
+# следующая клавиша с записью — второй / и j.
+item_filter() {
+  local item=filter dir="$run/filter" demo all typed want first text="ета" until
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-list center
+  demo="$PANEL"
+  wait_focus "$dir/open-demo.layout" "$demo" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
+  wait_key "$dir/first" "$demo" "!?" || fatal "$item: подготовка: $WHY"
+  first="$KEY"
+  wait_row "$dir/start.row" "$demo" closed || fatal "$item: подготовка: $WHY"
+  all="$(rows_with "$dir/start.row.stdout" "$demo" "")" || fatal "$item: подготовка: список не прочитан в ui.inspect"
+  [[ "$(wc -w <<<"$all" | tr -d ' ')" -ge 4 ]] || fatal "$item: подготовка: в списке меньше четырёх строк: «${all}»"
+  wait_filter "$dir/start.filter" "$demo" "" "$all" || fatal "$item: подготовка: $WHY"
+  wait_mode "$dir/start.mode" navigation || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+
+  fopen "$dir" slash "$demo" ""
+  fkey "$dir" letter "$K_B"
+  typed=""
+  if wait_row "$dir/letter.row" "$demo" open; then
+    until=$(($(now_ms) + MIRROR_MS))
+    while [[ -z "$ROW_TEXT" ]] && (($(now_ms) < until)); do
+      sleep "$POLL"
+      wait_row "$dir/letter.row" "$demo" open || break
+    done
+    typed="$ROW_TEXT"
+  fi
+  if [[ -n "$typed" ]]; then
+    want="$(rows_with "$dir/start.row.stdout" "$demo" "$typed")"
+    wait_filter "$dir/letter.filter" "$demo" "$typed" "$want" || failures+=("буква: $WHY")
+    wait_mode "$dir/letter.mode" input || failures+=("буква: $WHY")
+    fkey "$dir" enter "$K_ENTER"
+    wait_row "$dir/enter.row" "$demo" closed || failures+=("Enter: $WHY")
+    wait_mode "$dir/enter.mode" navigation || failures+=("Enter: $WHY")
+    wait_filter "$dir/enter.filter" "$demo" "$typed" "$want" || failures+=("Enter: фильтр не остался: $WHY")
+    fopen "$dir" slash-again "$demo" "$typed"
+    fkey "$dir" esc "$K_ESC"
+    wait_row "$dir/esc.row" "$demo" closed || failures+=("Esc: $WHY")
+    wait_filter "$dir/esc.filter" "$demo" "" "$all" || failures+=("Esc: фильтр не снят: $WHY")
+    wait_mode "$dir/esc.mode" navigation || failures+=("Esc: $WHY")
+  else
+    failures+=("буква: строка фильтра текста не получила")
+  fi
+
+  want="$(rows_with "$dir/start.row.stdout" "$demo" "$text")"
+  if [[ -z "$want" || "$want" == "$all" ]]; then
+    failures+=("текст «${text}» список не сужает: строки «${want}» из «${all}»")
+  elif ui_cmd "$profile" "$dir/cli-filter" ui filter "$text"; then
+    if wait_row "$dir/cli.row" "$demo" open; then
+      [[ "$ROW_TEXT" == "$text" ]] || failures+=("ui filter: текст строки фильтра «${ROW_TEXT}», ожидался «${text}»")
+    else
+      failures+=("ui filter: $WHY")
+    fi
+    wait_filter "$dir/cli.filter" "$demo" "$text" "$want" || failures+=("ui filter: $WHY")
+    wait_mode "$dir/cli.mode" input || failures+=("ui filter: $WHY")
+    to_front "$dir" "$item"
+    fkey "$dir" esc-open "$K_ESC"
+    wait_row "$dir/esc-open.row" "$demo" closed || failures+=("Esc в открытой строке: $WHY")
+    wait_filter "$dir/esc-open.filter" "$demo" "" "$all" || failures+=("Esc в открытой строке: фильтр не снят: $WHY")
+    wait_mode "$dir/esc-open.mode" navigation || failures+=("Esc в открытой строке: $WHY")
+  else
+    failures+=("ui filter: $WHY")
+  fi
+
+  if act "$dir" key-j list.down "$K_J"; then
+    [[ "$OUTCOME" == ok ]] || failures+=("j после фильтра: действие list.down отказало: $OUTCOME")
+    wait_key "$dir/key-j.panel" "$demo" "!$first" || failures+=("j после фильтра: $WHY")
+    once "$dir" key-j || failures+=("j после фильтра: $WHY")
+  else
+    failures+=("j после фильтра: $WHY")
+  fi
+  conclude "$item" "«Демо: список»: / открывает строку фильтра (одна запись ui.receipts panel.filter с источником key, режим input, плашка «ВВОД»), буква «${typed:-?}» ставит data.filter query.panel и оставляет строки, чьё название её содержит; Enter закрывает строку, фильтр остаётся, режим — navigation; второй / открывает строку с тем же текстом одной записью кольца, Esc снимает фильтр и возвращает все строки; текст «${text}» командой CLI оставляет строки «${want}» из «${all}», Esc в открытой строке снимает фильтр; j после этого — одна запись list.down"
+}
+
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
   log "== $item"
@@ -2036,6 +2233,7 @@ item_zones_toggle
 item_appearance_cycle
 item_relative_resize_cli
 item_key_and_menu_once
+item_filter
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
