@@ -920,8 +920,8 @@ fn scene_reads_capabilities_absent_commands_and_right_summaries() {
         }
     );
     assert_eq!(scene.commands_absent, ["palette"]);
-    // Новые поля состав не меняют: вид сцены прежний.
-    assert!(scene.composition().statusline.is_empty());
+    // Плашка режима есть в строке статуса любой сцены.
+    assert_eq!(scene.composition().statusline, ["status.mode"]);
 
     let mut value: serde_json::Value = serde_json::from_str(P15).unwrap();
     value["status"] = serde_json::json!({"load": "3% CPU · 210 МБ"});
@@ -931,7 +931,10 @@ fn scene_reads_capabilities_absent_commands_and_right_summaries() {
     });
     let scene = Scene::parse("s", &value.to_string()).unwrap();
     assert_eq!(scene.status.load.as_deref(), Some("3% CPU · 210 МБ"));
-    assert_eq!(scene.composition().statusline, ["status.load"]);
+    assert_eq!(
+        scene.composition().statusline,
+        ["status.mode", "status.load"]
+    );
     assert_eq!(
         scene.catalog[0].capabilities.hints,
         [StatusHint {

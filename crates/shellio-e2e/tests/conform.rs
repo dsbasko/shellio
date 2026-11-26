@@ -95,6 +95,9 @@ fn style(e: &Element) -> Value {
     if let Some(line) = e.line_height.filter(|line| e.frame.h >= 2.0 * line) {
         put("line_height", json!(line));
     }
+    if let Some(spacing) = e.letter_spacing {
+        put("letter_spacing", json!(spacing));
+    }
     for (name, color) in [("color", e.color), ("fill", e.fill)] {
         if let Some(color) = color {
             put(name, json!(color));

@@ -102,6 +102,9 @@
           "title": "Демо: поле (уже открыт)",
           "enabled": false
         }
+      ],
+      "statusline": [
+        "status.mode"
       ]
     }
   }

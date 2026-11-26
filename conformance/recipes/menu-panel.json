@@ -102,6 +102,9 @@
           "title": "Закрыть",
           "enabled": true
         }
+      ],
+      "statusline": [
+        "status.mode"
       ]
     }
   }

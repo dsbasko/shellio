@@ -6,7 +6,9 @@
         "part": 1,
         "zone": "center"
       },
-      "statusline": [],
+      "statusline": [
+        "status.mode"
+      ],
       "titlebar": [
         "chrome.window.close",
         "chrome.window.minimize",

@@ -106,14 +106,15 @@
       S.plugins[c.id] = { ...base, id: c.id, title: c.title, icon: c.icon, placements: c.placements, defaultZone: c.default_zone, minSize: { w: c.min_size.width, h: c.min_size.height }, cardinality: { multi: 'multi', per_workbench: 'workbench', per_project: 'project', per_workspace: 'workspace', per_app: 'app' }[c.cardinality] };
       // Подпись вкладки, точка, счётчик, нагрузка и действия демо-мира в сцену не попадают.
       ['tabTitle', 'tabStatus', 'tabCount', 'meter', 'actions', 'inputHints', 'inputTarget', 'surfaceless'].forEach((k) => { delete S.plugins[c.id][k]; });
-      // Режим клавиатуры называет сцена, а не плагин: тон фокуса и вуаль берут его цвет.
-      S.plugins[c.id].inputDefault = scene.mode === 'input';
+      // Получатель ввода есть только у плагина, которому его дала сцена. Режим клавиатуры сцена
+      // не называет: он следует за фактическим получателем.
+      S.plugins[c.id].inputDefault = !!(c.capabilities || {}).input;
       if (!known[c.id]) S.plugins[c.id].view = () => '';
     });
     S.scenarios.length = 0;
     St.scene = scene; St.statusMessage = null;
     // Возможности плагинов, отсутствующие действия и сводки правой части строки статуса — входы
-    // сцены. Вид их пока не читает: строку статуса сцены рисует её список.
+    // сцены: по ним общая отрисовка строки статуса считает подсказки.
     St.sceneInputs = {
       capabilities: Object.fromEntries(scene.catalog.map((c) => [c.id, { input: false, list_keys: false, filter: false, hints: [], ...(c.capabilities || {}) }])),
       commandsAbsent: scene.commands_absent || [],
@@ -138,6 +139,8 @@
         if (!navPart) { L.groups[g.id] = g; L.parts[z.zone].push(g.id); }
         part.tabs.forEach((t) => {
           const p = S.create(t.plugin, { zone: z.zone });
+          // Панель начинает в Навигации: во «ВВОД» её переводит только поле с фокусом.
+          p.mode = 'nav';
           g.tabs.push(p.id);
           if (t.active) g.active = p.id;
         });

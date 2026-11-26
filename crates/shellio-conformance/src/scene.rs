@@ -162,11 +162,14 @@ pub struct SceneStatus {
 }
 
 impl SceneStatus {
-    /// Контролы строки статуса по порядку на экране: ключи сверки.
+    /// Контролы строки статуса по порядку на экране: ключи сверки. Плашка режима есть всегда:
+    /// её рисует общая левая часть строки, а не список сцены.
     pub fn controls(&self) -> Vec<String> {
-        let mode = self.mode.map(|_| "status.mode");
         let load = self.load.as_ref().map(|_| "status.load");
-        mode.into_iter().chain(load).map(str::to_owned).collect()
+        std::iter::once("status.mode")
+            .chain(load)
+            .map(str::to_owned)
+            .collect()
     }
 }
 

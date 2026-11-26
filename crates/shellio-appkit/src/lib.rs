@@ -125,7 +125,7 @@ pub use runloop::{
 pub use split_view::{
     Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
 };
-pub use status_line::StatusLine;
+pub use status_line::{StatusHint, StatusLine};
 pub use style::{
     FontFacts, IconFacts, Padding, Rgba, ShadowFacts, Side, Style, css_weight, seen_fill,
 };

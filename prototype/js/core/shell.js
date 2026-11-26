@@ -102,24 +102,42 @@
     </header>`;
   };
 
+  // Подсказки строки статуса из действующего keymap, не больше трёх (ADR-0023). В Навигации —
+  // свои подсказки панели, иначе «панели», «вкладки» и «поиск»; у панели с вводом «вкладки»
+  // заменяет «ввод».
   const hintsHtml = () => {
     const mode = S.mode();
     const p = S.focused();
     const def = p && S.plugins[p.plugin];
-    const h = (keys, text, cls = '') => `<span class="h">${K.kbd(keys)}<em${cls ? ` class="${cls}"` : ''}>${text}</em></span>`;
+    let n = 0;
+    const h = (keys, text) => { n += 1; const ck = `status.hint.${n}`; return `<span class="h" data-ck="${ck}">${K.kbd(keys, `${ck}.key`)}<em data-ck="${ck}.label">${text}</em></span>`; };
     const opt = (keys, text) => (keys ? h(keys, text) : '');
     if (St.pending.length) return `<span class="h">${K.kbd(St.pending.join(' '))}</span>`;
     if (mode === 'input') {
       if (S.isField(document.activeElement)) return h('Esc', 'навигация');
       const target = def ? (def.inputTarget ? def.inputTarget(p) : (def.tabTitle ? def.tabTitle(p) : def.title)) : '';
-      const extra = def && def.inputHints ? def.inputHints(p).map(([k, v]) => h(k, v)).join('') : '';
-      return `<span class="h"><em class="to">Клавиши идут в ${target}</em></span>${h(S.modeKey(), 'навигация')}${extra}`;
+      const extra = def && def.inputHints ? def.inputHints(p).slice(0, 2) : [];
+      return `<span class="h"><em class="to">Клавиши идут в ${target}</em></span>${[[S.modeKey(), 'навигация'], ...extra].map(([k, v]) => h(k, v)).join('')}`;
     }
-    const local = def && !def.inputDefault ? Object.values(def.actions || {}).filter((a) => a.hint && (!a.when || a.when(p))).slice(0, 3) : [];
-    if (local.length) return local.map((a) => h([].concat(a.key)[0], String(a.hint === true ? a.title : typeof a.hint === 'function' ? a.hint(p) : a.hint).toLowerCase())).join('');
+    // В сцене сверки возможности плагина и отсутствующие действия называет сцена.
+    const sc = St.sceneInputs;
+    const caps = sc && p ? sc.capabilities[p.plugin] : null;
+    const own = caps ? caps.hints.map((x) => [x.key, x.label])
+      : def && !def.inputDefault ? Object.values(def.actions || {}).filter((a) => a.hint && (!a.when || a.when(p))).map((a) => [[].concat(a.key)[0], String(a.hint === true ? a.title : typeof a.hint === 'function' ? a.hint(p) : a.hint).toLowerCase()]) : [];
+    if (own.length) return own.slice(0, 3).map(([k, v]) => h(k, v)).join('');
     const typing = def && def.inputDefault && !(def.surfaceless && def.surfaceless(p));
-    const tabs = ['1', '2', '3'].map((n) => S.keyFor(`tab.${n}`, n)).filter(Boolean).join(' ');
-    return `${opt(S.navKeys(), 'панели')}${opt(tabs, 'вкладки')}${opt(S.keyFor('palette', 'Cmd-k'), 'поиск')}${typing ? h(S.modeKey(), 'ввод') : ''}`;
+    const tabs = ['1', '2', '3'].map((d) => S.keyFor(`tab.${d}`, d)).filter(Boolean).join(' ');
+    const search = sc && sc.commandsAbsent.includes('palette') ? '' : S.keyFor('palette', 'Cmd-k');
+    return `${opt(S.navKeys(), 'панели')}${typing ? opt(S.keyFor('mode.input', 'i'), 'ввод') : opt(tabs, 'вкладки')}${opt(search, 'поиск')}`;
+  };
+
+  // Левая часть строки статуса общая у живой строки и у сцены сверки: плашка режима, затем
+  // сообщение либо набранный префикс и подсказки.
+  const statusLeft = () => {
+    const mode = S.mode();
+    const msg = St.statusMessage || (St.scene && (St.scene.status || {}).message);
+    return `<button type="button" class="mode" data-cmd="mode.toggle" title="Переключить режим  ${S.modeKey()}" aria-label="Режим клавиатуры: ${mode === 'input' ? 'ввод' : 'навигация'}" data-ck="status.mode">${mode === 'input' ? 'ВВОД' : 'НАВИГАЦИЯ'}</button>
+      ${msg ? `<span class="sb-msg" role="status" data-ck="status.message">${msg}</span>` : `<div class="hints">${hintsHtml()}</div>`}`;
   };
 
   const agentsText = (agents) => {
@@ -140,20 +158,15 @@
     return `<span class="${cx('toast', (t.action || more) && 'act')}" role="status" data-k="toast">${tone ? `<span class="dot ${tone}"></span>` : ''}<span class="toast-t">${t.title}</span>${t.text ? ` <span class="toast-s" title="${S.esc(t.text.replace(/<[^>]+>/g, ''))}">${t.text}</span>` : ''}${t.action ? `<button type="button" class="lnk" data-cmd="toast.act" data-arg="${t.id}">${t.action.label}</button>` : ''}${more}</span>`;
   };
 
-  // Строка статуса сцены сверки: только то, что назвала сцена, без сводок демо-мира.
-  const sceneStatus = (sc) => {
-    const msg = St.statusMessage || sc.message;
-    const hints = (sc.hints || []).map((h, i) => `<span class="h" data-ck="status.hint.${i + 1}">${K.kbd(h.key, `status.hint.${i + 1}.key`)}<em data-ck="status.hint.${i + 1}.label">${h.label}</em></span>`).join('');
-    return `<footer class="status" data-k="status" data-ck="status">
-      ${sc.mode ? `<button type="button" class="mode" data-cmd="mode.toggle" aria-label="Режим клавиатуры: ${sc.mode === 'input' ? 'ввод' : 'навигация'}" data-ck="status.mode">${sc.mode === 'input' ? 'ВВОД' : 'НАВИГАЦИЯ'}</button>` : ''}
-      ${msg ? `<span class="sb-msg" role="status" data-ck="status.message">${msg}</span>` : `<div class="hints">${hints}</div>`}
+  // Строка статуса сцены сверки: слева то же, что у живой строки, справа только сводки, которые
+  // назвала сцена, без сводок демо-мира.
+  const sceneStatus = (sc) => `<footer class="status" data-k="status" data-ck="status">
+      ${statusLeft()}
       ${sc.load ? `<div class="sb-right"><button type="button" class="sb num" data-cmd="status.resources" data-ck="status.load"><span class="lab" data-ck="status.load.label">shellio</span><span data-ck="status.load.value">${sc.load}</span></button></div>` : ''}
     </footer>`;
-  };
 
   const statusbar = () => {
     if (St.scene) return sceneStatus(St.scene.status || {});
-    const mode = S.mode();
     const repo = S.repo();
     const L = S.layout();
     const agents = S.agents();
@@ -169,9 +182,8 @@
     const glyph = (r) => (r.state === 'running' ? '<span class="r">◐</span>' : r.state === 'failed' ? '<span class="e">✕</span>' : r.state === 'ok' ? '<span class="c-ok">✓</span>' : '');
     const shown = S.shownToast();
     const sepOpt = '<span class="vsep sb-opt"></span>';
-    return `<footer class="${cx('status', shown && 'has-toast', shown && (shown.action || S.toasts().length > 1) && 'has-act')}" data-k="status">
-      <button type="button" class="mode" data-cmd="mode.toggle" title="Переключить режим  ${S.modeKey()}" aria-label="Режим клавиатуры: ${mode === 'input' ? 'ввод' : 'навигация'}">${mode === 'input' ? 'ВВОД' : 'НАВИГАЦИЯ'}</button>
-      ${St.statusMessage ? `<span class="sb-msg" role="status">${St.statusMessage}</span>` : `<div class="hints">${hintsHtml()}</div>`}
+    return `<footer class="${cx('status', shown && 'has-toast', shown && (shown.action || S.toasts().length > 1) && 'has-act')}" data-k="status" data-ck="status">
+      ${statusLeft()}
       ${toastHtml()}
       <div class="sb-right">
         ${L.zoom ? `<button type="button" class="sb" data-cmd="zoom">${icon('expand', 13)}Вернуть раскладку</button>${sep}` : ''}

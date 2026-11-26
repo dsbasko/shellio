@@ -4,6 +4,9 @@
       "part": 1,
       "zone": "center"
     },
+    "statusline": [
+      "status.mode"
+    ],
     "titlebar": [
       "chrome.window.close",
       "chrome.window.minimize",
@@ -2598,15 +2601,566 @@
       ],
       "line_width": 1.000000,
       "visible": true
+    },
+    {
+      "ck": "status.mode",
+      "color": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 140,
+        "g": 103,
+        "r": 72
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght2BC0000",
+            "glyphs": 9
+          }
+        ],
+        "family": "-apple-system",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 25.000000,
+        "w": 112.000000,
+        "x": 0.000000,
+        "y": 695.000000
+      },
+      "kind": "control",
+      "letter_spacing": 0.880000,
+      "line_height": 18.000000,
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "status",
+      "radius": 0.000000,
+      "text": "НАВИГАЦИЯ",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1",
+      "frame": {
+        "h": 18.000000,
+        "w": 126.023438,
+        "x": 124.000000,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.1",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 124.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "h",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.2",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 144.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "j",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.3",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 164.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "k",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.4",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 184.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "l",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 90,
+        "g": 97,
+        "r": 102
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 6
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 42.023438,
+        "x": 208.000000,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.1",
+      "text": "панели",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2",
+      "frame": {
+        "h": 18.000000,
+        "w": 111.796875,
+        "x": 264.023438,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.1",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 264.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "1",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.2",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 284.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "2",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.3",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 304.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 186,
+        "g": 196,
+        "r": 201
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "3",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.label",
+      "color": {
+        "a": 1.000000,
+        "b": 90,
+        "g": 97,
+        "r": 102
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 7
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 47.796875,
+        "x": 328.023438,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.2",
+      "text": "вкладки",
+      "truncated": false,
+      "visible": true
     }
   ],
   "validity": {
     "cell": "light-normal",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "667912ef9d9b69cbf8ca244f20b80eaeafa1b642ca84e0e1f7b1d8a4cd06a727",
-    "recipe": "0f31c95367e1d7d28e7cf85d727d16d459776f329bf23e0a3e2b54c556711a2f",
-    "scene": "d5c3dd27480b8a7f3c6d424bd0531b47891050288cd3f5db4eb467bd32d34809",
-    "schema": 5
+    "prototype": "1b90e4261540b45200c3644d741f463b1010a1f49d6f690cfeee19e041dcade7",
+    "recipe": "6b423dccc215302460aa3e9b5b06d324889fae3d3015e7307b04bc0c7267ef5b",
+    "scene": "f5fc85636e1c845d7b5f05ea954591e6b88f457583ee6d70fe0300cd70f5a529",
+    "schema": 6
   },
   "window": {
     "dpr": 2.000000,

@@ -143,7 +143,6 @@
   },
   "appearance": "system",
   "mode": "nav",
-  "status": {},
   "commands_absent": [
     "palette"
   ]

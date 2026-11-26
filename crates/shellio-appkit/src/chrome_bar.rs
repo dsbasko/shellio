@@ -112,7 +112,7 @@ impl Frame {
             && other.y < self.y + self.height
     }
 
-    fn rect(self) -> NSRect {
+    pub(crate) fn rect(self) -> NSRect {
         NSRect::new(
             NSPoint::new(self.x, self.y),
             NSSize::new(self.width, self.height),

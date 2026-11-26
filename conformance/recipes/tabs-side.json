@@ -84,6 +84,9 @@
         "chrome.zones.bottom",
         "chrome.zones.right",
         "chrome.appearance"
+      ],
+      "statusline": [
+        "status.mode"
       ]
     }
   }

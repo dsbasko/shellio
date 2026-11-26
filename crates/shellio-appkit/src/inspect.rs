@@ -53,9 +53,11 @@ pub mod ck {
     /// Строка статуса окна. Ключ назначает окно: тот же компонент рисует подписи в телах панелей.
     pub const STATUS: &str = "status";
     pub const STATUS_MESSAGE: &str = "status.message";
+    /// Плашка режима строки статуса. Ключи подсказок — `status.hint.{n}` с `.key.{m}` и `.label`.
+    pub const STATUS_MODE: &str = "status.mode";
 
     /// Все ключи, которые назначают заголовок и строка статуса.
-    pub const ALL: [&str; 22] = [
+    pub const ALL: [&str; 23] = [
         CHROME,
         WORKSPACE,
         SEARCH,
@@ -69,6 +71,7 @@ pub mod ck {
         APPEARANCE,
         STATUS,
         STATUS_MESSAGE,
+        STATUS_MODE,
         WINDOW_BUTTONS[0],
         WINDOW_BUTTONS[1],
         WINDOW_BUTTONS[2],

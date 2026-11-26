@@ -66,6 +66,8 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         "button" => ElementKind::Control,
         // Крестик вкладки — контрол, хотя прототип рисует его строчным элементом со значком.
         "span" if last == "close" => ElementKind::Control,
+        // Подсказка строки статуса — группа из клавиш и подписи, а не текст.
+        "span" if numbered(".hint.") => ElementKind::Container,
         "span" | "em" | "strong" | "b" | "label" => ElementKind::Text,
         // Строка фильтра панели — контрол с подложкой, её поле — текст: значение или placeholder.
         "input" => ElementKind::Text,

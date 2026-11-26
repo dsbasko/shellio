@@ -34,9 +34,9 @@ use shellio::scene::{self, SplitId, ViewportGate};
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CountKind, Frame, InspectNode, KeyMonitor, KeyResponder,
     KeyStroke, LoopMonitor, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuState,
-    MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusLine,
-    TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection, Transition,
-    TransitionPath, TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide,
+    MonitorEvent, NodeState, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint,
+    StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection,
+    Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts, ZoneButton, ZoneSide,
     instance_counts, late_callbacks,
 };
 use shellio_control::{
@@ -53,10 +53,10 @@ use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, ListAction, Mirror, MirrorStep,
     ModeAction, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
-use shellio_keymap::{Cancel, Chord, KeyCode, Mode, Mods};
+use shellio_keymap::{Cancel, Chord, HintQuery, KeyCode, Mode, Mods, StatusText, status_hints};
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
-use shellio_theme::{Appearance, Contrast, Motion, Overrides, Source};
+use shellio_theme::{Appearance, Contrast, KeyMode, Motion, Overrides, Source};
 
 use crate::gallery_ui::GalleryUi;
 use crate::layout_ui::{LayoutUi, PanelAction};
@@ -377,6 +377,58 @@ impl OwnerWindow {
         }
     }
 
+    /// Плашка режима, набранный префикс и подсказки строки статуса по маршрутизатору и действующей
+    /// таблице (правило «Строка статуса»). `true` — строка изменилась; занятый маршрутизатор её
+    /// не трогает.
+    fn show_hints(&self) -> bool {
+        let Some(status) = &self.status else {
+            return false;
+        };
+        let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
+            return false;
+        };
+        let panel = KEY_PANEL.with(|slot| slot.borrow().clone());
+        let field = self.layout.as_ref().and_then(LayoutUi::typing).is_some();
+        let Some((mode, pending)) = with_router(|router| {
+            let mode = panel
+                .as_ref()
+                .map_or(Mode::Navigation, |panel| router.mode(&panel.receiver));
+            (mode, router.pending().to_vec())
+        }) else {
+            return false;
+        };
+        let text = status_hints(
+            &snapshot.keymap,
+            &HintQuery {
+                mode,
+                field,
+                pending: &pending,
+                message: None,
+                plugin: panel.as_ref().map(|panel| panel.plugin.as_str()),
+                panel_hints: &[],
+                input_receiver: panel.as_ref().is_some_and(|panel| panel.input),
+                palette: false,
+            },
+        );
+        let (prefix, hints) = match text {
+            StatusText::Prefix(prefix) => (Some(prefix), Vec::new()),
+            StatusText::Hints(hints) => (None, hints),
+            StatusText::Message(_) => (None, Vec::new()),
+        };
+        let hints: Vec<StatusHint> = hints
+            .into_iter()
+            .map(|hint| StatusHint {
+                keys: hint.keys,
+                label: hint.label,
+            })
+            .collect();
+        let mode = match mode {
+            Mode::Navigation => KeyMode::Navigation,
+            Mode::Input => KeyMode::Input,
+        };
+        status.set_left(mode, prefix.as_deref(), &hints)
+    }
+
     /// Выбор «Открыть в новой части» для панели `panel` по состоянию зеркала; `false` — выбора
     /// нет.
     fn open_picker(&self, panel: shellio_core::PanelId) -> bool {
@@ -420,6 +472,10 @@ impl OwnerWindow {
             state.is_some_and(|state| open_workbench(state).is_some())
         });
         self.menu.set_open_enabled(open);
+        self.show_hints();
+        let Some(layout) = self.layout.as_ref() else {
+            return;
+        };
         let Some(scene) = layout.scene() else {
             return;
         };
@@ -1065,12 +1121,18 @@ fn tab_strip_view(facts: TabStripFacts) -> TabStripView {
 
 /// Имя узла строки статуса окна в `ui.inspect`.
 const STATUS_ID: &str = "status";
+/// Имя узла слота сообщения строки статуса.
+const STATUS_MESSAGE_ID: &str = "status.message";
 
 /// Ключ сверки узла строки статуса окна: строка — корень поверхности, слот сообщения входит в
 /// сверку только с показанным текстом.
 fn status_keyed(node: InspectNode) -> InspectNode {
     if node.id == STATUS_ID {
         return node.with_root_ck(shellio_appkit::ck::STATUS);
+    }
+    // Плашка режима и подсказки приходят с ключами; набранный префикс ключа не получает.
+    if node.ck.is_some() || node.id != STATUS_MESSAGE_ID {
+        return node;
     }
     let shown = node.facts.visible
         && node
@@ -1264,7 +1326,20 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         WindowMode::Gallery => None,
     };
     let status = match mode {
-        WindowMode::Normal => Some(StatusLine::new(app, &window.selection().theme())),
+        WindowMode::Normal => {
+            let status = StatusLine::with_mode(app, &window.selection().theme());
+            // Плашка режима — кнопка `mode.toggle`: тот же обработчик, что у клавиши и CLI.
+            status.on_mode(|| {
+                defer(|app| {
+                    handle(
+                        app,
+                        UiCommand::Mode(ModeAction::Toggle),
+                        Some(ReceiptSource::Button),
+                    );
+                });
+            });
+            Some(status)
+        }
         WindowMode::Gallery => None,
     };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
@@ -1382,7 +1457,8 @@ fn show_modes() {
             .layout
             .as_mut()
             .is_some_and(|layout| layout.set_input_panels(panels));
-        if changed {
+        let hints = owner.show_hints();
+        if changed || hints {
             owner.bump();
         }
     });
@@ -1446,9 +1522,16 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, stroke));
     match decision {
         Some(Decision::Pass) | None => Verdict::Pass,
-        Some(Decision::Swallow) => Verdict::Swallow,
+        // Поглощённая клавиша меняет набранный префикс: строка статуса показывает его.
+        Some(Decision::Swallow) => {
+            defer(|_| show_modes());
+            Verdict::Swallow
+        }
         Some(Decision::Run(action)) => {
-            defer(move |app| run_key(app, action));
+            defer(move |app| {
+                run_key(app, action);
+                show_modes();
+            });
             Verdict::Swallow
         }
         // Получатель снова держит ввод, пара идёт ему напрямую, мимо очереди событий.
@@ -1628,6 +1711,7 @@ pub fn attach_core(_app: &App, core: CoreHandle, runtime: tokio::runtime::Handle
 /// Новая таблица keymap от службы: первый снимок приходит до публикации сокета.
 pub fn set_keymap(snapshot: Arc<KeymapSnapshot>) {
     KEYMAP.with(|slot| *slot.borrow_mut() = Some(snapshot));
+    show_modes();
 }
 
 /// Размер содержимого окна изменился: раскладка встаёт по нему сразу, ядро получает его в конце

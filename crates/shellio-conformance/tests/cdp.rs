@@ -529,6 +529,11 @@ fn kinds_of_layout_keys() {
         ElementKind::Plate
     );
     assert_eq!(kind_of("div", "picker"), ElementKind::Plate);
+    // Подсказка строки статуса — группа, её подпись — текст, клавиша — плашка.
+    assert_eq!(kind_of("span", "status.hint.2"), ElementKind::Container);
+    assert_eq!(kind_of("em", "status.hint.2.label"), ElementKind::Text);
+    assert_eq!(kind_of("kbd", "status.hint.2.key.1"), ElementKind::Badge);
+    assert_eq!(kind_of("span", "status.message"), ElementKind::Text);
     assert_eq!(
         kind_of("span", "zone.center.part.1.tabs.tab.1.close"),
         ElementKind::Control
