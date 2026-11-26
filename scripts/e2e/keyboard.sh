@@ -70,9 +70,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 5 2 4 1 6 8 9 9 8 7 9 9 6 5 9 9 9 0)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=8
+DONE_STAGE=9
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -104,6 +104,7 @@ K_TAB=48
 K_A=0
 K_C=8
 K_I=34
+K_M=46
 
 REQUIRED=()
 STATUS=()
@@ -652,6 +653,10 @@ finish() {
   set +eu
   if [[ $completed -ne 1 && -z "$error" ]]; then
     add_error "сценарий остановился до конца: код $status${err_at:+, последний отказ команды в строке $err_at}"
+  fi
+  # Источник ввода, сменённый пунктом cyrillic-physical, возвращается и на неудачном пути.
+  if [[ -n "$SOURCE_BEFORE" ]]; then
+    tis select "$SOURCE_BEFORE" >/dev/null 2>&1 || add_error "источник ввода $SOURCE_BEFORE не возвращён"
   fi
   write_result "$(verdict)"
   cleanup
@@ -2421,6 +2426,359 @@ item_field_input() {
   conclude "$item" "«Демо: поле» открыта с вводом в поле; Esc — режим navigation и плашка «НАВИГАЦИЯ», первый ответчик — окно; Tab ${reached} раз по цепочке ключевых видов окна доводит ввод до поля — режим input, плашка «ВВОД»; клавиши a, b, c — текст поля «abc»; Esc — navigation, «НАВИГАЦИЯ», фокус query.layout в панели; i — одна запись ui.receipts mode.input с источником key и режим input, Esc и h — одна запись panel.focus.left; Tab, буквы и Esc записей кольца не дают"
 }
 
+# --- keymap.toml и источник ввода ---
+
+# keymap.toml основного профиля без ожидания: text — новый файл (копия — <prefix>.keymap.toml), пусто — файла нет.
+keymap_put() {
+  local prefix="$1" text="$2"
+  mkdir -p "$profile/config"
+  if [[ -n "$text" ]]; then
+    printf '%s\n' "$text" >"$profile/config/keymap.toml.new"
+    cp "$profile/config/keymap.toml.new" "$prefix.keymap.toml"
+    mv "$profile/config/keymap.toml.new" "$profile/config/keymap.toml"
+  else
+    rm -f "$profile/config/keymap.toml"
+  fi
+}
+
+# Опрос query.keymap: perl-условие над ok.keymap ($k; rows(<контекст>, <последовательность>) — действия строк)
+# истинно; чтение — <prefix>.stdout, иначе WHY с текстом ожидания.
+wait_keymap() {
+  local prefix="$1" what="$2" cond="$3" deadline
+  WHY=""
+  deadline=$(($(now_ms) + KEYMAP_MS))
+  while :; do
+    if ctl "$profile" "$prefix" --json --timeout "$CTL_TIMEOUT_MS" keymap list &&
+      /usr/bin/perl -MJSON::PP -e 'my $cond = shift; local $/; my $k = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{keymap};
+        sub rows { my ($c, $s) = @_; map { $_->{action} } grep { $_->{context} eq $c && $_->{sequence} eq $s } @{$k->{bindings}} }
+        exit(eval($cond) ? 0 : 1)' "$cond" <"$prefix.stdout" 2>/dev/null; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $KEYMAP_MS мс query.keymap после правки keymap.toml не показал: $what"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Версия и строки query.keymap каноническим JSON: равенство до и после нечитаемого файла.
+keymap_canon() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $k = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{keymap};
+    print JSON::PP->new->utf8->canonical->encode({ version => $k->{version}, bindings => $k->{bindings} }), "\n"' <"$1"
+}
+
+# Файла keymap.toml нет, таблица — по умолчанию, сообщения строки статуса нет; иначе ошибка исполнения: следующие
+# пункты идут на таблице по умолчанию.
+keymap_clean() {
+  local item="$1" dir="$2"
+  keymap_put "$dir/restore" ""
+  wait_keymap "$dir/restore" "таблица без строк из файла и без диагностики" \
+    '!@{$k->{diagnostics}} && !grep { $_->{source} ne "default" } @{$k->{bindings}}' ||
+    fatal "$item: keymap.toml не убран: $WHY"
+  wait_status "$dir/restore.status" hidden || fatal "$item: после уборки keymap.toml: $WHY"
+}
+
+# Подсказка кнопки «Развернуть панель» части 0 центра: поле help узла ui.inspect и AXHelp кнопки окна с этим
+# описанием равны want. Таблицу keymap главный поток получает позже query.keymap: клавиши после правки идут после
+# этого опроса. Чтения — <prefix>.stdout и <prefix>.ax.stdout, иначе WHY.
+ZOOM_LABEL="Развернуть панель"
+wait_help() {
+  local prefix="$1" want="$2" deadline got="?" ax="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect; then
+      got="$(comp "$prefix.stdout" layout.part.center.0.tabs.zoom help 2>/dev/null || echo "?")"
+      if [[ "$got" == "$want" ]]; then
+        ax="$(osascript -l JavaScript -e "
+          const p = Application('System Events').processes.whose({unixId: $owner_pid})[0];
+          const out = [];
+          function walk(e, d) {
+            if (d > 7) return;
+            let kids = [];
+            try { kids = e.uiElements(); } catch (x) { return; }
+            for (const k of kids) {
+              let ds = null;
+              try { ds = k.description(); } catch (x) {}
+              if (ds === '$ZOOM_LABEL') { try { out.push(String(k.attributes.byName('AXHelp').value())); } catch (x) { out.push('нет'); } }
+              walk(k, d + 1);
+            }
+          }
+          walk(p.windows[0], 0);
+          out.join('|')" 2>"$prefix.ax.stderr" | tee "$prefix.ax.stdout" || true)"
+        # У каждой части окна своя кнопка: все называют одну клавишу.
+        if [[ -n "$ax" ]] && ! tr '|' '\n' <<<"$ax" | grep -qvxF "$want"; then
+          return 0
+        fi
+      fi
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс подсказка кнопки «${ZOOM_LABEL}»: help ui.inspect — «${got}», AXHelp — «${ax}», ожидалось «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Эквивалент пункта title меню bar по AX: «символ|модификаторы» (AXMenuItemCmdChar и AXMenuItemCmdModifiers: 0 — ⌘,
+# 2 — ⌥⌘) равен want; чтение — <prefix>.stdout, иначе WHY.
+AX_MENU_KEY_JS='function run(argv) {
+  const [pid, bar, title] = argv;
+  const p = Application("System Events").processes.whose({unixId: Number(pid)})[0];
+  const item = p.menuBars[0].menuBarItems.byName(bar).menus[0].menuItems.byName(title);
+  if (item.name() !== title) throw new Error("нет пункта «" + title + "»");
+  const a = n => { try { return String(item.attributes.byName(n).value()); } catch (x) { return "нет"; } };
+  return a("AXMenuItemCmdChar") + "|" + a("AXMenuItemCmdModifiers");
+}'
+wait_menu_key() {
+  local prefix="$1" bar="$2" title="$3" want="$4" deadline got="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if osascript -l JavaScript -e "$AX_MENU_KEY_JS" "$owner_pid" "$bar" "$title" >"$prefix.stdout" 2>"$prefix.stderr"; then
+      got="$(tr -d '\n' <"$prefix.stdout")"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс эквивалент пункта «${title}» меню «${bar}» по AX — «${got}», ожидался «${want}» $(oneline "$prefix.stderr")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Perl-условие: панель центра развёрнута.
+zoomed_center() {
+  printf '($l->{zoomed} // "") eq "%s" && defined $v->{frames}{zoomed}' "$p_center"
+}
+
+# keymap.toml переносит layout.zoom с Ctrl-w z на Ctrl-w m: подсказка кнопки «Развернуть панель» называет новую
+# клавишу, Ctrl-w z раскладку не меняет, Ctrl-w m разворачивает панель одной дельтой. Снятая клавиша и новая идут
+# одним ходом: запись кольца и дельта после обеих — одни.
+item_hot_reload() {
+  local item=hot-reload dir="$run/hot-reload"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  wait_help "$dir/default.help" "Ctrl-w z" || fatal "$item: подготовка: $WHY"
+  keymap_put "$dir/edit" $'[navigation]\n"Ctrl-w m" = "layout.zoom"\n"Ctrl-w z" = false'
+  if wait_keymap "$dir/edit" "строка Ctrl-w m — layout.zoom из файла, строки Ctrl-w z нет" \
+    'join(",", rows("navigation", "Ctrl-w m")) eq "layout.zoom" && !rows("navigation", "Ctrl-w z") && !@{$k->{diagnostics}}'; then
+    if wait_help "$dir/edit.help" "Ctrl-w m"; then
+      kstep "$dir" z-then-m layout.zoom "панель центра развёрнута" "$(zoomed_center)" \
+        "$K_W+control" "$K_Z" "$K_W+control" "$K_M"
+      kstep "$dir" m-again layout.zoom "разворот снят" '!defined $l->{zoomed} && !defined $v->{frames}{zoomed}' \
+        "$K_W+control" "$K_M"
+    else
+      failures+=("$WHY")
+    fi
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  keymap_clean "$item" "$dir"
+  wait_help "$dir/restore.help" "Ctrl-w z" || failures+=("после уборки keymap.toml: $WHY")
+  conclude "$item" "правка keymap.toml («Ctrl-w m» — layout.zoom, «Ctrl-w z» снята) применена наблюдением за каталогом: query.keymap отдаёт строку из файла, help кнопки «${ZOOM_LABEL}» в ui.inspect и AXHelp кнопок окна называют Ctrl-w m; ход Ctrl-w z, Ctrl-w m — одна запись ui.receipts layout.zoom с источником key и одна дельта events --since, панель центра развёрнута; второй Ctrl-w m разворот снимает; без файла подсказка снова Ctrl-w z"
+}
+
+# keymap.toml переносит layout.toggle.bottom с Cmd-j на Cmd-Alt-b: пункт «Вид → Нижняя зона» по AX называет ⌥⌘B,
+# Cmd-j видимость не меняет, Cmd-Alt-b скрывает нижнюю зону одним переходом.
+item_hot_reload_menu() {
+  local item=hot-reload-menu dir="$run/hot-reload-menu" hidden='$l->{hidden}{bottom}'
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  wait_menu_key "$dir/default.menu" "Вид" "Нижняя зона" "J|0" || fatal "$item: подготовка: $WHY"
+  keymap_put "$dir/edit" $'[global]\n"Cmd-Alt-b" = "layout.toggle.bottom"\n"Cmd-j" = false'
+  if wait_keymap "$dir/edit" "строка Cmd-Alt-b — layout.toggle.bottom из файла, строки Cmd-j нет" \
+    'join(",", rows("global", "Cmd-Alt-b")) eq "layout.toggle.bottom" && !rows("global", "Cmd-j") && !@{$k->{diagnostics}}'; then
+    if wait_menu_key "$dir/edit.menu" "Вид" "Нижняя зона" "B|2"; then
+      kstep "$dir" j-then-b layout.toggle.bottom "нижняя зона скрыта" "$hidden" "$K_J+command" "$K_B+command+option"
+      wait_mark "$dir/j-then-b.mark-ax" "Нижняя зона" false || failures+=("j-then-b: $WHY")
+      kstep "$dir" b-again layout.toggle.bottom "нижняя зона показана" "!$hidden" "$K_B+command+option"
+      wait_mark "$dir/b-again.mark-ax" "Нижняя зона" true || failures+=("b-again: $WHY")
+    else
+      failures+=("$WHY")
+    fi
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  keymap_clean "$item" "$dir"
+  wait_menu_key "$dir/restore.menu" "Вид" "Нижняя зона" "J|0" || failures+=("после уборки keymap.toml: $WHY")
+  conclude "$item" "правка keymap.toml («Cmd-Alt-b» — layout.toggle.bottom, «Cmd-j» снята) применена наблюдением за каталогом: пункт «Вид → Нижняя зона» по AX называет ⌥⌘B (до правки ⌘J); ход Cmd-j, Cmd-Alt-b — одна запись ui.receipts layout.toggle.bottom с источником key, одна дельта events --since и один переход layout.hidden.bottom, отметка AX кнопки «Нижняя зона» снята; второй Cmd-Alt-b зону показывает; без файла пункт снова ⌘J"
+}
+
+# Диагностика query.keymap номер 0: поле; «нет» — диагностики нет.
+diag_of() {
+  jv "$1" "ok.keymap.diagnostics[0].$2" 2>/dev/null || echo нет
+}
+
+# Файл с верной и неверной строкой: верная действует, неверная — в диагностике query.keymap с номером строки, её
+# сообщение показывает строка статуса.
+item_bad_line() {
+  local item=bad-line dir="$run/bad-line"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  wait_status "$dir/start.status" hidden || fatal "$item: подготовка: $WHY"
+  keymap_put "$dir/edit" $'[navigation]\n"Ctrl-w m" = "layout.zoom"\n"Ctrl-w y" = "no.such.action"'
+  if wait_keymap "$dir/edit" "строка Ctrl-w m из файла, строки Ctrl-w y нет, одна диагностика строки 3" \
+    'join(",", rows("navigation", "Ctrl-w m")) eq "layout.zoom" && !rows("navigation", "Ctrl-w y") && @{$k->{diagnostics}} == 1 && ($k->{diagnostics}[0]{line} // 0) == 3'; then
+    [[ "$(diag_of "$dir/edit.stdout" message)" == *no.such.action* ]] ||
+      failures+=("диагностика не называет неверное действие: «$(diag_of "$dir/edit.stdout" message)»")
+    if wait_status "$dir/edit.status" shown; then
+      [[ "$STATUS_TEXT" == "$(diag_of "$dir/edit.stdout" message)" ]] ||
+        failures+=("сообщение строки статуса «${STATUS_TEXT}», ожидалось сообщение диагностики «$(diag_of "$dir/edit.stdout" message)»")
+    else
+      failures+=("$WHY")
+    fi
+    if wait_help "$dir/edit.help" "Ctrl-w z"; then
+      kstep "$dir" key-m layout.zoom "панель центра развёрнута" "$(zoomed_center)" "$K_W+control" "$K_M"
+    else
+      failures+=("$WHY")
+    fi
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  keymap_clean "$item" "$dir"
+  conclude "$item" "keymap.toml с верной строкой («Ctrl-w m» — layout.zoom) и неверной («Ctrl-w y» — неизвестное действие): query.keymap отдаёт строку Ctrl-w m из файла и одну диагностику строки 3, строки Ctrl-w y нет, строка статуса показывает сообщение диагностики; Ctrl-w m — одна запись ui.receipts layout.zoom с источником key и одна дельта events --since; без файла диагностики и сообщения нет"
+}
+
+# Нечитаемый TOML после исправной правки: версия и строки query.keymap прежние, диагностика новая, прежняя таблица
+# действует.
+item_bad_file() {
+  local item=bad-file dir="$run/bad-file" before
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  keymap_put "$dir/good" $'[navigation]\n"Ctrl-w m" = "layout.zoom"'
+  wait_keymap "$dir/good" "строка Ctrl-w m из файла без диагностики" \
+    'join(",", rows("navigation", "Ctrl-w m")) eq "layout.zoom" && !@{$k->{diagnostics}}' ||
+    fatal "$item: подготовка: $WHY"
+  before="$(keymap_canon "$dir/good.stdout")"
+  wait_status "$dir/good.status" hidden || fatal "$item: подготовка: $WHY"
+  keymap_put "$dir/bad" $'[navigation\n"Ctrl-w m" = '
+  if wait_keymap "$dir/bad" "диагностика unreadable" '@{$k->{diagnostics}} == 1 && $k->{diagnostics}[0]{kind} eq "unreadable"'; then
+    [[ "$(keymap_canon "$dir/bad.stdout")" == "$before" ]] ||
+      failures+=("версия или строки query.keymap после нечитаемого файла изменились: версия $(jv "$dir/good.stdout" ok.keymap.version || echo "?") → $(jv "$dir/bad.stdout" ok.keymap.version || echo "?")")
+    if wait_status "$dir/bad.status" shown; then
+      [[ "$STATUS_TEXT" == "$(diag_of "$dir/bad.stdout" message)" ]] ||
+        failures+=("сообщение строки статуса «${STATUS_TEXT}», ожидалось сообщение диагностики «$(diag_of "$dir/bad.stdout" message)»")
+    else
+      failures+=("$WHY")
+    fi
+    kstep "$dir" key-m layout.zoom "панель центра развёрнута" "$(zoomed_center)" "$K_W+control" "$K_M"
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  keymap_clean "$item" "$dir"
+  conclude "$item" "после исправной правки keymap.toml («Ctrl-w m» — layout.zoom) нечитаемый TOML: версия и строки query.keymap прежние, диагностика — одна новая вида unreadable, строка статуса показывает её сообщение; прежняя таблица действует: Ctrl-w m — одна запись ui.receipts layout.zoom с источником key и одна дельта events --since"
+}
+
+# Мост к источникам ввода (TIS), как у scripts/e2e/with-latin-input.sh: current, list, select <ID>.
+INPUT_JXA='function run(argv) {
+  ObjC.import("Carbon");
+  ObjC.bindFunction("TISCopyCurrentKeyboardInputSource", ["id", []]);
+  ObjC.bindFunction("TISCreateInputSourceList", ["id", ["id", "bool"]]);
+  ObjC.bindFunction("TISSelectInputSource", ["int", ["id"]]);
+  ObjC.bindFunction("TISGetInputSourceProperty", ["id", ["id", "void *"]]);
+  const prop = (source, key) => $.TISGetInputSourceProperty(source, key).js;
+  function sources() {
+    const list = $.TISCreateInputSourceList($(), false);
+    const out = [];
+    for (let i = 0; i < list.count; i++) {
+      const source = list.objectAtIndex(i);
+      if (prop(source, $.kTISPropertyInputSourceCategory) === "TISCategoryKeyboardInputSource" &&
+        prop(source, $.kTISPropertyInputSourceIsSelectCapable)) out.push(source);
+    }
+    return out;
+  }
+  if (argv[0] === "current") return prop($.TISCopyCurrentKeyboardInputSource(), $.kTISPropertyInputSourceID);
+  if (argv[0] === "list") return sources().map(s => prop(s, $.kTISPropertyInputSourceID)).join("\n");
+  const hit = sources().filter(s => prop(s, $.kTISPropertyInputSourceID) === argv[1])[0];
+  if (!hit) throw new Error("источник " + argv[1] + " не включён");
+  const status = $.TISSelectInputSource(hit);
+  if (status !== 0) throw new Error("TISSelectInputSource: код " + status);
+  return argv[1];
+}'
+
+tis() {
+  osascript -l JavaScript -e "$INPUT_JXA" "$@"
+}
+
+# Источник ввода, который сценарий обязан вернуть: ID до переключения; пусто — сценарий источник не менял.
+SOURCE_BEFORE=""
+
+# Выбор источника ввода и опрос моста до него; вывод — <prefix>.select.*, иначе WHY.
+source_select() {
+  local prefix="$1" want="$2" deadline got="?"
+  WHY=""
+  tis select "$want" >"$prefix.select.stdout" 2>"$prefix.select.stderr" || {
+    WHY="источник ввода $want не выбран: $(oneline "$prefix.select.stderr")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    got="$(tis current 2>>"$prefix.select.stderr" || true)"
+    [[ "$got" != "$want" ]] || return 0
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс источник ввода — ${got:-не прочитан}, а не $want"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Источник «Русская»: Ctrl-w l, h, j ведут фокус как с латинской, / открывает строку фильтра «Демо: список», а
+# клавиша B в ней даёт кириллицу — владелец в самом деле получает ввод русского источника. Без установленного
+# русского источника пункт необязателен и получает not_run.
+item_cyrillic_physical() {
+  local item=cyrillic-physical dir="$run/cyrillic-physical" ru demo
+  log "== $item"
+  failures=()
+  ru="$(tis list 2>"$dir/sources.stderr" | tee "$dir/sources.stdout" | grep -E '^com\.apple\.keylayout\.Russian' | head -n 1 || true)"
+  if [[ -z "$ru" ]]; then
+    [[ -s "$dir/sources.stdout" ]] || fatal "$item: список источников ввода не прочитан: $(oneline "$dir/sources.stderr")"
+    set_required "$item" 0
+    record "$item" not_run "нет русского источника ввода"
+    return 0
+  fi
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  SOURCE_BEFORE="$(tis current 2>"$dir/current.stderr")" || fatal "$item: источник ввода не прочитан: $(oneline "$dir/current.stderr")"
+  [[ -n "$SOURCE_BEFORE" ]] || fatal "$item: источник ввода не прочитан: мост вернул пустой ID"
+  log "$item: источник ввода $SOURCE_BEFORE → $ru"
+  if source_select "$dir/russian" "$ru"; then
+    to_front "$dir" "$item"
+    step "$item" "$dir" ctrl-w-l panel.focus.right "$p_right" "$K_W+control" "$K_L"
+    step "$item" "$dir" bare-h panel.focus.left "$p_center" "$K_H"
+    step "$item" "$dir" bare-j panel.focus.down "$p_bottom" "$K_J"
+    # Свидетель источника: тот же физический B в поле даёт кириллицу.
+    open_panel "$dir/open-demo" demo-list center
+    demo="$PANEL"
+    wait_focus "$dir/open-demo.layout" "$demo" || failures+=("«Демо: список»: $WHY")
+    wait_mode "$dir/open-demo.mode" navigation || failures+=("«Демо: список»: $WHY")
+    fopen "$dir" slash "$demo" ""
+    fkey "$dir" letter "$K_B"
+    wait_inspect "$profile" "$dir/letter.row" "layout.panel.$demo.filter.input" state.text_field.value "и" ||
+      failures+=("клавиша B в строке фильтра под источником $ru: $WHY")
+    fkey "$dir" esc "$K_ESC"
+    wait_row "$dir/esc.row" "$demo" closed || failures+=("Esc: $WHY")
+    wait_mode "$dir/esc.mode" navigation || failures+=("Esc: $WHY")
+    [[ "$(tis current 2>/dev/null || true)" == "$ru" ]] || failures+=("к концу хода источник ввода — не $ru")
+  else
+    failures+=("$WHY")
+  fi
+  # Следующие пункты и подготовка набирают латиницу.
+  source_select "$dir/restore" "$SOURCE_BEFORE" || fatal "$item: источник ввода не возвращён: $WHY"
+  SOURCE_BEFORE=""
+  conclude "$item" "источник ввода $ru: Ctrl-w l, h и j ведут фокус query.layout центр → правая → центр → нижняя, / открывает строку фильтра «Демо: список», на каждую клавишу одна запись ui.receipts с источником key; клавиша B в строке фильтра даёт «и» — владелец получает ввод русского источника; прежний источник возвращён"
+}
+
 item_appearance_cycle() {
   local item=appearance-cycle dir="$run/appearance-cycle" want n=0
   log "== $item"
@@ -2457,6 +2815,10 @@ item_key_and_menu_once
 item_filter
 item_history
 item_field_input
+item_hot_reload
+item_hot_reload_menu
+# Пункты среза 10 (item_bad_line, item_bad_file, item_cyrillic_physical) написаны, но не вызываются: приёмочный проход
+# среза 9 их не доказал.
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
