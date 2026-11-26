@@ -32,6 +32,15 @@
 # панели» и открытое меню «…» по ui.inspect; open_picker — AXPress «Разделить» и открытый выбор «Открыть в новой
 # части». Меню и выбор после снимка ячейки закрывает Escape. Такой шаг в рецепте — последний.
 #
+# Состояния поверхности palette (реестр) судятся снимком композиции: палитра — отдельное окно, поэтому снимается
+# область окна владельца screencapture -R (подкоманда оракула region), а не окно -l. Шаги key и query рецепта
+# идут в каждой ячейке после её осей: сначала основа — два совпавших снимка области при закрытой палитре, затем
+# шаги со свидетелем каждого — новой подписью ui.overlay (вид, запрос, категория, выбранная строка). Перед каждым
+# снимком оракул pair сверяет пару окон со списком окон экрана (CGWindowListCopyWindowInfo через JXA): чужое окно
+# над областью или другой экран — ошибка исполнения, палитра позади владельца или не на экране — fail. Принятый
+# conform снимок судит controls против основы (заливка плашки, тень вниз, фон за полем тени). После снимка
+# палитру закрывает Escape, закрытие подтверждают ui.overlay и pair.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -116,10 +125,10 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
   conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech
   conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results)
-# Пункты палитры плана command-overlays ждут снимка композиции: до него они выше DONE_TASK.
+# Пункты палитры плана command-overlays судит снимок композиции.
 TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=12
+DONE_TASK=13
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
 KBD_CK="chrome.search.kbd"
 MONO_FAMILY="JetBrains Mono"
@@ -202,6 +211,9 @@ STEP_KIND=""
 PRESS_OP=""
 PRESS_STRIP=""
 PRESS_MENU_CK=""
+# Поверхность состояния по реестру и отложенные шаги открытия палитры (номер шага и строка плана по одной на строку).
+STATE_SURFACE=""
+PALETTE_STEPS=""
 bg_job=""
 STATUS_TEXT=""
 
@@ -1603,6 +1615,247 @@ release_state() {
   esac
 }
 
+# --- снимок композиции палитры ---
+
+# Окна экрана спереди назад: CGWindowListCopyWindowInfo, только показанные, без рабочего стола.
+LIST_WINDOWS_JS='ObjC.import("CoreGraphics");
+function run() {
+  const all = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1 | 16, 0)));
+  return JSON.stringify(all.map((w) => ({ kCGWindowNumber: w.kCGWindowNumber, kCGWindowOwnerPID: w.kCGWindowOwnerPID,
+    kCGWindowLayer: w.kCGWindowLayer, kCGWindowBounds: w.kCGWindowBounds })));
+}'
+
+# Поверхность состояния по реестру.
+state_surface() {
+  awk -v id="$1" '
+    /^\[\[/ { cur = "" }
+    $1 == "id" { v = $3; gsub(/"/, "", v); cur = v }
+    $1 == "surface" && cur == id { v = $3; gsub(/"/, "", v); print v; exit }
+  ' "$registry"
+}
+
+# Пара окон владельца перед снимком: ui.window в <prefix>.window.stdout, список окон экрана и оракул pair с
+# ожиданием open или closed. Код оракула — в PAIR_CODE (1 — снимок не годится, 3 — дефект палитры), причина — в WHY.
+PAIR_CODE=""
+palette_pair() {
+  local prefix="$1" expect="$2" code=0
+  PAIR_CODE=1
+  WHY=""
+  ui_read "$profile" "$prefix.window" window || {
+    WHY="ui.window не прочитан: $(oneline "$prefix.window.stdout")"
+    return 1
+  }
+  osascript -l JavaScript -e "$LIST_WINDOWS_JS" >"$prefix.listed.json" 2>"$prefix.listed.stderr" || {
+    WHY="список окон экрана не прочитан: $(oneline "$prefix.listed.stderr")"
+    return 1
+  }
+  "$oracle_bin" pair --window "$prefix.window.stdout" --listed "$prefix.listed.json" --palette "$expect" \
+    --scale "$SCALE" >"$prefix.pair.stdout" 2>"$prefix.pair.stderr" || code=$?
+  PAIR_CODE=$code
+  if [[ $code -ne 0 ]]; then
+    WHY="пара окон ($expect), код $code: $(oneline "$prefix.pair.stdout") $(oneline "$prefix.pair.stderr")"
+    return 1
+  fi
+}
+
+# Снимок области окна владельца (кадр ui.window <window>) screencapture -R в sRGB: <cur>.png; сбой — fatal.
+region_capture() {
+  local what="$1" cur="$2" window="$3" region
+  region="$("$oracle_bin" region --window "$window" 2>"$cur.region.stderr")" ||
+    fatal "$what: область снимка не построена: $(oneline "$cur.region.stderr")"
+  /usr/sbin/screencapture -x -R "$region" "$cur.raw.png" >"$cur.capture.log" 2>&1 ||
+    fatal "$what: screencapture -R $region отказал: $(oneline "$cur.capture.log")"
+  [[ -s "$cur.raw.png" ]] || fatal "$what: screencapture -R $region не записал PNG"
+  sips --matchTo "$SRGB_PROFILE" "$cur.raw.png" --out "$cur.png" >"$cur.sips.log" 2>&1 ||
+    fatal "$what: sips не перевёл PNG в sRGB: $(oneline "$cur.sips.log")"
+}
+
+# Подпись палитры в ui.overlay: вид наложения, запрос, категория и выбранная строка.
+overlay_sig() {
+  printf '%s|%s|%s|%s' "$(jv "$1" ok.ui.overlay.kind || echo -)" "$(jv "$1" ok.ui.overlay.palette.query || echo -)" \
+    "$(jv "$1" ok.ui.overlay.palette.category || echo -)" "$(jv "$1" ok.ui.overlay.palette.selected || echo -)"
+}
+
+# Опрос ui.overlay до подписи, отличной от before, не дольше MIRROR_MS; подпись — в SIG, иначе WHY.
+SIG=""
+overlay_changed() {
+  local prefix="$1" before="$2" deadline
+  SIG=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" overlay; then
+      SIG="$(overlay_sig "$prefix.stdout")"
+      [[ "$SIG" != "$before" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс ui.overlay не изменился: ${SIG:-не прочитан}"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Основа контрольных пикселей: палитра закрыта по ui.overlay и паре окон, два совпавших снимка области подряд —
+# <dir>/base.png. Отказ — причина в WHY и род в STEP_KIND: fail — палитра видима, broken — ошибка исполнения.
+palette_base() {
+  local state="$1" cell="$2" dir="$3" n=0 cur prev="" deadline
+  STEP_KIND=broken
+  ui_read "$profile" "$dir/closed-overlay" overlay || {
+    WHY="ui.overlay не прочитан: $(oneline "$dir/closed-overlay.stdout")"
+    return 1
+  }
+  if [[ "$(jv "$dir/closed-overlay.stdout" ok.ui.overlay.kind || echo ?)" != null ]]; then
+    STEP_KIND=fail
+    WHY="до открытия палитры ui.overlay — $(jv "$dir/closed-overlay.stdout" ok.ui.overlay.kind || echo ?)"
+    return 1
+  fi
+  deadline=$(($(now_ms) + SETTLE_MS))
+  while :; do
+    n=$((n + 1))
+    cur="$dir/base-$n"
+    if ! palette_pair "$cur" closed; then
+      [[ "$PAIR_CODE" == 3 ]] && STEP_KIND=fail
+      return 1
+    fi
+    region_capture "$state $cell: основа" "$cur" "$cur.window.stdout"
+    if [[ -n "$prev" ]] && cmp -s "$prev.png" "$cur.png"; then
+      cp "$cur.png" "$dir/base.png"
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $SETTLE_MS мс два снимка области до открытия палитры подряд не совпали ($n снимк.)"
+      return 1
+    fi
+    prev="$cur"
+  done
+}
+
+# Открытие палитры шагами рецепта, отложенными prepare_state (<recipe dir>/palette.steps: номер шага и строка
+# плана). Свидетель каждого шага — новая подпись ui.overlay, после шагов наложение — палитра. Отказ — WHY и
+# STEP_KIND, как у keyboard_step.
+palette_open() {
+  local dir="$1" recipe="$2" steps="$3" n line m=0 before
+  while IFS=$'\t' read -r n line <&4; do
+    m=$((m + 1))
+    STEP_KIND=broken
+    ui_read "$profile" "$dir/open-$m.before" overlay || {
+      WHY="ui.overlay перед шагом $n не прочитан: $(oneline "$dir/open-$m.before.stdout")"
+      return 1
+    }
+    before="$(overlay_sig "$dir/open-$m.before.stdout")"
+    keyboard_step "$line" "$recipe" "$n" "$dir" "$dir/open-$m" || {
+      WHY="шаг $n рецепта: $WHY"
+      return 1
+    }
+    overlay_changed "$dir/open-$m.overlay" "$before" || {
+      STEP_KIND=fail
+      WHY="шаг $n рецепта (${line#\!}): $WHY"
+      return 1
+    }
+  done 4<"$steps"
+  if [[ "${SIG%%|*}" != palette ]]; then
+    STEP_KIND=fail
+    WHY="после шагов рецепта ui.overlay — ${SIG%%|*}, а не палитра"
+    return 1
+  fi
+}
+
+# Закрытие палитры после снимка: Escape, ui.overlay без наложения и пара окон без палитры. Отказ — WHY и
+# STEP_KIND.
+palette_close() {
+  local dir="$1" before
+  STEP_KIND=broken
+  ui_read "$profile" "$dir/close-before" overlay || {
+    WHY="ui.overlay перед закрытием не прочитан: $(oneline "$dir/close-before.stdout")"
+    return 1
+  }
+  before="$(overlay_sig "$dir/close-before.stdout")"
+  front_ok "$owner_pid" "$dir" || return 1
+  se_key "$KEY_ESC" "$dir/close-keys.log" || {
+    WHY="Escape не отправлен: $(oneline "$dir/close-keys.log")"
+    return 1
+  }
+  if ! overlay_changed "$dir/close-overlay" "$before" || [[ "${SIG%%|*}" != null ]]; then
+    STEP_KIND=fail
+    WHY="Escape не закрыл палитру: ${WHY:-ui.overlay — ${SIG%%|*}}"
+    return 1
+  fi
+  if ! palette_pair "$dir/close" closed; then
+    [[ "$PAIR_CODE" == 3 ]] && STEP_KIND=fail
+    return 1
+  fi
+}
+
+# Сверка паспорта палитры по снимку композиции: перед каждым снимком пара окон (палитра над владельцем), снимок
+# области окна владельца, conform над парой снимков подряд, затем controls принятого снимка против основы
+# <dir>/base.png. Итог — snap_code и snap_reason, как у conform_snapshot; код 3 controls — дефект продукта, его
+# причина — в CONTROLS_FAIL.
+CONTROLS_FAIL=""
+palette_snapshot() {
+  local state="$1" cell="$2" dir="$3" t0 n=0 code prev="" elapsed cur
+  snap_code=""
+  snap_reason=""
+  CONTROLS_FAIL=""
+  t0="$(now_ms)"
+  while :; do
+    n=$((n + 1))
+    cur="$dir/$n"
+    if ! palette_pair "$cur" open; then
+      snap_code="$PAIR_CODE"
+      snap_reason="$WHY"
+      log "$state $cell: $snap_reason"
+      return 0
+    fi
+    ui_read "$profile" "$cur.inspect" inspect ||
+      fatal "$state $cell: ui.inspect не прочитан: $(oneline "$cur.inspect.stdout")"
+    region_capture "$state $cell" "$cur" "$cur.window.stdout"
+    if [[ -n "$prev" ]]; then
+      elapsed=$(($(now_ms) - t0))
+      code=0
+      "$oracle_bin" conform --passport "$passports/$state/$cell.json" --inspect "$cur.inspect.stdout" \
+        --window "$cur.window.stdout" --png "$cur.png" --registry "$registry" --calibration "$calibration" \
+        --previous-window "$prev.window.stdout" --previous-png "$prev.png" --elapsed-ms "$elapsed" \
+        >"$cur.report.json" 2>"$cur.oracle.stderr" || code=$?
+      case $code in
+        0 | 3)
+          snap_code=$code
+          snap_reason="$(jv "$cur.report.json" reason || oneline "$cur.oracle.stderr")"
+          cp "$cur.report.json" "$dir/report.json"
+          log "$state $cell: код оракула $code за $n снимк., $snap_reason"
+          code=0
+          "$oracle_bin" controls --passport "$passports/$state/$cell.json" --window "$cur.window.stdout" \
+            --base "$dir/base.png" --png "$cur.png" >"$dir/controls.json" 2>"$dir/controls.stderr" || code=$?
+          log "$state $cell: controls — код $code, $(oneline "$dir/controls.json")"
+          case $code in
+            0) ;;
+            3) CONTROLS_FAIL="контрольные пиксели: $(jv "$dir/controls.json" reason || oneline "$dir/controls.stderr")" ;;
+            *)
+              snap_code=1
+              snap_reason="controls — ошибка исполнения (код $code): $(jv "$dir/controls.json" reason || oneline "$dir/controls.stderr")"
+              ;;
+          esac
+          return 0
+          ;;
+        4)
+          if [[ "$(jv "$cur.report.json" retry || echo false)" != true ]]; then
+            snap_code=4
+            snap_reason="отрисовка не наблюдалась: $(oneline "$cur.oracle.stderr")"
+            log "$state $cell: $snap_reason"
+            return 0
+          fi
+          ;;
+        *)
+          snap_code=$code
+          snap_reason="оракул — ошибка исполнения (код $code): $(oneline "$cur.oracle.stderr")"
+          log "$state $cell: $snap_reason"
+          return 0
+          ;;
+      esac
+    fi
+    prev="$cur"
+  done
+}
+
 # Состояние рецепта на чистой сцене: размер окна рецепта, шаги штатным CLI, постусловия по query.layout. Размер
 # окна — в STATE_W и STATE_H, нажатие последнего шага — в PRESS_OP, PRESS_STRIP и PRESS_MENU_CK. Отказ — причина
 # в WHY и род в STEP_KIND: fail — продукт отказал в шаге или постусловие не выполнено, broken — ошибка исполнения.
@@ -1625,6 +1878,9 @@ prepare_state() {
   }
   STATE_W="${size% *}"
   STATE_H="${size#* }"
+  STATE_SURFACE="$(state_surface "$state")"
+  PALETTE_STEPS="$dir/palette.steps"
+  : >"$PALETTE_STEPS"
   fresh_scene "$dir/scene"
   if [[ "$size" != "$WINDOW_W $WINDOW_H" ]]; then
     scene_clean=0
@@ -1650,6 +1906,12 @@ prepare_state() {
         return 1
       fi
       m=$((m + 1))
+      # Палитру открывают шаги клавиш и запроса в каждой ячейке после её осей: повторный Cmd-k при пустом запросе
+      # закрыл бы палитру, открытую до перебора ячеек.
+      if [[ "$STATE_SURFACE" == palette && ("$line" == '!key '* || "$line" == '!query') ]]; then
+        printf '%s\t%s\n' "$n" "$line" >>"$PALETTE_STEPS"
+        continue
+      fi
       if [[ "$line" == '!'* ]]; then
         if ! keyboard_step "$line" "$recipe" "$n" "$dir" "$dir/step-$n-$m"; then
           WHY="шаг $n рецепта: $WHY"
@@ -1743,12 +2005,41 @@ item_conform() {
       fi
       break
     fi
-    conform_snapshot "$state" "$cell" "$dir"
+    if [[ "$STATE_SURFACE" == palette ]]; then
+      # Окно без открытой палитры — не состояние рецепта: остальные ячейки не судятся.
+      if ! palette_base "$state" "$cell" "$dir" || ! palette_open "$dir" "$root/conformance/recipes/$state.json" \
+        "$PALETTE_STEPS"; then
+        if [[ "$STEP_KIND" == fail ]]; then
+          failures+=("$cell: $WHY")
+        else
+          broken="${broken:+$broken; }$cell: $WHY"
+        fi
+        break
+      fi
+      palette_snapshot "$state" "$cell" "$dir"
+      [[ -z "$CONTROLS_FAIL" ]] || failures+=("$cell: $CONTROLS_FAIL")
+    else
+      conform_snapshot "$state" "$cell" "$dir"
+    fi
     case "$snap_code" in
       0) ;;
-      3) failures+=("$cell: $(mismatches_of "$dir/report.json")") ;;
+      3)
+        if [[ -f "$dir/report.json" ]]; then
+          failures+=("$cell: $(mismatches_of "$dir/report.json")")
+        else
+          failures+=("$cell: $snap_reason")
+        fi
+        ;;
       *) broken="${broken:+$broken; }$cell: $snap_reason" ;;
     esac
+    if [[ "$STATE_SURFACE" == palette ]] && ! palette_close "$dir"; then
+      if [[ "$STEP_KIND" == fail ]]; then
+        failures+=("$cell: $WHY")
+      else
+        broken="${broken:+$broken; }$cell: $WHY"
+      fi
+      break
+    fi
     if [[ -n "$PRESS_OP" ]] && ! release_state "$dir"; then
       broken="${broken:+$broken; }$cell: $WHY"
       break
@@ -1865,7 +2156,7 @@ item_ck_coverage
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
   layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
-  status-input-field status-wrong-axis status-keymap-error; do
+  status-input-field status-wrong-axis status-keymap-error palette-groups palette-tab-narrowed palette-no-results; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then

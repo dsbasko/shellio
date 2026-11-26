@@ -139,9 +139,9 @@ fn owned<'a>(window: &'a WindowView, role: &str) -> Option<&'a OwnedWindow> {
 
 /// Сверка пары окон перед снимком композиции: окно владельца и палитра на одном экране с
 /// масштабом `scale`, кадры `ui.window`, переведённые [`capture_region`], совпадают с
-/// `kCGWindowBounds` в пределах точки, над областью нет чужого окна обычного уровня, палитра над
-/// окном владельца, когда открыта, и отсутствует на экране, когда закрыта. Окна системных
-/// уровней (строка меню, Dock) не судятся: их пересечение с областью ловят контрольные пиксели.
+/// `kCGWindowBounds` в пределах точки, над областью нет чужого окна любого уровня (плавающее окно,
+/// баннер, строка меню над окном, сдвинутым под неё), палитра над окном владельца, когда открыта,
+/// и отсутствует на экране, когда закрыта.
 pub fn judge_pair(
     window: &WindowView,
     listed: &[ListedWindow],
@@ -197,10 +197,7 @@ pub fn judge_pair(
         .iter()
         .position(|w| w.number == palette.window_number);
     for other in &listed[..main_at] {
-        if other.layer == 0
-            && other.number != palette.window_number
-            && overlaps(other.bounds.rect(), region)
-        {
+        if other.number != palette.window_number && overlaps(other.bounds.rect(), region) {
             return execution(format!(
                 "чужое окно {} (PID {}) над областью снимка {:?}",
                 other.number, other.pid, other.bounds
@@ -642,6 +639,16 @@ mod tests {
             judge_pair(&window_json(true), &aside, 2.0, Expect::Open),
             Ok(())
         );
+        // Плавающее окно или баннер ненулевого уровня над областью — тоже чужое окно.
+        let floating = [
+            listed(12, 55, 3, (300.0, 120.0, 200.0, 80.0)),
+            listed(41, 7, 0, PALETTE),
+            listed(40, 7, 0, MAIN),
+        ];
+        assert!(matches!(
+            judge_pair(&window_json(true), &floating, 2.0, Expect::Open),
+            Err(PairFault::Execution(_))
+        ));
     }
 
     /// Снимок 1180×720 при масштабе 1: фон 200, плашка паспорта `palette-groups`, тень с
