@@ -76,8 +76,8 @@ ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zone
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency palette-open palette-no-results
   palette-space-text palette-return overlay-keys-blocked palette-filter-tab palette-run palette-open-panel
   palette-split-axis palette-args palette-run-focus palette-shadow-click whichkey-continuation whichkey-show-hide
-  whichkey-remap cmdline-run cmdline-unknown)
-STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12)
+  whichkey-remap cmdline-run cmdline-unknown hints-activate hints-f-label hints-cancel hints-hidden)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся. Срез 12 — пункты наложений плана
 # command-overlays.
 DONE_STAGE=12
@@ -122,6 +122,7 @@ K_UP=126
 K_E=14
 K_G=5
 K_SEMICOLON=41
+K_F=3
 
 REQUIRED=()
 STATUS=()
@@ -4474,6 +4475,7 @@ type_latin() {
       c) code=$K_C ;;
       d) code=$K_D ;;
       e) code=$K_E ;;
+      f) code=$K_F ;;
       g) code=$K_G ;;
       h) code=$K_H ;;
       i) code=$K_I ;;
@@ -4635,6 +4637,238 @@ item_cmdline_unknown() {
   conclude "$item" ":qqq и Enter клавишами — строка закрыта, сообщение строки статуса «Неизвестная команда: qqq. Откройте поиск ⌘K»; : клавишей и «нет такой» командой ui cmdline run — исход unknown, строка закрыта, сообщение «Неизвестная команда: нет такой. Откройте поиск ⌘K»; записей кольца после cmdline.open нет, раскладка query.layout прежняя"
 }
 
+# Метки ui.overlay чтения file строками «номер текст цель» по порядку, номер — с 1.
+hl_list() {
+  /usr/bin/perl -MJSON::PP -CS -e 'local $/; my $v = JSON::PP->new->utf8->decode(<STDIN>); my $n = 0;
+    printf "%d %s %s\n", ++$n, $_->{text}, $_->{target} for @{ $v->{ok}{ui}{overlay}{hints}{labels} // [] }' <"$1"
+}
+
+# Первая метка чтения file с целью по регулярному выражению: «текст цель»; пусто — такой метки нет.
+hl_find() {
+  hl_list "$1" | re="$2" awk '$3 ~ ENVIRON["re"] { print $2, $3; exit }'
+}
+
+# Метки клавишей f: одна запись hints.open с источником key без отказа и ui.overlay hints; чтение —
+# <каталог>/<имя>.open.stdout. Расхождения — в failures; код 1 — метки не открылись.
+hl_open() {
+  local dir="$1" name="$2"
+  if ! act "$dir" "$name" hints.open "$K_F"; then
+    failures+=("$name: $WHY")
+    return 1
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$name: действие hints.open отказало: $OUTCOME")
+  ov_wait "$dir/$name.open" kind hints || {
+    failures+=("$name: $WHY")
+    return 1
+  }
+  [[ "$(ov "$dir/$name.open.stdout" hints.typed)" == "" ]] ||
+    failures+=("$name: набранная часть открытых меток «$(ov "$dir/$name.open.stdout" hints.typed)», ожидалась пустая")
+}
+
+# Записи кольца после BEFORE по порядку: «действие от источника» через запятую; чтение — <prefix>.stdout, иначе WHY.
+RECS=""
+recs_after() {
+  local prefix="$1" want="$2" deadline n i
+  WHY=""
+  RECS="?"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if receipts_get "$profile" "$prefix" "$BEFORE"; then
+      n="$(jv "$prefix.stdout" 'ok.ui.receipts.receipts[#]' || echo 0)"
+      RECS=""
+      for ((i = 0; i < n; i++)); do
+        RECS="${RECS:+$RECS, }$(rc "$prefix.stdout" "$i" action) от $(rc "$prefix.stdout" "$i" source)"
+      done
+      [[ "$RECS" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс записи ui.receipts после клавиш — «${RECS}», ожидались «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Активная вкладка части 0 зоны центра — want (perl-условие query.layout).
+center_active() {
+  printf '%s' '$l->{zones}{center}{parts}[0]{tabs}[$l->{zones}{center}{parts}[0]{active}] eq $ARGV[0]'
+}
+
+# «Демо: список» в центре поверх терминала: f и метка вкладки терминала — запись panel.select с источником button
+# (обработчик щелчка вкладки), вкладка терминала активна; f и метка строки «Гамма» — выбор списка c. Метки
+# закрыты после каждого нажатия.
+item_hints_activate() {
+  local item=hints-activate dir="$run/hints-activate" demo hit lbl
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-list center
+  demo="$PANEL"
+  wait_focus "$dir/open-demo.layout" "$demo" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  no_stubs "$dir/start.layout.stdout" || fatal "$item: подготовка: $WHY"
+  wait_key "$dir/first" "$demo" a || fatal "$item: подготовка: выбор списка не на строке a: $WHY"
+  to_front "$dir" "$item"
+  if hl_open "$dir" tab; then
+    hit="$(hl_find "$dir/tab.open.stdout" '^zone\.center\.part\.[0-9]+\.tabs\.tab\.1$')"
+    lbl="${hit%% *}"
+    if [[ -z "$hit" ]]; then
+      failures+=("метки вкладки терминала центра нет: $(hl_list "$dir/tab.open.stdout" | tr '\n' ';' | cut -c 1-600)")
+    elif type_latin "$dir/keys.log" "$lbl"; then
+      ov_wait "$dir/tab.closed" kind null || failures+=("метка $lbl вкладки: $WHY")
+      recs_after "$dir/tab.recs" "hints.open от key, panel.select от button" || failures+=("метка $lbl вкладки: $WHY")
+      wait_layout "$dir/tab.layout" "активна вкладка терминала центра" "$(center_active)" "$p_center" ||
+        failures+=("метка $lbl вкладки: $WHY")
+    else
+      failures+=("метка $lbl: клавиши не отправлены: $(tail -n 1 "$dir/keys.log")")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  core_cmd "$profile" "$dir/focus-demo" panel focus "$demo" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus-demo.layout" "$demo" || fatal "$item: $WHY"
+  to_front "$dir" "$item"
+  if hl_open "$dir" row; then
+    hit="$(hl_find "$dir/row.open.stdout" "^layout\\.panel\\.$demo\\.list\\.row\\.c\$")"
+    lbl="${hit%% *}"
+    if [[ -z "$hit" ]]; then
+      failures+=("метки строки c списка нет: $(hl_list "$dir/row.open.stdout" | tr '\n' ';' | cut -c 1-600)")
+    elif type_latin "$dir/keys.log" "$lbl"; then
+      ov_wait "$dir/row.closed" kind null || failures+=("метка $lbl строки: $WHY")
+      wait_key "$dir/row.panel" "$demo" c || failures+=("метка $lbl строки: $WHY")
+      wait_focus "$dir/row.layout" "$demo" || failures+=("метка $lbl строки: $WHY")
+    else
+      failures+=("метка $lbl: клавиши не отправлены: $(tail -n 1 "$dir/keys.log")")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "«Демо: список» поверх терминала в центре: f — одна запись hints.open с источником key, метки открыты с пустой набранной частью; метка вкладки терминала ($(hl_find "$dir/tab.open.stdout" '^zone\.center\.part\.[0-9]+\.tabs\.tab\.1$' 2>/dev/null || echo ?)) закрывает метки, пишет panel.select с источником button — обработчик щелчка вкладки — и делает вкладку терминала активной; метка строки c списка закрывает метки, выбор query.panel data.key — c, фокус в списке"
+}
+
+# Сцена ровно из 29 целей: терминалы в четырёх зонах, второй терминал в центре и «Демо: список» справа — заглушка
+# «Развернуть» правой части. По формуле меток (overlays.js:267–271) 28-я цель получает fa: это кнопка «Развернуть»
+# правой части, 29-я — плашка режима. f, f, a — сужение до fa и fs, затем нажатие кнопки «Развернуть»: запись
+# layout.zoom с источником button и разворот списка.
+item_hints_f_label() {
+  local item=hints-f-label dir="$run/hints-f-label" demo t2 n hit
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-list right
+  demo="$PANEL"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  core_cmd "$profile" "$dir/focus" panel focus "$p_center" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus.layout" "$p_center" || fatal "$item: $WHY"
+  ctl "$profile" "$dir/count" --json --timeout "$CTL_TIMEOUT_MS" ui hints open || fatal "$item: ui hints open: $(oneline "$dir/count.stderr")"
+  ov_wait "$dir/count.ov" kind hints || fatal "$item: подготовка: $WHY"
+  n="$(jv "$dir/count.ov.stdout" 'ok.ui.overlay.hints.labels[#]' || echo "?")"
+  ctl "$profile" "$dir/count-close" --json --timeout "$CTL_TIMEOUT_MS" ui hints close || true
+  ov_wait "$dir/count.closed" kind null || fatal "$item: подготовка: метки не закрыты: $WHY"
+  [[ "$n" == 29 ]] ||
+    fatal "$item: подготовка: в сцене $n целей, нужно ровно 29: $(hl_list "$dir/count.ov.stdout" | tr '\n' ';' | cut -c 1-900)"
+  to_front "$dir" "$item"
+  if hl_open "$dir" f; then
+    n="$(jv "$dir/f.open.stdout" 'ok.ui.overlay.hints.labels[#]' || echo "?")"
+    hit="$(hl_list "$dir/f.open.stdout" | awk '$1 == 28 { print $2, $3 }')"
+    [[ "$n" == 29 ]] || failures+=("меток после f — $n, ожидалось 29")
+    [[ "$hit" =~ ^fa\ zone\.right\.part\.[0-9]+\.body\.stub\.expand$ ]] ||
+      failures+=("28-я метка «${hit}», ожидалась fa у кнопки «Развернуть» правой части")
+    [[ "$(hl_list "$dir/f.open.stdout" | awk '$1 == 29 { print $2, $3 }')" == "fs status.mode" ]] ||
+      failures+=("29-я метка «$(hl_list "$dir/f.open.stdout" | awk '$1 == 29 { print $2, $3 }')», ожидалась fs у плашки режима")
+    fkey "$dir" f2 "$K_F"
+    if ov_wait "$dir/f2" hints.typed f; then
+      [[ "$(hl_list "$dir/f2.stdout" | awk '{ print $2 }' | tr '\n' ' ')" == "fa fs " ]] ||
+        failures+=("после второй f метки «$(hl_list "$dir/f2.stdout" | awk '{ print $2 }' | tr '\n' ' ')», ожидались fa и fs")
+    else
+      failures+=("вторая f: $WHY")
+    fi
+    fkey "$dir" a "$K_A"
+    ov_wait "$dir/a.closed" kind null || failures+=("f, a: $WHY")
+    recs_after "$dir/a.recs" "hints.open от key, layout.zoom от button" || failures+=("f, a: $WHY")
+    wait_layout "$dir/a.layout" "«Демо: список» справа развёрнут" '($l->{zoomed} // "") eq $ARGV[0]' "$demo" ||
+      failures+=("f, a: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "сцена ровно из 29 целей (второй терминал $t2 в центре, «Демо: список» справа — заглушка «Развернуть»): f — одна запись hints.open с источником key, 29 меток, 28-я — fa у кнопки «Развернуть» правой части, 29-я — fs у плашки режима; вторая f — набранная часть f и метки fa, fs; a — метки закрыты, запись layout.zoom с источником button, layout.zoomed — список справа"
+}
+
+# Отмена: f, Esc — метки закрыты без записи кольца; f, k (ни одна метка не начинается с k) — метки закрыты без
+# действия. Раскладка и фокус прежние.
+item_hints_cancel() {
+  local item=hints-cancel dir="$run/hints-cancel" rev
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  rev="$(layout_canon "$dir/start.layout.stdout" 2>/dev/null || echo "?")"
+  to_front "$dir" "$item"
+  if hl_open "$dir" esc; then
+    fkey "$dir" esc "$K_ESC"
+    ov_wait "$dir/esc.closed" kind null || failures+=("f, Esc: $WHY")
+    recs_after "$dir/esc.recs" "hints.open от key" || failures+=("f, Esc: $WHY")
+    wait_focus "$dir/esc.layout" "$p_center" || failures+=("f, Esc: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  if hl_open "$dir" miss; then
+    [[ -z "$(hl_list "$dir/miss.open.stdout" | awk '$2 ~ /^k/')" ]] ||
+      failures+=("f, k: в сцене есть метка на k, набор не без совпадений")
+    fkey "$dir" k "$K_K"
+    ov_wait "$dir/miss.closed" kind null || failures+=("f, k: $WHY")
+    recs_after "$dir/miss.recs" "hints.open от key" || failures+=("f, k: $WHY")
+    wait_focus "$dir/miss.layout" "$p_center" || failures+=("f, k: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  if layout_get "$profile" "$dir/end" "$wb_a"; then
+    [[ "$(layout_canon "$dir/end.stdout" 2>/dev/null || echo "?")" == "$rev" ]] ||
+      failures+=("раскладка изменилась после отмены меток")
+  else
+    failures+=("query.layout не прочитан")
+  fi
+  conclude "$item" "f — одна запись hints.open с источником key; Esc — метки закрыты, других записей кольца нет, фокус в центре; f, k (меток на k нет) — метки закрыты без действия, других записей нет, фокус в центре; раскладка query.layout прежняя"
+}
+
+# Скрытые цели: «Демо: список» в центре — у его строк метки есть (контроль); затем нижняя зона скрыта и поверх
+# списка открыт второй терминал — меток на нижней зоне и на строках невыбранной вкладки нет, у самой вкладки списка
+# метка есть.
+item_hints_hidden() {
+  local item=hints-hidden dir="$run/hints-hidden" demo t2 rows
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-demo" demo-list center
+  demo="$PANEL"
+  wait_focus "$dir/open-demo.layout" "$demo" || fatal "$item: $WHY"
+  to_front "$dir" "$item"
+  if hl_open "$dir" control; then
+    rows="$(hl_list "$dir/control.open.stdout" | awk -v p="layout.panel.$demo.list.row." 'index($3, p) == 1' | wc -l | tr -d ' ')"
+    ((rows > 0)) || failures+=("контроль: у строк видимого списка меток нет")
+    [[ -n "$(hl_find "$dir/control.open.stdout" '^zone\.bottom\.')" ]] || failures+=("контроль: у нижней зоны меток нет")
+    fkey "$dir" control-esc "$K_ESC"
+    ov_wait "$dir/control.closed" kind null || failures+=("контроль, Esc: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  ctl "$profile" "$dir/hide" --json --timeout "$CTL_TIMEOUT_MS" layout toggle bottom ||
+    fatal "$item: layout toggle bottom: $(oneline "$dir/hide.stdout") $(oneline "$dir/hide.stderr")"
+  wait_layout "$dir/hide.layout" "нижняя зона скрыта" '$l->{hidden}{bottom}' || fatal "$item: $WHY"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  wait_focus "$dir/open-t2.layout" "$t2" || fatal "$item: $WHY"
+  wait_layout "$dir/t2.layout" "в центре активен второй терминал" "$(center_active)" "$t2" || fatal "$item: $WHY"
+  to_front "$dir" "$item"
+  if hl_open "$dir" hidden; then
+    [[ -z "$(hl_find "$dir/hidden.open.stdout" '^zone\.bottom\.')" ]] ||
+      failures+=("метки на скрытой нижней зоне: $(hl_list "$dir/hidden.open.stdout" | awk '$3 ~ /^zone\.bottom\./' | tr '\n' ';')")
+    [[ -z "$(hl_list "$dir/hidden.open.stdout" | awk -v p="layout.panel.$demo.list" 'index($3, p) == 1')" ]] ||
+      failures+=("метки на строках невыбранной вкладки списка: $(hl_list "$dir/hidden.open.stdout" | awk -v p="layout.panel.$demo.list" 'index($3, p) == 1' | tr '\n' ';')")
+    [[ -n "$(hl_find "$dir/hidden.open.stdout" '^zone\.center\.part\.[0-9]+\.tabs\.tab\.2$')" ]] ||
+      failures+=("у вкладки списка метки нет: $(hl_list "$dir/hidden.open.stdout" | tr '\n' ';' | cut -c 1-600)")
+    fkey "$dir" hidden-esc "$K_ESC"
+    ov_wait "$dir/hidden.closed" kind null || failures+=("Esc: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "контроль: у видимого «Демо: список» метки на $rows строках и на нижней зоне; после layout toggle bottom и второго терминала поверх списка: меток с целью zone.bottom.* и на строках списка нет, у вкладки списка метка есть; Esc закрывает метки"
+}
+
 prepare
 preconditions
 setup_main
@@ -4677,6 +4911,10 @@ item_whichkey_show_hide
 item_whichkey_remap
 item_cmdline_run
 item_cmdline_unknown
+item_hints_activate
+item_hints_f_label
+item_hints_cancel
+item_hints_hidden
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
