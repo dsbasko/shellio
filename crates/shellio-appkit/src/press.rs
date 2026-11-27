@@ -4,7 +4,7 @@
 
 use objc2::Message;
 use objc2::rc::Retained;
-use objc2_app_kit::{NSAccessibility, NSView, NSWindowButton};
+use objc2_app_kit::{NSAccessibility, NSButton, NSView, NSWindowButton};
 
 use crate::components::virtual_list;
 use crate::inspect;
@@ -17,14 +17,24 @@ pub struct Pressable {
 
 impl Pressable {
     /// Нажимает вид тем же обработчиком, что щелчок: строка списка — выбором через таблицу, как
-    /// `mouseDown:` таблицы, остальные — `AXPress` (у `NSButton` это `performClick:` с действием,
-    /// у собственных видов — та же функция, что их `mouseDown:`). `false` — вид нажатие не принял.
+    /// `mouseDown:` таблицы, `NSButton` — `performClick:` с его действием, остальные — `AXPress`
+    /// (у собственных видов — та же функция, что их `mouseDown:`). `false` — вид нажатие не принял.
     pub fn press(&self) -> bool {
         let Some(target) = self.path.last() else {
             return false;
         };
         if let Some(pressed) = virtual_list::press_row(&self.path) {
             return pressed;
+        }
+        // `AXPress` у `NSButton` выполняет действие, но возвращает `false`: отказ был бы ложным.
+        if let Ok(button) = target.clone().downcast::<NSButton>() {
+            if !button.isEnabled() {
+                return false;
+            }
+            // SAFETY: отправитель не передаётся, `performClick:` зовёт действие кнопки на главном
+            // потоке, как щелчок.
+            unsafe { button.performClick(None) };
+            return true;
         }
         target.accessibilityPerformPress()
     }
