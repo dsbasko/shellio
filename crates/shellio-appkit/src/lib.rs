@@ -53,6 +53,7 @@ mod own;
 mod panel_stub;
 mod piece;
 mod plate;
+mod press;
 mod runloop;
 mod split_view;
 mod status_line;
@@ -133,6 +134,7 @@ pub use panel_stub::{
 };
 pub use piece::{Piece, ViewWatch};
 pub use plate::{Plate, plate_spec};
+pub use press::Pressable;
 pub use runloop::{
     DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
 };

@@ -33,8 +33,10 @@ const FLOATING: [&str; 4] = ["picker", "palette", "menu", "whichkey"];
 pub struct HintTarget {
     /// Ключ сверки узла, а у строки списка без ключа — имя узла в `ui.inspect`.
     pub key: String,
-    /// Имя узла в `ui.inspect`: по нему нажимается цель.
+    /// Имя узла в `ui.inspect`: по нему цель находится заново в момент нажатия.
     pub id: String,
+    /// Идентичность вида узла: по ней окно нажимает цель.
+    pub object: u64,
     pub frame: Rect,
 }
 
@@ -78,6 +80,7 @@ pub fn hint_targets(nodes: &[ComponentView]) -> Vec<HintTarget> {
                 HintTarget {
                     key,
                     id: node.id.clone(),
+                    object: node.object,
                     frame: node.frame,
                 },
             )
@@ -89,6 +92,14 @@ pub fn hint_targets(nodes: &[ComponentView]) -> Vec<HintTarget> {
         .map(|(_, target)| target)
         .take(shellio_keymap::MAX_HINT_TARGETS)
         .collect()
+}
+
+/// Цель с именем узла `id` в окне на момент нажатия: цели собираются заново по тем же правилам.
+/// `None` — цель исчезла, скрыта, перекрыта или отключена с открытия меток.
+pub fn retarget(nodes: &[ComponentView], id: &str) -> Option<HintTarget> {
+    hint_targets(nodes)
+        .into_iter()
+        .find(|target| target.id == id)
 }
 
 fn is_floating_root(ck: &str) -> bool {
@@ -439,6 +450,59 @@ mod tests {
             keys.iter()
                 .any(|key| key == "zone.center.part.1.tabs.tab.1")
         );
+    }
+
+    #[test]
+    fn a_target_is_found_again_by_its_node_name_at_press_time() {
+        let mut nodes = window();
+        for (object, node) in (1..).zip(nodes.iter_mut()) {
+            node.object = object;
+        }
+        let opened = hint_targets(&nodes);
+        let row = opened
+            .iter()
+            .find(|target| target.id == "right.list.row.a")
+            .cloned()
+            .expect("строка списка — цель");
+        assert_eq!(retarget(&nodes, &row.id), Some(row.clone()));
+
+        // Строка сдвинулась прокруткой: нажимается тот же вид с новым кадром.
+        let mut moved = nodes.clone();
+        if let Some(node) = moved.iter_mut().find(|node| node.id == row.id) {
+            node.frame.y = 400.0;
+        }
+        let found = retarget(&moved, &row.id).expect("сдвинутая строка видна");
+        assert_eq!((found.object, found.frame.y), (row.object, 400.0));
+
+        // Исчезнувшая, отключённая, ушедшая за край и перекрытая цели не нажимаются.
+        let gone: Vec<ComponentView> = nodes
+            .iter()
+            .filter(|node| node.id != row.id)
+            .cloned()
+            .collect();
+        assert_eq!(retarget(&gone, &row.id), None);
+        let mut disabled = nodes.clone();
+        for node in &mut disabled {
+            if node.id == "center.split" {
+                node.enabled = Some(false);
+            }
+        }
+        assert_eq!(retarget(&disabled, "center.split"), None);
+        let mut clipped = nodes.clone();
+        if let Some(node) = clipped.iter_mut().find(|node| node.id == row.id) {
+            node.frame.y = 7.0;
+        }
+        assert_eq!(retarget(&clipped, &row.id), None);
+        let mut covered = nodes.clone();
+        covered.push(node(
+            "picker",
+            Some("picker"),
+            None,
+            [800.0, 580.0, 380.0, 80.0],
+        ));
+        assert_eq!(retarget(&covered, &row.id), None);
+        // Имя, которого не было среди целей, целью не становится.
+        assert_eq!(retarget(&nodes, "right.body"), None);
     }
 
     #[test]

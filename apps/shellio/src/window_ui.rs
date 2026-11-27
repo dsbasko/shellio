@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
-use shellio::hint_targets::{HintTarget, hint_targets};
+use shellio::hint_targets::{HintTarget, hint_targets, retarget};
 use shellio::history::{History, Jump};
 use shellio::input_sink::{self, InputSink, KeyKind, KeyRecord};
 use shellio::key_actions::{self, KeyAction};
@@ -3104,7 +3104,7 @@ fn dismiss_overlay() {
 }
 
 /// Клавиша управления открытым наложением. `Tab` и `Shift-Tab` перебирают категории палитры.
-/// Набор меток без совпадений закрывает их без действия: целей меток до их вида нет.
+/// Однозначная метка нажимает свою цель, набор без совпадений закрывает метки без действия.
 fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
     let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
     if open != Some(kind) {
@@ -3137,9 +3137,7 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
             });
             match step.flatten() {
                 None => {}
-                // Метка набрана целиком: метки закрываются, источник не восстанавливается. Нажатие
-                // цели обработчиком щелчка подключает срез 1b задачи 6.
-                Some(Some(_target)) => return dismiss_overlay(),
+                Some(Some(target)) => return press_hint(&target.id),
                 // Набор без совпадений закрывает метки без действия.
                 Some(None) => return close_overlay(OverlayKind::Hints),
             }
@@ -3147,6 +3145,24 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
         OverlayKind::Cmdline => {}
     }
     with_window(|owner| owner.bump());
+}
+
+/// Метка набрана целиком. Как строка палитры (правило «Выполнение»): метки закрываются, источник
+/// восстанавливается, затем цель, найденная заново по имени узла, нажимается тем же обработчиком,
+/// что щелчок, — квитанцию пишет этот обработчик. Цель, которой больше нет, не нажимается. Нажатие
+/// идёт вне заимствования окна: обработчик щелчка может обратиться к окну сам.
+fn press_hint(id: &str) {
+    if let Some(modal) = with_router(KeyRouter::close).flatten() {
+        restore_source(modal);
+    }
+    let pressable = with_window(|owner| {
+        let target = retarget(&owner.inspect_view().components, id)?;
+        owner.window.pressable(target.object)
+    })
+    .flatten();
+    if let Some(pressable) = pressable {
+        pressable.press();
+    }
 }
 
 /// Намерение вида палитры. Щелчок по строке выполняет её, как в прототипе (`overlays.js:247`).

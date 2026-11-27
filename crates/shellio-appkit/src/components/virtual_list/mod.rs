@@ -10,4 +10,5 @@ pub(crate) mod model;
 mod view;
 
 pub(crate) use view::RowViews;
+pub(crate) use view::press_row;
 pub use view::{ListRowFacts, VirtualList, VirtualListFacts};

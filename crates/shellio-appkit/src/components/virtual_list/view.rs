@@ -1076,17 +1076,45 @@ define_class!(
         // принадлежит модели: щелчок отдаёт намерение, таблица меняется по новому состоянию.
         #[unsafe(method(tableView:shouldSelectRow:))]
         fn should_select_row(&self, _table: &NSTableView, row: NSInteger) -> bool {
-            if let Ok(index) = usize::try_from(row) {
-                self.ivars().owner.call(|model| {
-                    if let Some(id) = model.selectable_id(index) {
-                        (model.on_intent)(ListIntent::Select { id });
-                    }
-                });
-            }
+            select_row(&self.ivars().owner, row);
             false
         }
     }
 );
+
+/// Щелчок по строке `row`: выбор уходит намерением модели. `false` — строка не выбирается.
+fn select_row(owner: &Callback<ListModel>, row: NSInteger) -> bool {
+    let Ok(index) = usize::try_from(row) else {
+        return false;
+    };
+    owner
+        .call(|model| {
+            let id = model.selectable_id(index)?;
+            (model.on_intent)(ListIntent::Select { id });
+            Some(())
+        })
+        .flatten()
+        .is_some()
+}
+
+/// Нажатие строки списка без события мыши — как щелчок по ней (`mouseDown:` таблицы): таблица
+/// становится first responder, выбор уходит намерением модели. `path` — цепочка видов от вида
+/// содержимого окна до строки. `None` — последний вид цепочки не строка списка.
+pub(crate) fn press_row(path: &[Retained<NSView>]) -> Option<bool> {
+    let row = path.last()?.downcast_ref::<ListRow>()?;
+    let table = path
+        .iter()
+        .rev()
+        .find_map(|view| view.downcast_ref::<ListTable>())?;
+    let index = table.rowForView(row);
+    if index < 0 {
+        return Some(false);
+    }
+    if let Some(window) = table.window() {
+        window.makeFirstResponder(Some(table));
+    }
+    Some(select_row(&row.ivars().owner, index))
+}
 
 impl ListSource {
     fn new(mtm: MainThreadMarker, owner: Callback<ListModel>) -> Retained<ListSource> {
