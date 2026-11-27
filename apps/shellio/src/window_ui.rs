@@ -1884,7 +1884,7 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         MonitorEvent::KeyDown(stroke) => return on_key_down(app, stroke),
         MonitorEvent::KeyUp { key_code } => with_router(|router| router.key_up(KeyCode(key_code))),
         MonitorEvent::FlagsChanged => with_router(|router| router.flags_changed()),
-        MonitorEvent::MouseDown { window } => {
+        MonitorEvent::MouseDown { window, location } => {
             // Щелчок вне окна открытой палитры закрывает её и до слоя под ней не доходит.
             if palette_outside(window) {
                 defer(|_| close_overlay(OverlayKind::Palette));
@@ -1894,6 +1894,12 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
             // доходит: метки — не поверхность, которую можно щёлкнуть.
             if hints_open() {
                 defer(|_| close_overlay(OverlayKind::Hints));
+                return Verdict::Swallow;
+            }
+            // Щелчок мимо плашки открытой командной строки закрывает её так же: слой на всё окно
+            // пропускает события виду под ним, и без этого щелчок ушёл бы туда при открытой строке.
+            if cmdline_outside(window, location) {
+                defer(|_| close_overlay(OverlayKind::Cmdline));
                 return Verdict::Swallow;
             }
             with_router(|router| router.cancel(Cancel::MouseDown));
@@ -1929,6 +1935,26 @@ fn hints_open() -> bool {
     with_router(|router| router.modal().map(|modal| modal.kind))
         .flatten()
         .is_some_and(|kind| kind == OverlayKind::Hints)
+}
+
+/// Командная строка открыта, а щелчок в окне `window` в точке `location` лёг мимо её плашки.
+fn cmdline_outside(window: i64, location: (f64, f64)) -> bool {
+    let open = with_router(|router| router.modal().map(|modal| modal.kind))
+        .flatten()
+        .is_some_and(|kind| kind == OverlayKind::Cmdline);
+    open && with_window(|owner| {
+        let on_plate = owner
+            .cmdline
+            .as_ref()
+            .is_some_and(|view| view.on_plate(location));
+        click_closes_cmdline(owner.window.number(), window, on_plate)
+    })
+    .unwrap_or(true)
+}
+
+/// Щелчок при открытой командной строке закрывает её, если лёг не на плашку окна владельца.
+fn click_closes_cmdline(owner: i64, window: i64, on_plate: bool) -> bool {
+    !(window == owner && on_plate)
 }
 
 /// Палитра открыта, а окно `window` — не её окно.
@@ -3876,6 +3902,15 @@ mod tests {
             shellio_keymap::unknown_message("нет такой", palette_key_line(&keymap).as_deref()),
             "Неизвестная команда: нет такой. Откройте поиск ⌘K"
         );
+    }
+
+    /// Щелчок закрывает строку `:`, если лёг не на плашку окна владельца (правило «Отмена»).
+    #[test]
+    fn click_off_the_plate_closes_the_command_line() {
+        assert!(!click_closes_cmdline(7, 7, true));
+        assert!(click_closes_cmdline(7, 7, false));
+        assert!(click_closes_cmdline(7, 9, true));
+        assert!(click_closes_cmdline(7, 0, false));
     }
 
     /// Каждая команда грамматики `:` исполняется обработчиком действия хоста, тем же, что клавиша,

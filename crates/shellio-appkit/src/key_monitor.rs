@@ -104,9 +104,11 @@ pub enum MonitorEvent {
     },
     /// Смена модификаторов: не клавиша.
     FlagsChanged,
-    /// Нажатие любой кнопки мыши в окне с номером `window` (0 — вне окон приложения).
+    /// Нажатие любой кнопки мыши в окне с номером `window` (0 — вне окон приложения) в точке
+    /// `location` окна (x, y), начало внизу слева, как `locationInWindow`.
     MouseDown {
         window: i64,
+        location: (f64, f64),
     },
     ScrollWheel,
 }
@@ -354,6 +356,10 @@ fn read(kind: Kind, event: &NSEvent) -> MonitorEvent {
         Kind::FlagsChanged => MonitorEvent::FlagsChanged,
         Kind::MouseDown => MonitorEvent::MouseDown {
             window: event.windowNumber() as i64,
+            location: {
+                let point = event.locationInWindow();
+                (point.x, point.y)
+            },
         },
         Kind::ScrollWheel => MonitorEvent::ScrollWheel,
     }

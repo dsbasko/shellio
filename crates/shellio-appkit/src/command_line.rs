@@ -2,14 +2,16 @@
 //! внизу слева на отступе `--gap`, высотой строки статуса и шириной 420, заливка `surface`, кольцо
 //! `0 0 0 1px` цвета `line-2`, поля 0 и 8, знак `:` и поле ввода моноширинным мелким кеглем.
 //! Поле получает фокус в том же окне: окно владельца остаётся ключевым. Щелчок мимо плашки
-//! проходит виду под ней.
+//! закрывает строку и до вида под ней не доходит: решает монитор окна по [`CommandLine::on_plate`].
+//! Нажатие на плашку остаётся у неё. Слой на всё окно сам событий не принимает, поэтому прокрутка
+//! проходит виду под ним.
 
 use std::cell::Cell;
 
 use objc2::rc::Retained;
 use objc2::runtime::NSObject;
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
-use objc2_app_kit::{NSResponder, NSTextField, NSView};
+use objc2_app_kit::{NSEvent, NSResponder, NSTextField, NSView};
 use objc2_foundation::{NSPoint, NSRect, NSString};
 use objc2_quartz_core::CALayer;
 use shellio_theme::AppTheme;
@@ -72,9 +74,15 @@ pub fn layout(height: f64, status: f64, gap: f64, prompt: f64) -> CommandLineLay
     }
 }
 
+/// Точка `(x, y)` плашки `width` × `height` в её координатах лежит на плашке или её кольце.
+fn on_ring(x: f64, y: f64, width: f64, height: f64) -> bool {
+    (-LINE_WIDTH..=width + LINE_WIDTH).contains(&x)
+        && (-LINE_WIDTH..=height + LINE_WIDTH).contains(&y)
+}
+
 struct BoxIvars {
     _live: Live,
-    /// Слой на всё окно пропускает щелчки мимо своих подвидов, плашка принимает свои.
+    /// Слой на всё окно пропускает события мимо своих подвидов, плашка принимает свои.
     pass_through: bool,
 }
 
@@ -95,7 +103,7 @@ define_class!(
         }
 
         // SAFETY: селектор, аргумент и результат — как у `hitTest:` NSView. Слой на всё окно
-        // принимает щелчки только своими подвидами: мимо плашки щелчок уходит виду под ней.
+        // принимает события только своими подвидами: мимо плашки событие уходит виду под ней.
         #[unsafe(method(hitTest:))]
         fn hit_test(&self, point: NSPoint) -> *mut NSView {
             // SAFETY: `hitTest:` у NSView с той же точкой.
@@ -107,6 +115,11 @@ define_class!(
                 hit
             }
         }
+
+        // SAFETY: селектор и аргумент — как у `mouseDown:` NSResponder. Нажатие на плашку
+        // остаётся у неё: по цепочке ответчиков оно не идёт.
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, _event: &NSEvent) {}
     }
 );
 
@@ -219,6 +232,22 @@ impl CommandLine {
         }
         self.root.setHidden(false);
         self.field.focus()
+    }
+
+    /// Лежит ли точка окна `location` (начало внизу слева, как `locationInWindow`) на видимой
+    /// плашке вместе с её кольцом.
+    pub fn on_plate(&self, location: (f64, f64)) -> bool {
+        if !self.shown.get() {
+            return false;
+        }
+        let (x, y) = location;
+        let point = self.plate.convertPoint_fromView(NSPoint::new(x, y), None);
+        on_ring(
+            point.x,
+            point.y,
+            self.plate.bounds().size.width,
+            self.plate.bounds().size.height,
+        )
     }
 
     /// Прячет строку: ввод в поле отдаётся окну, текст забывается.
@@ -342,5 +371,16 @@ mod tests {
         let frames = layout(500.0, 26.0, 6.0, 7.0);
         assert_eq!(frames.plate.y, 468.0);
         assert_eq!(frames.plate.x, 6.0);
+    }
+
+    /// Кольцо в точку снаружи кадра — часть видимой плашки, дальше — мимо неё.
+    #[test]
+    fn ring_belongs_to_the_plate() {
+        assert!(on_ring(0.0, 0.0, 420.0, 26.0));
+        assert!(on_ring(-1.0, 27.0, 420.0, 26.0));
+        assert!(on_ring(421.0, 13.0, 420.0, 26.0));
+        assert!(!on_ring(-1.5, 13.0, 420.0, 26.0));
+        assert!(!on_ring(200.0, 27.5, 420.0, 26.0));
+        assert!(!on_ring(422.0, -2.0, 420.0, 26.0));
     }
 }
