@@ -74,8 +74,9 @@ SIDE_W=240
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency palette-open palette-no-results
-  palette-space-text palette-return overlay-keys-blocked)
-STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12)
+  palette-space-text palette-return overlay-keys-blocked palette-filter-tab palette-run palette-open-panel
+  palette-split-axis palette-args palette-run-focus palette-shadow-click)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12 12 12 12 12 12 12 12)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся. Срез 12 — пункты наложений плана
 # command-overlays.
 DONE_STAGE=12
@@ -112,6 +113,11 @@ K_C=8
 K_I=34
 K_M=46
 K_BACKSLASH=42
+K_N=45
+K_P=35
+K_D=2
+K_DOWN=125
+K_UP=126
 
 REQUIRED=()
 STATUS=()
@@ -3709,6 +3715,508 @@ item_overlay_keys_blocked() {
   conclude "$item" "при открытой палитре над «Демо: список» j и Ctrl-w l — палитра открыта, записей кольца после palette.open нет; после Esc фокус query.layout в списке, раскладка и выбор query.panel прежние"
 }
 
+# Строки открытой палитры чтения ui.overlay по порядку выдачи: id через пробел.
+pal_ids() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{overlay}{palette} or exit 1;
+    print join(" ", map { $_->{id} } map { @{ $_->{rows} } } @{ $p->{groups} }), "\n"' <"$1"
+}
+
+# Заголовки групп открытой палитры по порядку: через «+».
+pal_groups() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $p = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{overlay}{palette} or exit 1;
+    binmode STDOUT, ":utf8"; print join("+", map { $_->{title} } @{ $p->{groups} }), "\n"' <"$1"
+}
+
+# Номер строки id в выдаче (с нуля); пусто — строки нет.
+pal_pos() {
+  local i=0 x
+  for x in $(pal_ids "$1" 2>/dev/null || true); do
+    if [[ "$x" == "$2" ]]; then
+      echo "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  echo ""
+}
+
+# Выбор строки id стрелками: разница номеров строки и выбранной строки по ui.overlay даёт число ↓ или ↑, затем опрос
+# palette.selected; иначе WHY.
+pal_select() {
+  local dir="$1" name="$2" id="$3" want at k code=$K_DOWN
+  WHY=""
+  ui_read "$profile" "$dir/$name.rows" overlay || {
+    WHY="ui.overlay не прочитан: $(oneline "$dir/$name.rows.stderr")"
+    return 1
+  }
+  want="$(pal_pos "$dir/$name.rows.stdout" "$id")"
+  [[ -n "$want" ]] || {
+    WHY="строки $id нет в палитре: $(pal_ids "$dir/$name.rows.stdout" 2>/dev/null || echo "?")"
+    return 1
+  }
+  at="$(pal_pos "$dir/$name.rows.stdout" "$(ov "$dir/$name.rows.stdout" palette.selected)")"
+  [[ -n "$at" ]] || at=0
+  ((want >= at)) || code=$K_UP
+  for ((k = 0; k < (want > at ? want - at : at - want); k++)); do
+    key "$dir/keys.log" "$code" || {
+      WHY="стрелка не отправлена: $(tail -n 1 "$dir/keys.log")"
+      return 1
+    }
+  done
+  ov_wait "$dir/$name.selected" palette.selected "$id"
+}
+
+# Строка палитры клавишей Enter: pal_run <каталог> <имя> <id строки> <действие>. Выбор стрелками, номер последней
+# записи кольца — в BEFORE, затем Enter и опрос до новой записи: первая новая называет действие с источником key, её
+# отказ — в OUTCOME. Число записей после BEFORE позже сверяет once. Иначе WHY.
+pal_run() {
+  local dir="$1" name="$2" id="$3" action="$4" got
+  WHY=""
+  OUTCOME=""
+  pal_select "$dir" "$name" "$id" || return 1
+  receipts_last "$profile" "$dir/$name.before" || return 1
+  BEFORE="$LAST"
+  key "$dir/keys.log" "$K_ENTER" || {
+    WHY="Enter не отправлен: $(tail -n 1 "$dir/keys.log")"
+    return 1
+  }
+  wait_receipts "$profile" "$dir/$name.receipts" "$BEFORE" 1 || {
+    WHY="Enter на строке $id: $WHY"
+    return 1
+  }
+  got="$(rc "$dir/$name.receipts.stdout" 0 action) от $(rc "$dir/$name.receipts.stdout" 0 source)"
+  [[ "$got" == "$action от key" ]] || {
+    WHY="Enter на строке $id: запись кольца «${got}», ожидалась «$action от key»"
+    return 1
+  }
+  OUTCOME="$(rc "$dir/$name.receipts.stdout" 0 error)"
+  [[ "$OUTCOME" != нет ]] || OUTCOME=ok
+}
+
+# Палитра открыта клавишей Cmd-k с записью palette.open; иначе причина в failures с подписью label, код 1.
+pal_cmdk() {
+  local dir="$1" name="$2" label="$3"
+  if ! act "$dir" "$name" palette.open "$K_K+command"; then
+    failures+=("$label: $WHY")
+    return 1
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=("$label: действие palette.open отказало: $OUTCOME")
+  pal_opened "$dir" "$name" "$label"
+}
+
+# Снимок выбора и категории палитры: «категория|группы|выбранная строка|номер выбранной|совпадений».
+PAL_STATE=""
+pal_state() {
+  local file="$1" sel
+  sel="$(ov "$file" palette.selected)"
+  PAL_STATE="$(ov "$file" palette.category)|$(pal_groups "$file" 2>/dev/null || echo "?")|$sel|$(pal_pos "$file" "$sel")|$(ov "$file" palette.matched)"
+}
+
+# Шаг клавиши в палитре: pal_key <каталог> <имя> <подпись> <ожидание «категория|группы|номер выбранной»> <код>
+# [модификатор…]. Ожидание судит ui.overlay; расхождение — в failures.
+pal_key() {
+  local dir="$1" name="$2" label="$3" want="$4" code="$5" deadline got="?"
+  shift 5
+  key "$dir/keys.log" "$code" "$@" || {
+    failures+=("$label: клавиша не отправлена: $(tail -n 1 "$dir/keys.log")")
+    return 0
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$dir/$name" overlay; then
+      pal_state "$dir/$name.stdout"
+      got="$(cut -d '|' -f 1,2,4 <<<"$PAL_STATE")"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      failures+=("$label: за $MIRROR_MS мс ui.overlay «${got}», ожидалось «${want}» (категория|группы|номер выбранной)")
+      return 0
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Запрос, Tab по категориям, стрелки и Ctrl-n/Ctrl-p: запрос «т» кириллицей задаёт ui palette open --query у открытой
+# клавишей палитры, остальное — клавиши. Ожидания считает сценарий: Tab идёт все → команды → панели → все, Shift-Tab
+# назад; в категории одна группа, выбор с первой строки; ↓, Ctrl-n, Ctrl-p, ↑ двигают выбор на одну строку; строки
+# «Панелей» — только панели (panel:…) и плагины (panel.open.…); совпадений во всех — сумма команд и панелей; запрос
+# не меняется; клавиши управления палитрой записей кольца не дают.
+item_palette_filter_tab() {
+  local item=palette-filter-tab dir="$run/palette-filter-tab" all cmd panel ids x
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-list" demo-list center
+  wait_focus "$dir/open-list.layout" "$PANEL" || fatal "$item: $WHY"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" open Cmd-k; then
+    if ui_cmd "$profile" "$dir/query" ui palette open --query "т" && ov_wait "$dir/typed" palette.query "т"; then
+      pal_state "$dir/typed.stdout"
+      all="$(cut -d '|' -f 5 <<<"$PAL_STATE")"
+      [[ "$(cut -d '|' -f 1,4 <<<"$PAL_STATE")" == all\|0 &&
+        "$(pal_groups "$dir/typed.stdout")" == *Команды* && "$(pal_groups "$dir/typed.stdout")" == *Панели* ]] ||
+        failures+=("запрос «т»: «${PAL_STATE}», ожидались категория all, обе группы и выбор первой строки")
+      receipts_last "$profile" "$dir/keys.before" || failures+=("ui.receipts: $WHY")
+      BEFORE="$LAST"
+      pal_key "$dir" tab1 "Tab" "cmd|Команды|0" "$K_TAB"
+      cmd="$(ov "$dir/tab1.stdout" palette.matched)"
+      [[ "$(pal_ids "$dir/tab1.stdout" | wc -w | tr -d ' ')" -ge 3 ]] ||
+        failures+=("в категории «Команды» по запросу «т» меньше трёх строк: $(pal_ids "$dir/tab1.stdout")")
+      pal_key "$dir" down "↓" "cmd|Команды|1" "$K_DOWN"
+      pal_key "$dir" ctrl-n "Ctrl-n" "cmd|Команды|2" "$K_N" control
+      pal_key "$dir" ctrl-p "Ctrl-p" "cmd|Команды|1" "$K_P" control
+      pal_key "$dir" up "↑" "cmd|Команды|0" "$K_UP"
+      pal_key "$dir" tab2 "второй Tab" "panel|Панели|0" "$K_TAB"
+      panel="$(ov "$dir/tab2.stdout" palette.matched)"
+      ids="$(pal_ids "$dir/tab2.stdout" 2>/dev/null || true)"
+      for x in $ids; do
+        [[ "$x" == panel:* || "$x" == panel.open.* ]] || failures+=("в категории «Панели» строка $x")
+      done
+      pal_key "$dir" tab3 "третий Tab" "all|$(pal_groups "$dir/typed.stdout")|0" "$K_TAB"
+      pal_key "$dir" shift-tab "Shift-Tab" "panel|Панели|0" "$K_TAB" shift
+      [[ "$all" =~ ^[0-9]+$ && "$cmd" =~ ^[0-9]+$ && "$panel" =~ ^[0-9]+$ ]] && ((all == cmd + panel)) ||
+        failures+=("совпадений во всех $all, в командах $cmd, в панелях $panel: сумма не сходится")
+      [[ "$(ov "$dir/shift-tab.stdout" palette.query)" == "т" ]] ||
+        failures+=("запрос после клавиш «$(ov "$dir/shift-tab.stdout" palette.query)», ожидался «т»")
+      if receipts_get "$profile" "$dir/keys.after" "$BEFORE"; then
+        [[ "$(jv "$dir/keys.after.stdout" 'ok.ui.receipts.receipts[#]' || echo "?")" == 0 ]] ||
+          failures+=("клавиши управления палитрой дали записи кольца: $(oneline "$dir/keys.after.stdout")")
+      else
+        failures+=("ui.receipts не прочитан")
+      fi
+    else
+      failures+=("запрос «т»: $WHY")
+    fi
+    fkey "$dir" esc "$K_ESC"
+    pal_closed "$dir" esc Esc "$PANEL"
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "у «Демо: список» Cmd-k и запрос «т» — категория all, группы «Команды» и «Панели», выбрана первая строка; Tab — категория cmd, одна группа «Команды»; ↓, Ctrl-n, Ctrl-p, ↑ — выбор 1, 2, 1, 0; Tab — panel, одна группа «Панели» только из панелей и плагинов; Tab — all, Shift-Tab — panel; совпадений во всех $all = $cmd + $panel; запрос «т» на месте, записей кольца от клавиш палитры нет; Esc закрывает"
+}
+
+# Выполнение строк: «Тёмная тема» (строка ui.appearance.cycle выполняет ui.appearance.dark), «Скрыть нижнюю зону»,
+# «Режим «Ввод»» у «Демо: поле» в Navigation. Каждая — одна запись кольца действия строки с источником key после
+# записи palette.open и исход действия: оформление, layout.hidden.bottom, режим input с вводом в поле.
+item_palette_run() {
+  local item=palette-run dir="$run/palette-run" choice demo
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  ui_read "$profile" "$dir/start.window" window || fatal "$item: ui.window не прочитан"
+  choice="$(jv "$dir/start.window.stdout" ok.ui.window.appearance_choice || echo system)"
+  ui_cmd "$profile" "$dir/light" ui appearance light || fatal "$item: подготовка: $WHY"
+  wait_appearance "$dir/light.window" light || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" theme "Cmd-k (тема)"; then
+    [[ "$(jv "$dir/theme.overlay.stdout" 'ok.ui.overlay.palette.groups[0].rows[id=ui.appearance.cycle].title' || echo нет)" == "Тёмная тема" ]] ||
+      failures+=("строка ui.appearance.cycle в светлой теме не «Тёмная тема»")
+    if pal_run "$dir" theme-run ui.appearance.cycle ui.appearance.dark; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Тёмная тема»: отказ $OUTCOME")
+      wait_appearance "$dir/theme-run.window" dark || failures+=("«Тёмная тема»: $WHY")
+      ov_wait "$dir/theme-run.overlay" kind null || failures+=("«Тёмная тема»: $WHY")
+      once "$dir" theme-run || failures+=("«Тёмная тема»: $WHY")
+    else
+      failures+=("«Тёмная тема»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  if pal_cmdk "$dir" bottom "Cmd-k (нижняя зона)"; then
+    if pal_run "$dir" bottom-run layout.toggle.bottom layout.toggle.bottom; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Скрыть нижнюю зону»: отказ $OUTCOME")
+      wait_layout "$dir/bottom-run.layout" "нижняя зона скрыта" '$l->{hidden}{bottom}' ||
+        failures+=("«Скрыть нижнюю зону»: $WHY")
+      once "$dir" bottom-run || failures+=("«Скрыть нижнюю зону»: $WHY")
+    else
+      failures+=("«Скрыть нижнюю зону»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  open_panel "$dir/open-field" demo-native center
+  demo="$PANEL"
+  wait_focus "$dir/open-field.layout" "$demo" || fatal "$item: $WHY"
+  wait_mode "$dir/field.mode" input || fatal "$item: подготовка: $WHY"
+  fkey "$dir" leave-field "$K_ESC"
+  wait_mode "$dir/leave-field.mode" navigation || failures+=("Esc из поля: $WHY")
+  if pal_cmdk "$dir" mode "Cmd-k (режим)"; then
+    [[ "$(jv "$dir/mode.overlay.stdout" 'ok.ui.overlay.palette.groups[0].rows[id=mode.toggle].title' || echo нет)" == "Режим «Ввод»" ]] ||
+      failures+=("строка mode.toggle в Navigation не «Режим «Ввод»»")
+    if pal_run "$dir" mode-run mode.toggle mode.toggle; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Режим «Ввод»»: отказ $OUTCOME")
+      wait_mode "$dir/mode-run.mode" input || failures+=("«Режим «Ввод»»: $WHY")
+      wait_inspect "$profile" "$dir/mode-run.field" "layout.panel.$demo.field" state.text_field.editing true ||
+        failures+=("«Режим «Ввод»»: $WHY")
+      once "$dir" mode-run || failures+=("«Режим «Ввод»»: $WHY")
+    else
+      failures+=("«Режим «Ввод»»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  ui_cmd "$profile" "$dir/restore" ui appearance "$choice" || failures+=("оформление $choice не возвращено: $WHY")
+  conclude "$item" "в светлой теме Cmd-k, строка «Тёмная тема» и Enter — одна запись ui.appearance.dark с источником key, выбор оформления dark, палитра закрыта; «Скрыть нижнюю зону» — одна запись layout.toggle.bottom, layout.hidden.bottom; у «Демо: поле» в Navigation «Режим «Ввод»» — одна запись mode.toggle, режим input и ввод в поле"
+}
+
+# Открытие панелей из палитры: «Открыть: Демо: поле» в рабочей области B, когда панель PerApp открыта в области A, —
+# та же панель (тот же PanelId) в B, в A её больше нет, фокус на ней; «Открыть: Терминал» — новый терминал.
+item_palette_open_panel() {
+  local item=palette-open-panel dir="$run/palette-open-panel" demo wb_old terms new x
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir/a"
+  open_panel "$dir/open-field" demo-native center
+  demo="$PANEL"
+  wb_old="$wb_a"
+  fresh_bench "$item" "$dir"
+  layout_get "$profile" "$dir/start" "$wb_a" || fatal "$item: query.layout не прочитан"
+  [[ -z "$(panels_of "$dir/start.stdout" demo-native)" ]] || fatal "$item: подготовка: «Демо: поле» уже в области B"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" field "Cmd-k (поле)"; then
+    if pal_run "$dir" field-run panel.open.demo-native panel.open; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Открыть: Демо: поле»: отказ $OUTCOME")
+      wait_layout "$dir/field-run.layout" "«Демо: поле» $demo в области B" \
+        'grep { $_->{id} eq $ARGV[0] && $_->{plugin} eq "demo-native" } @{$v->{panels}}' "$demo" ||
+        failures+=("«Открыть: Демо: поле»: $WHY")
+      wait_focus "$dir/field-run.focus" "$demo" || failures+=("«Открыть: Демо: поле»: $WHY")
+      if layout_get "$profile" "$dir/field-run.old" "$wb_old"; then
+        [[ -z "$(panels_of "$dir/field-run.old.stdout" demo-native)" ]] ||
+          failures+=("«Открыть: Демо: поле»: в области A осталась $(panels_of "$dir/field-run.old.stdout" demo-native)")
+      else
+        failures+=("query.layout области A не прочитан")
+      fi
+      once "$dir" field-run || failures+=("«Открыть: Демо: поле»: $WHY")
+    else
+      failures+=("«Открыть: Демо: поле»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  layout_get "$profile" "$dir/terms" "$wb_a" || fatal "$item: query.layout не прочитан"
+  terms="$(panels_of "$dir/terms.stdout" terminal)"
+  if pal_cmdk "$dir" term "Cmd-k (терминал)"; then
+    if pal_run "$dir" term-run panel.open.terminal panel.open; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Открыть: Терминал»: отказ $OUTCOME")
+      if wait_layout "$dir/term-run.layout" "пятый терминал" \
+        '(grep { $_->{plugin} eq "terminal" } @{$v->{panels}}) == 5'; then
+        new=""
+        for x in $(panels_of "$dir/term-run.layout.stdout" terminal); do
+          [[ " $terms " == *" $x "* ]] || new="$x"
+        done
+        [[ -n "$new" ]] || failures+=("«Открыть: Терминал»: нового терминала нет среди $(panels_of "$dir/term-run.layout.stdout" terminal)")
+        [[ -z "$new" ]] || wait_focus "$dir/term-run.focus" "$new" || failures+=("«Открыть: Терминал»: $WHY")
+      else
+        failures+=("«Открыть: Терминал»: $WHY")
+      fi
+      once "$dir" term-run || failures+=("«Открыть: Терминал»: $WHY")
+    else
+      failures+=("«Открыть: Терминал»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "в области B Cmd-k, «Открыть: Демо: поле» и Enter — одна запись panel.open с источником key, панель $demo из области A в B с тем же PanelId, в A её нет, фокус на ней; «Открыть: Терминал» — одна запись panel.open, пятый терминал создан и получил фокус"
+}
+
+# Деление в палитре — только ось зоны с фокусом: в центре строка layout.split.row без stack, справа — stack без row.
+item_palette_split_axis() {
+  local item=palette-split-axis dir="$run/palette-split-axis" ids
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" center "Cmd-k в центре"; then
+    ids=" $(pal_ids "$dir/center.overlay.stdout" 2>/dev/null || true) "
+    [[ "$ids" == *" layout.split.row "* && "$ids" != *" layout.split.stack "* ]] ||
+      failures+=("в центре строки деления не по оси row: $(tr ' ' '\n' <<<"$ids" | grep '^layout.split' | tr '\n' ' ')")
+    fkey "$dir" center-esc "$K_ESC"
+    pal_closed "$dir" center-esc "Esc в центре" "$p_center"
+  fi
+  ov_clear "$dir" "$item"
+  core_cmd "$profile" "$dir/focus-right" panel focus "$p_right" --all || fatal "$item: $WHY"
+  wait_focus "$dir/focus-right.layout" "$p_right" || fatal "$item: $WHY"
+  if pal_cmdk "$dir" right "Cmd-k справа"; then
+    ids=" $(pal_ids "$dir/right.overlay.stdout" 2>/dev/null || true) "
+    [[ "$ids" == *" layout.split.stack "* && "$ids" != *" layout.split.row "* ]] ||
+      failures+=("справа строки деления не по оси stack: $(tr ' ' '\n' <<<"$ids" | grep '^layout.split' | tr '\n' ' ')")
+    fkey "$dir" right-esc "$K_ESC"
+    pal_closed "$dir" right-esc "Esc справа" "$p_right"
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "фокус в центре — среди строк ui.overlay layout.split.row без layout.split.stack; фокус справа — layout.split.stack без layout.split.row"
+}
+
+# Строка с аргументами вида: «Применить поле» у «Демо: поле» с черновиком — одна запись demo-native.set, сохранённое
+# значение query.panel равно черновику. Панель закрыта между открытием палитры и Enter — запись demo-native.set с
+# отказом, сообщение строки статуса «панель не показана», палитра закрыта.
+item_palette_args() {
+  local item=palette-args dir="$run/palette-args" demo field value draft deadline
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-field" demo-native center
+  demo="$PANEL"
+  field="layout.panel.$demo.field"
+  wait_focus "$dir/open-field.layout" "$demo" || fatal "$item: $WHY"
+  wait_mode "$dir/field.mode" input || fatal "$item: подготовка: $WHY"
+  wait_inspect "$profile" "$dir/field" "$field" state.text_field.editing true || fatal "$item: подготовка: $WHY"
+  value="$(comp "$dir/field.stdout" "$field" state.text_field.value 2>/dev/null || true)"
+  to_front "$dir" "$item"
+  fkey "$dir" a "$K_A"
+  fkey "$dir" b "$K_B"
+  fkey "$dir" c "$K_C"
+  draft="${value}abc"
+  wait_inspect "$profile" "$dir/typed" "$field" state.text_field.value "$draft" || failures+=("черновик: $WHY")
+  if pal_cmdk "$dir" set "Cmd-k у поля"; then
+    if pal_run "$dir" set-run demo-native.set demo-native.set; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Применить поле»: отказ $OUTCOME")
+      deadline=$(($(now_ms) + MIRROR_MS))
+      until panel_get "$profile" "$dir/set-run.panel" "$demo" && [[ "$(pv "$dir/set-run.panel.stdout" data.value 2>/dev/null || true)" == "$draft" ]]; do
+        if (($(now_ms) >= deadline)); then
+          failures+=("«Применить поле»: за $MIRROR_MS мс сохранённое значение «$(pv "$dir/set-run.panel.stdout" data.value 2>/dev/null || echo "?")», ожидался черновик «${draft}»")
+          break
+        fi
+        sleep "$POLL"
+      done
+      once "$dir" set-run || failures+=("«Применить поле»: $WHY")
+    else
+      failures+=("«Применить поле»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  wait_inspect "$profile" "$dir/again" "$field" state.text_field.editing true || failures+=("ввод в поле после строки: $WHY")
+  fkey "$dir" d "$K_D"
+  if pal_cmdk "$dir" gone "Cmd-k перед закрытием панели"; then
+    core_cmd "$profile" "$dir/close" panel close "$demo" --all || fatal "$item: $WHY"
+    wait_layout "$dir/closed" "«Демо: поле» закрыта" \
+      '!grep { $_->{id} eq $ARGV[0] } @{$v->{panels}}' "$demo" || failures+=("закрытие панели: $WHY")
+    if pal_run "$dir" gone-run demo-native.set demo-native.set; then
+      [[ "$OUTCOME" != ok ]] || failures+=("«Применить поле» у закрытой панели выполнено без отказа")
+      if wait_status "$dir/gone-run.status" shown; then
+        [[ "$STATUS_TEXT" == *"панель не показана"* ]] ||
+          failures+=("сообщение строки статуса «${STATUS_TEXT}», ожидалось «…панель не показана»")
+      else
+        failures+=("«Применить поле» у закрытой панели: $WHY")
+      fi
+      ov_wait "$dir/gone-run.overlay" kind null || failures+=("«Применить поле» у закрытой панели: $WHY")
+      once "$dir" gone-run || failures+=("«Применить поле» у закрытой панели: $WHY")
+    else
+      failures+=("«Применить поле» у закрытой панели: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "у «Демо: поле» черновик «${draft}», Cmd-k, «Применить поле» и Enter — одна запись demo-native.set с источником key без отказа, data.value query.panel — черновик; панель закрыта командой CLI при открытой палитре — Enter даёт одну запись demo-native.set с отказом, строка статуса «${STATUS_TEXT}», палитра закрыта"
+}
+
+# Действие строки задаёт конечный фокус: «Открыть: Демо: список» из палитры, открытой у поля «Демо: поле» во Input, —
+# фокус на новом списке, режим navigation, поле ввода не держит.
+item_palette_run_focus() {
+  local item=palette-run-focus dir="$run/palette-run-focus" demo list
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-field" demo-native center
+  demo="$PANEL"
+  wait_focus "$dir/open-field.layout" "$demo" || fatal "$item: $WHY"
+  wait_mode "$dir/field.mode" input || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" open "Cmd-k у поля"; then
+    [[ "$(ov "$dir/open.overlay.stdout" source.panel)|$(ov "$dir/open.overlay.stdout" source.field)" == "$demo|true" ]] ||
+      failures+=("источник: «$(ov "$dir/open.overlay.stdout" source)»")
+    if pal_run "$dir" list-run panel.open.demo-list panel.open; then
+      [[ "$OUTCOME" == ok ]] || failures+=("«Открыть: Демо: список»: отказ $OUTCOME")
+      if wait_layout "$dir/list-run.layout" "«Демо: список» открыт" \
+        'grep { $_->{plugin} eq "demo-list" } @{$v->{panels}}'; then
+        list="$(panels_of "$dir/list-run.layout.stdout" demo-list)"
+        wait_focus "$dir/list-run.focus" "$list" || failures+=("«Открыть: Демо: список»: $WHY")
+        wait_mode "$dir/list-run.mode" navigation || failures+=("«Открыть: Демо: список»: $WHY")
+        wait_inspect "$profile" "$dir/list-run.field" "layout.panel.$demo.field" state.text_field.editing false ||
+          failures+=("«Открыть: Демо: список»: $WHY")
+      else
+        failures+=("«Открыть: Демо: список»: $WHY")
+      fi
+      once "$dir" list-run || failures+=("«Открыть: Демо: список»: $WHY")
+    else
+      failures+=("«Открыть: Демо: список»: $WHY")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "палитра у поля «Демо: поле» во Input (источник — панель с полем); «Открыть: Демо: список» и Enter — одна запись panel.open с источником key, фокус query.layout на новом списке, режим navigation, поле ввода не держит: источник поверх действия не восстановлен"
+}
+
+# Точка щелчка в поле тени палитры над кнопкой окна: окно палитры (ui.window) минус её поверхность (узел palette
+# ui.inspect), пересечённые с кадром видимого доступного контрола главного окна, кроме chrome.search (она сама
+# открывает палитру); кнопки заголовка chrome.* первыми, затем наибольшее пересечение. Кадры — в точках окна владельца
+# с началом снизу слева. Вывод — «узел x y» в точках CG; иначе код 1.
+shadow_point() {
+  /usr/bin/perl -MJSON::PP -e '
+    my ($wfile, $ifile) = @ARGV;
+    my $read = sub { open my $fh, "<", $_[0] or exit 2; local $/; JSON::PP->new->utf8->decode(<$fh>) };
+    my $w = $read->($wfile)->{ok}{ui}{window};
+    my $c = $read->($ifile)->{ok}{ui}{inspect}{components};
+    my ($pal) = grep { $_->{role} eq "palette" } @{ $w->{windows} // [] };
+    my ($surf) = grep { $_->{id} eq "palette" } @$c;
+    exit 1 unless $pal && $surf;
+    my $h = $w->{screens}[0]{frame}{height};
+    my ($ox, $oy) = ($w->{frame}{x}, $w->{frame}{y});
+    my @W = ($pal->{frame}{x} - $ox, $pal->{frame}{y} - $oy, $pal->{frame}{x} - $ox + $pal->{frame}{width}, $pal->{frame}{y} - $oy + $pal->{frame}{height});
+    my $s = $surf->{frame};
+    my @S = ($s->{x}, $s->{y}, $s->{x} + $s->{width}, $s->{y} + $s->{height});
+    my @bands = ([$W[0], $S[3], $W[2], $W[3]], [$W[0], $W[1], $W[2], $S[1]], [$W[0], $W[1], $S[0], $W[3]], [$S[2], $W[1], $W[2], $W[3]]);
+    my @best;
+    for my $b (grep { $_->{id} !~ /^palette/ && $_->{id} ne "chrome.search" && $_->{visible} && ($_->{enabled} // 0) } @$c) {
+      my $f = $b->{frame};
+      for my $band (@bands) {
+        my @r = (max($band->[0], $f->{x}), max($band->[1], $f->{y}), min($band->[2], $f->{x} + $f->{width}), min($band->[3], $f->{y} + $f->{height}));
+        my $area = ($r[2] - $r[0]) * ($r[3] - $r[1]) + ($b->{id} =~ /^chrome\./ ? 1e6 : 0);
+        next unless $r[2] - $r[0] > 2 && $r[3] - $r[1] > 2;
+        @best = ($area, $b->{id}, @r) if !@best || $area > $best[0];
+      }
+    }
+    exit 1 unless @best;
+    sub max { $_[0] > $_[1] ? $_[0] : $_[1] } sub min { $_[0] < $_[1] ? $_[0] : $_[1] }
+    my ($x, $y) = (($best[2] + $best[4]) / 2, ($best[3] + $best[5]) / 2);
+    printf "%s %.1f %.1f\n", $best[1], $ox + $x, $h - ($oy + $y);
+  ' "$1" "$2"
+}
+
+# Щелчок в поле тени палитры над кнопкой окна: палитра закрыта, щелчок до кнопки не дошёл — записей кольца нет,
+# раскладка и оформление прежние.
+item_palette_shadow_click() {
+  local item=palette-shadow-click dir="$run/palette-shadow-click" rev point target choice
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  rev="$(layout_canon "$dir/start.layout.stdout" 2>/dev/null || echo "?")"
+  choice="$(jv "$dir/start.window.stdout" ok.ui.window.appearance_choice || echo "?")"
+  to_front "$dir" "$item"
+  if pal_cmdk "$dir" open Cmd-k; then
+    if point="$(shadow_point "$dir/open.window.stdout" "$dir/open.inspect.stdout")"; then
+      target="${point%% *}"
+      printf '%s\n' "$point" >"$dir/point.txt"
+      receipts_last "$profile" "$dir/click.before" || failures+=("ui.receipts: $WHY")
+      BEFORE="$LAST"
+      click_at "$(cut -d ' ' -f 2 <<<"$point")" "$(cut -d ' ' -f 3 <<<"$point")" >"$dir/click.log" 2>&1 ||
+        failures+=("щелчок в поле тени: $(oneline "$dir/click.log")")
+      pal_closed "$dir" click "щелчок в поле тени над $target" "$p_center"
+      if receipts_get "$profile" "$dir/click.after" "$BEFORE"; then
+        [[ "$(jv "$dir/click.after.stdout" 'ok.ui.receipts.receipts[#]' || echo "?")" == 0 ]] ||
+          failures+=("щелчок в поле тени дошёл до слоя под палитрой: $(oneline "$dir/click.after.stdout")")
+      else
+        failures+=("ui.receipts не прочитан")
+      fi
+      if layout_get "$profile" "$dir/end" "$wb_a"; then
+        [[ "$(layout_canon "$dir/end.stdout" 2>/dev/null || echo "?")" == "$rev" ]] ||
+          failures+=("раскладка изменилась после щелчка в поле тени над $target")
+      else
+        failures+=("query.layout не прочитан")
+      fi
+      [[ "$(jv "$dir/click.window.stdout" ok.ui.window.appearance_choice || echo "?")" == "$choice" ]] ||
+        failures+=("оформление изменилось после щелчка в поле тени над $target")
+    else
+      failures+=("в поле тени палитры нет видимого контрола главного окна (кроме chrome.search)")
+    fi
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "щелчок в поле тени палитры (окно палитры ui.window минус поверхность palette ui.inspect) над кнопкой ${target:-?} — палитра закрыта, главное окно ключевое, фокус в центре; записей кольца после щелчка нет, раскладка query.layout и оформление прежние"
+}
+
 prepare
 preconditions
 setup_main
@@ -3739,6 +4247,13 @@ item_palette_no_results
 item_palette_space_text
 item_palette_return
 item_overlay_keys_blocked
+item_palette_filter_tab
+item_palette_run
+item_palette_open_panel
+item_palette_split_axis
+item_palette_args
+item_palette_run_focus
+item_palette_shadow_click
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
