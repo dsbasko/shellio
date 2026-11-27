@@ -32,7 +32,7 @@ enum Ctx {
     Input,
 }
 
-const HOST: [(Ctx, &str, &str, Option<&str>); 50] = [
+const HOST: [(Ctx, &str, &str, Option<&str>); 51] = [
     (Ctx::Global, "Cmd-w", "window.close", None),
     (Ctx::Global, "Cmd-q", "app.quit", None),
     (Ctx::Global, "Cmd-0", "layout.toggle.navigator", None),
@@ -44,18 +44,20 @@ const HOST: [(Ctx, &str, &str, Option<&str>); 50] = [
     (Ctx::Navigation, "Ctrl-\\", "mode.toggle", None),
     (Ctx::Navigation, "i", "mode.input", None),
     (Ctx::Navigation, "Enter", "mode.input", None),
+    // Порядок продолжений `Ctrl-w` — порядок команд прототипа (`commands.js:113`–`:117`): фокус и
+    // перенос в зону по каждому направлению. Его показывает which-key.
     (Ctx::Navigation, "Ctrl-w h", "panel.focus.left", None),
+    (Ctx::Navigation, "Ctrl-w H", "panel.move.left", None),
     (Ctx::Navigation, "Ctrl-w j", "panel.focus.down", None),
+    (Ctx::Navigation, "Ctrl-w J", "panel.move.down", None),
     (Ctx::Navigation, "Ctrl-w k", "panel.focus.up", None),
+    (Ctx::Navigation, "Ctrl-w K", "panel.move.up", None),
     (Ctx::Navigation, "Ctrl-w l", "panel.focus.right", None),
+    (Ctx::Navigation, "Ctrl-w L", "panel.move.right", None),
     (Ctx::Navigation, "h", "panel.focus.left", None),
     (Ctx::Navigation, "j", "panel.focus.down", None),
     (Ctx::Navigation, "k", "panel.focus.up", None),
     (Ctx::Navigation, "l", "panel.focus.right", None),
-    (Ctx::Navigation, "Ctrl-w H", "panel.move.left", None),
-    (Ctx::Navigation, "Ctrl-w J", "panel.move.down", None),
-    (Ctx::Navigation, "Ctrl-w K", "panel.move.up", None),
-    (Ctx::Navigation, "Ctrl-w L", "panel.move.right", None),
     (Ctx::Navigation, "Ctrl-w v", "layout.split", Some("row")),
     (Ctx::Navigation, "Ctrl-w s", "layout.split", Some("stack")),
     (Ctx::Navigation, "Ctrl-w q", "panel.close", None),
@@ -77,6 +79,10 @@ const HOST: [(Ctx, &str, &str, Option<&str>); 50] = [
     (Ctx::Navigation, "7", "tab.select", None),
     (Ctx::Navigation, "8", "tab.select", None),
     (Ctx::Navigation, "9", "tab.select", None),
+    // Лидер P1.6 (ADR-0010, «Уточнено в P1.6 (планирование): наложения») в порядке команд
+    // прототипа: палитра, терминал, зоны.
+    (Ctx::Navigation, "<leader><leader>", "palette.open", None),
+    (Ctx::Navigation, "<leader>t", "panel.open.terminal", None),
     (
         Ctx::Navigation,
         "<leader>z h",
@@ -85,7 +91,6 @@ const HOST: [(Ctx, &str, &str, Option<&str>); 50] = [
     ),
     (Ctx::Navigation, "<leader>z j", "layout.toggle.bottom", None),
     (Ctx::Navigation, "<leader>z l", "layout.toggle.side", None),
-    (Ctx::Navigation, "<leader><leader>", "palette.open", None),
     (Ctx::Navigation, "Ctrl-o", "history.back", None),
     (Ctx::Navigation, "Ctrl-i", "history.forward", None),
 ];

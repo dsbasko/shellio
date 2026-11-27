@@ -5,9 +5,10 @@ use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::fmt;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use block2::RcBlock;
-use dispatch2::DispatchQueue;
+use dispatch2::{DispatchQueue, DispatchTime};
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
@@ -366,6 +367,23 @@ impl MainThread {
                 work(&App { mtm });
             }
         });
+    }
+
+    /// Как [`MainThread::exec`], но не раньше чем через `delay`. Отменить отправленное нельзя:
+    /// работа сама проверяет, что её повод ещё в силе.
+    pub fn exec_after(self, delay: Duration, work: impl FnOnce(&App) + Send + 'static) {
+        let run = move || {
+            if let Some(mtm) = MainThreadMarker::new() {
+                work(&App { mtm });
+            }
+        };
+        match DispatchTime::try_from(delay) {
+            Ok(when) => {
+                // `after` отказывать не умеет: ошибка в его типе есть, но не возвращается.
+                let _ = DispatchQueue::main().after(when, run);
+            }
+            Err(()) => DispatchQueue::main().exec_async(run),
+        }
     }
 }
 

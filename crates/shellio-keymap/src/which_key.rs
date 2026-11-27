@@ -157,6 +157,7 @@ mod tests {
             "layout.toggle.side" => "Правая зона",
             "layout.zoom" => "Развернуть панель",
             "palette.open" => "Поиск и команды",
+            "panel.open.terminal" => "Открыть: Терминал",
             "panel.focus.left" => "Фокус влево",
             "layout.split" => match binding.args.as_ref().and_then(|a| a.get("axis")) {
                 Some(Value::String(axis)) if axis == "row" => "Разделить: рядом",
@@ -210,7 +211,11 @@ mod tests {
         assert_eq!(leader.title.as_deref(), Some("Команды"));
         assert_eq!(
             items(&leader),
-            [("z", "Зоны", true), ("Space", "Поиск и команды", false)]
+            [
+                ("Space", "Поиск и команды", false),
+                ("t", "Открыть: Терминал", false),
+                ("z", "Зоны", true),
+            ]
         );
 
         let zones = which_key(&keymap, &nav(), &chords(&keymap, "Space z"), &titles).unwrap();
@@ -235,7 +240,7 @@ mod tests {
         assert_eq!(
             keys,
             [
-                "h", "j", "k", "l", "H", "J", "K", "L", "v", "s", "q", "o", "=", "z"
+                "h", "H", "j", "J", "k", "K", "l", "L", "v", "s", "q", "o", "=", "z"
             ]
         );
         assert!(found.items.iter().all(|item| !item.group));
@@ -314,7 +319,11 @@ mod tests {
         let found = which_key(&keymap, &nav(), &chords(&keymap, "Space"), &titles).unwrap();
         assert_eq!(
             items(&found),
-            [("z", "Зоны", true), ("Space", "Поиск и команды", false)]
+            [
+                ("Space", "Поиск и команды", false),
+                ("t", "Открыть: Терминал", false),
+                ("z", "Зоны", true),
+            ]
         );
         assert_eq!(
             which_key(&keymap, &nav(), &chords(&keymap, "Space q"), &titles),
@@ -331,7 +340,11 @@ mod tests {
         assert_eq!(found.title.as_deref(), Some("Команды"));
         assert_eq!(
             items(&found),
-            [("z", "Зоны", true), (",", "Поиск и команды", false)]
+            [
+                (",", "Поиск и команды", false),
+                ("t", "Открыть: Терминал", false),
+                ("z", "Зоны", true),
+            ]
         );
         let space = Chord::parse("Space").unwrap();
         assert_eq!(group_title(comma, &[space]), None);
@@ -351,8 +364,9 @@ mod tests {
             items(&found),
             [
                 ("q", "Ещё", true),
+                ("Space", "Поиск и команды", false),
+                ("t", "Открыть: Терминал", false),
                 ("z", "Зоны", true),
-                ("Space", "Поиск и команды", false)
             ]
         );
         let found = which_key(&keymap, &nav(), &chords(&keymap, "Space q"), &titles).unwrap();
