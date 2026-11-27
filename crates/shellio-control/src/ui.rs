@@ -904,8 +904,6 @@ pub enum OverlayViewKind {
     Palette,
     Hints,
     Cmdline,
-    /// Подсказка набранного префикса: не модальна и ввода не держит.
-    WhichKey,
 }
 
 impl OverlayViewKind {
@@ -914,7 +912,6 @@ impl OverlayViewKind {
             Self::Palette => "palette",
             Self::Hints => "hints",
             Self::Cmdline => "cmdline",
-            Self::WhichKey => "which_key",
         }
     }
 }

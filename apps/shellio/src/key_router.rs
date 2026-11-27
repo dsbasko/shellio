@@ -306,12 +306,6 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
         Some(modal)
     }
 
-    /// Закрыть наложение перед его действием: действие само решает, где окажутся фокус и режим,
-    /// поэтому источник не восстанавливается.
-    pub fn dismiss(&mut self) -> Option<Modal<R>> {
-        self.modal.take()
-    }
-
     /// В поле наложения появился текст или поле опустело.
     pub fn set_typed(&mut self, typed: bool) {
         if let Some(modal) = self.modal.as_mut() {
@@ -342,6 +336,9 @@ impl<R: Ord + Clone, E> KeyRouter<R, E> {
                 }
                 return self.close().map_or(Decision::Swallow, Decision::Close);
             }
+            // Глобальный аккорд под наложение не проходит: из поля наложения его поймал бы
+            // эквивалент пункта главного меню.
+            return Decision::Swallow;
         }
         if chord.key == ESCAPE && chord.mods == shellio_keymap::Mods::NONE {
             return self.close().map_or(Decision::Swallow, Decision::Close);
@@ -1303,14 +1300,20 @@ mod tests {
         let table = overlay_keymap();
         let mut router = Router::default();
         press(&mut router, &table, &body(TERMINAL), "Cmd-k");
-        for key in [
-            "j", "Ctrl-w", "l", "Cmd-0", "i", "Enter", "Ctrl-\\", "Space",
-        ] {
+        for key in ["j", "Ctrl-w", "l", "i", "Enter", "Ctrl-\\", "Space"] {
             assert!(
                 matches!(
                     press(&mut router, &table, &body(TERMINAL), key),
                     Decision::Overlay { .. }
                 ),
+                "{key}"
+            );
+        }
+        // Глобальные аккорды зон и оформления поглощаются, наложение их не получает.
+        for key in ["Cmd-0", "Cmd-j", "Cmd-Alt-0", "Cmd-Alt-t"] {
+            assert_eq!(
+                press(&mut router, &table, &body(TERMINAL), key),
+                Decision::Swallow,
                 "{key}"
             );
         }
@@ -1353,6 +1356,14 @@ mod tests {
                 "{key}"
             );
         }
+        // Глобальный аккорд из поля наложения не уходит в AppKit: его поймал бы пункт меню.
+        for key in ["Cmd-0", "Cmd-j", "Cmd-Alt-0", "Cmd-Alt-t"] {
+            assert_eq!(
+                press(&mut router, &table, &field, key),
+                Decision::Swallow,
+                "{key}"
+            );
+        }
         for key in [
             "Up",
             "Down",
@@ -1361,6 +1372,8 @@ mod tests {
             "Shift-Tab",
             "Ctrl-n",
             "Ctrl-p",
+            "Ctrl-j",
+            "Ctrl-k",
         ] {
             assert!(
                 matches!(
@@ -1432,6 +1445,8 @@ mod tests {
         );
         assert!(!router.follow_field(None), "согласование ждёт закрытия");
         assert_eq!(router.mode(&FIELD), Mode::Input);
+        // Режим, сменённый под наложением (`mode.*` из CLI или меню), закрытие возвращает.
+        router.set_mode(FIELD, Mode::Navigation);
         let Decision::Close(modal) = press(&mut router, &table, &field, "Esc") else {
             panic!("Esc закрывает палитру");
         };
@@ -1451,7 +1466,9 @@ mod tests {
             press(&mut router, &table, &body(LIST), ":"),
             opened(OverlayKind::Cmdline)
         );
+        router.set_mode(LIST, Mode::Input);
         let modal = router.close().unwrap();
+        assert_eq!(router.mode(&LIST), Mode::Navigation);
         assert_eq!(modal.source.receiver, Some(LIST));
         assert_eq!(modal.source.mode, Mode::Navigation);
         assert!(!modal.source.field);
@@ -1518,7 +1535,7 @@ mod tests {
 
         press(&mut router, &table, &body(FIELD), "Cmd-k");
         router.retain(|receiver| *receiver != FIELD);
-        assert_eq!(router.dismiss().unwrap().source.receiver, None);
+        assert_eq!(router.close().unwrap().source.receiver, None);
         assert_eq!(router.modal(), None);
     }
 

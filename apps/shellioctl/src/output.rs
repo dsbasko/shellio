@@ -15,6 +15,7 @@ use shellio_control::{
 };
 use shellio_control::{
     CmdlineRunView, HistoryView, InputJournalView, ModeReceiver, ModeView, OverlayView,
+    OverlayViewKind,
 };
 use shellio_core::{
     Change, CommandValue, Event, EventsSince, OpenOutcome, Reply, ReplyValue, RootKind, Route,
@@ -483,10 +484,12 @@ fn input_journal_text(view: &InputJournalView) -> String {
 /// История переходов активного воркспейса: итог и по строке на точку, текущая отмечена `*`.
 /// Открытое наложение, его источник и состав.
 fn overlay_text(view: &OverlayView) -> String {
-    let Some(kind) = view.kind else {
-        return format!("наложение: нет, PID {}\n", view.pid);
-    };
-    let mut out = format!("наложение: {}, PID {}\n", kind.as_str(), view.pid);
+    // Подсказка which-key не модальна: она идёт при `kind` `null`.
+    let mut out = format!(
+        "наложение: {}, PID {}\n",
+        view.kind.map_or("нет", OverlayViewKind::as_str),
+        view.pid
+    );
     if let Some(source) = &view.source {
         let panel = source
             .panel
@@ -1014,6 +1017,43 @@ mod tests {
             Text::Out(text) => text,
             Text::Err(text) => panic!("ожидался вывод, получена ошибка {text}"),
         }
+    }
+
+    #[test]
+    fn overlay_text_shows_which_key_without_a_modal_overlay() {
+        let view = OverlayView {
+            pid: 7,
+            kind: None,
+            source: None,
+            palette: None,
+            hints: None,
+            cmdline: None,
+            which_key: Some(shellio_control::WhichKeyView {
+                prefix: vec!["Ctrl-w".to_owned()],
+                title: Some("окно".to_owned()),
+                items: vec![
+                    shellio_control::WhichItemView {
+                        key: "v".to_owned(),
+                        label: "Разделить вертикально".to_owned(),
+                        group: false,
+                    },
+                    shellio_control::WhichItemView {
+                        key: "z".to_owned(),
+                        label: "зоны".to_owned(),
+                        group: true,
+                    },
+                ],
+            }),
+        };
+        assert_eq!(
+            overlay_text(&view),
+            "наложение: нет, PID 7\nпрефикс Ctrl-w окно\n  v Разделить вертикально\n  z зоны +\n"
+        );
+        let closed = OverlayView {
+            which_key: None,
+            ..view
+        };
+        assert_eq!(overlay_text(&closed), "наложение: нет, PID 7\n");
     }
 
     fn sample_tree(workspace: WorkspaceId, workbench: WorkbenchId) -> TreeView {

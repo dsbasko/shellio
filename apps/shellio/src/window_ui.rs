@@ -3360,16 +3360,6 @@ fn restore_source(modal: Modal<ModeReceiver>) {
     with_window(|owner| owner.bump());
 }
 
-/// Наложение закрыто перед своим действием: состав забыт, источник не восстанавливается.
-fn dismiss_overlay() {
-    if with_router(|router| router.dismiss()).flatten().is_some() {
-        OVERLAY.with(|state| *state.borrow_mut() = OverlayState::default());
-        show_palette();
-        follow_field();
-        with_window(|owner| owner.bump());
-    }
-}
-
 /// Клавиша управления открытым наложением. `Tab` и `Shift-Tab` перебирают категории палитры.
 /// Однозначная метка нажимает свою цель, набор без совпадений закрывает метки без действия.
 fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
@@ -3855,9 +3845,9 @@ fn palette_view(palette: Option<&Palette>) -> PaletteStateView {
     }
 }
 
-/// `cmdline.run`: текст строки `:` по грамматике. Открытая строка закрывается до действия,
-/// источник не восстанавливается; действие идёт обработчиком клавиши без записи кольца.
-/// Неизвестная команда называется в строке статуса.
+/// `cmdline.run`: текст строки `:` по грамматике. По правилу «Выполнение» открытая строка
+/// закрывается и источнику возвращаются фокус и режим, затем действие идёт обработчиком клавиши
+/// без записи кольца. Неизвестная команда называется в строке статуса.
 fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
     let source = modal_source().unwrap_or_else(|| {
         let panel = KEY_PANEL.with(|slot| match slot.borrow().as_ref()?.receiver {
@@ -3877,10 +3867,7 @@ fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
         args: None,
         message: None,
     };
-    let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
-    if open == Some(OverlayKind::Cmdline) {
-        dismiss_overlay();
-    }
+    close_overlay(OverlayKind::Cmdline);
     match resolved {
         shellio_keymap::Cmdline::Empty => {}
         shellio_keymap::Cmdline::Command(command) => {
@@ -4055,8 +4042,22 @@ mod tests {
             CmdlineCommand::Theme(Theme::Dark),
             CmdlineCommand::Theme(Theme::System),
         ];
-        for command in commands {
+        let expected = [
+            ("panel.close", None),
+            ("layout.zoom", None),
+            ("layout.split", Some(serde_json::json!({ "axis": "row" }))),
+            ("layout.split", Some(serde_json::json!({ "axis": "stack" }))),
+            ("ui.appearance.light", None),
+            ("ui.appearance.dark", None),
+            ("ui.appearance.system", None),
+        ];
+        for (command, (name, args)) in commands.into_iter().zip(expected) {
             let action = cmdline_action(command);
+            assert_eq!(
+                (action.name.as_str(), &action.args),
+                (name, &args),
+                "{command:?}"
+            );
             assert!(
                 matches!(
                     key_actions::recognize(&registry, &action.name, action.args.as_ref()),
