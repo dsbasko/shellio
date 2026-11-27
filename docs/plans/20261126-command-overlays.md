@@ -554,7 +554,18 @@
 - Срез 1 (сделан, юнит-тесты): чистая часть измерителя `apps/shellio/src/palette_latency.rs` с тестами, журнал проходов монитора цикла с тестами, `shellio_appkit::now`, `KeyStroke::timestamp`.
 - Срез 2 (сделан): `StatsView.palette_latency` (ряды и такты, ключ только при непустой серии), служебная команда `ui.latency {ticks}` — новая серия и такты `CADisplayLink` окна владельца для блоков A, `shellioctl ui latency reset [--ticks]`; запись строк в `on_key_down`; тесты провода и CLI. Дымовой проход на бандле с изолированным профилем: 12 строк Cmd-k/Esc и повторного Cmd-k годны, открытие и закрытие из CLI строк не дают, с `--ticks` такты идут.
 - Срез 3 (сделан, разбор проверен на синтетических рядах): пункт `palette-latency` в `keyboard.sh` по протоколу `appkit.sh` (`pal_analyze`, `pal_block`, `item_palette_latency`).
-- Срез 4 (следующий): остальные пункты матрицы в `keyboard.sh`, затем документы поведения и `make e2e`.
+- Срез 4 (сделан): хелперы `ui.overlay` (`ov`, `ov_wait`, `ov_clear`, `pal_windows`, `pal_opened`, `pal_closed`) и пункты `palette-open`, `palette-no-results`, `palette-space-text`, `palette-return`, `overlay-keys-blocked`.
+- Прогон среза 4 на бандле (`target/e2e/keyboard/20261127-154636-71540/`, код 3): `palette-open`, `palette-no-results`, `palette-return`, `overlay-keys-blocked` — `pass`; `palette-latency` — `not_run` (экран 60 Гц, крышка закрыта); `palette-space-text` — `fail`: a, Space, Space, b дают запрос «a. b». Дефект продукта: поле запроса палитры принимает системную замену двойного пробела точкой (`NSAutomaticPeriodSubstitutionEnabled`), а в `shellio-appkit` замены текста не выключаются. Заодно исправлена ошибка среза 3: bash 3.2 читал `$name»` как имя переменной, и `palette-latency` останавливал сценарий.
+- Срез 5 (следующий): сначала выключить автоматические замены текста (точка после двойного пробела, кавычки, тире, замены текста) в поле запроса палитры и в поле командной строки, тест компонента, `make bundle` и повтор `palette-space-text`; затем `palette-filter-tab`, `palette-run`, `palette-open-panel`, `palette-split-axis`, `palette-args`, `palette-run-focus`, `palette-shadow-click`.
+- Срез 6: `whichkey-continuation`, `whichkey-show-hide`, `whichkey-remap`, `cmdline-run`, `cmdline-unknown`.
+- Срез 7: `hints-activate`, `hints-f-label` (сцена ровно с 29 целями), `hints-cancel`, `hints-hidden`.
+- Срез 8: документы поведения, затем `make e2e` отдельной итерацией.
+
+Решения исполнителя среза 4 (непредвиденные):
+- Закрытие палитры `Esc` и повторным аккордом записи кольца не даёт (решение клавиши `Close`), выполнение строки — одну запись действия строки (`run_palette_row`): пункты судят закрытие чтением `ui.overlay` и `ui.window`, а не квитанцией.
+- Каждый пункт наложений кончается `ov_clear`: оставшееся наложение — `fail` пункта и снимается служебной командой, неснятое — ошибка исполнения, иначе модальный слой забрал бы клавиши следующих пунктов.
+- Запросы клавишами только латиницей (`key code`): «Ничего не найдено» судит запрос `qqq`. Запросы кириллицей пункты задают `ui palette open --query`.
+- «Без затемнения» судится по `ui.window` (главное окно видно и не ключевое при видимой ключевой палитре) и отсутствию видимых узлов затемнения в `ui.inspect`. Снимок композиции судит `conformance.sh`.
 
 Решения исполнителя среза 2 (непредвиденные):
 - `ui.latency` — служебный запрос `UiRequest::Latency`, а не `UiCommand`: имени keymap у него нет. Как `ui.cell` и `ui.window.size`, его принимает только владелец с явным `SHELLIO_STATE_DIR` (`isolated_profile_only`). Провод растёт новым вариантом, номер протокола остаётся 6, как у вариантов задач 4-7.

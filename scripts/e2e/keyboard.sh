@@ -73,8 +73,9 @@ SIDE_W=240
 # 0 — необязательный.
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
-  relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency)
-STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12)
+  relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency palette-open palette-no-results
+  palette-space-text palette-return overlay-keys-blocked)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся. Срез 12 — пункты наложений плана
 # command-overlays.
 DONE_STAGE=12
@@ -3109,12 +3110,12 @@ click_at() {
     'ok';"
 }
 
-# Середина вида приёмника в координатах CG — в POINT_X и POINT_Y: кадры ui.inspect — в точках окна с началом снизу
+# Середина узла ui.inspect (по умолчанию вида приёмника gallery.input) в координатах CG — в POINT_X и POINT_Y: кадры ui.inspect — в точках окна с началом снизу
 # слева, кадр окна — в точках экрана с началом снизу слева главного экрана. Иначе WHY.
 POINT_X=""
 POINT_Y=""
 sink_point() {
-  local prefix="$1" wx wy h rx ry rw rh
+  local prefix="$1" node="${2:-gallery.input}" wx wy h rx ry rw rh
   WHY=""
   if ! ui_read "$profile" "$prefix.window" window || ! ui_read "$profile" "$prefix.inspect" inspect; then
     WHY="ui.window или ui.inspect не прочитан"
@@ -3123,12 +3124,12 @@ sink_point() {
   wx="$(jv "$prefix.window.stdout" ok.ui.window.frame.x || true)"
   wy="$(jv "$prefix.window.stdout" ok.ui.window.frame.y || true)"
   h="$(jv "$prefix.window.stdout" 'ok.ui.window.screens[0].frame.height' || true)"
-  rx="$(comp "$prefix.inspect.stdout" gallery.input frame.x || true)"
-  ry="$(comp "$prefix.inspect.stdout" gallery.input frame.y || true)"
-  rw="$(comp "$prefix.inspect.stdout" gallery.input frame.width || true)"
-  rh="$(comp "$prefix.inspect.stdout" gallery.input frame.height || true)"
+  rx="$(comp "$prefix.inspect.stdout" "$node" frame.x || true)"
+  ry="$(comp "$prefix.inspect.stdout" "$node" frame.y || true)"
+  rw="$(comp "$prefix.inspect.stdout" "$node" frame.width || true)"
+  rh="$(comp "$prefix.inspect.stdout" "$node" frame.height || true)"
   if [[ -z "$wx" || -z "$wy" || -z "$h" || -z "$rx" || -z "$ry" || -z "$rw" || -z "$rh" ]]; then
-    WHY="в ui.window или ui.inspect нет кадра окна, экрана или узла gallery.input"
+    WHY="в ui.window или ui.inspect нет кадра окна, экрана или узла $node"
     return 1
   fi
   POINT_X="$(awk -v wx="$wx" -v rx="$rx" -v rw="$rw" 'BEGIN { printf "%.1f", wx + rx + rw / 2 }')"
@@ -3391,7 +3392,7 @@ item_palette_latency() {
   fps="$(jv "$dir/front-window.stdout" "ok.ui.window.screens[index=$screen].maximum_frames_per_second" || echo ?)"
   name="$(jv "$dir/front-window.stdout" "ok.ui.window.screens[index=$screen].name" || echo ?)"
   if [[ "$fps" != 120 ]] || ! [[ "$name" =~ Built-in|Встроен ]]; then
-    record "$item" not_run "нет встроенного экрана 120 Гц: окно на экране $screen «$name», maximumFramesPerSecond $fps; экраны — $(jv "$dir/front-window.stdout" ok.ui.window.screens || echo ?)"
+    record "$item" not_run "нет встроенного экрана 120 Гц: окно на экране $screen «${name}», maximumFramesPerSecond $fps; экраны — $(jv "$dir/front-window.stdout" ok.ui.window.screens || echo ?)"
     return 0
   fi
   for block in a1:on b1:off b2:off a2:on; do
@@ -3416,7 +3417,296 @@ item_palette_latency() {
   # Серия без тактов снимает display link: следующие пункты не идут под тактами.
   ui_cmd "$profile" "$dir/stop" ui latency reset || failures+=("сброс серии после замера: $WHY")
   ((${#b_fail[@]} == 0)) || failures+=("больше бюджета 16 мс (правило «Бюджет палитры»): ${b_fail[*]}; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')")
-  conclude "$item" "экран окна «$name», maximumFramesPerSecond $fps; четыре p95 блоков B не больше 16 мс; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')"
+  conclude "$item" "экран окна «${name}», maximumFramesPerSecond $fps; четыре p95 блоков B не больше 16 мс; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')"
+}
+
+# Поле ui.overlay по пути от ok.ui.overlay; «нет» — пути нет.
+ov() {
+  jv "$1" "ok.ui.overlay.$2" 2>/dev/null || echo нет
+}
+
+# Опрос ui.overlay: поле path равно want; чтение — <prefix>.stdout, иначе WHY.
+ov_wait() {
+  local prefix="$1" path="$2" want="$3" deadline got="?"
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" overlay; then
+      got="$(ov "$prefix.stdout" "$path")"
+      [[ "$got" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс ui.overlay: $path — «${got}», ожидалось «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Наложение снято при любом исходе пункта: модальный слой иначе забрал бы клавиши следующих пунктов. Открытое
+# наложение закрывают служебные команды; оставшееся — ошибка исполнения.
+ov_clear() {
+  local dir="$1" item="$2" kind
+  ui_read "$profile" "$dir/clear" overlay || fatal "$item: ui.overlay не прочитан: $(oneline "$dir/clear.stderr")"
+  kind="$(ov "$dir/clear.stdout" kind)"
+  [[ "$kind" != null ]] || return 0
+  failures+=("после пункта осталось наложение $kind")
+  case "$kind" in
+    palette) ctl "$profile" "$dir/clear-close" --json --timeout "$CTL_TIMEOUT_MS" ui palette close || true ;;
+    hints | cmdline) ctl "$profile" "$dir/clear-close" --json --timeout "$CTL_TIMEOUT_MS" ui "$kind" close || true ;;
+    *) ;;
+  esac
+  ov_wait "$dir/cleared" kind null || fatal "$item: наложение $kind не снято служебной командой: $WHY"
+}
+
+# Окна владельца по ui.window: «палитра видна|палитра ключевая|главное ключевое|главное видно»; иначе WHY.
+WINS=""
+pal_windows() {
+  local prefix="$1"
+  WHY=""
+  WINS=""
+  ui_read "$profile" "$prefix" window || {
+    WHY="ui.window не прочитан: $(oneline "$prefix.stderr")"
+    return 1
+  }
+  WINS="$(jv "$prefix.stdout" 'ok.ui.window.windows[role=palette].visible' || echo нет)|$(jv "$prefix.stdout" 'ok.ui.window.windows[role=palette].key' || echo нет)|$(jv "$prefix.stdout" ok.ui.window.key || echo нет)|$(jv "$prefix.stdout" ok.ui.window.visible || echo нет)"
+}
+
+# Видимые узлы затемнения в ui.inspect окна владельца (scrim, dim, shade): палитра окно не затемняет.
+dim_nodes() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $v = JSON::PP->new->utf8->decode(<STDIN>);
+    print join(" ", map { $_->{id} } grep { $_->{visible} && $_->{id} =~ /scrim|dim|shade/i } @{ $v->{ok}{ui}{inspect}{components} // [] }), "\n"' <"$1"
+}
+
+# Палитра открыта клавишами или кнопкой: ui.overlay — палитра с пустым запросом, окно палитры видно и ключевое,
+# главное видно и не ключевое, затемнения нет. Причины — в failures с подписью label.
+pal_opened() {
+  local dir="$1" name="$2" label="$3" dims
+  ov_wait "$dir/$name.overlay" kind palette || {
+    failures+=("$label: $WHY")
+    return 1
+  }
+  [[ "$(ov "$dir/$name.overlay.stdout" palette.query)" == "" ]] ||
+    failures+=("$label: запрос открытой палитры «$(ov "$dir/$name.overlay.stdout" palette.query)», ожидался пустой")
+  if pal_windows "$dir/$name.window"; then
+    [[ "$WINS" == "true|true|false|true" ]] ||
+      failures+=("$label: окна «${WINS}», ожидалось «true|true|false|true» (палитра видна|палитра ключевая|главное ключевое|главное видно)")
+  else
+    failures+=("$label: $WHY")
+  fi
+  if ui_read "$profile" "$dir/$name.inspect" inspect; then
+    dims="$(dim_nodes "$dir/$name.inspect.stdout" 2>/dev/null || echo "?")"
+    [[ -z "$dims" ]] || failures+=("$label: видимые узлы затемнения: $dims")
+  else
+    failures+=("$label: ui.inspect не прочитан")
+  fi
+}
+
+# Палитра закрыта: ui.overlay без наложения, окно палитры скрыто, главное окно ключевое; фокус query.layout — want.
+# Расхождения — в failures, код всегда 0: вызов стоит вне условия, а set -e остановил бы сценарий.
+pal_closed() {
+  local dir="$1" name="$2" label="$3" want="$4"
+  ov_wait "$dir/$name.overlay" kind null || {
+    failures+=("$label: $WHY")
+    return 0
+  }
+  if pal_windows "$dir/$name.window"; then
+    [[ "$WINS" == false\|false\|true\|true || "$WINS" == нет\|нет\|true\|true ]] ||
+      failures+=("$label: окна «${WINS}», ожидалось «false|false|true|true»")
+  else
+    failures+=("$label: $WHY")
+  fi
+  wait_focus "$dir/$name.layout" "$want" || failures+=("$label: $WHY")
+}
+
+# Открытие палитры: Cmd-k (global), повторный Cmd-k при пустом запросе закрывает; Space Space в Navigation; кнопка
+# «⌘K поиск» заголовка (chrome.search) щелчком. Каждое открытие — палитра видна и ключевая без затемнения окна,
+# закрытие возвращает ключ главному окну и фокус терминалу центра.
+item_palette_open() {
+  local item=palette-open dir="$run/palette-open"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  if act "$dir" cmdk palette.open "$K_K+command"; then
+    [[ "$OUTCOME" == ok ]] || failures+=("Cmd-k: действие palette.open отказало: $OUTCOME")
+    if pal_opened "$dir" cmdk Cmd-k; then
+      key "$dir/keys.log" "$K_K" command || failures+=("повторный Cmd-k не отправлен: $(tail -n 1 "$dir/keys.log")")
+      pal_closed "$dir" cmdk-again "повторный Cmd-k" "$p_center"
+      once "$dir" cmdk-again || failures+=("повторный Cmd-k: $WHY")
+    fi
+  else
+    failures+=("Cmd-k: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  if act "$dir" space palette.open "$K_SPACE" "$K_SPACE"; then
+    [[ "$OUTCOME" == ok ]] || failures+=("Space Space: действие palette.open отказало: $OUTCOME")
+    if pal_opened "$dir" space "Space Space"; then
+      fkey "$dir" space-esc "$K_ESC"
+      pal_closed "$dir" space-esc "Esc после Space Space" "$p_center"
+    fi
+  else
+    failures+=("Space Space: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  if sink_point "$dir/button" chrome.search; then
+    if click_at "$POINT_X" "$POINT_Y" >"$dir/button.click.log" 2>&1; then
+      if pal_opened "$dir" button "кнопка «⌘K поиск»"; then
+        fkey "$dir" button-esc "$K_ESC"
+        pal_closed "$dir" button-esc "Esc после кнопки" "$p_center"
+      fi
+    else
+      failures+=("щелчок по кнопке поиска: $(oneline "$dir/button.click.log")")
+    fi
+  else
+    failures+=("кнопка поиска: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "Cmd-k — одна запись palette.open с источником key; ui.overlay — палитра с пустым запросом, окно палитры видно и ключевое, главное окно видно без затемнения; повторный Cmd-k при пустом запросе закрывает палитру без записи кольца — главное окно снова ключевое, фокус query.layout в центре; Space Space в Navigation и щелчок по кнопке «⌘K поиск» (chrome.search) открывают палитру так же, Esc закрывает"
+}
+
+# Запрос без совпадений: латинские буквы qqq — «Ничего не найдено», ни групп, ни выбора; Enter ничего не выполняет:
+# палитра остаётся открытой, записи кольца нет.
+item_palette_no_results() {
+  local item=palette-no-results dir="$run/palette-no-results" empty
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  if act "$dir" open palette.open "$K_K+command" && pal_opened "$dir" open Cmd-k; then
+    fkey "$dir" q1 "$K_Q"
+    fkey "$dir" q2 "$K_Q"
+    fkey "$dir" q3 "$K_Q"
+    if ov_wait "$dir/typed" palette.query qqq; then
+      [[ "$(ov "$dir/typed.stdout" 'palette.groups[#]')|$(ov "$dir/typed.stdout" palette.selected)|$(ov "$dir/typed.stdout" palette.matched)" == "0|null|0" ]] ||
+        failures+=("запрос qqq: групп, выбор и совпадений — «$(ov "$dir/typed.stdout" 'palette.groups[#]')|$(ov "$dir/typed.stdout" palette.selected)|$(ov "$dir/typed.stdout" palette.matched)», ожидалось «0|null|0»")
+      if wait_inspect "$profile" "$dir/empty" palette.empty visible true; then
+        empty="$(comp "$dir/empty.stdout" palette.empty label 2>/dev/null || echo нет)"
+        [[ "$empty" == "Ничего не найдено" ]] || failures+=("надпись palette.empty — «${empty}»")
+      else
+        failures+=("надпись пустого результата: $WHY")
+      fi
+      fkey "$dir" enter "$K_ENTER"
+      ov_wait "$dir/after-enter" palette.query qqq || failures+=("Enter: $WHY")
+      [[ "$(ov "$dir/after-enter.stdout" kind)" == palette ]] || failures+=("Enter закрыл палитру")
+      once "$dir" after-enter || failures+=("Enter: $WHY")
+    else
+      failures+=("запрос qqq: $WHY")
+    fi
+    fkey "$dir" esc "$K_ESC"
+    pal_closed "$dir" esc Esc "$p_center"
+  else
+    failures+=("Cmd-k: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "запрос qqq клавишами — ui.overlay без групп, выбора и совпадений, palette.empty «Ничего не найдено»; Enter оставляет палитру открытой с тем же запросом, записей кольца после palette.open нет; Esc закрывает"
+}
+
+# Пробел в поле запроса — текст: a, Space, Space, b — запрос «a  b», палитра не закрылась и не открылась заново
+# (одна запись palette.open за весь ход).
+item_palette_space_text() {
+  local item=palette-space-text dir="$run/palette-space-text"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  if act "$dir" open palette.open "$K_K+command" && pal_opened "$dir" open Cmd-k; then
+    fkey "$dir" a "$K_A"
+    fkey "$dir" sp1 "$K_SPACE"
+    fkey "$dir" sp2 "$K_SPACE"
+    fkey "$dir" b "$K_B"
+    ov_wait "$dir/typed" palette.query "a  b" || failures+=("Space Space при печати: $WHY")
+    [[ "$(ov "$dir/typed.stdout" kind)" == palette ]] || failures+=("палитра закрылась при печати пробелов")
+    once "$dir" typed || failures+=("Space Space при печати: $WHY")
+    fkey "$dir" esc "$K_ESC"
+    pal_closed "$dir" esc Esc "$p_center"
+  else
+    failures+=("Cmd-k: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "в открытой палитре a, Space, Space, b — запрос ui.overlay «a  b», палитра открыта, записей кольца после palette.open нет; Esc закрывает"
+}
+
+# Esc возвращает источник: палитра из поля «Демо: поле» во Input — режим input и ввод снова в поле; палитра из
+# «Демо: список» в Navigation — режим navigation, фокус и выбор списка прежние.
+item_palette_return() {
+  local item=palette-return dir="$run/palette-return" demo field list first
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-field" demo-native center
+  demo="$PANEL"
+  field="layout.panel.$demo.field"
+  wait_focus "$dir/open-field.layout" "$demo" || fatal "$item: $WHY"
+  wait_mode "$dir/field.mode" input || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+  if act "$dir" field-open palette.open "$K_K+command" && pal_opened "$dir" field-open "Cmd-k у поля"; then
+    [[ "$(ov "$dir/field-open.overlay.stdout" source.panel)|$(ov "$dir/field-open.overlay.stdout" source.mode)|$(ov "$dir/field-open.overlay.stdout" source.field)" == "$demo|input|true" ]] ||
+      failures+=("источник у поля: «$(ov "$dir/field-open.overlay.stdout" source)»")
+    fkey "$dir" field-esc "$K_ESC"
+    pal_closed "$dir" field-esc "Esc у поля" "$demo"
+    wait_mode "$dir/field-esc.mode" input || failures+=("Esc у поля: $WHY")
+    wait_inspect "$profile" "$dir/field-esc.field" "$field" state.text_field.editing true || failures+=("Esc у поля: $WHY")
+  else
+    failures+=("Cmd-k у поля: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  fkey "$dir" leave-field "$K_ESC"
+  wait_mode "$dir/leave-field.mode" navigation || failures+=("Esc из поля перед списком: $WHY")
+  open_panel "$dir/open-list" demo-list center
+  list="$PANEL"
+  wait_focus "$dir/open-list.layout" "$list" || fatal "$item: $WHY"
+  wait_key "$dir/list.first" "$list" "!?" || fatal "$item: подготовка: $WHY"
+  first="$KEY"
+  wait_mode "$dir/list.mode" navigation || failures+=("список: $WHY")
+  if act "$dir" list-open palette.open "$K_K+command" && pal_opened "$dir" list-open "Cmd-k у списка"; then
+    [[ "$(ov "$dir/list-open.overlay.stdout" source.panel)|$(ov "$dir/list-open.overlay.stdout" source.mode)|$(ov "$dir/list-open.overlay.stdout" source.field)" == "$list|navigation|false" ]] ||
+      failures+=("источник у списка: «$(ov "$dir/list-open.overlay.stdout" source)»")
+    fkey "$dir" list-esc "$K_ESC"
+    pal_closed "$dir" list-esc "Esc у списка" "$list"
+    wait_mode "$dir/list-esc.mode" navigation || failures+=("Esc у списка: $WHY")
+    wait_key "$dir/list-esc.key" "$list" "$first" || failures+=("Esc у списка: $WHY")
+  else
+    failures+=("Cmd-k у списка: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "палитра из поля «Демо: поле» во Input — источник ui.overlay (панель, input, поле); Esc — фокус query.layout в панели, режим input, поле снова держит ввод; палитра из «Демо: список» в Navigation — источник (список, navigation, без поля); Esc — фокус в списке, режим navigation, выбор query.panel прежний"
+}
+
+# Клавиши под палитру не проходят: при открытой палитре над «Демо: список» j и Ctrl-w l не меняют ни раскладки, ни выбора списка, записей кольца после palette.open нет.
+item_overlay_keys_blocked() {
+  local item=overlay-keys-blocked dir="$run/overlay-keys-blocked" list first rev
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-list" demo-list center
+  list="$PANEL"
+  wait_focus "$dir/open-list.layout" "$list" || fatal "$item: $WHY"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  rev="$(layout_canon "$dir/start.layout.stdout" 2>/dev/null || echo "?")"
+  wait_key "$dir/first" "$list" "!?" || fatal "$item: подготовка: $WHY"
+  first="$KEY"
+  to_front "$dir" "$item"
+  if act "$dir" open palette.open "$K_K+command" && pal_opened "$dir" open Cmd-k; then
+    fkey "$dir" j "$K_J"
+    key "$dir/keys.log" "$K_W" control || failures+=("Ctrl-w не отправлена")
+    fkey "$dir" l "$K_L"
+    ov_wait "$dir/typed" kind palette || failures+=("после j и Ctrl-w l: $WHY")
+    once "$dir" typed || failures+=("после j и Ctrl-w l: $WHY")
+    fkey "$dir" esc "$K_ESC"
+    pal_closed "$dir" esc Esc "$list"
+    wait_key "$dir/esc.key" "$list" "$first" || failures+=("выбор списка: $WHY")
+    if layout_get "$profile" "$dir/end" "$wb_a"; then
+      [[ "$(layout_canon "$dir/end.stdout" 2>/dev/null || echo "?")" == "$rev" ]] ||
+        failures+=("раскладка изменилась: $(layout_canon "$dir/end.stdout" 2>/dev/null | cut -c 1-200)")
+    else
+      failures+=("query.layout не прочитан")
+    fi
+  else
+    failures+=("Cmd-k: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" "при открытой палитре над «Демо: список» j и Ctrl-w l — палитра открыта, записей кольца после palette.open нет; после Esc фокус query.layout в списке, раскладка и выбор query.panel прежние"
 }
 
 prepare
@@ -3444,6 +3734,11 @@ if ((DONE_STAGE >= 10)); then
   item_cyrillic_physical
 fi
 item_palette_latency
+item_palette_open
+item_palette_no_results
+item_palette_space_text
+item_palette_return
+item_overlay_keys_blocked
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
