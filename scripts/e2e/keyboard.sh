@@ -75,8 +75,9 @@ ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zone
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
   relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency palette-open palette-no-results
   palette-space-text palette-return overlay-keys-blocked palette-filter-tab palette-run palette-open-panel
-  palette-split-axis palette-args palette-run-focus palette-shadow-click)
-STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12 12 12 12 12 12 12 12)
+  palette-split-axis palette-args palette-run-focus palette-shadow-click whichkey-continuation whichkey-show-hide
+  whichkey-remap cmdline-run cmdline-unknown)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12 12)
 # Срез, до которого сценарий доведён: пункты более поздних срезов не судятся. Срез 12 — пункты наложений плана
 # command-overlays.
 DONE_STAGE=12
@@ -118,6 +119,9 @@ K_P=35
 K_D=2
 K_DOWN=125
 K_UP=126
+K_E=14
+K_G=5
+K_SEMICOLON=41
 
 REQUIRED=()
 STATUS=()
@@ -4217,6 +4221,420 @@ item_palette_shadow_click() {
   conclude "$item" "щелчок в поле тени палитры (окно палитры ui.window минус поверхность palette ui.inspect) над кнопкой ${target:-?} — палитра закрыта, главное окно ключевое, фокус в центре; записей кольца после щелчка нет, раскладка query.layout и оформление прежние"
 }
 
+# --- which-key и командная строка ---
+
+# Подсказка which-key по ui.overlay: «префикс JSON|название группы», без подсказки — «нет». Опрос до want; чтение —
+# <prefix>.stdout, состав — в WK, иначе WHY.
+WK=""
+wk_wait() {
+  local prefix="$1" want="$2" deadline
+  WHY=""
+  WK="?"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" overlay; then
+      WK="$(ov "$prefix.stdout" which_key.prefix)|$(ov "$prefix.stdout" which_key.title)"
+      [[ "$WK" != "нет|нет" ]] || WK=нет
+      [[ "$WK" != "$want" ]] || return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс which-key ui.overlay — «${WK}», ожидалось «${want}» (префикс|группа)"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Продолжение key показанной подсказки чтения file: «название|группа»; «нет» — продолжения нет.
+wk_item() {
+  local file="$1" key="$2" label
+  label="$(ov "$file" "which_key.items[key=$key].label")"
+  [[ "$label" != нет ]] || {
+    echo нет
+    return 0
+  }
+  echo "$label|$(ov "$file" "which_key.items[key=$key].group")"
+}
+
+# Подсказка не модальна и фокус не трогает: наложения нет, панель с фокусом query.layout — want, первый ответчик
+# ui.inspect — resp, главное окно ключевое. Расхождения — в failures с подписью label.
+wk_still() {
+  local prefix="$1" label="$2" want="$3" resp="$4" got
+  [[ "$(ov "$prefix.wk.stdout" kind)" == null ]] ||
+    failures+=("$label: при подсказке открыто наложение $(ov "$prefix.wk.stdout" kind)")
+  if layout_get "$profile" "$prefix.focus" "$wb_a"; then
+    [[ "$(focus_of "$prefix.focus.stdout")" == "$want" ]] ||
+      failures+=("$label: фокус query.layout — $(name_of "$(focus_of "$prefix.focus.stdout")"), ожидался $(name_of "$want")")
+  else
+    failures+=("$label: query.layout не прочитан")
+  fi
+  if ui_read "$profile" "$prefix.inspect" inspect; then
+    got="$(responder_of "$prefix.inspect.stdout" 2>/dev/null || echo "?")"
+    [[ "$got" == "$resp" ]] || failures+=("$label: первый ответчик «${got}», ожидался «${resp}»")
+  else
+    failures+=("$label: ui.inspect не прочитан")
+  fi
+  if ui_read "$profile" "$prefix.window" window; then
+    [[ "$(jv "$prefix.window.stdout" ok.ui.window.key || echo нет)" == true ]] ||
+      failures+=("$label: главное окно не ключевое")
+  else
+    failures+=("$label: ui.window не прочитан")
+  fi
+}
+
+# Первая запись кольца после BEFORE называет действие с источником key, её отказ — в OUTCOME; иначе WHY.
+key_receipt() {
+  local dir="$1" name="$2" action="$3" got
+  WHY=""
+  OUTCOME=""
+  wait_receipts "$profile" "$dir/$name.receipts" "$BEFORE" 1 || return 1
+  got="$(rc "$dir/$name.receipts.stdout" 0 action) от $(rc "$dir/$name.receipts.stdout" 0 source)"
+  [[ "$got" == "$action от key" ]] || {
+    WHY="запись кольца «${got}», ожидалась «$action от key»"
+    return 1
+  }
+  OUTCOME="$(rc "$dir/$name.receipts.stdout" 0 error)"
+  [[ "$OUTCOME" != нет ]] || OUTCOME=ok
+}
+
+# Нет записей кольца после BEFORE; иначе WHY.
+no_receipts() {
+  local dir="$1" name="$2" seen
+  WHY=""
+  receipts_get "$profile" "$dir/$name.none" "$BEFORE" || {
+    WHY="ui.receipts не прочитан"
+    return 1
+  }
+  seen="$(jv "$dir/$name.none.stdout" 'ok.ui.receipts.receipts[#]' || echo "?")"
+  [[ "$seen" == 0 ]] || {
+    WHY="записей кольца — $seen, ожидалось ни одной: $(oneline "$dir/$name.none.stdout")"
+    return 1
+  }
+}
+
+# Space, ожидание подсказки, z, j: подсказка показывает группу «Команды», затем следует за префиксом в «Зоны» с
+# продолжением j; j получает маршрутизатор — одна запись layout.toggle.bottom с источником key, одна дельта ядра,
+# нижняя зона скрыта, подсказка снята.
+item_whichkey_continuation() {
+  local item=whichkey-continuation dir="$run/whichkey-continuation" resp
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  ui_read "$profile" "$dir/start.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  resp="$(responder_of "$dir/start.inspect.stdout" 2>/dev/null || echo "?")"
+  wk_wait "$dir/start.wk" нет || failures+=("до Space: $WHY")
+  mark "$dir" keys || fatal "$item: $WHY"
+  receipts_last "$profile" "$dir/keys.before" || fatal "$item: $WHY"
+  BEFORE="$LAST"
+  fkey "$dir" space "$K_SPACE"
+  if wk_wait "$dir/space.wk" '["Space"]|Команды'; then
+    [[ "$(wk_item "$dir/space.wk.stdout" z)" == "Зоны|true" ]] ||
+      failures+=("после Space продолжение z — «$(wk_item "$dir/space.wk.stdout" z)», ожидалось «Зоны|true»")
+    wk_still "$dir/space" "после Space" "$p_center" "$resp"
+  else
+    failures+=("после Space: $WHY")
+  fi
+  fkey "$dir" z "$K_Z"
+  if wk_wait "$dir/z.wk" '["Space","z"]|Зоны'; then
+    [[ "$(wk_item "$dir/z.wk.stdout" j)" == "Показать или скрыть нижнюю зону|false" ]] ||
+      failures+=("после Space z продолжение j — «$(wk_item "$dir/z.wk.stdout" j)»")
+  else
+    failures+=("после Space z: $WHY")
+  fi
+  fkey "$dir" j "$K_J"
+  if key_receipt "$dir" j layout.toggle.bottom; then
+    [[ "$OUTCOME" == ok ]] || failures+=("Space z j: действие layout.toggle.bottom отказало: $OUTCOME")
+    wait_layout "$dir/j.layout" "нижняя зона скрыта" '$l->{hidden}{bottom}' || failures+=("Space z j: $WHY")
+    wk_wait "$dir/j.wk" нет || failures+=("после j: $WHY")
+    events_are "$dir" keys 1 || failures+=("Space z j: $WHY")
+    once "$dir" j || failures+=("Space z j: $WHY")
+  else
+    failures+=("Space z j: $WHY")
+  fi
+  conclude "$item" "Space — подсказка which-key ui.overlay с префиксом [Space], группой «Команды» и продолжением z «Зоны» (группа), наложения нет, фокус в центре; z — подсказка [Space, z] «Зоны» с продолжением j «Показать или скрыть нижнюю зону»; j — одна запись ui.receipts layout.toggle.bottom с источником key, одна дельта events --since, layout.hidden.bottom, подсказка снята"
+}
+
+# Space, ожидание, Esc; Ctrl-w, ожидание, v: подсказка появляется у набранного префикса, не забирает фокус и
+# первого ответчика, исчезает с префиксом — Esc без записи кольца, v выполняет деление центра.
+item_whichkey_show_hide() {
+  local item=whichkey-show-hide dir="$run/whichkey-show-hide" t2 resp
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  wait_focus "$dir/open-t2.layout" "$t2" || fatal "$item: $WHY"
+  to_front "$dir" "$item"
+  ui_read "$profile" "$dir/start.inspect" inspect || fatal "$item: ui.inspect не прочитан"
+  resp="$(responder_of "$dir/start.inspect.stdout" 2>/dev/null || echo "?")"
+  wk_wait "$dir/start.wk" нет || failures+=("до Space: $WHY")
+  receipts_last "$profile" "$dir/space.before" || fatal "$item: $WHY"
+  BEFORE="$LAST"
+  fkey "$dir" space "$K_SPACE"
+  if wk_wait "$dir/space.wk" '["Space"]|Команды'; then
+    [[ "$(wk_item "$dir/space.wk.stdout" Space)" == "Поиск и команды|false" ]] ||
+      failures+=("после Space продолжение Space — «$(wk_item "$dir/space.wk.stdout" Space)»")
+    wk_still "$dir/space" "после Space" "$t2" "$resp"
+  else
+    failures+=("после Space: $WHY")
+  fi
+  fkey "$dir" esc "$K_ESC"
+  wk_wait "$dir/esc.wk" нет || failures+=("Esc: $WHY")
+  wk_still "$dir/esc" "после Esc" "$t2" "$resp"
+  no_receipts "$dir" esc || failures+=("Space Esc: $WHY")
+  mark "$dir" ctrl-w || fatal "$item: $WHY"
+  receipts_last "$profile" "$dir/ctrl-w.before" || fatal "$item: $WHY"
+  BEFORE="$LAST"
+  key "$dir/keys.log" "$K_W" control || failures+=("Ctrl-w не отправлена: $(tail -n 1 "$dir/keys.log")")
+  if wk_wait "$dir/ctrl-w.wk" '["Ctrl-w"]|Панели и зоны'; then
+    [[ "$(wk_item "$dir/ctrl-w.wk.stdout" v)" == "Разделить зону: части рядом|false" ]] ||
+      failures+=("после Ctrl-w продолжение v — «$(wk_item "$dir/ctrl-w.wk.stdout" v)»")
+    wk_still "$dir/ctrl-w" "после Ctrl-w" "$t2" "$resp"
+  else
+    failures+=("после Ctrl-w: $WHY")
+  fi
+  fkey "$dir" v "$K_V"
+  if key_receipt "$dir" v layout.split; then
+    [[ "$OUTCOME" == ok ]] || failures+=("Ctrl-w v: действие layout.split отказало: $OUTCOME")
+    wait_layout "$dir/v.layout" "в центре две части, вторая панель одна во второй" \
+      "@{\$l->{zones}{center}{parts}} == 2 && $(alone_in "$t2" center 1)" || failures+=("Ctrl-w v: $WHY")
+    wk_wait "$dir/v.wk" нет || failures+=("после v: $WHY")
+    events_are "$dir" ctrl-w 1 || failures+=("Ctrl-w v: $WHY")
+    once "$dir" v || failures+=("Ctrl-w v: $WHY")
+  else
+    failures+=("Ctrl-w v: $WHY")
+  fi
+  conclude "$item" "Space — подсказка [Space] «Команды» с продолжением Space «Поиск и команды», наложения нет, фокус query.layout и первый ответчик ui.inspect прежние, главное окно ключевое; Esc снимает подсказку без записи кольца; Ctrl-w — подсказка [Ctrl-w] «Панели и зоны» с продолжением v «Разделить зону: части рядом», фокус прежний; v — одна запись layout.split с источником key, одна дельта events --since, центр из двух частей, подсказка снята"
+}
+
+# keymap.toml переносит layout.zoom с Ctrl-w z на Ctrl-w m: подсказка Ctrl-w показывает m «Развернуть панель» и не
+# показывает z; m разворачивает панель центра. Без файла подсказка снова называет z и не называет m.
+item_whichkey_remap() {
+  local item=whichkey-remap dir="$run/whichkey-remap"
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  to_front "$dir" "$item"
+  wait_help "$dir/default.help" "Ctrl-w z" || fatal "$item: подготовка: $WHY"
+  keymap_put "$dir/edit" $'[navigation]\n"Ctrl-w m" = "layout.zoom"\n"Ctrl-w z" = false'
+  if wait_keymap "$dir/edit" "строка Ctrl-w m — layout.zoom из файла, строки Ctrl-w z нет" \
+    'join(",", rows("navigation", "Ctrl-w m")) eq "layout.zoom" && !rows("navigation", "Ctrl-w z") && !@{$k->{diagnostics}}' &&
+    wait_help "$dir/edit.help" "Ctrl-w m"; then
+    mark "$dir" m || fatal "$item: $WHY"
+    receipts_last "$profile" "$dir/m.before" || fatal "$item: $WHY"
+    BEFORE="$LAST"
+    key "$dir/keys.log" "$K_W" control || failures+=("Ctrl-w не отправлена: $(tail -n 1 "$dir/keys.log")")
+    if wk_wait "$dir/edit.wk" '["Ctrl-w"]|Панели и зоны'; then
+      [[ "$(wk_item "$dir/edit.wk.stdout" m)" == "Развернуть панель|false" ]] ||
+        failures+=("после правки продолжение m — «$(wk_item "$dir/edit.wk.stdout" m)», ожидалось «Развернуть панель|false»")
+      [[ "$(wk_item "$dir/edit.wk.stdout" z)" == нет ]] ||
+        failures+=("после правки в подсказке осталось продолжение z «$(wk_item "$dir/edit.wk.stdout" z)»")
+    else
+      failures+=("после правки, Ctrl-w: $WHY")
+    fi
+    fkey "$dir" m "$K_M"
+    if key_receipt "$dir" m layout.zoom; then
+      [[ "$OUTCOME" == ok ]] || failures+=("Ctrl-w m: действие layout.zoom отказало: $OUTCOME")
+      wait_layout "$dir/m.layout" "панель центра развёрнута" "$(zoomed_center)" || failures+=("Ctrl-w m: $WHY")
+      wk_wait "$dir/m.wk" нет || failures+=("после m: $WHY")
+      events_are "$dir" m 1 || failures+=("Ctrl-w m: $WHY")
+      once "$dir" m || failures+=("Ctrl-w m: $WHY")
+    else
+      failures+=("Ctrl-w m: $WHY")
+    fi
+    # Развёрнутая панель кнопки «Развернуть панель» не держит: разворот снимается до сверки подсказки без файла.
+    kstep "$dir" m-again layout.zoom "разворот снят" '!defined $l->{zoomed} && !defined $v->{frames}{zoomed}' \
+      "$K_W+control" "$K_M"
+  else
+    failures+=("keymap.toml: $WHY")
+  fi
+  keymap_clean "$item" "$dir"
+  wait_help "$dir/restore.help" "Ctrl-w z" || failures+=("после уборки keymap.toml: $WHY")
+  key "$dir/keys.log" "$K_W" control || failures+=("Ctrl-w не отправлена: $(tail -n 1 "$dir/keys.log")")
+  if wk_wait "$dir/restore.wk" '["Ctrl-w"]|Панели и зоны'; then
+    [[ "$(wk_item "$dir/restore.wk.stdout" z)|$(wk_item "$dir/restore.wk.stdout" m)" == "Развернуть панель|false|нет" ]] ||
+      failures+=("без файла продолжения z и m — «$(wk_item "$dir/restore.wk.stdout" z)», «$(wk_item "$dir/restore.wk.stdout" m)»")
+  else
+    failures+=("без файла, Ctrl-w: $WHY")
+  fi
+  fkey "$dir" restore-esc "$K_ESC"
+  wk_wait "$dir/restore-esc.wk" нет || failures+=("Esc без файла: $WHY")
+  conclude "$item" "правка keymap.toml («Ctrl-w m» — layout.zoom, «Ctrl-w z» снята) применена: Ctrl-w — подсказка [Ctrl-w] «Панели и зоны» с продолжением m «Развернуть панель» и без z; m — одна запись layout.zoom с источником key, одна дельта events --since, панель центра развёрнута, подсказка снята, второй Ctrl-w m разворот снимает; без файла подсказка Ctrl-w снова с z «Развернуть панель» и без m, Esc её снимает"
+}
+
+# Латинский текст кодами клавиш в журнал log: строчные буквы и пробел; другой знак — код 2.
+type_latin() {
+  local log="$1" text="$2" i c code
+  for ((i = 0; i < ${#text}; i++)); do
+    c="${text:i:1}"
+    case "$c" in
+      a) code=$K_A ;;
+      b) code=$K_B ;;
+      c) code=$K_C ;;
+      d) code=$K_D ;;
+      e) code=$K_E ;;
+      g) code=$K_G ;;
+      h) code=$K_H ;;
+      i) code=$K_I ;;
+      j) code=$K_J ;;
+      k) code=$K_K ;;
+      l) code=$K_L ;;
+      m) code=$K_M ;;
+      n) code=$K_N ;;
+      o) code=$K_O ;;
+      p) code=$K_P ;;
+      q) code=$K_Q ;;
+      s) code=$K_S ;;
+      t) code=$K_T ;;
+      v) code=$K_V ;;
+      w) code=$K_W ;;
+      x) code=$K_X ;;
+      z) code=$K_Z ;;
+      " ") code=$K_SPACE ;;
+      *) return 2 ;;
+    esac
+    key "$log" "$code" || return 1
+  done
+}
+
+# Строка `:` клавишами: cl_step <каталог> <имя> <текст>. `:` — одна запись cmdline.open с источником key и
+# ui.overlay cmdline с пустым текстом; текст кодами клавиш виден в cmdline.text; Enter закрывает строку. Исполнение
+# строки записи кольца не даёт (источник действия — строка, а не клавиша): записей после BEFORE позже сверяет once.
+# Расхождения — в failures; код 1 — строка не открылась, текст не дошёл или строка не закрылась.
+cl_step() {
+  local dir="$1" name="$2" text="$3"
+  if ! act "$dir" "$name" cmdline.open "$K_SEMICOLON+shift"; then
+    failures+=(":$text: $WHY")
+    return 1
+  fi
+  [[ "$OUTCOME" == ok ]] || failures+=(":$text: действие cmdline.open отказало: $OUTCOME")
+  ov_wait "$dir/$name.open" kind cmdline || {
+    failures+=(":$text: $WHY")
+    return 1
+  }
+  [[ "$(ov "$dir/$name.open.stdout" cmdline.text)" == "" ]] ||
+    failures+=(":$text: текст открытой строки «$(ov "$dir/$name.open.stdout" cmdline.text)», ожидался пустой")
+  type_latin "$dir/keys.log" "$text" || {
+    failures+=(":$text: клавиши текста не отправлены: $(tail -n 1 "$dir/keys.log")")
+    return 1
+  }
+  ov_wait "$dir/$name.typed" cmdline.text "$text" || {
+    failures+=(":$text: $WHY")
+    return 1
+  }
+  fkey "$dir" "$name" "$K_ENTER"
+  ov_wait "$dir/$name.closed" kind null || {
+    failures+=(":$text: после Enter: $WHY")
+    return 1
+  }
+}
+
+# :zoom дважды, :vs в центре, :theme light, :q клавишами: каждое — одна запись cmdline.open с источником key и исход
+# действия своим обработчиком: разворот и его снятие, деление центра, оформление light, закрытие панели с фокусом.
+item_cmdline_run() {
+  local item=cmdline-run dir="$run/cmdline-run" t2 choice focus
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  open_panel "$dir/open-t2" terminal center
+  t2="$PANEL"
+  wait_focus "$dir/open-t2.layout" "$t2" || fatal "$item: $WHY"
+  ui_read "$profile" "$dir/start.window" window || fatal "$item: ui.window не прочитан"
+  choice="$(jv "$dir/start.window.stdout" ok.ui.window.appearance_choice || echo system)"
+  ui_cmd "$profile" "$dir/dark" ui appearance dark || fatal "$item: подготовка: $WHY"
+  wait_appearance "$dir/dark.window" dark || fatal "$item: подготовка: $WHY"
+  to_front "$dir" "$item"
+  if cl_step "$dir" zoom zoom; then
+    wait_layout "$dir/zoom.layout" "вторая панель центра развёрнута" \
+      "(\$l->{zoomed} // '') eq '$t2' && defined \$v->{frames}{zoomed}" || failures+=(":zoom: $WHY")
+    once "$dir" zoom || failures+=(":zoom: $WHY")
+  fi
+  if cl_step "$dir" unzoom zoom; then
+    wait_layout "$dir/unzoom.layout" "разворот снят" '!defined $l->{zoomed} && !defined $v->{frames}{zoomed}' ||
+      failures+=("второй :zoom: $WHY")
+    once "$dir" unzoom || failures+=("второй :zoom: $WHY")
+  fi
+  if cl_step "$dir" vs vs; then
+    wait_layout "$dir/vs.layout" "в центре две части, вторая панель одна во второй" \
+      "@{\$l->{zones}{center}{parts}} == 2 && $(alone_in "$t2" center 1)" || failures+=(":vs: $WHY")
+    once "$dir" vs || failures+=(":vs: $WHY")
+  fi
+  if cl_step "$dir" theme "theme light"; then
+    wait_appearance "$dir/theme.window" light || failures+=(":theme light: $WHY")
+    once "$dir" theme || failures+=(":theme light: $WHY")
+  fi
+  layout_get "$profile" "$dir/before-q" "$wb_a" || fatal "$item: query.layout не прочитан"
+  focus="$(focus_of "$dir/before-q.stdout")"
+  if cl_step "$dir" q q; then
+    wait_layout "$dir/q.layout" "панель $(name_of "$focus") закрыта" \
+      '!grep { $_->{id} eq $ARGV[0] } @{$v->{panels}}' "$focus" || failures+=(":q: $WHY")
+    once "$dir" q || failures+=(":q: $WHY")
+  fi
+  ov_clear "$dir" "$item"
+  ui_cmd "$profile" "$dir/restore" ui appearance "$choice" || failures+=("оформление $choice не возвращено: $WHY")
+  conclude "$item" "у второй панели центра :zoom клавишами — одна запись cmdline.open с источником key, текст ui.overlay cmdline «zoom», Enter закрывает строку, панель развёрнута; второй :zoom снимает разворот; :vs — центр из двух частей, вторая панель одна во второй; :theme light в тёмной теме — выбор оформления light; :q — панель с фокусом ($(name_of "${focus:-?}")) закрыта; на каждую строку записей кольца после клавиш одна"
+}
+
+# Опрос сообщения строки статуса до текста want; показанный текст — в STATUS_TEXT, иначе WHY.
+wait_status_is() {
+  local prefix="$1" want="$2" deadline
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" inspect; then
+      STATUS_TEXT="$(jv "$prefix.stdout" 'ok.ui.inspect.components[id=status.message].label' 2>/dev/null || echo нет)"
+      [[ "$(jv "$prefix.stdout" 'ok.ui.inspect.components[id=status.message].visible' 2>/dev/null || echo false)" == true &&
+        "$STATUS_TEXT" == "$want" ]] && return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      WHY="за $MIRROR_MS мс сообщение строки статуса «${STATUS_TEXT}», ожидалось «${want}»"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Неизвестная команда: `:`, qqq, Enter клавишами и `:` клавишей с текстом «нет такой» командой ui cmdline run (кириллица
+# кодами клавиш под латинским источником не набирается) — строка закрыта, сообщение строки статуса «Неизвестная
+# команда: <текст>. Откройте поиск ⌘K», записей кольца после cmdline.open нет, раскладка прежняя.
+item_cmdline_unknown() {
+  local item=cmdline-unknown dir="$run/cmdline-unknown" rev want
+  log "== $item"
+  failures=()
+  fresh_bench "$item" "$dir"
+  settle_layout "$profile" "$dir/start" "$wb_a" "$REV" || fatal "$item: $WHY"
+  rev="$(layout_canon "$dir/start.layout.stdout" 2>/dev/null || echo "?")"
+  to_front "$dir" "$item"
+  want="Неизвестная команда: qqq. Откройте поиск ⌘K"
+  if cl_step "$dir" qqq qqq; then
+    wait_status_is "$dir/qqq.status" "$want" || failures+=(":qqq: $WHY")
+    once "$dir" qqq || failures+=(":qqq: $WHY")
+  fi
+  want="Неизвестная команда: нет такой. Откройте поиск ⌘K"
+  if act "$dir" cyr cmdline.open "$K_SEMICOLON+shift" && ov_wait "$dir/cyr.open" kind cmdline; then
+    if ctl "$profile" "$dir/cyr.run" --json --timeout "$CTL_TIMEOUT_MS" ui cmdline run "нет такой"; then
+      [[ "$(jv "$dir/cyr.run.stdout" ok.ui.cmdline.outcome || echo нет)|$(jv "$dir/cyr.run.stdout" ok.ui.cmdline.message || echo нет)" == "unknown|$want" ]] ||
+        failures+=(":нет такой: ответ $(oneline "$dir/cyr.run.stdout"), ожидались исход unknown и сообщение «${want}»")
+    else
+      failures+=(":нет такой: ui cmdline run: $(oneline "$dir/cyr.run.stdout") $(oneline "$dir/cyr.run.stderr")")
+    fi
+    ov_wait "$dir/cyr.closed" kind null || failures+=(":нет такой: $WHY")
+    wait_status_is "$dir/cyr.status" "$want" || failures+=(":нет такой: $WHY")
+    once "$dir" cyr || failures+=(":нет такой: $WHY")
+  else
+    failures+=(":нет такой: $WHY")
+  fi
+  if layout_get "$profile" "$dir/end" "$wb_a"; then
+    [[ "$(layout_canon "$dir/end.stdout" 2>/dev/null || echo "?")" == "$rev" ]] ||
+      failures+=("раскладка изменилась после неизвестных команд")
+  else
+    failures+=("query.layout не прочитан")
+  fi
+  ov_clear "$dir" "$item"
+  conclude "$item" ":qqq и Enter клавишами — строка закрыта, сообщение строки статуса «Неизвестная команда: qqq. Откройте поиск ⌘K»; : клавишей и «нет такой» командой ui cmdline run — исход unknown, строка закрыта, сообщение «Неизвестная команда: нет такой. Откройте поиск ⌘K»; записей кольца после cmdline.open нет, раскладка query.layout прежняя"
+}
+
 prepare
 preconditions
 setup_main
@@ -4254,6 +4672,11 @@ item_palette_split_axis
 item_palette_args
 item_palette_run_focus
 item_palette_shadow_click
+item_whichkey_continuation
+item_whichkey_show_hide
+item_whichkey_remap
+item_cmdline_run
+item_cmdline_unknown
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
