@@ -3417,6 +3417,7 @@ item_palette_latency() {
       return 0
     fi
     lines+=("$(pal_line "$block" "$mode")")
+    pal_file="$dir/$block/latency.txt"
     if [[ "$mode" == off ]]; then
       for ch in open close; do
         v="$(pal_val "${ch}_p95")"
