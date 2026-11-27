@@ -109,6 +109,15 @@ pub const TEMPLATES: &[&str] = &[
     "palette.footer.hint.{n}.key",
     "palette.footer.hint.{n}.key.{n}",
     "palette.footer.hint.{n}.label",
+    // Подсказка which-key.
+    "whichkey",
+    "whichkey.prefix",
+    "whichkey.prefix.{n}",
+    "whichkey.title",
+    "whichkey.item.{n}",
+    "whichkey.item.{n}.key",
+    "whichkey.item.{n}.key.{n}",
+    "whichkey.item.{n}.label",
 ];
 
 const PSEUDO: [&str; 2] = ["::before", "::after"];
@@ -219,6 +228,32 @@ mod tests {
         ] {
             assert!(check_key(key).is_err(), "{key}");
         }
+    }
+
+    #[test]
+    fn which_key_keys_are_a_floating_plate_of_the_layout_surface() {
+        use crate::cdp::kind_of;
+        use crate::fields::ElementKind;
+        use crate::registry::Surface;
+        for key in [
+            "whichkey",
+            "whichkey.prefix",
+            "whichkey.prefix.2",
+            "whichkey.title",
+            "whichkey.item.3",
+            "whichkey.item.1.key",
+            "whichkey.item.1.key.2",
+            "whichkey.item.14.label",
+        ] {
+            assert_eq!(check_key(key), Ok(()), "{key}");
+            assert!(Surface::Layout.owns(key), "{key}");
+        }
+        assert!(check_key("whichkey.item.1.title").is_err());
+        assert_eq!(kind_of("div", "whichkey"), ElementKind::Plate);
+        assert_eq!(kind_of("div", "whichkey.item.1"), ElementKind::Container);
+        assert_eq!(kind_of("kbd", "whichkey.item.1.key"), ElementKind::Badge);
+        assert_eq!(kind_of("b", "whichkey.item.1.label"), ElementKind::Text);
+        assert_eq!(kind_of("span", "whichkey.title"), ElementKind::Text);
     }
 
     #[test]

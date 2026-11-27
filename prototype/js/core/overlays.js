@@ -32,7 +32,8 @@
     });
     const items = [...map.entries()];
     if (!items.length) return '';
-    return `<div class="float wk" data-k="wk"><div class="wk-t">${K.kbd(seqNow.join(' '))}<span>${S.keyGroups[seqNow.join(' ')] || ''}</span></div><div class="wk-g">${items.map(([k, v]) => `<div class="${cx('wk-i', v.group && 'grp')}">${K.kbd(k)}<b>${v.title}</b></div>`).join('')}</div></div>`;
+    const item = ([k, v], i) => { const ck = `whichkey.item.${i + 1}`; return `<div class="${cx('wk-i', v.group && 'grp')}" data-ck="${ck}">${K.kbd(k, `${ck}.key`)}<b data-ck="${ck}.label">${v.title}</b></div>`; };
+    return `<div class="float wk" data-k="wk" data-ck="whichkey"><div class="wk-t">${K.kbd(seqNow.join(' '), 'whichkey.prefix')}<span data-ck="whichkey.title">${S.keyGroups[seqNow.join(' ')] || ''}</span></div><div class="wk-g">${items.map(item).join('')}</div></div>`;
   }
 
   S.renderOverlays = () => {

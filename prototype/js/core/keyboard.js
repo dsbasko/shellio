@@ -38,6 +38,10 @@
   const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   const starts = (a, p) => a.length > p.length && p.every((x, i) => x === a[i]);
 
+  // Лидер мира P1.6 сцены сверки: продолжения `Space` есть только у действий продукта — палитра,
+  // открытие терминала и зоны. Терминал называется как строка палитры того же действия.
+  const LEADER_P16 = { palette: null, 'terminal.new': 'Открыть: Терминал', 'zone.left': null, 'zone.bottom': null, 'zone.right': null };
+
   S.bindings = () => {
     const out = [];
     const p = S.focused();
@@ -51,7 +55,12 @@
     const taken = new Set(out.map((b) => b.seq.join(' ')));
     S.commands.forEach((c) => {
       if (c.when && !c.when()) return;
-      S.keysOf(c).forEach((k) => { if (!taken.has(k)) out.push({ seq: parse(k), title: c.title, run: () => c.run(), id: c.id, hidden: c.hidden }); });
+      S.keysOf(c).forEach((k) => {
+        if (taken.has(k)) return;
+        let title = c.title;
+        if (St.scene && k.startsWith('Space ')) { if (!(c.id in LEADER_P16)) return; title = LEADER_P16[c.id] || title; }
+        out.push({ seq: parse(k), title, run: () => c.run(), id: c.id, hidden: c.hidden });
+      });
     });
     return out;
   };

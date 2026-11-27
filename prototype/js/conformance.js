@@ -204,7 +204,8 @@
     },
     close_tab: (s) => { const id = partOf(s).tabs.find((t) => S.st.panels[t].plugin === s.plugin); if (!id) throw new Error(`вкладки ${s.plugin} в части нет`); S.close(id, { force: true }); },
     // Клавиши записи keymap по одной: между аккордами последовательности маршрутизатор ждёт префикс.
-    key: (s) => { s.keys.split(' ').forEach((name) => { press(name); S.renderNow(); }); },
+    // Набранный префикс показывает which-key сразу: съём не ждёт таймера задержки.
+    key: (s) => { s.keys.split(' ').forEach((name) => { press(name); S.renderNow(); }); if (S.st.pending.length) { S.st.whichShown = true; S.renderNow(); } },
     // Правка keymap.toml: прототип TOML не разбирает и получает те же привязки под своими именами команд.
     // Сообщение о неверной строке файла называет шаг: оно замещает подсказки строки статуса.
     keymap: (s) => {

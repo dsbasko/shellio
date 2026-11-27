@@ -74,9 +74,11 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         // Строка фильтра панели — контрол с подложкой, её поле — текст: значение или placeholder.
         "input" => ElementKind::Text,
         "div" if last == "filter" => ElementKind::Control,
-        // Часть зоны — плитка с рамкой и радиусом; меню и выбор — плавающие плитки.
+        // Часть зоны — плитка с рамкой и радиусом; меню, выбор, палитра и which-key — плавающие плитки.
         "section" if numbered(".part.") => ElementKind::Plate,
-        _ if last == "menu" || ck == "picker" || ck == "palette" => ElementKind::Plate,
+        _ if last == "menu" || matches!(ck, "picker" | "palette" | "whichkey") => {
+            ElementKind::Plate
+        }
         "div" if ck == "palette.empty" => ElementKind::Text,
         // Подписи заглушки и пустой части прототип рисует блочными элементами.
         "div" if matches!(last, "label" | "title" | "hint") => ElementKind::Text,
