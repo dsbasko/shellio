@@ -56,6 +56,11 @@ impl KeyStroke {
         self.repeat
     }
 
+    /// `NSEvent.timestamp`: секунды с загрузки, часы монитора цикла.
+    pub fn timestamp(&self) -> f64 {
+        self.event.timestamp()
+    }
+
     /// Символы события по действующему источнику ввода: при кириллической раскладке они не совпадают
     /// с именем клавиши.
     pub fn characters(&self) -> Option<String> {

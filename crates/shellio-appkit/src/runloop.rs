@@ -35,6 +35,8 @@ pub const ITERATION_BUDGET_MS: f64 = 16.0;
 const WINDOW: usize = 1024;
 /// Сколько последних отметок отрисовки хранится.
 const DRAW_CAPACITY: usize = 4096;
+/// Сколько последних проходов отображения хранится: серия палитры A B B A — меньше минуты.
+const PASS_CAPACITY: usize = 65_536;
 /// Порядок наблюдателя пробуждения: раньше наблюдателей AppKit.
 const ORDER_WAKE: CFIndex = -2_147_483_647;
 /// Порядок наблюдателя засыпания: после фиксации транзакции Core Animation (2 000 000) и до снятия
@@ -210,6 +212,31 @@ impl DrawLog {
     }
 }
 
+/// Моменты последних проходов отображения по порядку.
+#[derive(Debug, Default)]
+pub(crate) struct PassLog {
+    at: VecDeque<f64>,
+}
+
+impl PassLog {
+    pub(crate) fn record(&mut self, at: f64) {
+        if self.at.len() == PASS_CAPACITY {
+            self.at.pop_front();
+        }
+        self.at.push_back(at);
+    }
+
+    /// Первый хранимый проход не раньше `since`; `None` — его ещё не было или он вытеснен.
+    pub(crate) fn first_after(&self, since: f64) -> Option<f64> {
+        let index = self.at.partition_point(|at| *at < since);
+        // Вытесненный проход мог стоять раньше первого хранимого: ответ тогда неизвестен.
+        if index == 0 && self.at.len() == PASS_CAPACITY {
+            return None;
+        }
+        self.at.get(index).copied()
+    }
+}
+
 /// Чтение монитора для `ui.stats`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LoopStats {
@@ -223,6 +250,7 @@ pub struct LoopStats {
 struct LoopState {
     log: LoopLog,
     draws: DrawLog,
+    passes: PassLog,
     installed: bool,
     /// Последнее пробуждение цикла (`AfterWaiting`), секунды с загрузки.
     last_wake: Option<f64>,
@@ -299,6 +327,16 @@ impl LoopMonitor {
     pub fn first_draw(&self, component: ComponentId, generation: u64) -> Option<DrawMark> {
         with_state(|state| state.draws.first(component, generation)).flatten()
     }
+
+    /// Первый проход отображения не раньше `since` (секунды с загрузки).
+    pub fn first_pass(&self, since: f64) -> Option<f64> {
+        with_state(|state| state.passes.first_after(since)).flatten()
+    }
+}
+
+/// Время с загрузки в секундах: часы `NSEvent.timestamp` и монитора цикла.
+pub fn now() -> f64 {
+    uptime()
 }
 
 impl Drop for LoopMonitor {
@@ -331,6 +369,7 @@ fn install_observers() -> Result<Vec<CFRetained<CFRunLoopObserver>>, MonitorErro
         ORDER_SLEEP,
         |activity, at| {
             let busy = with_state(|state| {
+                state.passes.record(at);
                 if activity == CFRunLoopActivity::Exit {
                     state.log.exit(at);
                     None
@@ -401,6 +440,29 @@ mod tests {
     use super::*;
 
     const MS: f64 = 0.001;
+
+    #[test]
+    fn pass_log_finds_first_pass_after_moment() {
+        let mut passes = PassLog::default();
+        assert_eq!(passes.first_after(1.0), None);
+        for at in [1.0, 1.5, 2.0] {
+            passes.record(at);
+        }
+        assert_eq!(passes.first_after(0.5), Some(1.0));
+        assert_eq!(passes.first_after(1.5), Some(1.5));
+        assert_eq!(passes.first_after(1.6), Some(2.0));
+        assert_eq!(passes.first_after(2.1), None);
+    }
+
+    #[test]
+    fn pass_log_does_not_answer_before_evicted_passes() {
+        let mut passes = PassLog::default();
+        for index in 0..PASS_CAPACITY + 1 {
+            passes.record(index as f64);
+        }
+        assert_eq!(passes.first_after(0.0), None);
+        assert_eq!(passes.first_after(1.5), Some(2.0));
+    }
 
     #[test]
     fn wake_and_sleep_measure_busy_iteration() {

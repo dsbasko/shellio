@@ -142,7 +142,7 @@ pub use piece::{Piece, ViewWatch};
 pub use plate::{Plate, plate_spec};
 pub use press::Pressable;
 pub use runloop::{
-    DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError,
+    DrawMark, ITERATION_BUDGET_MS, IterationStats, LoopMonitor, LoopStats, MonitorError, now,
 };
 pub use split_view::{
     Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
