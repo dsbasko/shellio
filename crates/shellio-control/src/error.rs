@@ -41,7 +41,7 @@ pub enum ControlErrorCode {
     UiTimeout,
     /// Запрос `gallery.*` вне режима галереи.
     GalleryOnly,
-    /// Запрос `ui.cell` или `ui.window.size` владельцу, запущенному без явного
+    /// Запрос `ui.cell`, `ui.window.size` или `ui.latency` владельцу, запущенному без явного
     /// `SHELLIO_STATE_DIR`.
     IsolatedProfileOnly,
 }
@@ -286,7 +286,7 @@ impl ControlError {
         )
     }
 
-    /// Запрос `ui.cell` или `ui.window.size` владельцу без явного `SHELLIO_STATE_DIR`.
+    /// Запрос `ui.cell`, `ui.window.size` или `ui.latency` владельцу без явного `SHELLIO_STATE_DIR`.
     pub fn isolated_profile_only() -> Self {
         Self::plain(
             ControlErrorCode::IsolatedProfileOnly,

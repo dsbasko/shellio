@@ -63,6 +63,10 @@ pub enum UiRequest {
     /// наименьшего размера окна поднимается до него, верхний левый угол остаётся на месте. Итог
     /// читает `ui.window`.
     WindowSize { width: u32, height: u32 },
+    /// `ui.latency`: новая серия измерителя задержки палитры обычного окна у владельца с явным
+    /// `SHELLIO_STATE_DIR`. Ряды очищены, `ticks` — такты `CADisplayLink` окна владельца на время
+    /// серии (блоки A протокола), без них display link снят. Ряды читает `ui.stats`.
+    Latency { ticks: bool },
     /// `ui.overlay`: открытое наложение, его источник и состав. Чтение ничего не меняет.
     Overlay,
     /// `palette.open` с запросом или категорией. Тот же запрос без них — действие
@@ -326,6 +330,7 @@ impl UiRequest {
             Self::Gallery(command) => command.name(),
             Self::Cell { .. } => "ui.cell",
             Self::WindowSize { .. } => "ui.window.size",
+            Self::Latency { .. } => "ui.latency",
             Self::Overlay => "ui.overlay",
             Self::PaletteOpen { .. } => OverlayKind::Palette.keymap_name(),
             Self::OverlayClose(OverlayKind::Palette) => "palette.close",
@@ -351,6 +356,7 @@ impl UiRequest {
             | Self::Gallery(_)
             | Self::Cell { .. }
             | Self::WindowSize { .. }
+            | Self::Latency { .. }
             | Self::PaletteOpen { .. }
             | Self::OverlayClose(_)
             | Self::CmdlineRun { .. } => true,
@@ -375,6 +381,7 @@ impl UiRequest {
                         | Self::Filter { .. }
                         | Self::Gallery(_)
                         | Self::WindowSize { .. }
+                        | Self::Latency { .. }
                         | Self::PaletteOpen { .. }
                         | Self::OverlayClose(_),
                     UiReply::Accepted(_)
@@ -432,6 +439,12 @@ struct UiCellArgs {
 struct WindowSizeArgs {
     width: u32,
     height: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LatencyArgs {
+    ticks: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -564,6 +577,8 @@ enum WireUiRequest {
     Cell(UiCellArgs),
     #[serde(rename = "ui.window.size")]
     WindowSize(WindowSizeArgs),
+    #[serde(rename = "ui.latency")]
+    Latency(LatencyArgs),
     #[serde(rename = "ui.overlay")]
     Overlay(NoArgs),
     #[serde(rename = "palette.open")]
@@ -688,6 +703,7 @@ impl From<WireUiRequest> for UiRequest {
             WireUiRequest::WindowSize(WindowSizeArgs { width, height }) => {
                 Self::WindowSize { width, height }
             }
+            WireUiRequest::Latency(LatencyArgs { ticks }) => Self::Latency { ticks },
             WireUiRequest::Overlay(NoArgs {}) => Self::Overlay,
             WireUiRequest::PaletteOpen(PaletteOpenArgs {
                 query: None,
@@ -805,6 +821,7 @@ impl From<UiRequest> for WireUiRequest {
             UiRequest::WindowSize { width, height } => {
                 Self::WindowSize(WindowSizeArgs { width, height })
             }
+            UiRequest::Latency { ticks } => Self::Latency(LatencyArgs { ticks }),
             UiRequest::Overlay => Self::Overlay(NoArgs {}),
             UiRequest::Command(UiCommand::OverlayOpen(kind)) => match kind {
                 OverlayKind::Palette => Self::PaletteOpen(PaletteOpenArgs {
@@ -1970,6 +1987,56 @@ pub struct StatsView {
     /// Ряд задержек клавиш списка галереи; `None` — серии не было, и ключа в кадре нет.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_latency: Option<KeyLatencyView>,
+    /// Ряды измерителя задержки палитры обычного окна (план `command-overlays`, «Бюджет
+    /// палитры»); `None` — серия пуста, и ключа в кадре нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub palette_latency: Option<PaletteLatencyView>,
+}
+
+/// Серия измерителя задержки палитры с `ui.latency`: открытия и закрытия палитры с клавиши и
+/// такты `CADisplayLink` окна владельца. Время — секунды с загрузки, часы `NSEvent.timestamp`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteLatencyView {
+    /// Серия ведёт такты `CADisplayLink` (блок A протокола).
+    pub ticking: bool,
+    pub samples: Vec<PaletteSampleView>,
+    pub ticks: Vec<f64>,
+}
+
+/// Что клавиша сделала с палитрой.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaletteChange {
+    Open,
+    Close,
+}
+
+/// Открытие или закрытие палитры одной клавишей до прохода отображения.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteSampleView {
+    pub change: PaletteChange,
+    /// `NSEvent.timestamp` клавиши.
+    pub event: f64,
+    /// Вход в отложенный обработчик решения клавиши.
+    pub entry: f64,
+    /// Новое состояние палитры применено к окнам: конец своего кода.
+    pub applied: f64,
+    /// Первый проход отображения цикла главного потока не раньше [`Self::applied`]; `None` — не
+    /// наблюдался или вытеснен из журнала.
+    pub drawn: Option<f64>,
+    /// Поколение окна после применения.
+    pub generation: u64,
+    /// Окно палитры на экране после применения.
+    pub palette_visible: bool,
+    /// Окно палитры key после применения.
+    pub palette_key: bool,
+    /// Окно владельца key после применения.
+    pub owner_key: bool,
+    /// Строка годна для вердикта: отметки монотонны, проход наблюдался, состояние окон
+    /// подтверждает изменение.
+    pub valid: bool,
 }
 
 /// Ряд задержек клавиш (план P1.3, «Замеры»): нажатия серии и такты `CADisplayLink` окна. Время
@@ -2320,6 +2387,8 @@ mod tests {
                 "ui.window.size",
                 true,
             ),
+            (UiRequest::Latency { ticks: true }, "ui.latency", true),
+            (UiRequest::Latency { ticks: false }, "ui.latency", true),
             (
                 UiRequest::Gallery(GalleryCommand::Cell {
                     appearance: Some(Lightness::Light),
@@ -2480,6 +2549,9 @@ mod tests {
             json!({"ui.window.size": {"width": -1, "height": 720}}),
             json!({"ui.window.size": {"width": 1600.5, "height": 720}}),
             json!({"ui.window.size": {"width": 1600, "height": 720, "screen": 0}}),
+            json!({"ui.latency": {}}),
+            json!({"ui.latency": {"ticks": "on"}}),
+            json!({"ui.latency": {"ticks": true, "extra": 1}}),
             json!({"gallery.cell": {"appearance": "sepia"}}),
             json!({"gallery.cell": {"extra": 1}}),
             json!({"gallery.motion": {}}),

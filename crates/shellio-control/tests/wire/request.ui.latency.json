@@ -1,0 +1,8 @@
+{
+  "id": 65,
+  "ui": {
+    "ui.latency": {
+      "ticks": true
+    }
+  }
+}

@@ -205,6 +205,11 @@ impl MainWindow {
         &self.parts.window
     }
 
+    /// Окно key.
+    pub fn is_key(&self) -> bool {
+        self.parts.window.isKeyWindow()
+    }
+
     /// Показывает окно и делает его key (`makeKeyAndOrderFront`).
     pub fn show(&self) {
         self.parts.window.makeKeyAndOrderFront(None);

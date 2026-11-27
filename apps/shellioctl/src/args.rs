@@ -63,6 +63,7 @@ pub const USAGE: &str = "\
   events --follow --all
   ui window
   ui window size <ширина> <высота>
+  ui latency reset [--ticks]
   ui inspect
   ui stats
   ui receipts [--after <номер>]
@@ -116,6 +117,9 @@ ui cell — служебный вход тестов: контраст и дви
 system снимает переопределение оси, пропущенная ось не меняется.
 ui window size — служебный вход тестов: размер окна того же владельца в целых точках, не меньше
 наименьшего размера окна; итог читает ui window.
+ui latency reset — служебный вход тестов: новая серия измерителя задержки палитры обычного окна
+у владельца с явным SHELLIO_STATE_DIR, с --ticks — с тактами CADisplayLink окна; ряды читает
+ui stats --json.
 --json печатает кадры ответа построчно, --timeout задаёт срок вызова (по умолчанию 5000 мс).
 Вызовы gallery — служебные входы тестов, только у владельца в режиме --gallery; auto у gallery cell
 оставляет ось без переопределения галереи.
@@ -216,11 +220,12 @@ enum Flag {
     Panel,
     Query,
     Category,
+    Ticks,
     Help,
 }
 
 impl Flag {
-    const ALL: [Self; 29] = [
+    const ALL: [Self; 30] = [
         Self::Json,
         Self::Timeout,
         Self::Socket,
@@ -249,6 +254,7 @@ impl Flag {
         Self::Panel,
         Self::Query,
         Self::Category,
+        Self::Ticks,
         Self::Help,
     ];
 
@@ -282,6 +288,7 @@ impl Flag {
             Self::Panel => "--panel",
             Self::Query => "--query",
             Self::Category => "--category",
+            Self::Ticks => "--ticks",
             Self::Help => "--help",
         }
     }
@@ -316,6 +323,7 @@ impl Flag {
             | Self::Off
             | Self::Width
             | Self::Height
+            | Self::Ticks
             | Self::Help => false,
         }
     }
@@ -348,7 +356,8 @@ impl Flag {
             | Self::Height
             | Self::Panel
             | Self::Query
-            | Self::Category => false,
+            | Self::Category
+            | Self::Ticks => false,
         }
     }
 
@@ -1240,6 +1249,16 @@ fn action(given: &Given, absolute: &dyn Fn(&Path) -> io::Result<PathBuf>) -> Res
                 ))
             })?;
             Ok(Action::Ui(UiRequest::Command(UiCommand::History(step))))
+        }
+        "ui latency" => {
+            given.only(call, &[Flag::Ticks])?;
+            let [verb] = operands(call, rest)?;
+            match verb.as_str() {
+                "reset" => Ok(Action::Ui(UiRequest::Latency {
+                    ticks: given.has(Flag::Ticks),
+                })),
+                _ => Err(usage(format!("{call}: ожидается reset, получено «{verb}»"))),
+            }
         }
         "ui overlay" => {
             given.only(call, &[])?;
@@ -3134,8 +3153,19 @@ mod tests {
                 text: "theme dark".into()
             })
         );
+        assert_eq!(
+            action_of(&["ui", "latency", "reset"]),
+            Action::Ui(UiRequest::Latency { ticks: false })
+        );
+        assert_eq!(
+            action_of(&["ui", "latency", "reset", "--ticks"]),
+            Action::Ui(UiRequest::Latency { ticks: true })
+        );
         for (args, part) in [
-            (&["ui", "overlay", "get"][..], "ui overlay"),
+            (&["ui", "latency"][..], "ui latency"),
+            (&["ui", "latency", "start"], "ожидается reset"),
+            (&["ui", "latency", "reset", "--query", "x"], "не применим"),
+            (&["ui", "overlay", "get"], "ui overlay"),
             (&["ui", "palette"], "ui palette"),
             (&["ui", "palette", "toggle"], "open или close"),
             (

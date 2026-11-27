@@ -31,6 +31,7 @@ use shellio::key_router::{Action, Decision, Focus, KeyRouter, Modal, PanelFocus,
 use shellio::keymap_service::{KeymapPort, KeymapSnapshot};
 use shellio::launch::WindowMode;
 use shellio::owner;
+use shellio::palette_latency::{self, Change, PaletteLatency, Sample, Shown};
 use shellio::palette_source::{self, Facts};
 use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
@@ -38,14 +39,14 @@ use shellio::scene::{self, SplitId, ViewportGate};
 use shellio::which_titles;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CommandLine, CommandPalette, CommandPaletteState, CountKind,
-    FieldFocus, Frame, HintItem, HintOverlay, HintOverlayState, InspectNode, KeyMonitor,
-    KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread,
-    MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState,
-    PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow, Regime, SplitAxis, SplitDrag,
-    Startup, StatusHint, StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState,
-    ThemeSelection, Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
-    WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState, ZoneButton, ZoneSide, chip_badges,
-    instance_counts, key_line, late_callbacks,
+    DisplayTicks, FieldFocus, Frame, HintItem, HintOverlay, HintOverlayState, InspectNode,
+    KeyMonitor, KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu,
+    MainThread, MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent,
+    NodeState, PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow, Regime, SplitAxis,
+    SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts, TextFieldIntent,
+    TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts, Verdict,
+    VirtualListFacts, WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState, ZoneButton,
+    ZoneSide, chip_badges, instance_counts, key_line, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -54,11 +55,12 @@ use shellio_control::{
     HintLabelView, HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView,
     InputJournalView, InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView,
     MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
-    OverlayViewKind, OwnedWindowRole, OwnedWindowView, PaletteCategory, PaletteGroupView,
-    PaletteRowView, PaletteStateView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
-    Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
-    TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
-    VirtualListView, WhichItemView, WhichKeyView, WindowView,
+    OverlayViewKind, OwnedWindowRole, OwnedWindowView, PaletteCategory, PaletteChange,
+    PaletteGroupView, PaletteLatencyView, PaletteRowView, PaletteSampleView, PaletteStateView,
+    PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView, Size, StartupView, StatsView,
+    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
+    TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest, VirtualListView,
+    WhichItemView, WhichKeyView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
@@ -114,6 +116,19 @@ thread_local! {
     /// Подсказка which-key набранного префикса. Ячейка своя: подсказка не модальна и в состав
     /// наложения маршрутизатора не входит.
     static WHICH: RefCell<WhichState> = RefCell::new(WhichState::default());
+    /// Серия измерителя задержки палитры: ячейка своя, такты `CADisplayLink` пишут в неё вне
+    /// заимствования окна.
+    static LATENCY: RefCell<LatencySeries> = RefCell::new(LatencySeries::default());
+}
+
+/// Серия измерителя задержки палитры обычного окна. Строки пишутся только после `ui.latency`:
+/// палитра других сценариев ряды не заводит.
+#[derive(Default)]
+struct LatencySeries {
+    armed: bool,
+    meter: PaletteLatency,
+    /// Такты окна владельца в серии с тактами; снятие снимает display link.
+    link: Option<DisplayTicks>,
 }
 
 /// Подсказка which-key: префикс, по которому стоит задержка появления, и показанный состав.
@@ -1214,7 +1229,29 @@ impl OwnerWindow {
                 .gallery
                 .as_ref()
                 .and_then(|gallery| gallery.key_latency(self.monitor.as_ref())),
+            palette_latency: palette_latency_view(self.monitor.as_ref()),
         }
+    }
+
+    /// `ui.latency`: новая серия измерителя палитры; такты окна идут, только если `ticks`.
+    fn reset_latency(&self, ticks: bool) {
+        let link = ticks.then(|| {
+            DisplayTicks::start(&self.window, |at| {
+                LATENCY.with(|series| {
+                    if let Ok(mut series) = series.try_borrow_mut() {
+                        series.meter.tick(at);
+                    }
+                });
+            })
+        });
+        LATENCY.with(|series| {
+            let mut series = series.borrow_mut();
+            // Прежний display link снимается до новой серии.
+            series.link = None;
+            series.meter.reset(ticks);
+            series.armed = true;
+            series.link = link;
+        });
     }
 
     fn accepted(&self, command: UiCommand) -> UiReply {
@@ -2056,6 +2093,7 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
         },
     );
     let repeat = stroke.repeat();
+    let event = stroke.timestamp();
     let pressed = Pressed { stroke, in_filter };
     let decision =
         with_router(|router| router.key_down(&snapshot.keymap, &focus, chord, repeat, pressed));
@@ -2074,7 +2112,7 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             Verdict::Swallow
         }
         Some(Decision::Run(action)) => {
-            defer(move |app| {
+            defer_measured(event, move |app| {
                 forget_status(seen);
                 run_key(app, action);
                 show_modes();
@@ -2082,11 +2120,11 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             Verdict::Swallow
         }
         Some(Decision::Overlay { kind, chord }) => {
-            defer(move |app| on_overlay_key(app, kind, chord));
+            defer_measured(event, move |app| on_overlay_key(app, kind, chord));
             Verdict::Swallow
         }
         Some(Decision::Close(modal)) => {
-            defer(move |_| {
+            defer_measured(event, move |_| {
                 forget_status(seen);
                 restore_source(modal);
             });
@@ -2126,6 +2164,91 @@ fn on_key_down(app: &App, stroke: KeyStroke) -> Verdict {
             Verdict::Swallow
         }
     }
+}
+
+/// Отложенный обработчик решения клавиши `event` (`NSEvent.timestamp`) с замером палитры: в
+/// серии `ui.latency` смена состояния палитры пишет строку измерителя (правило «Бюджет палитры»).
+fn defer_measured(event: f64, work: impl FnOnce(&App) + Send + 'static) {
+    defer(move |app| {
+        let armed = LATENCY.with(|series| series.borrow().armed);
+        if !armed {
+            return work(app);
+        }
+        let entry = shellio_appkit::now();
+        let before = palette_on_screen();
+        work(app);
+        let after = palette_on_screen();
+        if before == after {
+            return;
+        }
+        let applied = shellio_appkit::now();
+        let change = if after { Change::Open } else { Change::Close };
+        let facts = with_window(|owner| {
+            let palette = owner.palette.as_ref();
+            let shown = Shown {
+                palette_visible: palette.is_some_and(CommandPalette::is_open),
+                palette_key: palette.is_some_and(CommandPalette::is_key),
+                owner_key: owner.window.is_key(),
+            };
+            (owner.generation.get(), shown)
+        });
+        if let Some((generation, shown)) = facts {
+            LATENCY.with(|series| {
+                series.borrow_mut().meter.record(Sample {
+                    change,
+                    event,
+                    entry,
+                    applied,
+                    generation,
+                    shown,
+                });
+            });
+        }
+    });
+}
+
+/// Окно палитры на экране.
+fn palette_on_screen() -> bool {
+    with_window(|owner| owner.palette.as_ref().is_some_and(CommandPalette::is_open)) == Some(true)
+}
+
+/// Ряды серии измерителя палитры с первым проходом отображения после применения; `None` — серии
+/// не было или она пуста.
+fn palette_latency_view(monitor: Option<&LoopMonitor>) -> Option<PaletteLatencyView> {
+    LATENCY.with(|series| {
+        let series = series.borrow();
+        if !series.armed || series.meter.is_empty() {
+            return None;
+        }
+        let rows = series
+            .meter
+            .rows(|since| monitor.and_then(|monitor| monitor.first_pass(since)));
+        Some(PaletteLatencyView {
+            ticking: series.meter.ticking(),
+            samples: rows
+                .iter()
+                .map(|row| {
+                    let sample = &row.sample;
+                    PaletteSampleView {
+                        change: match sample.change {
+                            Change::Open => PaletteChange::Open,
+                            Change::Close => PaletteChange::Close,
+                        },
+                        event: sample.event,
+                        entry: sample.entry,
+                        applied: sample.applied,
+                        drawn: row.drawn,
+                        generation: sample.generation,
+                        palette_visible: sample.shown.palette_visible,
+                        palette_key: sample.shown.palette_key,
+                        owner_key: sample.shown.owner_key,
+                        valid: palette_latency::valid(row),
+                    }
+                })
+                .collect(),
+            ticks: series.meter.ticks(),
+        })
+    })
 }
 
 /// Действие привязки, исполненное клавишей: тот же обработчик, что у меню, кнопки и CLI, и ровно
@@ -3065,6 +3188,10 @@ pub fn request(app: &App, request: UiRequest) -> Result<UiReply, UiRefusal> {
         UiRequest::WindowSize { width, height } => {
             with_window(|owner| owner.set_window_size(app, name, width, height))
         }
+        UiRequest::Latency { ticks } => with_window(|owner| {
+            owner.reset_latency(ticks);
+            owner.accepted_named(name)
+        }),
         UiRequest::Overlay => overlay_view().map(|view| UiReply::Overlay(Box::new(view))),
         UiRequest::PaletteOpen { query, category } => with_window(|_| ()).and_then(|()| {
             let command = UiCommand::OverlayOpen(OverlayKind::Palette);

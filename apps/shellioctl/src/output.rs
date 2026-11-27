@@ -1602,6 +1602,7 @@ mod tests {
             gallery_trees: Vec::new(),
             bodies_built: Vec::new(),
             key_latency: None,
+            palette_latency: None,
         };
         let shown = ui_text(&UiReply::Stats(Box::new(stats)));
         assert!(shown.contains("монитор не поставлен"), "{shown}");

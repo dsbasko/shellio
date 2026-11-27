@@ -21,12 +21,12 @@ use shellio_control::{
     GalleryView, Hello, HelloReply, InspectView, InstanceKind, InstanceView, IntentKind,
     IntentRecord, KeyLatencyView, KeyPressView, LateCallbackView, Launch, LaunchReceipt, Lightness,
     ListRowView, MaterialView, MenuItemView, MenuView, Motion, OkValue, OwnedWindowRole,
-    OwnedWindowView, OwnerState, PROTOCOL, PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT,
-    ReceiptView, ReceiptsView, Rect, RefuseReason, RefusedArg, Rejected, Request, RequestBody,
-    RequestId, Response, RowViewsView, RunLoopView, ScreenView, Size, StartupView, StatsView,
-    StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView, TabStripView, TabZone,
-    TextFieldView, TreeListView, TreeMutation, TreeRowView, UI_TIMEOUT, UiReply, UiRequest,
-    VirtualListView, WindowMode, WindowView,
+    OwnedWindowView, OwnerState, PROTOCOL, PaletteChange, PaletteLatencyView, PaletteSampleView,
+    PanelNodeView, PartNodeView, REQUEST_LINE_LIMIT, ReceiptView, ReceiptsView, Rect, RefuseReason,
+    RefusedArg, Rejected, Request, RequestBody, RequestId, Response, RowViewsView, RunLoopView,
+    ScreenView, Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime,
+    TabStatusView, TabStripView, TabZone, TextFieldView, TreeListView, TreeMutation, TreeRowView,
+    UI_TIMEOUT, UiReply, UiRequest, VirtualListView, WindowMode, WindowView,
 };
 use shellio_control::{
     CellContrast, CellMotion, CellView, FontView, IconView, InsetsView, LineSide, Rgba, ShadowView,
@@ -267,6 +267,7 @@ fn request_golden_static(request: &Request) -> &'static str {
         RequestBody::Ui(UiRequest::CmdlineRun { .. }) => "request.ui.cmdline_run",
         RequestBody::Ui(UiRequest::Cell { .. }) => "request.ui.cell",
         RequestBody::Ui(UiRequest::WindowSize { .. }) => "request.ui.window_size",
+        RequestBody::Ui(UiRequest::Latency { .. }) => "request.ui.latency",
         RequestBody::Ui(UiRequest::Gallery(command)) => match command {
             GalleryCommand::Cell { .. } => "request.ui.gallery_cell",
             GalleryCommand::Motion(_) => "request.ui.gallery_motion",
@@ -438,6 +439,8 @@ fn requests() -> Vec<Request> {
                 text: "theme dark".into(),
             }),
         ),
+        // `command-overlays`, задача 8: новая серия измерителя задержки палитры.
+        request(65, RequestBody::Ui(UiRequest::Latency { ticks: true })),
         // `prototype-conformance`, задача 7: ячейка обычного окна.
         request(
             43,
@@ -781,6 +784,9 @@ fn response_golden(response: &Response) -> &'static str {
                 "response.ok.ui.stats.animations"
             }
             UiReply::Stats(stats) if stats.key_latency.is_some() => "response.ok.ui.stats.list",
+            UiReply::Stats(stats) if stats.palette_latency.is_some() => {
+                "response.ok.ui.stats.palette"
+            }
             UiReply::Stats(_) => "response.ok.ui.stats",
             UiReply::Receipts(_) => "response.ok.ui.receipts",
             UiReply::Accepted(_) => "response.ok.ui.accepted",
@@ -951,6 +957,44 @@ fn responses() -> Result<Vec<Response>, String> {
                             generation: None,
                             drawn: None,
                             drawn_generation: None,
+                        },
+                    ],
+                    ticks: vec![1520.25, 1520.258333, 1520.266666],
+                }),
+                ..stats_view()
+            }))),
+        ),
+        // `command-overlays`, задача 8: ряды измерителя задержки палитры; прежние эталоны без
+        // ключа `palette_latency`.
+        ok(
+            9,
+            OkValue::Ui(UiReply::Stats(Box::new(StatsView {
+                palette_latency: Some(PaletteLatencyView {
+                    ticking: true,
+                    samples: vec![
+                        PaletteSampleView {
+                            change: PaletteChange::Open,
+                            event: 1520.25,
+                            entry: 1520.2531,
+                            applied: 1520.2562,
+                            drawn: Some(1520.2601),
+                            generation: 41,
+                            palette_visible: true,
+                            palette_key: true,
+                            owner_key: false,
+                            valid: true,
+                        },
+                        PaletteSampleView {
+                            change: PaletteChange::Close,
+                            event: 1520.75,
+                            entry: 1520.7522,
+                            applied: 1520.7541,
+                            drawn: None,
+                            generation: 42,
+                            palette_visible: false,
+                            palette_key: false,
+                            owner_key: true,
+                            valid: false,
                         },
                     ],
                     ticks: vec![1520.25, 1520.258333, 1520.266666],
@@ -2029,6 +2073,7 @@ fn stats_view() -> StatsView {
         gallery_trees: Vec::new(),
         bodies_built: Vec::new(),
         key_latency: None,
+        palette_latency: None,
     }
 }
 
