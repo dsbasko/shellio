@@ -165,6 +165,16 @@ impl TextFieldKind {
         }
     }
 
+    /// Текст поля буквальный: запрос палитры и команда `:` не получают системных замен ввода —
+    /// точки после двойного пробела, типографских кавычек и тире, замен текста и исправления
+    /// написания. Поле формы и строка фильтра следуют настройкам системы.
+    pub const fn literal(self) -> bool {
+        match self {
+            TextFieldKind::Palette | TextFieldKind::Command => true,
+            TextFieldKind::Field | TextFieldKind::Filter => false,
+        }
+    }
+
     /// Начало и ширина текста в подложке шириной `width`.
     pub fn text_span(self, width: f64) -> (f64, f64) {
         let metrics = self.metrics();
@@ -713,6 +723,51 @@ fn editor_is_first_responder(field: &NSTextField) -> bool {
     })
 }
 
+/// Замена системы «точка после двойного пробела»: второй пробел заменяет первый на `". "`.
+/// Выключателя у текстового вида для неё нет: настройку `NSAutomaticPeriodSubstitutionEnabled`
+/// читает весь процесс, поэтому буквальное поле распознаёт саму замену.
+fn period_substitution(replaced: &str, replacement: &str) -> bool {
+    replaced == " " && replacement == ". "
+}
+
+/// Текст редактора в диапазоне `range`; диапазон вне текста — пустая строка.
+fn replaced_text(editor: &NSText, range: NSRange) -> String {
+    let text = editor.string();
+    match range.location.checked_add(range.length) {
+        Some(end) if end <= text.length() => text.substringWithRange(range).to_string(),
+        _ => String::new(),
+    }
+}
+
+/// Ставит редактору поля системные замены ввода: типографские кавычки и тире, замены текста и
+/// исправление написания. `follow_system` — как в настройках системы, иначе выключены. Field
+/// editor окна общий у его полей, поэтому каждое поле настраивает его в начале своего ввода.
+fn set_substitutions(editor: &NSText, follow_system: bool) {
+    let checker = objc2::class!(NSSpellChecker);
+    // SAFETY: классовые свойства `NSSpellChecker` без аргументов, результат BOOL.
+    let (quotes, dashes, replacement, correction): (bool, bool, bool, bool) = unsafe {
+        (
+            msg_send![checker, isAutomaticQuoteSubstitutionEnabled],
+            msg_send![checker, isAutomaticDashSubstitutionEnabled],
+            msg_send![checker, isAutomaticTextReplacementEnabled],
+            msg_send![checker, isAutomaticSpellingCorrectionEnabled],
+        )
+    };
+    let (quotes, dashes, replacement, correction) = (
+        follow_system && quotes,
+        follow_system && dashes,
+        follow_system && replacement,
+        follow_system && correction,
+    );
+    // SAFETY: field editor поля — `NSTextView`, сеттеры свойств замен принимают BOOL.
+    unsafe {
+        let _: () = msg_send![editor, setAutomaticQuoteSubstitutionEnabled: quotes];
+        let _: () = msg_send![editor, setAutomaticDashSubstitutionEnabled: dashes];
+        let _: () = msg_send![editor, setAutomaticTextReplacementEnabled: replacement];
+        let _: () = msg_send![editor, setAutomaticSpellingCorrectionEnabled: correction];
+    }
+}
+
 /// Слои поднятой подложки под её содержимым по порядку записи `box-shadow`: две тени токена и
 /// кольцо снаружи кадра. Слой тени несёт заливку подложки: она закрывает тень внутри кадра.
 struct RaisedLayers {
@@ -883,7 +938,7 @@ impl FieldBox {
         owner: Callback<FieldModel>,
         kind: TextFieldKind,
     ) -> Retained<FieldBox> {
-        let field = FieldControl::new(mtm);
+        let field = FieldControl::new(mtm, kind.literal());
         let size = kind.metrics().icon;
         let icon = (size > 0.0).then(|| {
             let view = NSImageView::initWithFrame(NSImageView::alloc(mtm), NSRect::ZERO);
@@ -948,6 +1003,8 @@ impl FieldBox {
 
 struct ControlIvars {
     _live: Live,
+    /// [`TextFieldKind::literal`] вида поля.
+    literal: bool,
 }
 
 define_class!(
@@ -967,6 +1024,9 @@ define_class!(
             // SAFETY: `becomeFirstResponder` у NSTextField без аргументов, результат BOOL.
             let accepted: bool = unsafe { msg_send![super(self), becomeFirstResponder] };
             if accepted {
+                if let Some(editor) = self.currentEditor() {
+                    set_substitutions(&editor, !self.ivars().literal);
+                }
                 self.redraw_box();
                 notify_focus(FieldFocus::Began);
             }
@@ -982,13 +1042,52 @@ define_class!(
             self.redraw_box();
             notify_focus(FieldFocus::Ended);
         }
+
+        // SAFETY: селектор, аргументы и результат — как у
+        // `textView:shouldChangeTextInRange:replacementString:` протокола `NSTextViewDelegate`:
+        // делегат field editor — само поле, редактор передаётся как `NSText`.
+        #[unsafe(method(textView:shouldChangeTextInRange:replacementString:))]
+        fn should_change_text(
+            &self,
+            editor: &NSText,
+            range: NSRange,
+            replacement: Option<&NSString>,
+        ) -> bool {
+            if self.ivars().literal
+                && let Some(replacement) = replacement
+                && period_substitution(&replaced_text(editor, range), &replacement.to_string())
+            {
+                // Вместо точки вставляется сам набранный пробел: повторный вход в этот метод
+                // замены уже не несёт и идёт обычным путём.
+                let space = NSString::from_str(" ");
+                // SAFETY: field editor поля — `NSTextView`, он реализует
+                // `insertText:replacementRange:` протокола `NSTextInputClient`: строка и
+                // `NSRange` выделения внутри текста.
+                let _: () = unsafe {
+                    msg_send![editor, insertText: &*space, replacementRange: editor.selectedRange()]
+                };
+                false
+            } else {
+                // SAFETY: NSTextField реализует этот метод делегата field editor с теми же
+                // аргументами.
+                unsafe {
+                    msg_send![
+                        super(self),
+                        textView: editor,
+                        shouldChangeTextInRange: range,
+                        replacementString: replacement
+                    ]
+                }
+            }
+        }
     }
 );
 
 impl FieldControl {
-    fn new(mtm: MainThreadMarker) -> Retained<FieldControl> {
+    fn new(mtm: MainThreadMarker, literal: bool) -> Retained<FieldControl> {
         let this = FieldControl::alloc(mtm).set_ivars(ControlIvars {
             _live: FIELD_CONTROL.live(),
+            literal,
         });
         // SAFETY: назначенный инициализатор NSTextField (через NSControl), ivars уже заданы.
         let field: Retained<FieldControl> =
@@ -1098,6 +1197,25 @@ mod tests {
             placeholder: placeholder.to_owned(),
             editable,
         }
+    }
+
+    #[test]
+    fn only_palette_and_command_fields_are_literal() {
+        assert!(TextFieldKind::Palette.literal());
+        assert!(TextFieldKind::Command.literal());
+        assert!(!TextFieldKind::Field.literal());
+        assert!(!TextFieldKind::Filter.literal());
+    }
+
+    #[test]
+    fn period_substitution_is_a_space_replaced_by_period_and_space() {
+        assert!(period_substitution(" ", ". "));
+        // Набранная точка и обычная вставка текста заменой не являются.
+        assert!(!period_substitution("", ". "));
+        assert!(!period_substitution("", " "));
+        assert!(!period_substitution("a", ". "));
+        assert!(!period_substitution(" ", "  "));
+        assert!(!period_substitution("  ", ". "));
     }
 
     #[test]
