@@ -40,6 +40,7 @@ mod command_palette;
 mod components;
 mod counters;
 mod font;
+mod hint_overlay;
 mod icon;
 mod inspect;
 mod key_badge;
@@ -117,6 +118,7 @@ pub use counters::{
     CountKind, InstanceCount, LateCallbacks, instance_counts, late_callback, late_callbacks,
     late_callbacks_total,
 };
+pub use hint_overlay::{HintItem, HintOverlay, HintOverlayState};
 pub use inspect::{
     InspectNode, Inspection, MaterialFact, NodeState, OwnedWindowFacts, ScreenFacts, Transition,
     TransitionPath, ViewFacts, WindowFacts, ck, into_parent,

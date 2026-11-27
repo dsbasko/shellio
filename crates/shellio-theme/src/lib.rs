@@ -14,6 +14,7 @@ pub use cell::{
 };
 pub use color::{Srgb8, Tint, UnitRgb};
 pub use tokens::{
-    Adr0027Column, AppTheme, Colors, CubicBezier, Focus, FontSizes, KeyMode, LineHeights, METRICS,
-    MONO_FAMILIES, MONO_FONT_FILES, Metrics, MotionTokens, Origin, Radii, Shadow, Slot, Value,
+    Adr0027Column, AppTheme, Colors, CubicBezier, Focus, FontSizes, HINT_SHADOW, KeyMode,
+    LineHeights, METRICS, MONO_FAMILIES, MONO_FONT_FILES, Metrics, MotionTokens, Origin, Radii,
+    Shadow, Slot, Value,
 };

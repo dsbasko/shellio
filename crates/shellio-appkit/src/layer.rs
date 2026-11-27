@@ -32,6 +32,11 @@ pub(crate) fn ns_color(color: Srgb8) -> Retained<NSColor> {
     srgb(color, 1.0)
 }
 
+/// Цвет токена с долей для контролов AppKit: приглушённый текст поверх непрозрачной заливки.
+pub(crate) fn ns_tint(tint: Tint) -> Retained<NSColor> {
+    srgb(tint.color, tint.alpha)
+}
+
 /// Непрозрачная заливка слоя цветом токена.
 pub(crate) fn set_fill(layer: &CALayer, color: Srgb8) {
     layer.setBackgroundColor(Some(&srgb(color, 1.0).CGColor()));

@@ -32,7 +32,7 @@ enum Ctx {
     Input,
 }
 
-const HOST: [(Ctx, &str, &str, Option<&str>); 51] = [
+const HOST: [(Ctx, &str, &str, Option<&str>); 52] = [
     (Ctx::Global, "Cmd-w", "window.close", None),
     (Ctx::Global, "Cmd-q", "app.quit", None),
     (Ctx::Global, "Cmd-0", "layout.toggle.navigator", None),
@@ -79,6 +79,9 @@ const HOST: [(Ctx, &str, &str, Option<&str>); 51] = [
     (Ctx::Navigation, "7", "tab.select", None),
     (Ctx::Navigation, "8", "tab.select", None),
     (Ctx::Navigation, "9", "tab.select", None),
+    // Метки перехода (ADR-0010, «Уточнено в P1.6 (планирование): наложения»): `f` остаётся и в
+    // алфавите меток, отмена — только `Esc`.
+    (Ctx::Navigation, "f", "hints.open", None),
     // Лидер P1.6 (ADR-0010, «Уточнено в P1.6 (планирование): наложения») в порядке команд
     // прототипа: палитра, терминал, зоны.
     (Ctx::Navigation, "<leader><leader>", "palette.open", None),

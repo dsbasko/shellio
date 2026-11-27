@@ -38,13 +38,14 @@ use shellio::scene::{self, SplitId, ViewportGate};
 use shellio::which_titles;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CommandPalette, CommandPaletteState, CountKind, FieldFocus,
-    Frame, InspectNode, KeyMonitor, KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor,
-    MENU_ACTIONS, MainMenu, MainThread, MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys,
-    MenuState, MonitorEvent, NodeState, PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow,
-    Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
-    TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
-    Verdict, VirtualListFacts, WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState,
-    ZoneButton, ZoneSide, chip_badges, instance_counts, late_callbacks,
+    Frame, HintItem, HintOverlay, HintOverlayState, InspectNode, KeyMonitor, KeyResponder,
+    KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow,
+    MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PaletteGroupSpec,
+    PaletteIntent, PaletteRowSpec, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint,
+    StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection,
+    Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
+    WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState, ZoneButton, ZoneSide, chip_badges,
+    instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -415,6 +416,8 @@ struct OwnerWindow {
     palette: Option<CommandPalette>,
     /// Подсказка which-key обычного режима: один вид, показ по ячейке `WHICH`.
     which: Option<ShellioWhichKey>,
+    /// Слой меток `f` обычного режима: один вид, показ по составу открытого наложения.
+    hint_layer: Option<HintOverlay>,
     /// Плагины пунктов меню «Открыть панель» по порядку пунктов.
     open_rows: Vec<&'static str>,
     /// Размер окна для ядра.
@@ -428,6 +431,7 @@ struct OwnerWindow {
 impl OwnerWindow {
     fn bump(&mut self) {
         self.sync_which_view();
+        self.sync_hint_view();
         self.generation.bump();
         self.publish();
     }
@@ -457,6 +461,49 @@ impl OwnerWindow {
                         })
                         .collect(),
                 });
+                view.show(&self.window);
+            }
+            None if view.is_shown() => view.hide(),
+            None => {}
+        }
+    }
+
+    /// Слой меток следует за составом открытого наложения: метки, совпавшие с набранной частью,
+    /// у кадров своих целей. Без открытых меток слой скрыт.
+    fn sync_hint_view(&self) {
+        let Some(view) = &self.hint_layer else {
+            return;
+        };
+        let modal = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+        let state = OVERLAY.with(|state| {
+            let state = state.borrow();
+            if modal != Some(OverlayKind::Hints) || state.kind != Some(OverlayKind::Hints) {
+                return None;
+            }
+            let (labels, targets) = state.hints.as_ref()?;
+            Some(HintOverlayState {
+                typed: labels.typed().to_owned(),
+                items: labels
+                    .visible()
+                    .filter_map(|(index, text)| {
+                        let target = targets.get(index)?;
+                        Some(HintItem {
+                            number: index + 1,
+                            label: text.to_owned(),
+                            target: Frame::new(
+                                target.frame.x,
+                                target.frame.y,
+                                target.frame.width,
+                                target.frame.height,
+                            ),
+                        })
+                    })
+                    .collect(),
+            })
+        });
+        match state {
+            Some(state) => {
+                view.set_state(state);
                 view.show(&self.window);
             }
             None if view.is_shown() => view.hide(),
@@ -513,6 +560,9 @@ impl OwnerWindow {
         }
         if let Some(which) = &self.which {
             which.set_theme(&selection.theme());
+        }
+        if let Some(hints) = &self.hint_layer {
+            hints.set_theme(&selection.theme());
         }
         true
     }
@@ -1032,6 +1082,7 @@ impl OwnerWindow {
             .filter(|palette| palette.is_open())
             .map(|palette| palette.inspect(&self.window));
         let which_nodes = self.which.as_ref().map(ShellioWhichKey::inspect);
+        let hint_nodes = self.hint_layer.as_ref().map(HintOverlay::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -1043,6 +1094,7 @@ impl OwnerWindow {
                 .chain(status_nodes.into_iter().flatten())
                 .chain(palette_nodes.into_iter().flatten())
                 .chain(which_nodes.into_iter().flatten())
+                .chain(hint_nodes.into_iter().flatten())
                 .map(component)
                 .chain(layout_nodes.into_iter().flatten())
                 .collect(),
@@ -1608,6 +1660,10 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         WindowMode::Normal => Some(ShellioWhichKey::new(app, &window.selection().theme())),
         WindowMode::Gallery => None,
     };
+    let hint_layer = match mode {
+        WindowMode::Normal => Some(HintOverlay::new(app, &window.selection().theme())),
+        WindowMode::Gallery => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
     let applied = window.selection();
     WINDOW.with(|slot| {
@@ -1629,6 +1685,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             status,
             palette,
             which,
+            hint_layer,
             open_rows,
             viewport: ViewportGate::default(),
             pending: Vec::new(),
@@ -1793,6 +1850,12 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
                 defer(|_| close_overlay(OverlayKind::Palette));
                 return Verdict::Swallow;
             }
+            // Щелчок при открытых метках закрывает их (правило «Отмена») и до слоя под ними не
+            // доходит: метки — не поверхность, которую можно щёлкнуть.
+            if hints_open() {
+                defer(|_| close_overlay(OverlayKind::Hints));
+                return Verdict::Swallow;
+            }
             with_router(|router| router.cancel(Cancel::MouseDown));
             let seen = status_serial();
             defer(move |_| {
@@ -1819,6 +1882,13 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
         Some(Decision::Swallow | Decision::Overlay { .. } | Decision::Close(_)) => Verdict::Swallow,
         Some(Decision::Pass | Decision::Run(_) | Decision::Replay { .. }) | None => Verdict::Pass,
     }
+}
+
+/// Метки открыты.
+fn hints_open() -> bool {
+    with_router(|router| router.modal().map(|modal| modal.kind))
+        .flatten()
+        .is_some_and(|kind| kind == OverlayKind::Hints)
 }
 
 /// Палитра открыта, а окно `window` — не её окно.
@@ -3057,6 +3127,8 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
         OVERLAY.with(|state| {
             state.borrow_mut().hints = Some((HintLabels::new(targets.len()), targets));
         });
+        // Метки появляются на уже собранных целях: слой не попадает в их отбор.
+        with_window(|owner| owner.bump());
     }
     note_receipt(tag, Ending::Done);
 }
@@ -3155,13 +3227,25 @@ fn press_hint(id: &str) {
     if let Some(modal) = with_router(KeyRouter::close).flatten() {
         restore_source(modal);
     }
-    let pressable = with_window(|owner| {
+    let Some(found) = with_window(|owner| {
         let target = retarget(&owner.inspect_view().components, id)?;
-        owner.window.pressable(target.object)
+        Some((target.object, owner.window.pressable(target.object)))
     })
-    .flatten();
-    if let Some(pressable) = pressable {
-        pressable.press();
+    .flatten() else {
+        // Цель исчезла, скрылась, ушла за край, перекрыта или отключена: не нажимается.
+        return;
+    };
+    match found {
+        (_, Some(pressable)) => {
+            if !pressable.press() {
+                owner::say_err(format_args!(
+                    "shellio: цель метки {id} не нажалась: у вида нет обработчика нажатия"
+                ));
+            }
+        }
+        (object, None) => owner::say_err(format_args!(
+            "shellio: цель метки {id} не найдена среди видов окна (объект {object:#x})"
+        )),
     }
 }
 

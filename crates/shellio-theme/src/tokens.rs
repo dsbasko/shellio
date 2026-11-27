@@ -358,6 +358,15 @@ const fn shadows(color: Srgb8, far: f64, near: f64) -> [Shadow; 2] {
 const DARK_SHADOW: [Shadow; 2] = shadows(Srgb8::hex(0x000000), 0.55, 0.4);
 const LIGHT_SHADOW: [Shadow; 2] = shadows(Srgb8::hex(0x14161E), 0.18, 0.10);
 
+/// Тень метки перехода (`.hint { box-shadow: 0 1px 3px #00000080 }` прототипа): одна во всех
+/// ячейках.
+pub const HINT_SHADOW: Shadow = Shadow {
+    x: 0.0,
+    y: 1.0,
+    blur: 3.0,
+    tint: Tint::new(Srgb8::hex(0x000000), 0.5),
+};
+
 const EASING: CubicBezier = CubicBezier {
     x1: 0.2,
     y1: 0.8,
