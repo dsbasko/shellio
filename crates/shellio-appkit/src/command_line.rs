@@ -8,7 +8,7 @@ use std::cell::Cell;
 
 use objc2::rc::Retained;
 use objc2::runtime::NSObject;
-use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{NSResponder, NSTextField, NSView};
 use objc2_foundation::{NSPoint, NSRect, NSString};
 use objc2_quartz_core::CALayer;
@@ -74,6 +74,8 @@ pub fn layout(height: f64, status: f64, gap: f64, prompt: f64) -> CommandLineLay
 
 struct BoxIvars {
     _live: Live,
+    /// Слой на всё окно пропускает щелчки мимо своих подвидов, плашка принимает свои.
+    pass_through: bool,
 }
 
 define_class!(
@@ -99,7 +101,7 @@ define_class!(
             // SAFETY: `hitTest:` у NSView с той же точкой.
             let hit: *mut NSView = unsafe { msg_send![super(self), hitTest: point] };
             let ours: *const NSView = std::ptr::from_ref::<NSView>(self);
-            if std::ptr::eq(hit.cast_const(), ours) {
+            if self.ivars().pass_through && std::ptr::eq(hit.cast_const(), ours) {
                 std::ptr::null_mut()
             } else {
                 hit
@@ -109,9 +111,10 @@ define_class!(
 );
 
 impl CommandBox {
-    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+    fn new(mtm: MainThreadMarker, pass_through: bool) -> Retained<Self> {
         let this = CommandBox::alloc(mtm).set_ivars(BoxIvars {
             _live: CMDLINE_BOX.live(),
+            pass_through,
         });
         // SAFETY: назначенный инициализатор NSView, ivars уже заданы.
         let view: Retained<CommandBox> =
@@ -139,8 +142,8 @@ impl CommandLine {
     /// синхронно трогать окно.
     pub fn new(app: &App, theme: &AppTheme, on_intent: impl Fn(TextFieldIntent) + 'static) -> Self {
         let mtm = app.mtm();
-        let root = CommandBox::new(mtm);
-        let plate = CommandBox::new(mtm);
+        let root = CommandBox::new(mtm, true);
+        let plate = CommandBox::new(mtm, false);
         let ring = CALayer::new();
         // Кольцо снаружи кадра плашки, под её содержимым.
         ring.setZPosition(-1.0);
@@ -234,7 +237,8 @@ impl CommandLine {
             if let Some(plate) = self.plate.layer() {
                 layer::set_fill(&plate, colors.surface);
                 layer::set_line(&plate, None);
-                layer::set_radius(&plate, radius);
+                // Без обрезки: кольцо — подслой снаружи кадра плашки.
+                layer::set_corner(&plate, radius);
             }
             layer::set_line(&self.ring, Some((colors.line_2, LINE_WIDTH)));
             layer::set_corner(&self.ring, radius + LINE_WIDTH);

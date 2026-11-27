@@ -524,7 +524,11 @@ impl OwnerWindow {
         let open = modal == Some(OverlayKind::Cmdline)
             && OVERLAY.with(|state| state.borrow().kind == Some(OverlayKind::Cmdline));
         if open {
-            view.set_text(&OVERLAY.with(|state| state.borrow().text.clone()));
+            // Текст состава ставится полю только при показе: дальше источник текста — само поле,
+            // а его `Changed` отложен, и эхо на каждом `bump` стёрло бы быстрый набор.
+            if !view.is_shown() {
+                view.set_text(&OVERLAY.with(|state| state.borrow().text.clone()));
+            }
             if !view.show(&self.window) {
                 owner::say_err("shellio: поле командной строки не получило фокус");
             }
@@ -3874,6 +3878,43 @@ mod tests {
         );
     }
 
+    /// Каждая команда грамматики `:` исполняется обработчиком действия хоста, тем же, что клавиша,
+    /// меню и CLI: `recognize` знает имя и принимает аргументы.
+    #[test]
+    fn cmdline_commands_run_through_action_handlers() {
+        use shellio_keymap::{Axis, CmdlineCommand, Theme};
+        let registry = shellio_plugin_api::Registry::default();
+        let commands = [
+            CmdlineCommand::Close,
+            CmdlineCommand::Zoom,
+            CmdlineCommand::Split(Axis::Row),
+            CmdlineCommand::Split(Axis::Stack),
+            CmdlineCommand::Theme(Theme::Light),
+            CmdlineCommand::Theme(Theme::Dark),
+            CmdlineCommand::Theme(Theme::System),
+        ];
+        for command in commands {
+            let action = cmdline_action(command);
+            assert!(
+                matches!(
+                    key_actions::recognize(&registry, &action.name, action.args.as_ref()),
+                    Some(Ok(_))
+                ),
+                "{command:?} → {} {:?}",
+                action.name,
+                action.args
+            );
+        }
+        for text in ["zoom", "q", "vs", "sp", "theme dark"] {
+            assert!(
+                matches!(
+                    shellio_keymap::resolve_cmdline(text, &[]),
+                    shellio_keymap::Cmdline::Command(_)
+                ),
+                "{text}"
+            );
+        }
+    }
     #[test]
     fn palette_spec_follows_the_model() {
         use shellio_keymap::{Args, Candidate, Keymap, PaletteSource};
