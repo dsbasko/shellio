@@ -42,7 +42,8 @@ use shellio_appkit::{
     MenuState, MonitorEvent, NodeState, PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow,
     Regime, SplitAxis, SplitDrag, Startup, StatusHint, StatusLine, TabStatus, TabStripFacts,
     TextFieldIntent, TextFieldState, ThemeSelection, Transition, TransitionPath, TreeListFacts,
-    Verdict, VirtualListFacts, ZoneButton, ZoneSide, chip_badges, instance_counts, late_callbacks,
+    Verdict, VirtualListFacts, WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState,
+    ZoneButton, ZoneSide, chip_badges, instance_counts, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -409,6 +410,8 @@ struct OwnerWindow {
     status: Option<StatusLine>,
     /// Окно палитры обычного режима: один вид на всё время окна, показ по состоянию наложения.
     palette: Option<CommandPalette>,
+    /// Подсказка which-key обычного режима: один вид, показ по ячейке `WHICH`.
+    which: Option<ShellioWhichKey>,
     /// Плагины пунктов меню «Открыть панель» по порядку пунктов.
     open_rows: Vec<&'static str>,
     /// Размер окна для ядра.
@@ -421,8 +424,41 @@ struct OwnerWindow {
 
 impl OwnerWindow {
     fn bump(&mut self) {
+        self.sync_which_view();
         self.generation.bump();
         self.publish();
+    }
+
+    /// Вид which-key следует за ячейкой `WHICH`: состав, показ и место над строкой статуса. Под
+    /// модальным наложением подсказки нет, как в чтении `ui.overlay`.
+    fn sync_which_view(&self) {
+        let Some(view) = &self.which else {
+            return;
+        };
+        let modal = with_router(|router| router.modal().is_some()).unwrap_or(false);
+        let shown = WHICH
+            .with(|which| which.borrow().shown.clone())
+            .filter(|_| !modal);
+        match shown {
+            Some(shown) => {
+                view.set_state(WhichKeyState {
+                    prefix: shown.prefix,
+                    title: shown.title.unwrap_or_default(),
+                    items: shown
+                        .items
+                        .into_iter()
+                        .map(|item| WhichKeyItem {
+                            key: item.key,
+                            label: item.label,
+                            group: item.group,
+                        })
+                        .collect(),
+                });
+                view.show(&self.window);
+            }
+            None if view.is_shown() => view.hide(),
+            None => {}
+        }
     }
 
     /// Текущее поколение получают монитор цикла и маркер галереи, смены компонентов уходят в
@@ -471,6 +507,9 @@ impl OwnerWindow {
         }
         if let Some(palette) = &self.palette {
             palette.set_theme(&selection.theme());
+        }
+        if let Some(which) = &self.which {
+            which.set_theme(&selection.theme());
         }
         true
     }
@@ -989,6 +1028,7 @@ impl OwnerWindow {
             .as_ref()
             .filter(|palette| palette.is_open())
             .map(|palette| palette.inspect(&self.window));
+        let which_nodes = self.which.as_ref().map(ShellioWhichKey::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -999,6 +1039,7 @@ impl OwnerWindow {
                 .chain(gallery_nodes.into_iter().flatten())
                 .chain(status_nodes.into_iter().flatten())
                 .chain(palette_nodes.into_iter().flatten())
+                .chain(which_nodes.into_iter().flatten())
                 .map(component)
                 .chain(layout_nodes.into_iter().flatten())
                 .collect(),
@@ -1560,6 +1601,10 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         )),
         WindowMode::Gallery => None,
     };
+    let which = match mode {
+        WindowMode::Normal => Some(ShellioWhichKey::new(app, &window.selection().theme())),
+        WindowMode::Gallery => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
     let applied = window.selection();
     WINDOW.with(|slot| {
@@ -1580,6 +1625,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             layout,
             status,
             palette,
+            which,
             open_rows,
             viewport: ViewportGate::default(),
             pending: Vec::new(),

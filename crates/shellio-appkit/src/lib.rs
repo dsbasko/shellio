@@ -59,6 +59,7 @@ mod status_line;
 mod style;
 mod surface;
 mod theme_cell;
+mod which_key;
 mod window;
 
 pub use app::{App, Delegate, MainThread, Reopened, RunError, Transfer};
@@ -147,4 +148,5 @@ pub use surface::{
     SurfaceRadius, SurfaceSpec,
 };
 pub use theme_cell::{CellObserver, SystemInputs, ThemeSelection};
+pub use which_key::{WhichKey, WhichKeyItem, WhichKeyState};
 pub use window::{DEFAULT_TITLE, MainWindow, Startup, WINDOW_HEIGHT, WINDOW_WIDTH};

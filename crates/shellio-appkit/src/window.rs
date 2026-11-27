@@ -158,6 +158,11 @@ impl MainWindow {
         piece::place(&self.parts.root, piece.into().ns_view(), frame, None);
     }
 
+    /// Вид содержимого окна: верхний слой для подсказок, которые не берут фокус.
+    pub(crate) fn root_view(&self) -> &NSView {
+        &self.parts.root
+    }
+
     /// Размер содержимого окна в точках.
     pub fn content_size(&self) -> (f64, f64) {
         let size = self.parts.root.bounds().size;
