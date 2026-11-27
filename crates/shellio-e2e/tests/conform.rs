@@ -258,12 +258,44 @@ fn mirror_of_every_passport_has_no_mismatch() {
         "layout-stub",
         "menu-panel",
         "picker-new-part",
+        "cmdline",
     ] {
         for cell in CELLS {
             let passport = passport(state, cell);
             let report = run(state, &passport, &mirror(&passport));
             assert_eq!(report.mismatches, [], "{state}, {cell}");
         }
+    }
+}
+
+/// Плашка командной строки — контрол без своей линии (толщина 0) с тенью-кольцом: кольцо продукт
+/// отдаёт линией по четырём сторонам, и нулевая толщина паспорта её не роняет. Кольцо, отданное
+/// тенью, а не линией, — расхождение поля тени.
+#[test]
+fn ring_of_a_control_without_its_own_line_is_judged_as_its_line() {
+    for cell in CELLS {
+        let passport = passport("cmdline", cell);
+        let mut tree = mirror(&passport);
+        let style = &mut node(&mut tree, "cmdline")["style"];
+        assert_eq!(style["line_width"], json!(1.0), "{cell}");
+        let ring = style["line_color"].clone();
+        let map = style.as_object_mut().unwrap_or_else(|| panic!("стиль"));
+        for name in ["line_color", "line_width", "line_sides"] {
+            map.remove(name);
+        }
+        map.insert(
+            "shadow".to_owned(),
+            json!([{"x": 0.0, "y": 0.0, "blur": 0.0, "spread": 1.0, "inset": false, "color": ring}]),
+        );
+        let report = run("cmdline", &passport, &tree);
+        assert!(
+            !fields(&report, "cmdline").is_empty()
+                && fields(&report, "cmdline")
+                    .iter()
+                    .all(|f| *f == Field::Shadow),
+            "{cell}: {:?}",
+            report.mismatches
+        );
     }
 }
 

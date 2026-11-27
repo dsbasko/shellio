@@ -730,6 +730,14 @@ impl Judge<'_> {
             if fields::rule(field, element.kind).applicability == Applicability::NotApplicable {
                 continue;
             }
+            // Элемент без своей линии с тенью-кольцом: линию продукта несёт кольцо, её толщину
+            // судит поле тени, а нулевая толщина паспорта ей не противоречит.
+            if field == Field::LineWidth
+                && element.line_width == Some(0.0)
+                && fields::judgement(element, Field::Shadow) == Judgement::RingAsLine
+            {
+                continue;
+            }
             let (want, got, tolerance) = match field {
                 Field::LineHeight => (element.line_height, style.line_height, LINE_TOLERANCE),
                 Field::LetterSpacing => {

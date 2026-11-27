@@ -300,7 +300,7 @@ impl CommandLine {
         let mut nodes = vec![
             inspect::node("cmdline", "CommandLine", None, &self.plate, None, None)
                 .with_ck("cmdline")
-                .with_shadow_layers(&[], &self.ring),
+                .with_ring_layer(&self.ring),
             inspect::typeset_node("cmdline.prompt", "Label", "cmdline", &self.prompt)
                 .with_ck("cmdline.prompt"),
         ];

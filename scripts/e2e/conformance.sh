@@ -55,6 +55,11 @@
 # расхождение — fail. После снимка ui.overlay ещё показывает метки с тем же набором, иначе снимок не годится;
 # затем Escape закрывает метки, и вид из ui.overlay уходит.
 #
+# Состояния командной строки (CMDLINE_STATES) судятся снимком окна, шаг key их рецепта (клавиша :) идёт в каждой
+# ячейке после её осей: до него ui.overlay без наложения, после — вид cmdline с пустым текстом не дольше MIRROR_MS
+# (свидетель шага). После снимка ui.overlay ещё показывает строку с пустым текстом, иначе снимок не годится; затем
+# Escape закрывает строку, и вид из ui.overlay уходит.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -139,14 +144,16 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
   conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech
   conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results conform-whichkey-leader
-  conform-whichkey-ctrlw conform-hints-full conform-hints-partial)
+  conform-whichkey-ctrlw conform-hints-full conform-hints-partial conform-cmdline)
 # Пункты палитры плана command-overlays судит снимок композиции, пункты which-key — снимок окна после префикса,
-# пункты меток — снимок окна после клавиши f и набора.
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13 14 14 15 15)
+# пункты меток — снимок окна после клавиши f и набора, пункт командной строки — снимок окна после клавиши :.
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13 14 14 15 15 16)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=15
+DONE_TASK=16
 # Состояния, чей шаг key — префикс со свидетелем ui.overlay (which_key), а не действие с записью ui.receipts.
 WHICH_STATES=(whichkey-leader whichkey-ctrlw)
+# Состояния, чей шаг key открывает командную строку: свидетель — ui.overlay с видом cmdline в каждой ячейке.
+CMDLINE_STATES=(cmdline)
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
 KBD_CK="chrome.search.kbd"
 MONO_FAMILY="JetBrains Mono"
@@ -2041,6 +2048,88 @@ hints_close() {
   done
 }
 
+# Командная строка в ui.overlay: чтение — <prefix>.stdout, текст поля — text. Нет строки или текст другой — 1 и
+# причина в WHY.
+cmdline_shown() {
+  local prefix="$1" text="$2" seen
+  WHY=""
+  ui_read "$profile" "$prefix" overlay || {
+    WHY="ui.overlay не прочитан: $(oneline "$prefix.stdout")"
+    return 1
+  }
+  seen="$(jv "$prefix.stdout" ok.ui.overlay.kind || echo ?)"
+  if [[ "$seen" != cmdline ]]; then
+    WHY="ui.overlay — вид $seen, а не cmdline"
+    return 1
+  fi
+  seen="$(jv "$prefix.stdout" ok.ui.overlay.cmdline.text || echo ?)"
+  if [[ "$seen" != "$text" ]]; then
+    WHY="ui.overlay — текст строки «$seen», а не «$text»"
+    return 1
+  fi
+}
+
+# Командная строка отложенными шагами key рецепта (<recipe dir>/cmdline.steps: номер шага и строка плана). До
+# первого шага ui.overlay без наложения, после последнего — вид cmdline с пустым текстом не дольше MIRROR_MS.
+# Отказ — WHY и STEP_KIND, как у keyboard_step.
+cmdline_open() {
+  local dir="$1" steps="$2" n line m=0 kind code mods name place deadline
+  STEP_KIND=broken
+  ui_read "$profile" "$dir/cmdline-before" overlay || {
+    WHY="ui.overlay перед командной строкой не прочитан: $(oneline "$dir/cmdline-before.stdout")"
+    return 1
+  }
+  if [[ "$(jv "$dir/cmdline-before.stdout" ok.ui.overlay.kind || echo ?)" != null ]]; then
+    STEP_KIND=fail
+    WHY="до командной строки ui.overlay — $(oneline "$dir/cmdline-before.stdout")"
+    return 1
+  fi
+  while IFS=$'\t' read -r n line <&4; do
+    m=$((m + 1))
+    read -r kind code mods name place <<<"$line"
+    front_ok "$owner_pid" "$dir" || return 1
+    se_chord "$code" "$mods" "$dir/cmdline-$m.keys.log" || {
+      WHY="шаг $n рецепта: аккорд $name не отправлен: $(oneline "$dir/cmdline-$m.keys.log")"
+      return 1
+    }
+  done 4<"$steps"
+  ((m)) || {
+    WHY="в рецепте нет шага key"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until cmdline_shown "$dir/cmdline-shown" ""; do
+    if (($(now_ms) >= deadline)); then
+      STEP_KIND=fail
+      WHY="за $MIRROR_MS мс после клавиши $name командная строка не открылась: $WHY"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Закрытие командной строки после снимка: Escape, ui.overlay без наложения не дольше MIRROR_MS. Отказ — WHY и
+# STEP_KIND.
+cmdline_close() {
+  local dir="$1" deadline
+  STEP_KIND=broken
+  front_ok "$owner_pid" "$dir" || return 1
+  se_key "$KEY_ESC" "$dir/cmdline-close-keys.log" || {
+    WHY="Escape не отправлен: $(oneline "$dir/cmdline-close-keys.log")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until ui_read "$profile" "$dir/cmdline-closed" overlay &&
+    [[ "$(jv "$dir/cmdline-closed.stdout" ok.ui.overlay.kind || echo ?)" == null ]]; do
+    if (($(now_ms) >= deadline)); then
+      STEP_KIND=fail
+      WHY="за $MIRROR_MS мс Escape не закрыл командную строку: ui.overlay — $(oneline "$dir/cmdline-closed.stdout")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
 # Сверка паспорта палитры по снимку композиции: перед каждым снимком пара окон (палитра над владельцем), снимок
 # области окна владельца, conform над парой снимков подряд, затем controls принятого снимка против основы
 # <dir>/base.png. Итог — snap_code и snap_reason, как у conform_snapshot; код 3 controls — дефект продукта, его
@@ -2139,9 +2228,15 @@ prepare_state() {
   WHICH_STEPS="$dir/which.steps"
   : >"$WHICH_STEPS"
   HINTS_STEP=""
+  CMDLINE_STEPS="$dir/cmdline.steps"
+  : >"$CMDLINE_STEPS"
   STATE_WHICH=0
   if [[ " ${WHICH_STATES[*]} " == *" $state "* ]]; then
     STATE_WHICH=1
+  fi
+  STATE_CMDLINE=0
+  if [[ " ${CMDLINE_STATES[*]} " == *" $state "* ]]; then
+    STATE_CMDLINE=1
   fi
   fresh_scene "$dir/scene"
   if [[ "$size" != "$WINDOW_W $WINDOW_H" ]]; then
@@ -2177,6 +2272,11 @@ prepare_state() {
       # Префикс which-key набирается в каждой ячейке после её осей: смена ячейки не должна решать, дожил ли он.
       if ((STATE_WHICH)) && [[ "$line" == '!key '* ]]; then
         printf '%s\t%s\n' "$n" "$line" >>"$WHICH_STEPS"
+        continue
+      fi
+      # Командная строка открывается в каждой ячейке после её осей, как префикс which-key.
+      if ((STATE_CMDLINE)) && [[ "$line" == '!key '* ]]; then
+        printf '%s\t%s\n' "$n" "$line" >>"$CMDLINE_STEPS"
         continue
       fi
       # Метки открываются в каждой ячейке после её осей, как префикс which-key.
@@ -2305,6 +2405,21 @@ item_conform() {
         broken="${broken:+$broken; }$cell: после снимка $WHY: снимок не годится"
         break
       fi
+    elif ((STATE_CMDLINE)); then
+      # Окно без открытой командной строки — не состояние рецепта: остальные ячейки не судятся.
+      if ! cmdline_open "$dir" "$CMDLINE_STEPS"; then
+        if [[ "$STEP_KIND" == fail ]]; then
+          failures+=("$cell: $WHY")
+        else
+          broken="${broken:+$broken; }$cell: $WHY"
+        fi
+        break
+      fi
+      conform_snapshot "$state" "$cell" "$dir"
+      if ! cmdline_shown "$dir/cmdline-after" ""; then
+        broken="${broken:+$broken; }$cell: после снимка $WHY: снимок не годится"
+        break
+      fi
     elif ((STATE_WHICH)); then
       # Окно без подсказки набранного префикса — не состояние рецепта: остальные ячейки не судятся.
       if ! which_open "$dir" "$WHICH_STEPS"; then
@@ -2335,6 +2450,14 @@ item_conform() {
       *) broken="${broken:+$broken; }$cell: $snap_reason" ;;
     esac
     if [[ -n "$HINTS_STEP" ]] && ! hints_close "$dir"; then
+      if [[ "$STEP_KIND" == fail ]]; then
+        failures+=("$cell: $WHY")
+      else
+        broken="${broken:+$broken; }$cell: $WHY"
+      fi
+      break
+    fi
+    if ((STATE_CMDLINE)) && ! cmdline_close "$dir"; then
       if [[ "$STEP_KIND" == fail ]]; then
         failures+=("$cell: $WHY")
       else
@@ -2475,7 +2598,7 @@ for state in chrome-titlebar chrome-statusline layout-all-zones layout-default l
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
   layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
   status-input-field status-wrong-axis status-keymap-error palette-groups palette-tab-narrowed palette-no-results \
-  whichkey-leader whichkey-ctrlw hints-full hints-partial; do
+  whichkey-leader whichkey-ctrlw hints-full hints-partial cmdline; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then
