@@ -109,6 +109,21 @@ pub fn key_badges(keys: &[String]) -> Vec<String> {
     badges
 }
 
+/// Запись клавиш строкой текста (правило `K.keyLine` прототипа): знаки `⌥⇧⌘` вместе с клавишей,
+/// `Ctrl` — приставкой `Ctrl-`, аккорды через пробел.
+pub fn key_line(keys: &[String]) -> String {
+    keys.iter()
+        .map(|chord| {
+            let badges = key_badges(std::slice::from_ref(chord));
+            match badges.as_slice() {
+                [ctrl, key] if ctrl == "Ctrl" => format!("Ctrl-{key}"),
+                _ => badges.concat(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Подписи плашек клавиш строки палитры (правило `K.keyChips` прототипа): как [`key_badges`], но
 /// каждый знак `⌥⇧⌘` — отдельная плашка перед клавишей.
 pub fn chip_badges(keys: &[String]) -> Vec<String> {
@@ -828,6 +843,16 @@ mod tests {
         assert_eq!(mode_title(KeyMode::Navigation), "НАВИГАЦИЯ");
         assert_eq!(mode_title(KeyMode::Input), "ВВОД");
     }
+    #[test]
+    fn key_line_follows_the_prototype_rule() {
+        let line =
+            |keys: &[&str]| key_line(&keys.iter().map(|k| (*k).to_owned()).collect::<Vec<_>>());
+        assert_eq!(line(&["Cmd-k"]), "⌘K");
+        assert_eq!(line(&["Ctrl-w", "v"]), "Ctrl-w v");
+        assert_eq!(line(&["Space", "Space"]), "Space Space");
+        assert_eq!(line(&["Cmd-Shift-p"]), "⇧⌘P");
+    }
+
     #[test]
     fn key_badges_follow_the_prototype_rule() {
         let keys =

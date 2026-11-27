@@ -37,15 +37,15 @@ use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
 use shellio::which_titles;
 use shellio_appkit::{
-    App, ChromeIntent, ChromeState, CommandPalette, CommandPaletteState, CountKind, FieldFocus,
-    Frame, HintItem, HintOverlay, HintOverlayState, InspectNode, KeyMonitor, KeyResponder,
-    KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread, MainWindow,
-    MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState, PaletteGroupSpec,
-    PaletteIntent, PaletteRowSpec, PanelRow, Regime, SplitAxis, SplitDrag, Startup, StatusHint,
-    StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState, ThemeSelection,
-    Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
+    App, ChromeIntent, ChromeState, CommandLine, CommandPalette, CommandPaletteState, CountKind,
+    FieldFocus, Frame, HintItem, HintOverlay, HintOverlayState, InspectNode, KeyMonitor,
+    KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor, MENU_ACTIONS, MainMenu, MainThread,
+    MainWindow, MenuAction, MenuEntry, MenuKey, MenuKeys, MenuState, MonitorEvent, NodeState,
+    PaletteGroupSpec, PaletteIntent, PaletteRowSpec, PanelRow, Regime, SplitAxis, SplitDrag,
+    Startup, StatusHint, StatusLine, TabStatus, TabStripFacts, TextFieldIntent, TextFieldState,
+    ThemeSelection, Transition, TransitionPath, TreeListFacts, Verdict, VirtualListFacts,
     WhichKey as ShellioWhichKey, WhichKeyItem, WhichKeyState, ZoneButton, ZoneSide, chip_badges,
-    instance_counts, late_callbacks,
+    instance_counts, key_line, late_callbacks,
 };
 use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
@@ -418,6 +418,8 @@ struct OwnerWindow {
     which: Option<ShellioWhichKey>,
     /// Слой меток `f` обычного режима: один вид, показ по составу открытого наложения.
     hint_layer: Option<HintOverlay>,
+    /// Командная строка `:` обычного режима: один вид, показ по открытому наложению.
+    cmdline: Option<CommandLine>,
     /// Плагины пунктов меню «Открыть панель» по порядку пунктов.
     open_rows: Vec<&'static str>,
     /// Размер окна для ядра.
@@ -432,6 +434,7 @@ impl OwnerWindow {
     fn bump(&mut self) {
         self.sync_which_view();
         self.sync_hint_view();
+        self.sync_cmdline_view();
         self.generation.bump();
         self.publish();
     }
@@ -511,6 +514,25 @@ impl OwnerWindow {
         }
     }
 
+    /// Командная строка следует за открытым наложением: открытая строка показана с фокусом в
+    /// поле и текстом состава, закрытая скрыта, ввод из её поля отдан окну.
+    fn sync_cmdline_view(&self) {
+        let Some(view) = &self.cmdline else {
+            return;
+        };
+        let modal = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+        let open = modal == Some(OverlayKind::Cmdline)
+            && OVERLAY.with(|state| state.borrow().kind == Some(OverlayKind::Cmdline));
+        if open {
+            view.set_text(&OVERLAY.with(|state| state.borrow().text.clone()));
+            if !view.show(&self.window) {
+                owner::say_err("shellio: поле командной строки не получило фокус");
+            }
+        } else if view.is_shown() {
+            view.hide();
+        }
+    }
+
     /// Текущее поколение получают монитор цикла и маркер галереи, смены компонентов уходят в
     /// журнал анимаций с этим поколением.
     fn publish(&mut self) {
@@ -563,6 +585,9 @@ impl OwnerWindow {
         }
         if let Some(hints) = &self.hint_layer {
             hints.set_theme(&selection.theme());
+        }
+        if let Some(cmdline) = &self.cmdline {
+            cmdline.set_theme(&selection.theme());
         }
         true
     }
@@ -1083,6 +1108,7 @@ impl OwnerWindow {
             .map(|palette| palette.inspect(&self.window));
         let which_nodes = self.which.as_ref().map(ShellioWhichKey::inspect);
         let hint_nodes = self.hint_layer.as_ref().map(HintOverlay::inspect);
+        let cmdline_nodes = self.cmdline.as_ref().map(CommandLine::inspect);
         InspectView {
             window_number: self.window.number(),
             content: Size { width, height },
@@ -1095,6 +1121,7 @@ impl OwnerWindow {
                 .chain(palette_nodes.into_iter().flatten())
                 .chain(which_nodes.into_iter().flatten())
                 .chain(hint_nodes.into_iter().flatten())
+                .chain(cmdline_nodes.into_iter().flatten())
                 .map(component)
                 .chain(layout_nodes.into_iter().flatten())
                 .collect(),
@@ -1664,6 +1691,14 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
         WindowMode::Normal => Some(HintOverlay::new(app, &window.selection().theme())),
         WindowMode::Gallery => None,
     };
+    let cmdline = match mode {
+        WindowMode::Normal => Some(CommandLine::new(
+            app,
+            &window.selection().theme(),
+            |intent| defer(move |app| on_cmdline_intent(app, intent)),
+        )),
+        WindowMode::Gallery => None,
+    };
     let projection = MIRROR.with(|mirror| mirror.borrow().as_ref().map(Projection::of));
     let applied = window.selection();
     WINDOW.with(|slot| {
@@ -1686,6 +1721,7 @@ pub fn create(app: &App, mode: WindowMode) -> i64 {
             palette,
             which,
             hint_layer,
+            cmdline,
             open_rows,
             viewport: ViewportGate::default(),
             pending: Vec::new(),
@@ -1939,10 +1975,12 @@ fn forget_status(seen: u64) {
 /// Кто держит ввод сейчас для решения маршрутизатора и признак строки фильтра.
 fn current_focus(app: &App) -> (Focus<ModeReceiver>, bool) {
     let facts = app.key_focus();
-    // Поле ключевого окна палитры — поле наложения, а не поле панели.
+    // Поле ключевого окна палитры и поле командной строки — поле наложения, а не поле панели.
     let overlay_field = facts.responder == KeyResponder::Field
-        && with_window(|owner| owner.palette.as_ref().is_some_and(CommandPalette::is_key))
-            == Some(true);
+        && with_window(|owner| {
+            owner.palette.as_ref().is_some_and(CommandPalette::is_key)
+                || owner.cmdline.as_ref().is_some_and(CommandLine::is_editing)
+        }) == Some(true);
     let typing = match facts.responder {
         KeyResponder::Field if overlay_field => None,
         KeyResponder::Field => field_owner(),
@@ -3214,9 +3252,39 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
                 Some(None) => return close_overlay(OverlayKind::Hints),
             }
         }
-        OverlayKind::Cmdline => {}
+        OverlayKind::Cmdline => {
+            // `Enter` исполняет текст поля; остальные клавиши управления строка не принимает.
+            if Chord::parse("Enter").ok() == Some(chord) {
+                let text = with_window(|owner| owner.cmdline.as_ref().map(CommandLine::text))
+                    .flatten()
+                    .unwrap_or_else(|| OVERLAY.with(|state| state.borrow().text.clone()));
+                cmdline_run(app, text);
+                return;
+            }
+        }
     }
     with_window(|owner| owner.bump());
+}
+
+/// Намерение поля командной строки: правка — текст состава, `Enter` — исполнение, `Esc` —
+/// закрытие без действия.
+fn on_cmdline_intent(app: &App, intent: TextFieldIntent) {
+    let open = with_router(|router| router.modal().map(|modal| modal.kind)).flatten();
+    if open != Some(OverlayKind::Cmdline) {
+        return;
+    }
+    match intent {
+        TextFieldIntent::Changed(text) => {
+            let typed = !text.is_empty();
+            OVERLAY.with(|state| state.borrow_mut().text = text);
+            with_router(|router| router.set_typed(typed));
+            with_window(|owner| owner.bump());
+        }
+        TextFieldIntent::Submitted(text) => {
+            cmdline_run(app, text);
+        }
+        TextFieldIntent::Cancelled => close_overlay(OverlayKind::Cmdline),
+    }
 }
 
 /// Метка набрана целиком. Как строка палитры (правило «Выполнение»): метки закрываются, источник
@@ -3678,12 +3746,7 @@ fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
         shellio_keymap::Cmdline::Unknown(unknown) => {
             let key = KEYMAP.with(|slot| {
                 let slot = slot.borrow();
-                let keymap = &slot.as_ref()?.keymap;
-                keymap
-                    .bindings()
-                    .iter()
-                    .find(|binding| binding.action == OverlayKind::Palette.keymap_name())
-                    .map(|binding| binding.sequence.to_string())
+                palette_key_line(&slot.as_ref()?.keymap)
             });
             let message = shellio_keymap::unknown_message(&unknown, key.as_deref());
             with_window(|owner| {
@@ -3696,6 +3759,24 @@ fn cmdline_run(app: &App, text: String) -> Option<CmdlineRunView> {
         }
     }
     Some(view)
+}
+
+/// Клавиша палитры для сообщения о неизвестной команде по правилу `S.keyFor('palette', 'Cmd-k')`
+/// прототипа: `Cmd-k`, пока она назначена палитре, иначе первая привязка; запись — строкой
+/// знаков (`K.keyLine`). Без привязок — `None`.
+fn palette_key_line(keymap: &Keymap) -> Option<String> {
+    let sequences: Vec<String> = keymap
+        .bindings()
+        .iter()
+        .filter(|binding| binding.action == OverlayKind::Palette.keymap_name())
+        .map(|binding| binding.sequence.to_string())
+        .collect();
+    let chosen = sequences
+        .iter()
+        .find(|sequence| sequence.as_str() == "Cmd-k")
+        .or_else(|| sequences.first())?;
+    let chords: Vec<String> = chosen.split(' ').map(str::to_owned).collect();
+    Some(key_line(&chords))
 }
 
 /// Действие keymap команды грамматики `:`.
@@ -3781,6 +3862,17 @@ mod tests {
     use shellio_appkit::MenuItem;
 
     use super::*;
+
+    /// Сообщение о неизвестной команде называет `Cmd-k` строкой знаков, как `K.keyLine`.
+    #[test]
+    fn unknown_command_names_the_palette_key_as_a_line() {
+        let keymap = Keymap::defaults(&[]).unwrap();
+        assert_eq!(palette_key_line(&keymap).as_deref(), Some("⌘K"));
+        assert_eq!(
+            shellio_keymap::unknown_message("нет такой", palette_key_line(&keymap).as_deref()),
+            "Неизвестная команда: нет такой. Откройте поиск ⌘K"
+        );
+    }
 
     #[test]
     fn palette_spec_follows_the_model() {

@@ -76,6 +76,9 @@ pub enum TextFieldKind {
     /// Поле запроса палитры (`.pal-in input` прототипа): без отступов, линии и подложки сверх
     /// заливки поверхности, кегль заголовка.
     Palette,
+    /// Поле командной строки (`.cmdline input` прототипа): без отступов, линии и подложки сверх
+    /// заливки поверхности, моноширинный шрифт мелкого кегля.
+    Command,
 }
 
 /// Размеры вида поля.
@@ -116,7 +119,7 @@ impl TextFieldKind {
                 raised: true,
                 line: true,
             },
-            TextFieldKind::Palette => FieldMetrics {
+            TextFieldKind::Palette | TextFieldKind::Command => FieldMetrics {
                 pad_x: 0.0,
                 pad_y: 0.0,
                 icon: 0.0,
@@ -132,7 +135,9 @@ impl TextFieldKind {
     /// цвет панели (`.panel:not(.flat)`).
     pub const fn fill(self, colors: &Colors) -> Srgb8 {
         match self {
-            TextFieldKind::Field | TextFieldKind::Palette => colors.surface,
+            TextFieldKind::Field | TextFieldKind::Palette | TextFieldKind::Command => {
+                colors.surface
+            }
             TextFieldKind::Filter => colors.panel,
         }
     }
@@ -144,6 +149,19 @@ impl TextFieldKind {
             TextFieldKind::Field => theme.metrics.font.tab,
             TextFieldKind::Filter => theme.metrics.font.body,
             TextFieldKind::Palette => theme.metrics.font.title,
+            TextFieldKind::Command => theme.metrics.font.small,
+        }
+    }
+
+    /// Шрифт текста и плейсхолдера: у командной строки моноширинный (`font: var(--t-sm)
+    /// var(--mono)`), у остальных системный.
+    fn font(self, theme: &AppTheme) -> Retained<NSFont> {
+        let size = self.font_size(theme);
+        match self {
+            TextFieldKind::Command => crate::font::mono(size),
+            TextFieldKind::Field | TextFieldKind::Filter | TextFieldKind::Palette => {
+                NSFont::systemFontOfSize(size)
+            }
         }
     }
 
@@ -461,7 +479,7 @@ impl TextField {
         let enabled = Some(field.isEnabled());
         let whole = self.view.view();
         let (mut nodes, mut node) = match self.kind() {
-            TextFieldKind::Field | TextFieldKind::Palette => (
+            TextFieldKind::Field | TextFieldKind::Palette | TextFieldKind::Command => (
                 Vec::new(),
                 inspect::node(id, "TextField", parent, whole, enabled, Some(state)),
             ),
@@ -498,9 +516,9 @@ impl TextField {
             node.facts.help = inspect::text(cell.accessibilityHelp());
         }
         node.facts.first_responder = editor_is_first_responder(field);
-        if self.kind() == TextFieldKind::Palette {
-            // Поле палитры сверяется со строкой поиска паспорта целиком: шрифт, цвет и обрезка —
-            // у узла поля, подпись доступности остаётся его именем.
+        if matches!(self.kind(), TextFieldKind::Palette | TextFieldKind::Command) {
+            // Поле палитры и командной строки сверяется с полем паспорта целиком: шрифт, цвет и
+            // обрезка — у узла поля, подпись доступности остаётся его именем.
             let label = node.facts.label.take();
             node = node.with_text_of(field);
             node.facts.label = label;
@@ -546,6 +564,30 @@ impl TextField {
         ))
     }
 
+    /// Поле командной строки с текстом `value` и плейсхолдером `placeholder`, вид
+    /// [`TextFieldKind::Command`]. `on_intent` — как у [`TextField::new`].
+    pub fn command(
+        app: &App,
+        theme: &AppTheme,
+        value: &str,
+        placeholder: &str,
+        on_intent: impl Fn(TextFieldIntent) + 'static,
+    ) -> TextField {
+        let state = TextFieldState {
+            value: value.to_owned(),
+            placeholder: placeholder.to_owned(),
+            editable: true,
+        };
+        TextField::of_kind(
+            app,
+            theme,
+            TextFieldKind::Command,
+            state,
+            placeholder,
+            on_intent,
+        )
+    }
+
     /// Подложка поля для размещения в иерархии.
     pub(crate) fn ns_view(&self) -> &NSView {
         self.view.view()
@@ -587,9 +629,7 @@ impl TextField {
         let theme = self.view.rust().theme.get();
         let field = self.field();
         field.setTextColor(Some(&layer::ns_color(theme.colors.text)));
-        field.setFont(Some(&NSFont::systemFontOfSize(
-            self.kind().font_size(&theme),
-        )));
+        field.setFont(Some(&self.kind().font(&theme)));
         self.apply_placeholder();
         let view = self.view.view();
         if let Some(icon) = &view.ivars().icon {
@@ -604,7 +644,7 @@ impl TextField {
         let theme = model.theme.get();
         let text = NSString::from_str(&model.shown.borrow().placeholder);
         let color = layer::ns_color(theme.colors.text_3);
-        let font = NSFont::systemFontOfSize(model.kind.font_size(&theme));
+        let font = model.kind.font(&theme);
         // SAFETY: ключи атрибутов — неизменяемые строки AppKit, живущие весь процесс.
         let keys = unsafe { [NSForegroundColorAttributeName, NSFontAttributeName] };
         let values: [&AnyObject; 2] = [color.as_ref(), font.as_ref()];

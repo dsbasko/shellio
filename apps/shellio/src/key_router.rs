@@ -1384,6 +1384,41 @@ mod tests {
         assert_eq!(router.modal(), None);
     }
 
+    /// Поле командной строки в окне владельца: текст — полю, `Enter` — строке, `Esc` закрывает.
+    #[test]
+    fn cmdline_field_types_text_and_gives_enter_to_the_line() {
+        let table = overlay_keymap();
+        let mut router = Router::default();
+        assert_eq!(
+            press(&mut router, &table, &body(LIST), ":"),
+            opened(OverlayKind::Cmdline)
+        );
+        let field = Focus {
+            responder: Responder::OverlayField,
+            composing: false,
+            panel: None,
+        };
+        for key in ["z", "o", "Space", ":", "f", "Backspace"] {
+            assert_eq!(
+                press(&mut router, &table, &field, key),
+                Decision::Pass,
+                "{key}"
+            );
+        }
+        assert!(matches!(
+            press(&mut router, &table, &field, "Enter"),
+            Decision::Overlay {
+                kind: OverlayKind::Cmdline,
+                ..
+            }
+        ));
+        assert!(matches!(
+            press(&mut router, &table, &field, "Esc"),
+            Decision::Close(_)
+        ));
+        assert_eq!(router.modal(), None);
+    }
+
     #[test]
     fn closing_returns_the_source_mode_and_the_field() {
         let table = overlay_keymap();

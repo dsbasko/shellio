@@ -36,6 +36,7 @@
 mod app;
 mod calibration;
 mod chrome_bar;
+mod command_line;
 mod command_palette;
 mod components;
 mod counters;
@@ -72,6 +73,9 @@ pub use calibration::{
 pub use chrome_bar::{
     ChromeBar, ChromeIntent, ChromeLayout, ChromeState, Frame, NO_WORKSPACE, ZoneButton, shorten,
     zone_button, zone_pressed,
+};
+pub use command_line::{
+    CMDLINE_PLACEHOLDER, CommandLine, CommandLineLayout, layout as command_line_layout,
 };
 pub use command_palette::layout::{
     GroupFrames as PaletteGroupFrames, HintFrames as PaletteHintFrames,
@@ -143,7 +147,7 @@ pub use runloop::{
 pub use split_view::{
     Insets, Pane, SplitDirection, SplitDrag, SplitSlot, SplitSpec, SplitView, drag_end,
 };
-pub use status_line::{StatusHint, StatusLine, chip_badges, key_badges};
+pub use status_line::{StatusHint, StatusLine, chip_badges, key_badges, key_line};
 pub use style::{
     FontFacts, IconFacts, Padding, Rgba, ShadowFacts, Side, Style, css_weight, seen_fill,
 };
