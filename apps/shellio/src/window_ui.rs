@@ -3209,7 +3209,7 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
             });
             match step.flatten() {
                 None => {}
-                Some(Some(target)) => return press_hint(&target.id),
+                Some(Some(target)) => return press_hint(app, target.id),
                 // Набор без совпадений закрывает метки без действия.
                 Some(None) => return close_overlay(OverlayKind::Hints),
             }
@@ -3221,32 +3221,38 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
 
 /// Метка набрана целиком. Как строка палитры (правило «Выполнение»): метки закрываются, источник
 /// восстанавливается, затем цель, найденная заново по имени узла, нажимается тем же обработчиком,
-/// что щелчок, — квитанцию пишет этот обработчик. Цель, которой больше нет, не нажимается. Нажатие
-/// идёт вне заимствования окна: обработчик щелчка может обратиться к окну сам.
-fn press_hint(id: &str) {
+/// что щелчок, — квитанцию пишет этот обработчик. Цель, которой больше нет, не нажимается.
+///
+/// Поиск и нажатие идут блоком цикла главного потока, а не здесь, в блоке главной очереди:
+/// `performClick:` крутит вложенный цикл, в нём срабатывает отложенное открытие меню «…», и меню
+/// стояло бы внутри блока очереди — чтения и команды ждали бы его закрытия. Нажатие идёт вне
+/// заимствования окна: обработчик щелчка может обратиться к окну сам.
+fn press_hint(app: &App, id: String) {
     if let Some(modal) = with_router(KeyRouter::close).flatten() {
         restore_source(modal);
     }
-    let Some(found) = with_window(|owner| {
-        let target = retarget(&owner.inspect_view().components, id)?;
-        Some((target.object, owner.window.pressable(target.object)))
-    })
-    .flatten() else {
-        // Цель исчезла, скрылась, ушла за край, перекрыта или отключена: не нажимается.
-        return;
-    };
-    match found {
-        (_, Some(pressable)) => {
-            if !pressable.press() {
-                owner::say_err(format_args!(
-                    "shellio: цель метки {id} не нажалась: у вида нет обработчика нажатия"
-                ));
+    app.perform_in_loop(move |_| {
+        let Some(found) = with_window(|owner| {
+            let target = retarget(&owner.inspect_view().components, &id)?;
+            Some((target.object, owner.window.pressable(target.object)))
+        })
+        .flatten() else {
+            // Цель исчезла, скрылась, ушла за край, перекрыта или отключена: не нажимается.
+            return;
+        };
+        match found {
+            (_, Some(pressable)) => {
+                if !pressable.press() {
+                    owner::say_err(format_args!(
+                        "shellio: цель метки {id} не нажалась: у вида нет обработчика нажатия"
+                    ));
+                }
             }
+            (object, None) => owner::say_err(format_args!(
+                "shellio: цель метки {id} не найдена среди видов окна (объект {object:#x})"
+            )),
         }
-        (object, None) => owner::say_err(format_args!(
-            "shellio: цель метки {id} не найдена среди видов окна (объект {object:#x})"
-        )),
-    }
+    });
 }
 
 /// Намерение вида палитры. Щелчок по строке выполняет её, как в прототипе (`overlays.js:247`).

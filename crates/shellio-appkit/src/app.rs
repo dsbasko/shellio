@@ -18,6 +18,7 @@ use objc2_app_kit::{
     NSEventModifierFlags, NSEventType, NSResponder, NSRunningApplication, NSScreen, NSWindow,
     NSWindowStyleMask, NSWorkspace, NSWorkspaceOpenConfiguration,
 };
+use objc2_core_foundation::{CFRunLoop, kCFRunLoopCommonModes};
 use objc2_foundation::{
     NSArray, NSError, NSNotification, NSObjectNSDelayedPerforming, NSPoint, NSRect,
     NSRunLoopCommonModes, NSSize,
@@ -105,6 +106,32 @@ impl App {
                 &modes,
             );
         }
+    }
+
+    /// Выполняет `work` блоком цикла главного потока в общих режимах, а не в главной очереди
+    /// dispatch. Для работы, которая может закрутить вложенный цикл (`performClick:` у `NSButton`
+    /// крутит его ради подсветки, и в нём срабатывает отложенное открытие меню): вызванная из
+    /// работы [`MainThread`], она стояла бы внутри блока главной очереди, а та последовательная и
+    /// вложенным циклом не обслуживается — чтения и команды ждали бы закрытия меню.
+    pub fn perform_in_loop(&self, work: impl FnOnce(&App) + 'static) {
+        let mtm = self.mtm;
+        let Some(run_loop) = CFRunLoop::main() else {
+            // Главный поток без цикла не бывает: работа хотя бы не теряется.
+            return work(self);
+        };
+        let slot = Cell::new(Some(work));
+        let block = RcBlock::new(move || {
+            if let Some(work) = slot.take() {
+                work(&App { mtm });
+            }
+        });
+        // SAFETY: `kCFRunLoopCommonModes` — неизменяемая константа Core Foundation; цикл копирует
+        // блок и вызывает его на своём потоке, то есть на главном.
+        unsafe {
+            let common = kCFRunLoopCommonModes.map(|mode| &**mode);
+            run_loop.perform_block(common, Some(&block));
+        }
+        run_loop.wake_up();
     }
 
     /// Ставит в конец очереди событий пустое событие приложения: `-[NSApplication run]` забирает
