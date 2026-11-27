@@ -69,13 +69,15 @@ WINDOW_H=720
 # Ширина левой и правой зон подготовки: центру остаётся место на две части не уже min_size терминала.
 SIDE_W=240
 
-# Пункты матрицы по порядку плана и срез задачи 10, который делает пункт обязательным; 0 — необязательный.
+# Пункты матрицы по порядку плана и срез задачи 10, который делает пункт обязательным (12 — план command-overlays);
+# 0 — необязательный.
 ITEMS=(focus-hjkl list-owns-keys move-and-split wrong-axis resize-zoom tabs zones-toggle appearance-cycle
   window-quit field-input exit-chord exit-chord-cancel history filter hot-reload hot-reload-menu key-and-menu-once
-  relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid)
-STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0)
-# Срез, до которого сценарий доведён: пункты более поздних срезов не судятся.
-DONE_STAGE=11
+  relative-resize-cli bad-line bad-file cyrillic-physical exit-chord-hid palette-latency)
+STAGE=(1 2 2 3 5 2 4 1 6 8 11 11 8 7 9 9 6 5 10 10 10 0 12)
+# Срез, до которого сценарий доведён: пункты более поздних срезов не судятся. Срез 12 — пункты наложений плана
+# command-overlays.
+DONE_STAGE=12
 
 # Коды клавиш (kVK_ANSI_*).
 K_H=4
@@ -3238,6 +3240,185 @@ item_exit_chord_cancel() {
   conclude "$item" "галерея, приёмник во вводе, три случая после первого Ctrl-\\ (выход armed): j — одна запись panel.focus.down с источником key; щелчок по приёмнику — первый ответчик прежний; gallery rebuild — приёмник нового поколения. После каждого журнал пуст, выход idle, режим navigation (у закрытого — до перестройки), следующий Ctrl-\\ — действие mode.toggle или первый аккорд, а не возврат пары"
 }
 
+# --- наложения (план command-overlays) ---
+
+# Последний замер серии задержки палитры отрисован: замеров pal_n, у последнего есть проход отображения.
+pal_n=0
+pal_drawn() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my $n = $ARGV[0];
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    my $p = ($s->{palette_latency} || {})->{samples} || [];
+    exit 1 unless @$p == $n && defined $p->[-1]{drawn}' "$pal_n" <"$1" 2>/dev/null
+}
+
+# Опрос ui.stats до замера pal_n с проходом отображения; чтение — <prefix>.stdout, иначе WHY.
+pal_wait() {
+  local prefix="$1" deadline seen
+  WHY=""
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$prefix" stats && pal_drawn "$prefix.stdout"; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      seen="$(jv "$prefix.stdout" 'ok.ui.stats.palette_latency.samples[#]' 2>/dev/null || echo 0)"
+      WHY="за $MIRROR_MS мс замеров палитры $seen, ожидалось $pal_n с проходом отображения у последнего"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Разбор серии задержки палитры: 220 замеров, открытие и закрытие по очереди, первые 10 пар — прогрев, следующие
+# 100 учитываются. Вывод — строки «ключ значение»; код 2 — невалидная серия (причина в строке error).
+# pal_analyze <on|off> <ui.stats>: при off блок шёл без тактов CADisplayLink.
+pal_analyze() {
+  /usr/bin/perl -MJSON::PP -e 'local $/; my ($mode) = @ARGV;
+    my $s = JSON::PP->new->utf8->decode(<STDIN>)->{ok}{ui}{stats};
+    my $pl = $s->{palette_latency} or do { print "error нет ряда palette_latency в ui.stats\n"; exit 2 };
+    my @p = @{$pl->{samples} || []}; my @t = @{$pl->{ticks} || []};
+    if (@p != 220) { printf "error замеров %d, ожидалось 220\n", scalar @p; exit 2 }
+    for my $k (0 .. $#p) {
+      my $x = $p[$k]; my $want = $k % 2 ? "close" : "open";
+      if ($x->{change} ne $want) { print "error замер $k: $x->{change}, ожидался $want\n"; exit 2 }
+      if (!defined $x->{generation} || !defined $x->{drawn}) { print "error замер $k: нет поколения или прохода отображения\n"; exit 2 }
+      my @order = map { $x->{$_} } qw(event entry applied drawn);
+      for my $j (1 .. $#order) {
+        if ($order[$j] < $order[$j - 1]) { print "error замер $k: отметки не по порядку (событие, вход, применение, проход)\n"; exit 2 }
+      }
+      if (!$x->{valid}) { printf "error замер %d (%s): состояние окон не подтверждает смену: palette_visible %s, palette_key %s, owner_key %s\n", $k, $want, map { $x->{$_} ? "true" : "false" } qw(palette_visible palette_key owner_key); exit 2 }
+    }
+    my @c = @p[20 .. 219];
+    my $ms = sub { 1000 * ($_[1] - $_[0]) };
+    my $rank = sub { my @v = sort { $a <=> $b } @_; my $i = int(0.95 * @v + 0.999999) - 1; $v[$i < 0 ? 0 : $i] };
+    my $med = sub { my @v = sort { $a <=> $b } @_; @v % 2 ? $v[$#v / 2] : ($v[@v / 2 - 1] + $v[@v / 2]) / 2 };
+    for my $ch (qw(open close)) {
+      my @r = grep { $_->{change} eq $ch } @c;
+      my @total = map { $ms->($_->{event}, $_->{drawn}) } @r;
+      printf "%s_p95 %.2f\n%s_median %.2f\n%s_max %.2f\n", $ch, $rank->(@total), $ch, $med->(@total), $ch, (sort { $b <=> $a } @total)[0];
+      for my $seg ([qw(event entry delivery)], [qw(entry applied handler)], [qw(applied drawn draw)]) {
+        my @v = map { $ms->($_->{$seg->[0]}, $_->{$seg->[1]}) } @r;
+        printf "%s_seg_%s %.2f %.2f\n", $ch, $seg->[2], $rank->(@v), $med->(@v);
+      }
+    }
+    if ($mode eq "off") {
+      if (@t) { printf "error блок без тактов, а тактов CADisplayLink %d\n", scalar @t; exit 2 }
+      print "ticks 0\n"; exit 0;
+    }
+    my ($from, $to) = ($c[0]{event}, $c[-1]{drawn});
+    my @w = grep { $_ >= $from && $_ <= $to } @t;
+    if (@w < 2) { print "error тактов CADisplayLink за серию меньше двух\n"; exit 2 }
+    printf "period %.3f\nticks %d\n", $med->(map { $ms->($w[$_ - 1], $w[$_]) } 1 .. $#w), scalar @w;
+  ' "$1" <"$2"
+}
+
+pal_file=""
+# Значение ключа разбора серии из pal_file.
+pal_val() {
+  awk -v k="$1" '$1 == k { $1 = ""; sub(/^ /, ""); print; exit }' "$pal_file"
+}
+
+# Блок серии задержки палитры: новая серия ui.latency (такты on|off), владелец впереди, 110 пар Cmd-k и Esc, каждая
+# клавиша после прохода отображения предыдущего замера, разбор в <каталог>/latency.txt. Код 0 — годный блок, иначе
+# сбой измерителя или невалидная серия с причиной в WHY.
+pal_block() {
+  local dir="$1" mode="$2" n flag=() why
+  WHY=""
+  mkdir -p "$dir"
+  [[ "$mode" == off ]] || flag=(--ticks)
+  front_ok "$owner_pid" "$dir" || return 1
+  ui_cmd "$profile" "$dir/reset" ui latency reset ${flag[@]+"${flag[@]}"} || return 1
+  pal_n=0
+  for n in $(seq 1 110); do
+    if [[ "$(front_pid)" != "$owner_pid" ]]; then
+      WHY="передний план сменился перед открытием $n: pid $(front_pid)"
+      return 1
+    fi
+    key "$dir/keys.log" "$K_K" command || {
+      WHY="Cmd-k $n не отправлена: $(tail -n 1 "$dir/keys.log")"
+      return 1
+    }
+    pal_n=$((pal_n + 1))
+    pal_wait "$dir/open" || {
+      WHY="открытие $n: $WHY"
+      return 1
+    }
+    key "$dir/keys.log" "$K_ESC" || {
+      WHY="Esc $n не отправлена: $(tail -n 1 "$dir/keys.log")"
+      return 1
+    }
+    pal_n=$((pal_n + 1))
+    pal_wait "$dir/close" || {
+      WHY="закрытие $n: $WHY"
+      return 1
+    }
+  done
+  if ! ui_read "$profile" "$dir/stats" stats; then
+    WHY="ui.stats не прочитан: $(oneline "$dir/stats.stderr")"
+    return 1
+  fi
+  if ! pal_analyze "$mode" "$dir/stats.stdout" >"$dir/latency.txt" 2>&1; then
+    why="$(sed -n 's/^error //p' "$dir/latency.txt" | head -1)"
+    WHY="${why:-разбор серии: $(oneline "$dir/latency.txt")}"
+    return 1
+  fi
+}
+
+# Строка блока для причины пункта.
+pal_line() {
+  local name="$1" mode="$2" ch line=""
+  pal_file="$run/palette-latency/$name/latency.txt"
+  line="$name (такты $mode):"
+  for ch in open close; do
+    [[ "$ch" == open ]] && line="$line открытие" || line="$line; закрытие"
+    line="$line p95 $(pal_val "${ch}_p95") мс, медиана $(pal_val "${ch}_median"), максимум $(pal_val "${ch}_max"), p95 и медиана участков «событие → вход» $(pal_val "${ch}_seg_delivery"), «вход → применение» $(pal_val "${ch}_seg_handler"), «применение → проход» $(pal_val "${ch}_seg_draw")"
+  done
+  [[ "$mode" == off ]] || line="$line; такт CADisplayLink $(pal_val period) мс по $(pal_val ticks) тактам"
+  printf '%s' "$line"
+}
+
+# Бюджет палитры (план command-overlays, правило «Бюджет палитры», ADR-0002): блоки A B B A на основном владельце,
+# A — с тактами CADisplayLink, B — без них, в каждом 10 прогревочных и 100 учитываемых пар Cmd-k (открытие) и Esc
+# (закрытие). Интервал — от NSEvent.timestamp клавиши до первого прохода отображения после применения. Четыре
+# вердикта: p95 открытия и p95 закрытия в каждом блоке B не больше 16 мс; блоки A — диагностика. Без встроенного
+# экрана 120 Гц — not_run; невалидная серия или сбой измерителя — ошибка исполнения и fail пункта. Допуск не меняется.
+item_palette_latency() {
+  local item=palette-latency dir="$run/palette-latency" screen fps name block mode lines=() b_fail=() ch v
+  log "== $item"
+  failures=()
+  to_front "$dir" "$item"
+  screen="$(jv "$dir/front-window.stdout" ok.ui.window.screen || echo ?)"
+  fps="$(jv "$dir/front-window.stdout" "ok.ui.window.screens[index=$screen].maximum_frames_per_second" || echo ?)"
+  name="$(jv "$dir/front-window.stdout" "ok.ui.window.screens[index=$screen].name" || echo ?)"
+  if [[ "$fps" != 120 ]] || ! [[ "$name" =~ Built-in|Встроен ]]; then
+    record "$item" not_run "нет встроенного экрана 120 Гц: окно на экране $screen «$name», maximumFramesPerSecond $fps; экраны — $(jv "$dir/front-window.stdout" ok.ui.window.screens || echo ?)"
+    return 0
+  fi
+  for block in a1:on b1:off b2:off a2:on; do
+    mode="${block#*:}"
+    block="${block%%:*}"
+    log "$item: блок $block, такты $mode"
+    if ! pal_block "$dir/$block" "$mode"; then
+      ui_cmd "$profile" "$dir/stop" ui latency reset || true
+      add_error "$item: сбой измерителя в блоке $block: ${WHY:-причина не записана}"
+      record "$item" fail "сбой измерителя в блоке $block: ${WHY:-причина не записана}"
+      return 0
+    fi
+    lines+=("$(pal_line "$block" "$mode")")
+    if [[ "$mode" == off ]]; then
+      for ch in open close; do
+        v="$(pal_val "${ch}_p95")"
+        awk -v a="$v" 'BEGIN { exit !(a != "" && a + 0 <= 16) }' ||
+          b_fail+=("$block — p95 $([[ "$ch" == open ]] && echo открытия || echo закрытия) $v мс")
+      done
+    fi
+  done
+  # Серия без тактов снимает display link: следующие пункты не идут под тактами.
+  ui_cmd "$profile" "$dir/stop" ui latency reset || failures+=("сброс серии после замера: $WHY")
+  ((${#b_fail[@]} == 0)) || failures+=("больше бюджета 16 мс (правило «Бюджет палитры»): ${b_fail[*]}; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')")
+  conclude "$item" "экран окна «$name», maximumFramesPerSecond $fps; четыре p95 блоков B не больше 16 мс; $(printf '%s; ' "${lines[@]}" | sed 's/; $//')"
+}
+
 prepare
 preconditions
 setup_main
@@ -3262,6 +3443,7 @@ if ((DONE_STAGE >= 10)); then
   item_bad_file
   item_cyrillic_physical
 fi
+item_palette_latency
 if [[ -n "$owner_pid" ]]; then
   mkdir -p "$run/cleanup"
   quit_owner "$profile" "$run/cleanup" "$owner_pid"
