@@ -38,6 +38,9 @@ pub enum Motion {
     Reduce,
 }
 
+/// Алфавит меток `f` (прототип `overlays.js`, `S.hintsOpen`).
+const HINT_ALPHABET: &str = "asdfjklgh";
+
 /// Шаг над сценой.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
@@ -124,6 +127,12 @@ pub enum Step {
     Query {
         text: String,
     },
+    /// Метки `f`: клавиша входа, затем набор `typed` знаками алфавита меток. Метки после набора
+    /// открыты.
+    Hints {
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        typed: String,
+    },
 }
 
 impl Step {
@@ -145,6 +154,7 @@ impl Step {
             Step::FocusField { .. } => "focus_field",
             Step::Filter { .. } => "filter",
             Step::Query { .. } => "query",
+            Step::Hints { .. } => "hints",
         }
     }
 
@@ -156,6 +166,9 @@ impl Step {
             Step::Key { keys } if !chords(keys) => {
                 Err(format!("шаг key: клавиши «{keys}» не разобраны"))
             }
+            Step::Hints { typed } if !typed.chars().all(|c| HINT_ALPHABET.contains(c)) => Err(
+                format!("шаг hints: «{typed}» вне алфавита меток {HINT_ALPHABET}"),
+            ),
             Step::Keymap {
                 message: Some(message),
                 ..

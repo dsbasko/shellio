@@ -295,9 +295,11 @@
     const items = els.map((el, i) => { const r = el.getBoundingClientRect(); return { el, label: labels[i], x: Math.max(2, r.left + 2), y: Math.max(2, r.top + Math.min(4, r.height / 2 - 8)) }; });
     const o = {
       type: 'hints', state: { typed: '' },
-      render: (x) => items.filter((it) => it.label.startsWith(x.state.typed)).map((it) => `<span class="hint" style="left:${it.x}px;top:${it.y}px" data-k="${it.label}"><em>${x.state.typed}</em>${it.label.slice(x.state.typed.length)}</span>`).join(''),
+      // Номер ключа сверки — исходный номер цели: при сужении он не меняется.
+      render: (x) => items.map((it, i) => [it, `hints.item.${i + 1}`]).filter(([it]) => it.label.startsWith(x.state.typed)).map(([it, ck]) => `<span class="hint" style="left:${it.x}px;top:${it.y}px" data-k="${it.label}" data-ck="${ck}">${x.state.typed ? `<em data-ck="${ck}.typed">${x.state.typed}</em>` : ''}<span data-ck="${ck}.remaining">${it.label.slice(x.state.typed.length)}</span></span>`).join(''),
+      // `f` остаётся в алфавите меток: отмена только `Esc`.
       onKey: (e, tok) => {
-        if (tok === 'Esc' || tok === 'f') { if (!o.state.typed || tok === 'Esc') { S.ov.pop(o); return true; } }
+        if (tok === 'Esc') { S.ov.pop(o); return true; }
         if (tok.length !== 1) return true;
         o.state.typed += tok;
         const hits = items.filter((it) => it.label.startsWith(o.state.typed));

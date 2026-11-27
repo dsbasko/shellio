@@ -818,7 +818,9 @@ fn recipe_keyboard_steps_parse() {
             {"op": "keymap", "text": "", "message": "keymap.toml, строка 2: причина"},
             {"op": "focus_field", "zone": "center", "part": 1},
             {"op": "filter", "text": "два слова"},
-            {"op": "query", "text": "скрыть"}],
+            {"op": "query", "text": "скрыть"},
+            {"op": "hints"},
+            {"op": "hints", "typed": "fa"}],
            "post": {"parts": {"center": 1}}}"#,
     )
     .unwrap();
@@ -851,12 +853,27 @@ fn recipe_keyboard_steps_parse() {
             Step::Query {
                 text: "скрыть".to_owned(),
             },
+            Step::Hints {
+                typed: String::new(),
+            },
+            Step::Hints {
+                typed: "fa".to_owned(),
+            },
         ]
     );
     let ops: Vec<_> = recipe.steps.iter().map(Step::op).collect();
     assert_eq!(
         ops,
-        ["key", "keymap", "keymap", "focus_field", "filter", "query"]
+        [
+            "key",
+            "keymap",
+            "keymap",
+            "focus_field",
+            "filter",
+            "query",
+            "hints",
+            "hints"
+        ]
     );
     // Имя шага на проводе совпадает с `op` записи, запись читается обратно без потерь.
     for step in &recipe.steps {
@@ -891,6 +908,8 @@ fn recipe_rejects_malformed_keyboard_steps() {
         (r#"{"op": "focus_field", "zone": "center"}"#, "part"),
         (r#"{"op": "filter"}"#, "text"),
         (r#"{"op": "type", "text": "x"}"#, "type"),
+        (r#"{"op": "hints", "typed": "aq"}"#, "алфавит"),
+        (r#"{"op": "hints", "typed": "A"}"#, "алфавит"),
     ] {
         let reason = parse(step).unwrap_err().reason;
         assert!(reason.contains(word), "{step}: {reason}");

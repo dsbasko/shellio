@@ -118,6 +118,10 @@ pub const TEMPLATES: &[&str] = &[
     "whichkey.item.{n}.key",
     "whichkey.item.{n}.key.{n}",
     "whichkey.item.{n}.label",
+    // Метки `f`: номер — исходный номер цели.
+    "hints.item.{n}",
+    "hints.item.{n}.typed",
+    "hints.item.{n}.remaining",
 ];
 
 const PSEUDO: [&str; 2] = ["::before", "::after"];
@@ -254,6 +258,26 @@ mod tests {
         assert_eq!(kind_of("kbd", "whichkey.item.1.key"), ElementKind::Badge);
         assert_eq!(kind_of("b", "whichkey.item.1.label"), ElementKind::Text);
         assert_eq!(kind_of("span", "whichkey.title"), ElementKind::Text);
+    }
+
+    #[test]
+    fn hint_keys_are_plates_of_the_layout_surface() {
+        use crate::cdp::kind_of;
+        use crate::fields::ElementKind;
+        use crate::registry::Surface;
+        for key in [
+            "hints.item.1",
+            "hints.item.28",
+            "hints.item.3.typed",
+            "hints.item.240.remaining",
+        ] {
+            assert_eq!(check_key(key), Ok(()), "{key}");
+            assert!(Surface::Layout.owns(key), "{key}");
+        }
+        assert!(check_key("hints.item.1.label").is_err());
+        assert_eq!(kind_of("span", "hints.item.7"), ElementKind::Plate);
+        assert_eq!(kind_of("em", "hints.item.7.typed"), ElementKind::Text);
+        assert_eq!(kind_of("span", "hints.item.7.remaining"), ElementKind::Text);
     }
 
     #[test]

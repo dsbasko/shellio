@@ -1,0 +1,3602 @@
+{
+  "composition": {
+    "focus": {
+      "part": 1,
+      "zone": "center"
+    },
+    "statusline": [
+      "status.mode"
+    ],
+    "titlebar": [
+      "chrome.window.close",
+      "chrome.window.minimize",
+      "chrome.window.zoom",
+      "chrome.workspace",
+      "chrome.search",
+      "chrome.zones.left",
+      "chrome.zones.bottom",
+      "chrome.zones.right",
+      "chrome.appearance"
+    ],
+    "zones": {
+      "bottom": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ],
+      "center": [
+        {
+          "active": 1,
+          "body": "ready",
+          "tabs": [
+            "terminal",
+            "demo-native"
+          ],
+          "tools": [
+            "split",
+            "zoom",
+            "menu"
+          ]
+        }
+      ]
+    }
+  },
+  "elements": [
+    {
+      "ck": "chrome",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 40.000000,
+        "w": 1180.000000,
+        "x": 0.000000,
+        "y": 0.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "bottom"
+      ],
+      "line_width": 1.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.close",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 87,
+        "g": 95,
+        "r": 255
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 14.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 63,
+            "g": 70,
+            "r": 226
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.minimize",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 46,
+        "g": 188,
+        "r": 254
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 34.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 22,
+            "g": 161,
+            "r": 225
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.window.zoom",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 64,
+        "g": 200,
+        "r": 40
+      },
+      "frame": {
+        "h": 12.000000,
+        "w": 12.000000,
+        "x": 54.000000,
+        "y": 13.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 0.000000,
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 44,
+            "g": 167,
+            "r": 22
+          },
+          "inset": true,
+          "spread": 0.500000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 68.031250,
+        "x": 84.000000,
+        "y": 8.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 6.000000,
+        "right": 3.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght1F40000",
+            "glyphs": 6
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 500.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 45.031250,
+        "x": 90.000000,
+        "y": 10.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "chrome.workspace",
+      "text": "Работа",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.workspace.chevron",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 11.000000,
+        "w": 11.000000,
+        "x": 138.031250,
+        "y": 14.000000
+      },
+      "icon": {
+        "name": "chevD",
+        "size": 11.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.workspace",
+      "visible": true
+    },
+    {
+      "ck": "chrome.search",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 460.000000,
+        "x": 360.000000,
+        "y": 6.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 9.000000,
+        "right": 6.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 6.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 370.000000,
+        "y": 12.500000
+      },
+      "icon": {
+        "name": "search",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.search",
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 22
+          }
+        ],
+        "family": "-apple-system",
+        "size": 13.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 390.398438,
+        "x": 392.000000,
+        "y": 10.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "chrome.search",
+      "text": "Сессии, файлы, команды",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.search.kbd",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 22.601562,
+        "x": 790.398438,
+        "y": 11.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.search",
+      "radius": 4.000000,
+      "text": "⌘K",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 92.000000,
+        "x": 1042.000000,
+        "y": 6.500000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "parent": "chrome",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.left",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1043.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.left.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1050.500000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideL",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.left",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.bottom",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 220,
+        "g": 226,
+        "r": 229
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1073.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.bottom.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1081.000000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideB",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.bottom",
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.right",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 30.000000,
+        "x": 1103.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome.zones",
+      "radius": 0.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.zones.right.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1111.000000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sideR",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.zones.right",
+      "visible": true
+    },
+    {
+      "ck": "chrome.appearance",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 24.000000,
+        "w": 28.000000,
+        "x": 1142.000000,
+        "y": 7.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "chrome",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "chrome.appearance.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 15.000000,
+        "w": 15.000000,
+        "x": 1148.500000,
+        "y": 12.000000
+      },
+      "icon": {
+        "name": "sun",
+        "size": 15.000000
+      },
+      "kind": "icon",
+      "parent": "chrome.appearance",
+      "visible": true
+    },
+    {
+      "ck": "zone.center",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 400.000000,
+        "w": 1168.000000,
+        "x": 6.000000,
+        "y": 46.000000
+      },
+      "kind": "container",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1",
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 400.000000,
+        "w": 1168.000000,
+        "x": 6.000000,
+        "y": 46.000000
+      },
+      "kind": "plate",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "parent": "zone.center",
+      "radius": 7.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1::after",
+      "fill": {
+        "a": 0.040000,
+        "b": 140,
+        "g": 103,
+        "r": 72
+      },
+      "frame": {
+        "h": 398.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 47.000000
+      },
+      "kind": "pseudo",
+      "parent": "zone.center.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs",
+      "fill": {
+        "a": 1.000000,
+        "b": 243,
+        "g": 247,
+        "r": 248
+      },
+      "frame": {
+        "h": 34.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 47.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "bottom"
+      ],
+      "line_width": 1.000000,
+      "parent": "zone.center.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 119.601562,
+        "x": 11.000000,
+        "y": 50.500000
+      },
+      "kind": "tab",
+      "parent": "zone.center.part.1.tabs",
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 139,
+            "g": 149,
+            "r": 154
+          },
+          "inset": false,
+          "spread": 1.000000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1::after",
+      "fill": {
+        "a": 1.000000,
+        "b": 140,
+        "g": 103,
+        "r": 72
+      },
+      "frame": {
+        "h": 3.000000,
+        "w": 103.601562,
+        "x": 19.000000,
+        "y": 77.500000
+      },
+      "kind": "pseudo",
+      "parent": "zone.center.part.1.tabs.tab.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 13.000000,
+        "w": 13.000000,
+        "x": 21.000000,
+        "y": 57.000000
+      },
+      "icon": {
+        "name": "term",
+        "size": 13.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.tab.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 8
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 60.601562,
+        "x": 41.000000,
+        "y": 54.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.tabs.tab.1",
+      "text": "Терминал",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1.close",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 16.000000,
+        "x": 108.601562,
+        "y": 55.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.tabs.tab.1",
+      "radius": 4.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.1.close.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 10.000000,
+        "w": 10.000000,
+        "x": 111.601562,
+        "y": 58.500000
+      },
+      "icon": {
+        "name": "close",
+        "size": 10.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.tab.1.close",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.2",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 128.664062,
+        "x": 132.601562,
+        "y": 50.500000
+      },
+      "kind": "tab",
+      "parent": "zone.center.part.1.tabs",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.2.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 13.000000,
+        "w": 13.000000,
+        "x": 142.601562,
+        "y": 57.000000
+      },
+      "icon": {
+        "name": "file",
+        "size": 13.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.tab.2",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.2.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 10
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 69.664062,
+        "x": 162.601562,
+        "y": 54.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.center.part.1.tabs.tab.2",
+      "text": "Демо: поле",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.2.close",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 16.000000,
+        "x": 239.265625,
+        "y": 55.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.tabs.tab.2",
+      "radius": 4.000000,
+      "visible": false
+    },
+    {
+      "ck": "zone.center.part.1.tabs.tab.2.close.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 10.000000,
+        "w": 10.000000,
+        "x": 242.265625,
+        "y": 58.500000
+      },
+      "icon": {
+        "name": "close",
+        "size": 10.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.tab.2.close",
+      "visible": false
+    },
+    {
+      "ck": "zone.center.part.1.tabs.split",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1097.000000,
+        "y": 52.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.split.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1101.000000,
+        "y": 56.500000
+      },
+      "icon": {
+        "name": "splitCols",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.split",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.zoom",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1121.000000,
+        "y": 52.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.zoom.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1125.000000,
+        "y": 56.500000
+      },
+      "icon": {
+        "name": "expand",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.zoom",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.menu",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1145.000000,
+        "y": 52.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.center.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.tabs.menu.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1149.000000,
+        "y": 56.500000
+      },
+      "icon": {
+        "name": "more",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.center.part.1.tabs.menu",
+      "visible": true
+    },
+    {
+      "ck": "zone.center.part.1.body",
+      "frame": {
+        "h": 364.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 81.000000
+      },
+      "kind": "container",
+      "parent": "zone.center.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 236.000000,
+        "w": 1168.000000,
+        "x": 6.000000,
+        "y": 452.000000
+      },
+      "kind": "container",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1",
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 236.000000,
+        "w": 1168.000000,
+        "x": 6.000000,
+        "y": 452.000000
+      },
+      "kind": "plate",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "parent": "zone.bottom",
+      "radius": 7.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1::after",
+      "fill": {
+        "a": 0.100000,
+        "b": 58,
+        "g": 64,
+        "r": 67
+      },
+      "frame": {
+        "h": 234.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 453.000000
+      },
+      "kind": "pseudo",
+      "parent": "zone.bottom.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs",
+      "fill": {
+        "a": 1.000000,
+        "b": 243,
+        "g": 247,
+        "r": 248
+      },
+      "frame": {
+        "h": 34.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 453.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "bottom"
+      ],
+      "line_width": 1.000000,
+      "parent": "zone.bottom.part.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.tab.1",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 119.601562,
+        "x": 11.000000,
+        "y": 456.500000
+      },
+      "kind": "tab",
+      "parent": "zone.bottom.part.1.tabs",
+      "shadow": [
+        {
+          "blur": 0.000000,
+          "color": {
+            "a": 1.000000,
+            "b": 139,
+            "g": 149,
+            "r": 154
+          },
+          "inset": false,
+          "spread": 1.000000,
+          "x": 0.000000,
+          "y": 0.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.tab.1.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "frame": {
+        "h": 13.000000,
+        "w": 13.000000,
+        "x": 21.000000,
+        "y": 463.000000
+      },
+      "icon": {
+        "name": "term",
+        "size": 13.000000
+      },
+      "kind": "icon",
+      "parent": "zone.bottom.part.1.tabs.tab.1",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.tab.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 37,
+        "g": 41,
+        "r": 43
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 8
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 60.601562,
+        "x": 41.000000,
+        "y": 460.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "zone.bottom.part.1.tabs.tab.1",
+      "text": "Терминал",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.tab.1.close",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 16.000000,
+        "x": 108.601562,
+        "y": 461.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.bottom.part.1.tabs.tab.1",
+      "radius": 4.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.tab.1.close.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 10.000000,
+        "w": 10.000000,
+        "x": 111.601562,
+        "y": 464.500000
+      },
+      "icon": {
+        "name": "close",
+        "size": 10.000000
+      },
+      "kind": "icon",
+      "parent": "zone.bottom.part.1.tabs.tab.1.close",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.split",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1097.000000,
+        "y": 458.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.bottom.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.split.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1101.000000,
+        "y": 462.500000
+      },
+      "icon": {
+        "name": "splitCols",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.bottom.part.1.tabs.split",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.zoom",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1121.000000,
+        "y": 458.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.bottom.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.zoom.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1125.000000,
+        "y": 462.500000
+      },
+      "icon": {
+        "name": "expand",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.bottom.part.1.tabs.zoom",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.menu",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 22.000000,
+        "w": 22.000000,
+        "x": 1145.000000,
+        "y": 458.500000
+      },
+      "kind": "control",
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "zone.bottom.part.1.tabs",
+      "radius": 5.000000,
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.tabs.menu.icon",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "frame": {
+        "h": 14.000000,
+        "w": 14.000000,
+        "x": 1149.000000,
+        "y": 462.500000
+      },
+      "icon": {
+        "name": "more",
+        "size": 14.000000
+      },
+      "kind": "icon",
+      "parent": "zone.bottom.part.1.tabs.menu",
+      "visible": true
+    },
+    {
+      "ck": "zone.bottom.part.1.body",
+      "frame": {
+        "h": 200.000000,
+        "w": 1166.000000,
+        "x": 7.000000,
+        "y": 487.000000
+      },
+      "kind": "container",
+      "parent": "zone.bottom.part.1",
+      "visible": true
+    },
+    {
+      "ck": "status",
+      "fill": {
+        "a": 1.000000,
+        "b": 232,
+        "g": 237,
+        "r": 239
+      },
+      "frame": {
+        "h": 26.000000,
+        "w": 1180.000000,
+        "x": 0.000000,
+        "y": 694.000000
+      },
+      "kind": "container",
+      "line_color": {
+        "a": 1.000000,
+        "b": 139,
+        "g": 149,
+        "r": 154
+      },
+      "line_sides": [
+        "top"
+      ],
+      "line_width": 1.000000,
+      "visible": true
+    },
+    {
+      "ck": "status.mode",
+      "color": {
+        "a": 1.000000,
+        "b": 255,
+        "g": 255,
+        "r": 255
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 140,
+        "g": 103,
+        "r": 72
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght2BC0000",
+            "glyphs": 9
+          }
+        ],
+        "family": "-apple-system",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 25.000000,
+        "w": 112.000000,
+        "x": 0.000000,
+        "y": 695.000000
+      },
+      "kind": "control",
+      "letter_spacing": 0.880000,
+      "line_height": 18.000000,
+      "line_width": 0.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 0.000000,
+        "right": 0.000000,
+        "top": 0.000000
+      },
+      "parent": "status",
+      "radius": 0.000000,
+      "text": "НАВИГАЦИЯ",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1",
+      "frame": {
+        "h": 18.000000,
+        "w": 126.023438,
+        "x": 124.000000,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.1",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 124.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "h",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.2",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 144.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "j",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.3",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 164.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "k",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.key.4",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 184.000000,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.1",
+      "radius": 4.000000,
+      "text": "l",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.1.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 6
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 42.023438,
+        "x": 208.000000,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.1",
+      "text": "панели",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2",
+      "frame": {
+        "h": 18.000000,
+        "w": 111.796875,
+        "x": 264.023438,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.1",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 264.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "1",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.2",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 284.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "2",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.key.3",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 1
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 17.000000,
+        "x": 304.023438,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.2",
+      "radius": 4.000000,
+      "text": "3",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.2.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 7
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 47.796875,
+        "x": 328.023438,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.2",
+      "text": "вкладки",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.3",
+      "frame": {
+        "h": 18.000000,
+        "w": 64.539062,
+        "x": 389.820312,
+        "y": 698.500000
+      },
+      "kind": "container",
+      "parent": "status",
+      "visible": true
+    },
+    {
+      "ck": "status.hint.3.key",
+      "color": {
+        "a": 1.000000,
+        "b": 47,
+        "g": 53,
+        "r": 56
+      },
+      "fill": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Regular",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 10.500000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 17.000000,
+        "w": 22.601562,
+        "x": 389.820312,
+        "y": 699.000000
+      },
+      "kind": "badge",
+      "line_color": {
+        "a": 1.000000,
+        "b": 98,
+        "g": 107,
+        "r": 111
+      },
+      "line_height": 14.000000,
+      "line_sides": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "line_width": 1.000000,
+      "padding": {
+        "bottom": 0.000000,
+        "left": 4.000000,
+        "right": 4.000000,
+        "top": 0.000000
+      },
+      "parent": "status.hint.3",
+      "radius": 4.000000,
+      "text": "⌘K",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "status.hint.3.label",
+      "color": {
+        "a": 1.000000,
+        "b": 68,
+        "g": 75,
+        "r": 79
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": false,
+            "family": ".SFNS-Regular_wdth_opsz110000_GRAD_wght",
+            "glyphs": 5
+          }
+        ],
+        "family": "-apple-system",
+        "size": 12.000000,
+        "weight": 400.000000
+      },
+      "frame": {
+        "h": 18.000000,
+        "w": 34.937500,
+        "x": 419.421875,
+        "y": 698.500000
+      },
+      "kind": "text",
+      "line_height": 18.000000,
+      "parent": "status.hint.3",
+      "text": "поиск",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.1",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 16.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.1.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 19.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.1",
+      "text": "aa",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.2",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 36.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.2.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 39.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.2",
+      "text": "as",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.3",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 56.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.3.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 59.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.3",
+      "text": "ad",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.4",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 86.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.4.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 89.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.4",
+      "text": "af",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.5",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 362.000000,
+        "y": 10.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.5.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 365.000000,
+        "y": 11.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.5",
+      "text": "aj",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.6",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1045.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.6.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1048.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.6",
+      "text": "ak",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.7",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1075.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.7.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1078.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.7",
+      "text": "al",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.8",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1105.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.8.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1108.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.8",
+      "text": "ag",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.9",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1144.000000,
+        "y": 11.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.9.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1147.000000,
+        "y": 12.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.9",
+      "text": "ah",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.10",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 13.000000,
+        "y": 54.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.10.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 16.000000,
+        "y": 55.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.10",
+      "text": "sa",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.11",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 134.601562,
+        "y": 54.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.11.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 137.601562,
+        "y": 55.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.11",
+      "text": "ss",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.12",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1099.000000,
+        "y": 55.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.12.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1102.000000,
+        "y": 56.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.12",
+      "text": "sd",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.13",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1123.000000,
+        "y": 55.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.13.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1126.000000,
+        "y": 56.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.13",
+      "text": "sf",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.14",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1147.000000,
+        "y": 55.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.14.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1150.000000,
+        "y": 56.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.14",
+      "text": "sj",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.15",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 13.000000,
+        "y": 460.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.15.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 16.000000,
+        "y": 461.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.15",
+      "text": "sk",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.16",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1099.000000,
+        "y": 461.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.16.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1102.000000,
+        "y": 462.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.16",
+      "text": "sl",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.17",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1123.000000,
+        "y": 461.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.17.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1126.000000,
+        "y": 462.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.17",
+      "text": "sg",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.18",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 1147.000000,
+        "y": 461.500000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.18.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 1150.000000,
+        "y": 462.000000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.18",
+      "text": "sh",
+      "truncated": false,
+      "visible": true
+    },
+    {
+      "ck": "hints.item.19",
+      "fill": {
+        "a": 1.000000,
+        "b": 30,
+        "g": 95,
+        "r": 133
+      },
+      "frame": {
+        "h": 16.000000,
+        "w": 19.203125,
+        "x": 2.000000,
+        "y": 699.000000
+      },
+      "kind": "plate",
+      "line_width": 0.000000,
+      "radius": 4.000000,
+      "shadow": [
+        {
+          "blur": 3.000000,
+          "color": {
+            "a": 0.500000,
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "inset": false,
+          "spread": 0.000000,
+          "x": 0.000000,
+          "y": 1.000000
+        }
+      ],
+      "visible": true
+    },
+    {
+      "ck": "hints.item.19.remaining",
+      "color": {
+        "a": 1.000000,
+        "b": 246,
+        "g": 249,
+        "r": 250
+      },
+      "font": {
+        "faces": [
+          {
+            "custom": true,
+            "family": "JetBrainsMono-Bold",
+            "glyphs": 2
+          }
+        ],
+        "family": "JetBrains Mono",
+        "size": 11.000000,
+        "weight": 700.000000
+      },
+      "frame": {
+        "h": 14.500000,
+        "w": 13.203125,
+        "x": 5.000000,
+        "y": 699.500000
+      },
+      "kind": "text",
+      "line_height": 16.000000,
+      "parent": "hints.item.19",
+      "text": "da",
+      "truncated": false,
+      "visible": true
+    }
+  ],
+  "validity": {
+    "cell": "light-high",
+    "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
+    "prototype": "eb9d2e74a5622ba20a78577213be85d7e7c3b7adfbed0118a08bed10e8c02ccb",
+    "recipe": "15f6e9035723e3a9327960703224aff97f9624d5fa1641d0d37c3627f5edce1e",
+    "scene": "d119a0106773817d2304a315e4053bbab9d82d6f40816df815bdb002086d5e6c",
+    "schema": 8
+  },
+  "window": {
+    "dpr": 2.000000,
+    "height": 720.000000,
+    "width": 1180.000000
+  }
+}

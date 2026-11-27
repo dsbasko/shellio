@@ -235,6 +235,13 @@
       if (!inp) throw new Error(`строки фильтра у панели ${p.plugin} нет`);
       inp.value = s.text;
     },
+    // Метки: клавиша входа `f`, затем набор `typed` по знаку. Метки после набора открыты.
+    hints: (s) => {
+      press('f'); S.renderNow();
+      if (!S.ov.has('hints')) throw new Error('метки не открылись');
+      [...(s.typed || '')].forEach((c) => { press(c); S.renderNow(); });
+      if (!S.ov.has('hints')) throw new Error(`метки закрылись набором «${s.typed}»`);
+    },
     // Текст запроса открытой палитры: выбор возвращается к первой строке.
     query: (s) => {
       const o = S.ov.has('palette'); if (!o) throw new Error('палитра не открыта');
@@ -276,6 +283,10 @@
     chain.forEach((f) => { if (f && f.a > 0) c = { r: f.r * f.a + c.r * (1 - f.a), g: f.g * f.a + c.g * (1 - f.a), b: f.b * f.a + c.b * (1 - f.a) }; });
     return `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
   };
+
+  // Собственная непрозрачность элемента входит в альфу цвета текста: набранная часть метки
+  // приглушена `opacity`, а не цветом.
+  const ownOpacity = (cs) => { const o = +cs.opacity; const c = parseRgba(cs.color); if (o === 1 || !c) return cs.color; return `rgba(${c.r}, ${c.g}, ${c.b}, ${Math.round(c.a * o * 1e6) / 1e6})`; };
 
   const facts = () => {
     const L = S.layout();
@@ -322,7 +333,7 @@
         icon: el.dataset.icon ? { name: el.dataset.icon, size: +el.getAttribute('width') } : null,
         style: {
           fontFamily: cs.fontFamily, fontWeight: cs.fontWeight, fontSize: cs.fontSize, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
-          color: cs.color, background: parent ? cs.backgroundColor : seenFill(el),
+          color: ownOpacity(cs), background: parent ? cs.backgroundColor : seenFill(el),
           border: ['Top', 'Right', 'Bottom', 'Left'].map((side) => ({ side: side.toLowerCase(), color: cs[`border${side}Color`], width: cs[`border${side}Width`], style: cs[`border${side}Style`] })),
           radius: cs.borderTopLeftRadius, padding: [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft], shadow: cs.boxShadow,
         },

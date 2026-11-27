@@ -3155,10 +3155,10 @@
   "validity": {
     "cell": "dark-high",
     "pin": "5a240132ddabc3d527d11926e985aa32a5122b9de9bbd31d81ccaa3eb25a6080",
-    "prototype": "f5cd234fd381d052b82b27cd86f277a5f32a7e1ad4f53a087ddb44bdad100c3d",
+    "prototype": "eb9d2e74a5622ba20a78577213be85d7e7c3b7adfbed0118a08bed10e8c02ccb",
     "recipe": "89353462a7daf386ffb318063b15727cead8bedefd8960761d245722d1ccad04",
     "scene": "d119a0106773817d2304a315e4053bbab9d82d6f40816df815bdb002086d5e6c",
-    "schema": 7
+    "schema": 8
   },
   "window": {
     "dpr": 2.000000,

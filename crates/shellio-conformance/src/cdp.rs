@@ -70,6 +70,9 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         "span" if numbered(".hint.") => ElementKind::Container,
         // Плашка категории палитры — с заливкой и радиусом, как знак клавиши.
         "span" if ck == "palette.category" => ElementKind::Badge,
+        // Метка `f` — плавающая плитка с заливкой, радиусом и тенью: свой текст она не несёт,
+        // набранная часть и остаток — её дети-тексты.
+        "span" if ck.starts_with("hints.item.") && numbered(".item.") => ElementKind::Plate,
         "span" | "em" | "strong" | "b" | "label" => ElementKind::Text,
         // Строка фильтра панели — контрол с подложкой, её поле — текст: значение или placeholder.
         "input" => ElementKind::Text,
