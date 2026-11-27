@@ -42,6 +42,12 @@
 # conform снимок судит controls против основы (заливка плашки, тень вниз, фон за полем тени). После снимка
 # палитру закрывает Escape, закрытие подтверждают ui.overlay и pair.
 #
+# Состояния which-key (WHICH_STATES) судятся снимком окна, как поверхность layout, но шаг key их рецепта — префикс:
+# действия он не исполняет и записи ui.receipts не оставляет. Шаг идёт в каждой ячейке после её осей: до него
+# ui.overlay без наложения и без which_key, после — which_key.prefix рецепта не дольше MIRROR_MS (свидетель шага).
+# После снимка ui.overlay ещё показывает подсказку, иначе снимок не годится; затем Escape снимает префикс, и
+# which_key из ui.overlay уходит.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -125,11 +131,14 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-tabs-wide ck-coverage conform-layout-stub conform-layout-empty-workbench conform-menu-panel
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
   conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech
-  conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results)
-# Пункты палитры плана command-overlays судит снимок композиции.
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13)
+  conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results conform-whichkey-leader
+  conform-whichkey-ctrlw)
+# Пункты палитры плана command-overlays судит снимок композиции, пункты which-key — снимок окна после префикса.
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13 14 14)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=13
+DONE_TASK=14
+# Состояния, чей шаг key — префикс со свидетелем ui.overlay (which_key), а не действие с записью ui.receipts.
+WHICH_STATES=(whichkey-leader whichkey-ctrlw)
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
 KBD_CK="chrome.search.kbd"
 MONO_FAMILY="JetBrains Mono"
@@ -1787,6 +1796,91 @@ palette_close() {
   fi
 }
 
+# Подсказка which-key набранного префикса в ui.overlay: чтение — <prefix>.stdout, префикс — канонический JSON
+# want. Нет подсказки или префикс другой — 1 и причина в WHY.
+which_shown() {
+  local prefix="$1" want="$2" seen
+  WHY=""
+  ui_read "$profile" "$prefix" overlay || {
+    WHY="ui.overlay не прочитан: $(oneline "$prefix.stdout")"
+    return 1
+  }
+  seen="$(jv "$prefix.stdout" ok.ui.overlay.which_key.prefix || echo нет)"
+  if [[ "$seen" != "$want" ]]; then
+    WHY="ui.overlay — which_key.prefix $seen, а не $want"
+    return 1
+  fi
+}
+
+# Префикс which-key отложенными шагами key рецепта (<recipe dir>/which.steps: номер шага и строка плана). До
+# первого шага ui.overlay без наложения и без подсказки, свидетель последнего — which_key.prefix из аккордов шагов
+# не дольше MIRROR_MS. Префикс — в WHICH_PREFIX. Отказ — WHY и STEP_KIND, как у keyboard_step.
+WHICH_PREFIX=""
+which_open() {
+  local dir="$1" steps="$2" n line m=0 kind code mods name place chords=() deadline
+  STEP_KIND=broken
+  WHICH_PREFIX=""
+  ui_read "$profile" "$dir/which-before" overlay || {
+    WHY="ui.overlay перед префиксом не прочитан: $(oneline "$dir/which-before.stdout")"
+    return 1
+  }
+  if [[ "$(jv "$dir/which-before.stdout" ok.ui.overlay.kind || echo ?)" != null ]] ||
+    [[ "$(jv "$dir/which-before.stdout" ok.ui.overlay.which_key || echo null)" != null ]]; then
+    STEP_KIND=fail
+    WHY="до префикса ui.overlay — $(oneline "$dir/which-before.stdout")"
+    return 1
+  fi
+  while IFS=$'\t' read -r n line <&4; do
+    m=$((m + 1))
+    read -r kind code mods name place <<<"$line"
+    chords+=("$name")
+    front_ok "$owner_pid" "$dir" || return 1
+    se_chord "$code" "$mods" "$dir/which-$m.keys.log" || {
+      WHY="шаг $n рецепта: аккорд $name не отправлен: $(oneline "$dir/which-$m.keys.log")"
+      return 1
+    }
+  done 4<"$steps"
+  ((${#chords[@]})) || {
+    WHY="в рецепте нет шага key"
+    return 1
+  }
+  WHICH_PREFIX="$(printf '%s\n' "${chords[@]}" | /usr/bin/perl -MJSON::PP -e 'chomp(my @c = <STDIN>); print JSON::PP->new->canonical->encode(\@c)')"
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until which_shown "$dir/which-shown" "$WHICH_PREFIX"; do
+    if (($(now_ms) >= deadline)); then
+      STEP_KIND=fail
+      WHY="за $MIRROR_MS мс после префикса ${chords[*]} подсказка не появилась: $WHY"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Снятие префикса после снимка: Escape, ui.overlay без which_key не дольше MIRROR_MS. Отказ — WHY и STEP_KIND.
+which_close() {
+  local dir="$1" deadline
+  STEP_KIND=broken
+  front_ok "$owner_pid" "$dir" || return 1
+  se_key "$KEY_ESC" "$dir/which-close-keys.log" || {
+    WHY="Escape не отправлен: $(oneline "$dir/which-close-keys.log")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  while :; do
+    if ui_read "$profile" "$dir/which-closed" overlay &&
+      [[ "$(jv "$dir/which-closed.stdout" ok.ui.overlay.which_key || echo null)" == null ]] &&
+      [[ "$(jv "$dir/which-closed.stdout" ok.ui.overlay.kind || echo ?)" == null ]]; then
+      return 0
+    fi
+    if (($(now_ms) >= deadline)); then
+      STEP_KIND=fail
+      WHY="за $MIRROR_MS мс Escape не снял префикс: ui.overlay — $(oneline "$dir/which-closed.stdout")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
 # Сверка паспорта палитры по снимку композиции: перед каждым снимком пара окон (палитра над владельцем), снимок
 # области окна владельца, conform над парой снимков подряд, затем controls принятого снимка против основы
 # <dir>/base.png. Итог — snap_code и snap_reason, как у conform_snapshot; код 3 controls — дефект продукта, его
@@ -1882,6 +1976,12 @@ prepare_state() {
   STATE_SURFACE="$(state_surface "$state")"
   PALETTE_STEPS="$dir/palette.steps"
   : >"$PALETTE_STEPS"
+  WHICH_STEPS="$dir/which.steps"
+  : >"$WHICH_STEPS"
+  STATE_WHICH=0
+  if [[ " ${WHICH_STATES[*]} " == *" $state "* ]]; then
+    STATE_WHICH=1
+  fi
   fresh_scene "$dir/scene"
   if [[ "$size" != "$WINDOW_W $WINDOW_H" ]]; then
     scene_clean=0
@@ -1911,6 +2011,11 @@ prepare_state() {
       # закрыл бы палитру, открытую до перебора ячеек.
       if [[ "$STATE_SURFACE" == palette && ("$line" == '!key '* || "$line" == '!query') ]]; then
         printf '%s\t%s\n' "$n" "$line" >>"$PALETTE_STEPS"
+        continue
+      fi
+      # Префикс which-key набирается в каждой ячейке после её осей: смена ячейки не должна решать, дожил ли он.
+      if ((STATE_WHICH)) && [[ "$line" == '!key '* ]]; then
+        printf '%s\t%s\n' "$n" "$line" >>"$WHICH_STEPS"
         continue
       fi
       if [[ "$line" == '!'* ]]; then
@@ -2019,6 +2124,21 @@ item_conform() {
       fi
       palette_snapshot "$state" "$cell" "$dir"
       [[ -z "$CONTROLS_FAIL" ]] || failures+=("$cell: $CONTROLS_FAIL")
+    elif ((STATE_WHICH)); then
+      # Окно без подсказки набранного префикса — не состояние рецепта: остальные ячейки не судятся.
+      if ! which_open "$dir" "$WHICH_STEPS"; then
+        if [[ "$STEP_KIND" == fail ]]; then
+          failures+=("$cell: $WHY")
+        else
+          broken="${broken:+$broken; }$cell: $WHY"
+        fi
+        break
+      fi
+      conform_snapshot "$state" "$cell" "$dir"
+      if ! which_shown "$dir/which-after" "$WHICH_PREFIX"; then
+        broken="${broken:+$broken; }$cell: после снимка $WHY: снимок не годится"
+        break
+      fi
     else
       conform_snapshot "$state" "$cell" "$dir"
     fi
@@ -2033,6 +2153,14 @@ item_conform() {
         ;;
       *) broken="${broken:+$broken; }$cell: $snap_reason" ;;
     esac
+    if ((STATE_WHICH)) && ! which_close "$dir"; then
+      if [[ "$STEP_KIND" == fail ]]; then
+        failures+=("$cell: $WHY")
+      else
+        broken="${broken:+$broken; }$cell: $WHY"
+      fi
+      break
+    fi
     if [[ "$STATE_SURFACE" == palette ]] && ! palette_close "$dir"; then
       if [[ "$STEP_KIND" == fail ]]; then
         failures+=("$cell: $WHY")
@@ -2157,7 +2285,8 @@ item_ck_coverage
 for state in chrome-titlebar chrome-statusline layout-all-zones layout-default layout-left-plate layout-split-right \
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
   layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
-  status-input-field status-wrong-axis status-keymap-error palette-groups palette-tab-narrowed palette-no-results; do
+  status-input-field status-wrong-axis status-keymap-error palette-groups palette-tab-narrowed palette-no-results \
+  whichkey-leader whichkey-ctrlw; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then

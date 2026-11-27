@@ -141,6 +141,48 @@ mod tests {
     }
 
     #[test]
+    fn remapped_continuations_keep_the_title_of_their_action() {
+        let registry = crate::plugins::registry().unwrap();
+        let file = "[navigation]\n\"Ctrl-w m\" = \"layout.zoom\"\n\"Ctrl-w z\" = false\n\
+                    \"<leader>t\" = \"panel.open.demo-list\"\n";
+        let any = |_: &shellio_keymap::Context,
+                   _: &str,
+                   _: Option<&Value>|
+         -> Result<(), shellio_keymap::ActionError> { Ok(()) };
+        let keymap = Keymap::defaults(&[])
+            .unwrap()
+            .apply(Some(file), &[], &any)
+            .unwrap();
+        let contexts = Keymap::contexts(Mode::Navigation, Some("terminal"));
+        let found = |prefix: &str| {
+            let pending: Vec<Chord> = prefix
+                .split(' ')
+                .map(|chord| Chord::parse(chord).unwrap())
+                .collect();
+            which_key(&keymap, &contexts, &pending, &|binding| {
+                title(binding, &registry)
+            })
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|item| (item.key, item.label, item.group))
+            .collect::<Vec<_>>()
+        };
+        let ctrl_w = found("Ctrl-w");
+        assert!(ctrl_w.contains(&row("m", "Развернуть панель", false)));
+        assert!(ctrl_w.iter().all(|(key, _, _)| key != "z"));
+        // Строка файла встаёт после строк таблицы по умолчанию: порядок продолжений — порядок таблицы.
+        assert_eq!(
+            found("Space"),
+            [
+                row("Space", "Поиск и команды", false),
+                row("z", "Зоны", true),
+                row("t", "Открыть: Демо: список", false),
+            ]
+        );
+    }
+
+    #[test]
     fn plugin_commands_use_their_palette_title() {
         let registry = crate::plugins::registry().unwrap();
         let keymap = Keymap::defaults(&[]).unwrap();
