@@ -34,6 +34,7 @@ use shellio::palette_source::{self, Facts};
 use shellio::plugins;
 use shellio::receipts::{Ending, Ring, Sent};
 use shellio::scene::{self, SplitId, ViewportGate};
+use shellio::which_titles;
 use shellio_appkit::{
     App, ChromeIntent, ChromeState, CommandPalette, CommandPaletteState, CountKind, FieldFocus,
     Frame, InspectNode, KeyMonitor, KeyResponder, KeySinkEvent, KeyStroke, LoopMonitor,
@@ -54,15 +55,15 @@ use shellio_control::{
     PaletteRowView, PaletteStateView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
     Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
     TabStripView, TabZone, TextFieldView, TreeListView, TreeRowView, UiRefusal, UiReply, UiRequest,
-    VirtualListView, WindowView,
+    VirtualListView, WhichItemView, WhichKeyView, WindowView,
 };
 use shellio_core::{
     AppearanceChoice, Command, CoreError, CoreHandle, Delivery, HistoryStep, ListAction, Mirror,
     MirrorStep, ModeAction, OverlayKind, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_keymap::{
-    Cancel, Category, Chord, Context, Diagnostic, HintQuery, KeyCode, Mode, Mods, Palette,
-    PaletteRow, StatusText, status_hints,
+    Cancel, Category, Chord, Context, Diagnostic, HintQuery, KeyCode, Keymap, Mode, Mods, Palette,
+    PaletteRow, StatusText, WhichKey, status_hints, which_key, which_key_delay,
 };
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -106,6 +107,18 @@ thread_local! {
     static KEY_MONITOR: RefCell<Option<ManuallyDrop<KeyMonitor>>> = const { RefCell::new(None) };
     /// Состав открытого наложения; открыто ли оно, решает маршрутизатор.
     static OVERLAY: RefCell<OverlayState> = RefCell::new(OverlayState::default());
+    /// Подсказка which-key набранного префикса. Ячейка своя: подсказка не модальна и в состав
+    /// наложения маршрутизатора не входит.
+    static WHICH: RefCell<WhichState> = RefCell::new(WhichState::default());
+}
+
+/// Подсказка which-key: префикс, по которому стоит задержка появления, и показанный состав.
+#[derive(Debug, Default)]
+struct WhichState {
+    prefix: Vec<Chord>,
+    /// Поколение префикса: отложенный показ сверяет его и уходит, если префикс сменился.
+    generation: u64,
+    shown: Option<WhichKey>,
 }
 
 /// Состав открытого наложения до его вида: запрос и категория палитры, набранная часть меток,
@@ -524,6 +537,8 @@ impl OwnerWindow {
         }) else {
             return false;
         };
+        // which-key есть у окна с раскладкой: галерея её не показывает.
+        let which = self.layout.is_some() && sync_which_key(&snapshot.keymap, &pending);
         let text = status_hints(
             &snapshot.keymap,
             &HintQuery {
@@ -554,7 +569,7 @@ impl OwnerWindow {
             Mode::Navigation => KeyMode::Navigation,
             Mode::Input => KeyMode::Input,
         };
-        status.set_left(mode, prefix.as_deref(), &hints)
+        status.set_left(mode, prefix.as_deref(), &hints) || which
     }
 
     /// Выбор «Открыть в новой части» для панели `panel` по состоянию зеркала; `false` — выбора
@@ -1712,6 +1727,8 @@ fn show_modes() {
 /// Приложение перестало быть активным: ожидание второго аккорда выхода и набранный префикс сняты.
 pub fn resigned() {
     with_router(|router| router.cancel(Cancel::Resigned));
+    // Префикс снят: строка статуса и which-key следуют за ним.
+    defer(|_| show_modes());
 }
 
 /// Событие монитора клавиш. Вызывается изнутри AppKit до доставки события: решение принимает
@@ -1729,11 +1746,23 @@ fn on_key_event(app: &App, event: MonitorEvent) -> Verdict {
             }
             with_router(|router| router.cancel(Cancel::MouseDown));
             let seen = status_serial();
-            defer(move |_| forget_status(seen));
+            defer(move |_| {
+                forget_status(seen);
+                show_modes();
+            });
             None
         }
         MonitorEvent::ScrollWheel => {
-            with_router(|router| router.cancel(Cancel::ScrollWheel));
+            let had_prefix = with_router(|router| {
+                let had = !router.pending().is_empty();
+                router.cancel(Cancel::ScrollWheel);
+                had
+            });
+            // Прокрутка идёт десятками событий в секунду: строку статуса и which-key трогает только
+            // снятый ею префикс.
+            if had_prefix == Some(true) {
+                defer(|_| show_modes());
+            }
             None
         }
     };
@@ -3182,9 +3211,90 @@ fn overlay_view() -> Option<OverlayView> {
             cmdline: (kind == Some(OverlayKind::Cmdline)).then(|| CmdlineStateView {
                 text: state.text.clone(),
             }),
-            which_key: None,
+            which_key: kind.is_none().then(which_view).flatten(),
         }
     }))
+}
+
+/// Состав показанной подсказки which-key для `ui.overlay`.
+fn which_view() -> Option<WhichKeyView> {
+    WHICH.with(|which| {
+        which.borrow().shown.as_ref().map(|shown| WhichKeyView {
+            prefix: shown.prefix.clone(),
+            title: shown.title.clone(),
+            items: shown
+                .items
+                .iter()
+                .map(|item| WhichItemView {
+                    key: item.key.clone(),
+                    label: item.label.clone(),
+                    group: item.group,
+                })
+                .collect(),
+        })
+    })
+}
+
+/// Сверяет подсказку which-key с набранным префиксом `pending` (правило «which-key не
+/// модальный»): пустой префикс её снимает, показанная подсказка сразу следует за новым префиксом,
+/// иначе появление ждёт задержки `which_key_delay`. `true` — показанный состав изменился.
+fn sync_which_key(keymap: &Keymap, pending: &[Chord]) -> bool {
+    WHICH.with(|slot| {
+        let mut which = slot.borrow_mut();
+        if which.prefix == pending {
+            return false;
+        }
+        which.prefix = pending.to_vec();
+        which.generation += 1;
+        if pending.is_empty() {
+            return which.shown.take().is_some();
+        }
+        if which.shown.is_some() {
+            let next = which_now(keymap, pending);
+            let changed = which.shown != next;
+            which.shown = next;
+            return changed;
+        }
+        if let Some(delay) = which_key_delay(pending, keymap.leader()) {
+            let generation = which.generation;
+            MainThread::new().exec_after(delay, move |_| show_which_key(generation));
+        }
+        false
+    })
+}
+
+/// Отложенный показ: префикс поколения `generation` всё ещё набран.
+fn show_which_key(generation: u64) {
+    let Some(snapshot) = KEYMAP.with(|slot| slot.borrow().clone()) else {
+        return;
+    };
+    let Some(pending) = with_router(|router| router.pending().to_vec()) else {
+        return;
+    };
+    let changed = WHICH.with(|slot| {
+        let mut which = slot.borrow_mut();
+        if which.generation != generation || which.prefix != pending || pending.is_empty() {
+            return false;
+        }
+        which.shown = which_now(&snapshot.keymap, &pending);
+        which.shown.is_some()
+    });
+    if changed {
+        with_window(OwnerWindow::bump);
+    }
+}
+
+/// Продолжения префикса в контекстах панели с фокусом, как их решит маршрутизатор.
+fn which_now(keymap: &Keymap, pending: &[Chord]) -> Option<WhichKey> {
+    let registry = plugins::shared_registry().ok()?;
+    let panel = KEY_PANEL.with(|slot| slot.borrow().clone());
+    let mode = panel.as_ref().map_or(Some(Mode::Navigation), |panel| {
+        with_router(|router| router.mode(&panel.receiver))
+    })?;
+    let contexts = Keymap::contexts(mode, panel.as_ref().map(|panel| panel.plugin.as_str()));
+    which_key(keymap, &contexts, pending, &|binding| {
+        which_titles::title(binding, &registry)
+    })
 }
 
 /// Панель и режим источника открытого наложения.

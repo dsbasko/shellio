@@ -21,3 +21,4 @@ pub mod palette_source;
 pub mod plugins;
 pub mod receipts;
 pub mod scene;
+pub mod which_titles;
