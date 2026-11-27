@@ -499,7 +499,7 @@
   S.cmdline = () => {
     const o = {
       type: 'cmdline', state: { v: '' },
-      render: (x) => `<div class="cmdline">:<input data-autofocus data-bind="v" value="${esc(x.state.v)}" placeholder="Команда: zoom, split, theme light, q"></div>`,
+      render: (x) => `<div class="cmdline" data-ck="cmdline"><span data-ck="cmdline.prompt">:</span><input data-autofocus data-bind="v" data-ck="cmdline.input" value="${esc(x.state.v)}" placeholder="Команда: zoom, split, theme light, q"></div>`,
       onKey: (e, tok) => {
         if (tok === 'Esc') { S.ov.pop(o); return true; }
         if (tok === 'Enter') {
@@ -517,11 +517,14 @@
     if (head === 'zoom') { S.zoom(); return; }
     if (head === 'vs' || head === 'vsplit') { S.split('row'); return; }
     if (head === 'sp' || head === 'split') { S.split('stack'); return; }
-    if (head === 'theme') { S.setTheme(arg === 'light' ? 'light' : 'dark'); return; }
+    if (head === 'theme' && ['light', 'dark', 'system'].includes(arg)) { S.setAppearance(arg); return; }
     if (head === 'go') { if (W.workbenches[arg] && S.wsOf(arg) === St.route.ws) S.openWb(arg); return; }
     const c = S.commands.filter((x) => x.pal !== false).map((x) => ({ x, s: S.match(`${x.title} ${x.id}`, v) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s)[0];
     if (c) { c.x.run(); return; }
-    S.notify({ title: `Неизвестная команда: ${esc(v)}`, text: 'Откройте поиск ⌘K, чтобы найти нужное действие.', tone: 'wait' });
+    // Шестого вида наложения нет (ADR-0023): неизвестная команда — сообщение в строке статуса.
+    // Клавиша поиска — из действующей привязки палитры, без привязок называется только поиск.
+    const key = S.keyFor('palette', 'Cmd-k');
+    S.refuse(`Неизвестная команда: ${esc(v)}. Откройте поиск${key ? ` ${K.keyLine(key)}` : ''}`);
   }
 
   // Шпаргалка

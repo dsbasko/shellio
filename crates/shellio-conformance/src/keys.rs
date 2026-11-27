@@ -122,6 +122,10 @@ pub const TEMPLATES: &[&str] = &[
     "hints.item.{n}",
     "hints.item.{n}.typed",
     "hints.item.{n}.remaining",
+    // Командная строка `:`.
+    "cmdline",
+    "cmdline.prompt",
+    "cmdline.input",
 ];
 
 const PSEUDO: [&str; 2] = ["::before", "::after"];

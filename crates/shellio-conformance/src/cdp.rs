@@ -77,6 +77,8 @@ pub fn kind_of(tag: &str, ck: &str) -> ElementKind {
         // Строка фильтра панели — контрол с подложкой, её поле — текст: значение или placeholder.
         "input" => ElementKind::Text,
         "div" if last == "filter" => ElementKind::Control,
+        // Командная строка `:` — такой же контрол с подложкой: знак приглашения и поле — тексты.
+        "div" if ck == "cmdline" => ElementKind::Control,
         // Часть зоны — плитка с рамкой и радиусом; меню, выбор, палитра и which-key — плавающие плитки.
         "section" if numbered(".part.") => ElementKind::Plate,
         _ if last == "menu" || matches!(ck, "picker" | "palette" | "whichkey") => {
