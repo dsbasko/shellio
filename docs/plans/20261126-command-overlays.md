@@ -653,9 +653,11 @@
 
 ### Task 10: [Final] Документы и дорожная карта
 
-- [ ] ADR-0010, ADR-0023, ADR-0007, ADR-0002, «Уточнено в P1.6: наложения»: выводы исполнения, число `palette-latency`, отрицательные выводы с передачами; `docs/adr/README.md`
-- [ ] AGENTS.md, «Сборка»: пункты наложений `keyboard.sh`, снимок композиции `conformance.sh`
-- [ ] только если все обязательные пункты `pass`, включая `palette-latency`: `docs/roadmap.md` P1.6 ⬜ → ✅, `docs/phase-1-shell.md` и `docs/README.md` — шаг выполнен, план переносится в `docs/plans/completed/`. Иначе — по правилу «Бюджет палитры»: отрицательный вывод записан, план и строка дорожной карты остаются открытыми
+- Итерация 2026-11-27: правки только в документах (ADR, `docs/adr/README.md`, AGENTS.md, `docs/phase-1-shell.md`, план), кода нет. `make check` на этих правках — код 0, 112 строк `test result: ok`, ни одной `FAILED` (`target/task10/check.log`).
+
+- [x] ADR-0010, ADR-0023, ADR-0007, ADR-0002, «Уточнено в P1.6: наложения»: выводы исполнения, число `palette-latency`, отрицательные выводы с передачами; `docs/adr/README.md` (сверх списка — ADR-0008: `HOST_NAMESPACES` из задачи 3 и `CommandSpec::title`; ADR-0037: снимок композиции, правило кольца без линии из задачи 7, `SNAP_SCHEMA` 7 и 8; ADR-0021: итоговый прогон)
+- [x] AGENTS.md, «Сборка»: пункты наложений `keyboard.sh`, снимок композиции `conformance.sh`
+- [x] только если все обязательные пункты `pass`, включая `palette-latency`: `docs/roadmap.md` P1.6 ⬜ → ✅, `docs/phase-1-shell.md` и `docs/README.md` — шаг выполнен, план переносится в `docs/plans/completed/`. Иначе — по правилу «Бюджет палитры»: отрицательный вывод записан, план и строка дорожной карты остаются открытыми — исход: ветка «иначе». `palette-latency` — `fail`, отрицательный вывод с обоими замерами — в ADR-0002, «Уточнено в P1.6: наложения»; `docs/roadmap.md` (P1.6 ⬜) и `docs/README.md` не менялись, `docs/phase-1-shell.md` получил итог рубежа без отметки шага; план остаётся в `docs/plans/` до решения владельца (Post-Completion)
 
 ## Post-Completion
 
