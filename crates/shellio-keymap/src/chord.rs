@@ -192,6 +192,18 @@ impl Chord {
             && !self.mods.ctrl
             && (self.key.0 == 0x31 || PRINTABLE.iter().any(|&(code, ..)| code == self.key.0))
     }
+
+    /// Знак печатаемой клавиши по физическому коду латинской раскладки, без `Cmd`, `Ctrl` и `Alt`:
+    /// набор меток от источника ввода не зависит.
+    pub fn sign(self) -> Option<char> {
+        if self.mods.cmd || self.mods.ctrl || self.mods.alt {
+            return None;
+        }
+        PRINTABLE
+            .iter()
+            .find(|&&(code, ..)| code == self.key.0)
+            .map(|&(_, plain, shifted)| if self.mods.shift { shifted } else { plain })
+    }
 }
 
 impl fmt::Display for Chord {
@@ -388,5 +400,14 @@ mod tests {
         assert!(!chord("Cmd-k").types_text());
         assert!(!chord("Esc").types_text());
         assert!(!chord("Enter").types_text());
+    }
+
+    #[test]
+    fn sign_reads_the_physical_latin_key() {
+        assert_eq!(chord("f").sign(), Some('f'));
+        assert_eq!(chord("J").sign(), Some('J'));
+        assert_eq!(chord("Ctrl-f").sign(), None);
+        assert_eq!(chord("Alt-f").sign(), None);
+        assert_eq!(chord("Esc").sign(), None);
     }
 }

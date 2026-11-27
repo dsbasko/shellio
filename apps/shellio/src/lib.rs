@@ -10,6 +10,7 @@
 pub mod bodies;
 pub mod calibration;
 pub mod gallery;
+pub mod hint_targets;
 pub mod history;
 pub mod input_sink;
 pub mod key_actions;

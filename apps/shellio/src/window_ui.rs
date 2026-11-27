@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 use shellio::bodies::{self, Failure, Ticket};
 use shellio::gallery::{self, Changed, Effect, Generation, Intent};
+use shellio::hint_targets::{HintTarget, hint_targets};
 use shellio::history::{History, Jump};
 use shellio::input_sink::{self, InputSink, KeyKind, KeyRecord};
 use shellio::key_actions::{self, KeyAction};
@@ -49,9 +50,9 @@ use shellio_control::{
     Accepted, AnimationPath, AnimationRecord, Axis, AxisSource, BodiesBuiltView, CellContrast,
     CellMotion, CellView, ChromeView, CmdlineOutcome, CmdlineRunView, CmdlineStateView,
     ColorSpaceView, ComponentState, ComponentView, ExitChordState, GalleryCommand, GalleryView,
-    HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView, InputJournalView,
-    InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView, MaterialView,
-    MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
+    HintLabelView, HintsStateView, HistoryPoint, HistoryView, InputEventKind, InputEventView,
+    InputJournalView, InspectView, InstanceKind, InstanceView, LateCallbackView, ListRowView,
+    MaterialView, MenuItemView, MenuView, ModeReceiver, ModeView, OverlaySourceView, OverlayView,
     OverlayViewKind, OwnedWindowRole, OwnedWindowView, PaletteCategory, PaletteGroupView,
     PaletteRowView, PaletteStateView, PanelMode, ReceiptSource, Rect, RunLoopView, ScreenView,
     Size, StartupView, StatsView, StripButtonView, TabAxis, TabItemView, TabRegime, TabStatusView,
@@ -63,8 +64,9 @@ use shellio_core::{
     MirrorStep, ModeAction, OverlayKind, PanelId, Reply, ToggleTarget, UiCommand, open_workbench,
 };
 use shellio_keymap::{
-    Cancel, Category, Chord, Context, Diagnostic, HintQuery, KeyCode, Keymap, Mode, Mods, Palette,
-    PaletteRow, StatusText, WhichKey, status_hints, which_key, which_key_delay,
+    Cancel, Category, Chord, Context, Diagnostic, HintLabels, HintQuery, HintStep, KeyCode, Keymap,
+    Mode, Mods, Palette, PaletteRow, StatusText, WhichKey, status_hints, which_key,
+    which_key_delay,
 };
 use shellio_plugin_view::{Handled, PanelRequest, ViewIntent};
 use shellio_theme::AppearanceChoice as ThemeChoice;
@@ -131,7 +133,8 @@ struct OverlayState {
     /// Панель-источник палитры в момент открытия: строки её действий выполняются для неё, даже
     /// если маршрутизатор уже снял закрытую панель из источника.
     panel: Option<PanelId>,
-    typed: String,
+    /// Метки и их цели, собранные при открытии: номер метки — номер цели.
+    hints: Option<(HintLabels, Vec<HintTarget>)>,
     text: String,
 }
 
@@ -3047,6 +3050,14 @@ fn on_overlay_open(app: &App, kind: OverlayKind, source: Option<ReceiptSource>) 
         owner.show_hints();
         owner.bump();
     });
+    // Цели собираются после снятия подсказки which-key: показанная подсказка не перекрывает их.
+    if fresh && kind == OverlayKind::Hints {
+        let targets =
+            with_window(|owner| hint_targets(&owner.inspect_view().components)).unwrap_or_default();
+        OVERLAY.with(|state| {
+            state.borrow_mut().hints = Some((HintLabels::new(targets.len()), targets));
+        });
+    }
     note_receipt(tag, Ending::Done);
 }
 
@@ -3112,8 +3123,25 @@ fn on_overlay_key(app: &App, kind: OverlayKind, chord: Chord) {
             show_palette();
         }
         OverlayKind::Hints => {
-            if chord.types_text() {
-                close_overlay(OverlayKind::Hints);
+            let Some(sign) = chord.sign() else {
+                return;
+            };
+            let step = OVERLAY.with(|state| {
+                let mut state = state.borrow_mut();
+                let (labels, targets) = state.hints.as_mut()?;
+                Some(match labels.press(sign) {
+                    HintStep::Narrowed => None,
+                    HintStep::Activate(index) => Some(targets.get(index).cloned()),
+                    HintStep::Cancel => Some(None),
+                })
+            });
+            match step.flatten() {
+                None => {}
+                // Метка набрана целиком: метки закрываются, источник не восстанавливается. Нажатие
+                // цели обработчиком щелчка подключает срез 1b задачи 6.
+                Some(Some(_target)) => return dismiss_overlay(),
+                // Набор без совпадений закрывает метки без действия.
+                Some(None) => return close_overlay(OverlayKind::Hints),
             }
         }
         OverlayKind::Cmdline => {}
@@ -3250,16 +3278,37 @@ fn overlay_view() -> Option<OverlayView> {
             }),
             palette: (kind == Some(OverlayKind::Palette))
                 .then(|| palette_view(state.palette.as_ref())),
-            hints: (kind == Some(OverlayKind::Hints)).then(|| HintsStateView {
-                typed: state.typed.clone(),
-                labels: Vec::new(),
-            }),
+            hints: (kind == Some(OverlayKind::Hints)).then(|| hints_view(state.hints.as_ref())),
             cmdline: (kind == Some(OverlayKind::Cmdline)).then(|| CmdlineStateView {
                 text: state.text.clone(),
             }),
             which_key: kind.is_none().then(which_view).flatten(),
         }
     }))
+}
+
+/// Метки, совпавшие с набранной частью, для `ui.overlay`.
+fn hints_view(hints: Option<&(HintLabels, Vec<HintTarget>)>) -> HintsStateView {
+    let Some((labels, targets)) = hints else {
+        return HintsStateView {
+            typed: String::new(),
+            labels: Vec::new(),
+        };
+    };
+    HintsStateView {
+        typed: labels.typed().to_owned(),
+        labels: labels
+            .visible()
+            .filter_map(|(index, text)| {
+                let target = targets.get(index)?;
+                Some(HintLabelView {
+                    text: text.to_owned(),
+                    target: target.key.clone(),
+                    frame: target.frame,
+                })
+            })
+            .collect(),
+    }
 }
 
 /// Состав показанной подсказки which-key для `ui.overlay`.
