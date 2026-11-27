@@ -48,6 +48,13 @@
 # После снимка ui.overlay ещё показывает подсказку, иначе снимок не годится; затем Escape снимает префикс, и
 # which_key из ui.overlay уходит.
 #
+# Шаг hints рецепта (состояния меток) тоже идёт в каждой ячейке после её осей: до него ui.overlay без наложения,
+# затем клавиша f и знаки набора кодами через System Events, после каждой — ui.overlay с видом hints и набором до
+# этой клавиши не дольше MIRROR_MS (свидетель шага). Состав меток по порядку (текст и ключ цели) сверяется с
+# паспортом: текст — узлы hints.item.{n}, цель номера n — n-я цель композиции паспорта в порядке прототипа;
+# расхождение — fail. После снимка ui.overlay ещё показывает метки с тем же набором, иначе снимок не годится;
+# затем Escape закрывает метки, и вид из ui.overlay уходит.
+#
 # Каталог прогона — target/e2e/conformance/<время>-<pid>/: result.json (пункт, обязательность, статус, причина,
 # путь сырого вывода относительно каталога прогона), журнал сценария log и каталог каждого пункта. У пункта
 # conform-<состояние> — подкаталог ячейки с паспортом, чтениями ui.inspect и ui.window, PNG и отчётом оракула.
@@ -132,11 +139,12 @@ ITEMS=(conform-chrome-titlebar conform-chrome-statusline cell-override fonts-bun
   conform-picker-new-part conform-status-split-no-room conform-panel-filter conform-status-mode-nav
   conform-status-input-field conform-status-wrong-axis conform-status-keymap-error voiceover-speech
   conform-palette-groups conform-palette-tab-narrowed conform-palette-no-results conform-whichkey-leader
-  conform-whichkey-ctrlw)
-# Пункты палитры плана command-overlays судит снимок композиции, пункты which-key — снимок окна после префикса.
-TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13 14 14)
+  conform-whichkey-ctrlw conform-hints-full conform-hints-partial)
+# Пункты палитры плана command-overlays судит снимок композиции, пункты which-key — снимок окна после префикса,
+# пункты меток — снимок окна после клавиши f и набора.
+TASK=(10 10 10 10 11 11 11 11 11 11 11 11 11 11 11 11 12 12 12 12 12 12 12 12 12 12 0 13 13 13 14 14 15 15)
 # Задача, до которой сценарий доведён: пункты более поздних задач не судятся.
-DONE_TASK=14
+DONE_TASK=15
 # Состояния, чей шаг key — префикс со свидетелем ui.overlay (which_key), а не действие с записью ui.receipts.
 WHICH_STATES=(whichkey-leader whichkey-ctrlw)
 # Плашка клавиши поиска: её шрифт судит пункт fonts-bundled.
@@ -1161,6 +1169,12 @@ recipe_plan() {
       "+" => 24, "_" => 27, "}" => 30, "{" => 33, "\x22" => 39, ":" => 41, "|" => 42, "<" => 43, "?" => 44,
       ">" => 47, "~" => 50,
     );
+    # Набор шага hints рецепта: знаки после клавиши входа f, пустая строка — ничего не набрано.
+    if ($mode eq "typed") {
+      my ($s) = grep { $_->{op} eq "hints" } @steps;
+      print(($s ? $s->{typed} // "" : "") . "\n");
+      exit 0;
+    }
     if ($mode eq "window") {
       my $w = $recipe->{window} // {};
       print(($w->{width} // $rest[0]) . " " . ($w->{height} // $rest[1]) . "\n");
@@ -1215,6 +1229,12 @@ recipe_plan() {
           # Действие исполняет только последний аккорд шага: прежние — набранный префикс.
           print "!key $code " . (@mods ? join(",", @mods) : "-") . " $name " . ($at == $#names ? "last" : "prefix") . "\n";
         }
+        exit 0;
+      }
+      if ($op eq "hints") {
+        my $typed = $s->{typed} // "";
+        fail("набор меток $typed — не знаки алфавита asdfjklgh") unless $typed =~ /^[asdfjklgh]*$/;
+        print "!hints " . join(" ", map { $CODE{$_} } split //, $typed) . "\n";
         exit 0;
       }
       if ($op eq "keymap") { print "!keymap\n"; exit 0 }
@@ -1881,6 +1901,146 @@ which_close() {
   done
 }
 
+# Ожидаемые метки состояния: пары «текст, ключ цели» по порядку целей одной строкой JSON. Текст — typed и remaining
+# узлов hints.item.{n} паспорта по номеру цели, цель номера n — n-я цель композиции паспорта в порядке прототипа:
+# кнопки заголовка, части зон левой, центральной, нижней и правой (вкладки, затем кнопки строки вкладок), строка
+# статуса. Два источника независимы от продукта: номер метки и её цель сводит только порядок.
+hints_expect() {
+  /usr/bin/perl -MJSON::PP -e '
+    open my $fh, "<", $ARGV[0] or die "$ARGV[0]: $!\n";
+    local $/;
+    my $p = JSON::PP->new->utf8->decode(<$fh>);
+    my $c = $p->{composition};
+    my @targets = @{ $c->{titlebar} // [] };
+    for my $zone (qw(left center bottom right)) {
+      my $n = 0;
+      for my $part (@{ $c->{zones}{$zone} // [] }) {
+        $n++;
+        push @targets, map { "zone.$zone.part.$n.tabs.tab.$_" } 1 .. scalar @{ $part->{tabs} // [] };
+        push @targets, map { "zone.$zone.part.$n.tabs.$_" } @{ $part->{tools} // [] };
+      }
+    }
+    push @targets, @{ $c->{statusline} // [] };
+    my (%text, @order);
+    for my $e (@{ $p->{elements} }) {
+      next unless $e->{ck} =~ /^hints\.item\.(\d+)(?:\.(typed|remaining))?$/;
+      push @order, $1 unless defined $2;
+      $text{$1}{$2} = $e->{text} if defined $2;
+    }
+    my @out;
+    for my $n (sort { $a <=> $b } @order) {
+      die "у метки $n нет цели в композиции паспорта\n" if $n > @targets;
+      push @out, [ ($text{$n}{typed} // "") . ($text{$n}{remaining} // ""), $targets[ $n - 1 ] ];
+    }
+    print JSON::PP->new->canonical->encode(\@out), "\n";
+  ' "$1"
+}
+
+# Метки в ui.overlay: чтение — <prefix>.stdout, набор — typed. Нет меток или набор другой — 1 и причина в WHY.
+hints_shown() {
+  local prefix="$1" typed="$2" seen
+  WHY=""
+  ui_read "$profile" "$prefix" overlay || {
+    WHY="ui.overlay не прочитан: $(oneline "$prefix.stdout")"
+    return 1
+  }
+  seen="$(jv "$prefix.stdout" ok.ui.overlay.kind || echo ?)"
+  if [[ "$seen" != hints ]]; then
+    WHY="ui.overlay — вид $seen, а не hints"
+    return 1
+  fi
+  seen="$(jv "$prefix.stdout" ok.ui.overlay.hints.typed || echo ?)"
+  if [[ "$seen" != "$typed" ]]; then
+    WHY="ui.overlay — набор «$seen», а не «$typed»"
+    return 1
+  fi
+}
+
+# Метки отложенным шагом hints рецепта (HINTS_STEP: «!hints коды набора»): до клавиши f ui.overlay без наложения,
+# после неё — метки с пустым набором, после каждого знака — набор до этого знака, каждое не дольше MIRROR_MS.
+# Затем состав меток (текст и цель по порядку) сверяется с ожиданием паспорта <passport>. Отказ — WHY и STEP_KIND.
+hints_open() {
+  local dir="$1" recipe="$2" passport="$3" typed want="" code m=0 deadline seen expect
+  STEP_KIND=broken
+  typed="$(recipe_plan typed "$recipe")" || {
+    WHY="набор шага hints не прочитан"
+    return 1
+  }
+  ui_read "$profile" "$dir/hints-before" overlay || {
+    WHY="ui.overlay перед метками не прочитан: $(oneline "$dir/hints-before.stdout")"
+    return 1
+  }
+  if [[ "$(jv "$dir/hints-before.stdout" ok.ui.overlay.kind || echo ?)" != null ]]; then
+    STEP_KIND=fail
+    WHY="до меток ui.overlay — $(oneline "$dir/hints-before.stdout")"
+    return 1
+  fi
+  # Клавиша входа f, затем знаки набора: код каждого — из плана шага.
+  for code in 3 ${HINTS_STEP#!hints}; do
+    m=$((m + 1))
+    ((m == 1)) || want="${typed:0:m-1}"
+    front_ok "$owner_pid" "$dir" || return 1
+    se_key "$code" "$dir/hints-$m.keys.log" || {
+      WHY="клавиша $m меток не отправлена: $(oneline "$dir/hints-$m.keys.log")"
+      return 1
+    }
+    deadline=$(($(now_ms) + MIRROR_MS))
+    until hints_shown "$dir/hints-$m" "$want"; do
+      if (($(now_ms) >= deadline)); then
+        STEP_KIND=fail
+        if ((m == 1)); then
+          WHY="за $MIRROR_MS мс после f метки не открылись: $WHY"
+        else
+          WHY="за $MIRROR_MS мс после набора «$want» метки его не показали: $WHY"
+        fi
+        return 1
+      fi
+      sleep "$POLL"
+    done
+  done
+  expect="$(hints_expect "$passport" 2>"$dir/hints-expect.stderr")" || {
+    WHY="ожидание меток по паспорту не построено: $(oneline "$dir/hints-expect.stderr")"
+    return 1
+  }
+  printf '%s\n' "$expect" >"$dir/hints-expect.json"
+  seen="$(/usr/bin/perl -MJSON::PP -e '
+    open my $fh, "<", $ARGV[0] or exit 2;
+    local $/;
+    my $o = JSON::PP->new->utf8->decode(<$fh>)->{ok}{ui}{overlay}{hints}{labels} // [];
+    print JSON::PP->new->canonical->encode([ map { [ $_->{text}, $_->{target} ] } @$o ]), "\n";
+  ' "$dir/hints-$m.stdout")" || {
+    WHY="метки ui.overlay не разобраны"
+    return 1
+  }
+  if [[ "$seen" != "$expect" ]]; then
+    STEP_KIND=fail
+    WHY="метки ui.overlay $(printf '%s' "$seen" | cut -c 1-300) против паспорта $(printf '%s' "$expect" | cut -c 1-300)"
+    return 1
+  fi
+  HINTS_TYPED="$want"
+}
+
+# Отмена меток после снимка: Escape, ui.overlay без наложения не дольше MIRROR_MS. Отказ — WHY и STEP_KIND.
+hints_close() {
+  local dir="$1" deadline
+  STEP_KIND=broken
+  front_ok "$owner_pid" "$dir" || return 1
+  se_key "$KEY_ESC" "$dir/hints-close-keys.log" || {
+    WHY="Escape не отправлен: $(oneline "$dir/hints-close-keys.log")"
+    return 1
+  }
+  deadline=$(($(now_ms) + MIRROR_MS))
+  until ui_read "$profile" "$dir/hints-closed" overlay &&
+    [[ "$(jv "$dir/hints-closed.stdout" ok.ui.overlay.kind || echo ?)" == null ]]; do
+    if (($(now_ms) >= deadline)); then
+      STEP_KIND=fail
+      WHY="за $MIRROR_MS мс Escape не закрыл метки: ui.overlay — $(oneline "$dir/hints-closed.stdout")"
+      return 1
+    fi
+    sleep "$POLL"
+  done
+}
+
 # Сверка паспорта палитры по снимку композиции: перед каждым снимком пара окон (палитра над владельцем), снимок
 # области окна владельца, conform над парой снимков подряд, затем controls принятого снимка против основы
 # <dir>/base.png. Итог — snap_code и snap_reason, как у conform_snapshot; код 3 controls — дефект продукта, его
@@ -1978,6 +2138,7 @@ prepare_state() {
   : >"$PALETTE_STEPS"
   WHICH_STEPS="$dir/which.steps"
   : >"$WHICH_STEPS"
+  HINTS_STEP=""
   STATE_WHICH=0
   if [[ " ${WHICH_STATES[*]} " == *" $state "* ]]; then
     STATE_WHICH=1
@@ -2016,6 +2177,11 @@ prepare_state() {
       # Префикс which-key набирается в каждой ячейке после её осей: смена ячейки не должна решать, дожил ли он.
       if ((STATE_WHICH)) && [[ "$line" == '!key '* ]]; then
         printf '%s\t%s\n' "$n" "$line" >>"$WHICH_STEPS"
+        continue
+      fi
+      # Метки открываются в каждой ячейке после её осей, как префикс which-key.
+      if [[ "$line" == '!hints'* ]]; then
+        HINTS_STEP="$line"
         continue
       fi
       if [[ "$line" == '!'* ]]; then
@@ -2124,6 +2290,21 @@ item_conform() {
       fi
       palette_snapshot "$state" "$cell" "$dir"
       [[ -z "$CONTROLS_FAIL" ]] || failures+=("$cell: $CONTROLS_FAIL")
+    elif [[ -n "$HINTS_STEP" ]]; then
+      # Окно без открытых меток с набором рецепта — не состояние рецепта: остальные ячейки не судятся.
+      if ! hints_open "$dir" "$root/conformance/recipes/$state.json" "$passports/$state/$cell.json"; then
+        if [[ "$STEP_KIND" == fail ]]; then
+          failures+=("$cell: $WHY")
+        else
+          broken="${broken:+$broken; }$cell: $WHY"
+        fi
+        break
+      fi
+      conform_snapshot "$state" "$cell" "$dir"
+      if ! hints_shown "$dir/hints-after" "$HINTS_TYPED"; then
+        broken="${broken:+$broken; }$cell: после снимка $WHY: снимок не годится"
+        break
+      fi
     elif ((STATE_WHICH)); then
       # Окно без подсказки набранного префикса — не состояние рецепта: остальные ячейки не судятся.
       if ! which_open "$dir" "$WHICH_STEPS"; then
@@ -2153,6 +2334,14 @@ item_conform() {
         ;;
       *) broken="${broken:+$broken; }$cell: $snap_reason" ;;
     esac
+    if [[ -n "$HINTS_STEP" ]] && ! hints_close "$dir"; then
+      if [[ "$STEP_KIND" == fail ]]; then
+        failures+=("$cell: $WHY")
+      else
+        broken="${broken:+$broken; }$cell: $WHY"
+      fi
+      break
+    fi
     if ((STATE_WHICH)) && ! which_close "$dir"; then
       if [[ "$STEP_KIND" == fail ]]; then
         failures+=("$cell: $WHY")
@@ -2286,7 +2475,7 @@ for state in chrome-titlebar chrome-statusline layout-all-zones layout-default l
   layout-split-center layout-split-bottom layout-zoom tabs-side tabs-center tabs-half tabs-wide layout-stub \
   layout-empty-workbench menu-panel picker-new-part status-split-no-room panel-filter status-mode-nav \
   status-input-field status-wrong-axis status-keymap-error palette-groups palette-tab-narrowed palette-no-results \
-  whichkey-leader whichkey-ctrlw; do
+  whichkey-leader whichkey-ctrlw hints-full hints-partial; do
   item_conform "$state"
 done
 if [[ -n "$owner_pid" ]]; then
